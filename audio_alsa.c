@@ -883,7 +883,11 @@ int delay(long *the_delay) {
       if (reply != 0) {
         debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", reply,
               snd_strerror(reply), *the_delay);
-        snd_pcm_recover(alsa_handle, reply, 1);
+        derr = snd_pcm_recover(alsa_handle, reply, 1);
+        if (derr < 0) 
+					warn("Error %d -- could not clear an error after attempting delay():  \"%s\".", derr,
+						snd_strerror(derr));            
+
         frame_index = 0;
         measurement_data_is_valid = 0;
       } else {
@@ -908,8 +912,11 @@ int delay(long *the_delay) {
           debug(2, "Error -- ALSA delay(): bad state: %d.", dac_state);
         }
         if ((derr = snd_pcm_prepare(alsa_handle))) {
-          snd_pcm_recover(alsa_handle, derr, 1);
           debug(1, "Error preparing after delay error: \"%s\".", snd_strerror(derr));
+          derr = snd_pcm_recover(alsa_handle, derr, 1);
+					if (derr < 0) 
+						warn("Error %d -- could not clear an error after attempting to recover following a delay():  \"%s\".", derr,
+							snd_strerror(derr));                      
         }
       }
     }
@@ -957,8 +964,11 @@ static int play(void *buf, int samples) {
     int err, err2;
     if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_XRUN) {
       if ((err = snd_pcm_prepare(alsa_handle))) {
-        snd_pcm_recover(alsa_handle, err, 1);
         debug(1, "Error preparing after underrun: \"%s\".", snd_strerror(err));
+				err = snd_pcm_recover(alsa_handle, err, 1);
+				if (err < 0) 
+					warn("Error %d -- could not clear an error after detecting underrun in play():  \"%s\".", err,
+							snd_strerror(err));
       }
       frame_index = 0; // we'll be starting over
       measurement_data_is_valid = 0;
@@ -975,7 +985,10 @@ static int play(void *buf, int samples) {
           measurement_data_is_valid = 0;
           debug(1, "Error %d writing %d samples in play(): \"%s\".", err, samples,
                 snd_strerror(err));
-          snd_pcm_recover(alsa_handle, err, 1);
+          err = snd_pcm_recover(alsa_handle, err, 1);
+          if (err < 0) 
+          	warn("Error %d -- could not clear an error after attempting to write %d samples in play():  \"%s\".", err, samples,
+                snd_strerror(err));
         }
         if (frame_index == 0) {
           frames_sent_for_playing = samples;
@@ -989,9 +1002,12 @@ static int play(void *buf, int samples) {
           long fl = 0;
           err2 = snd_pcm_delay(alsa_handle, &fl);
           if (err2 != 0) {
-            debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", err2,
+            debug(1, "Error %d in delay in play(): \"%s\". Delay reported is %d frames.", err2,
                   snd_strerror(err2), fl);
-            snd_pcm_recover(alsa_handle, err2, 1);
+            err2 = snd_pcm_recover(alsa_handle, err2, 1);
+						if (err2 < 0) 
+							warn("Error %d -- could not clear an error after checking delay in play():  \"%s\".", err2,
+									snd_strerror(err2));            
             frame_index = 0;
             measurement_data_is_valid = 0;
           } else {
@@ -1016,8 +1032,11 @@ static int play(void *buf, int samples) {
       debug(1, "Error -- ALSA device in incorrect state (%d) for play.",
             snd_pcm_state(alsa_handle));
       if ((err = snd_pcm_prepare(alsa_handle))) {
-        snd_pcm_recover(alsa_handle, err, 1);
         debug(1, "Error preparing after play error: \"%s\".", snd_strerror(err));
+        err2 = snd_pcm_recover(alsa_handle, err, 1);
+				if (err2 < 0) 
+					warn("Error %d -- could not clear an error after reporting ALSA device in incorrect state for play:  \"%s\".", err2,
+							snd_strerror(err2));            
       }
       frame_index = 0;
       measurement_data_is_valid = 0;
