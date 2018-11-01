@@ -116,6 +116,7 @@ CLEANFILES += $(BUILT_SOURCES)
 
 dbus-interface.h dbus-interface.c:  org.gnome.ShairportSync.xml
 	gdbus-codegen --interface-prefix org.gnome --generate-c-code dbus-interface org.gnome.ShairportSync.xml
+dbus-interface.h: dbus-interface.c
 endif
 
 if USE_MPRIS
@@ -131,6 +132,7 @@ CLEANFILES += $(BUILT_SOURCES)
 
 mpris-interface.h mpris-interface.c:  org.mpris.MediaPlayer2.xml
 	gdbus-codegen --interface-prefix org.mpris --generate-c-code mpris-interface org.mpris.MediaPlayer2.xml
+mpris-interface.h: mpris-interface.c
 endif
 
 noinst_PROGRAMS =

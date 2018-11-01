@@ -165,14 +165,6 @@ static inline seq_t SUCCESSOR(seq_t x) {
   return p;
 }
 
-// this is not used
-static inline seq_t PREDECESSOR(seq_t x) {
-  uint32_t p = (x & 0xffff) + 0x10000;
-  p -= 1;
-  p = p & 0xffff;
-  return p;
-}
-
 // used in seq_diff and seq_order
 
 // anything with ORDINATE in it must be proctected by the ab_mutex
@@ -209,25 +201,6 @@ static inline seq_t seq_sum(seq_t a, seq_t b) {
   //  uint32_t q = b & 0x0ffff;
   uint32_t r = (a + b) & 0xffff;
   return r;
-}
-
-// now for 32-bit wrapping in timestamps
-
-// this returns true if the second arg is strictly after the first
-// on the assumption that the gap between them is never greater than (2^31)-1
-// Represent a and b in 64 bits
-static inline int seq32_order(uint32_t a, uint32_t b) {
-  if (a == b)
-    return 0;
-  int64_t A = a & 0xffffffff;
-  int64_t B = b & 0xffffffff;
-  int64_t C = B - A;
-  // if bit 31 is set, it means either b is before (i.e. less than) a or
-  // b is (2^31)-1 ahead of a.
-
-  // If we assume the gap between b and a should never reach 2 billion, then
-  // bit 31 == 0 means b is strictly after a
-  return (C & 0x80000000) == 0;
 }
 
 void reset_input_flow_metrics(rtsp_conn_info *conn) {
@@ -1265,16 +1238,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
   pthread_cleanup_pop(1);
   return curframe;
-}
-
-static inline short shortmean(short a, short b) {
-  long al = (long)a;
-  long bl = (long)b;
-  long longmean = (al + bl) / 2;
-  short r = (short)longmean;
-  if (r != longmean)
-    debug(1, "Error calculating average of two shorts");
-  return r;
 }
 
 static inline int32_t mean_32(int32_t a, int32_t b) {
