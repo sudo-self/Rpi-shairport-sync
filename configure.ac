@@ -6,6 +6,7 @@ AC_INIT([shairport-sync], [3.3d19], [mikebrady@eircom.net])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([shairport.c])
 AC_CONFIG_HEADERS([config.h])
+AC_PROG_RANLIB
 
 # Derived from the Avahi configure.ac file
 # Specifying the OS type, defaulting to linux.

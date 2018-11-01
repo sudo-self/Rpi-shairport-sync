@@ -1,4 +1,8 @@
 SUBDIRS = man
+ARFLAGS = cr
+lib_dbus_interface_a_CFLAGS = -pthread
+lib_mpris_interface_a_CFLAGS = -pthread
+
 
 bin_PROGRAMS = shairport-sync
 
@@ -7,8 +11,8 @@ bin_PROGRAMS = shairport-sync
 shairport_sync_SOURCES = shairport.c rtsp.c mdns.c mdns_external.c common.c rtp.c player.c alac.c audio.c loudness.c
 
 if BUILD_FOR_FREEBSD
-  AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\" -O2
-  AM_CFLAGS = -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\" -O2
+  AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
+  AM_CFLAGS = -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
 else
 if BUILD_FOR_OPENBSD
   AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
@@ -96,9 +100,14 @@ endif
 BUILT_SOURCES =
 noinst_HEADERS =
 CLEANFILES =
+shairport_sync_LDADD =
+noinst_LIBRARIES =
 
 if USE_DBUS
-shairport_sync_SOURCES += dbus-service.c dbus-interface.c
+shairport_sync_LDADD += lib_dbus_interface.a
+noinst_LIBRARIES += lib_dbus_interface.a
+lib_dbus_interface_a_SOURCES = dbus-interface.c
+shairport_sync_SOURCES += dbus-service.c
 BUILT_SOURCES += dbus-interface.h dbus-interface.c 
 # We don't want to install this header
 noinst_HEADERS += $(BUILT_SOURCES)
@@ -110,7 +119,10 @@ dbus-interface.h dbus-interface.c:  org.gnome.ShairportSync.xml
 endif
 
 if USE_MPRIS
-shairport_sync_SOURCES += mpris-service.c mpris-interface.c
+shairport_sync_LDADD += lib_mpris_interface.a
+noinst_LIBRARIES += lib_mpris_interface.a
+lib_mpris_interface_a_SOURCES = mpris-interface.c
+shairport_sync_SOURCES += mpris-service.c
 BUILT_SOURCES += mpris-interface.h mpris-interface.c
 # We don't want to install this header
 noinst_HEADERS += $(BUILT_SOURCES)
@@ -126,13 +138,15 @@ noinst_PROGRAMS =
 if USE_DBUS_CLIENT
  #Make it, but don't install it anywhere
 noinst_PROGRAMS += shairport-sync-dbus-test-client
-shairport_sync_dbus_test_client_SOURCES = dbus-interface.c dbus-interface.h shairport-sync-dbus-test-client.c
+shairport_sync_dbus_test_client_SOURCES = shairport-sync-dbus-test-client.c
+shairport_sync_dbus_test_client_LDADD = lib_dbus_interface.a
 endif
 
 if USE_MPRIS_CLIENT
  #Make it, but don't install it anywhere
 noinst_PROGRAMS += shairport-sync-mpris-test-client
-shairport_sync_mpris_test_client_SOURCES = mpris-interface.c mpris-interface.h shairport-sync-mpris-test-client.c
+shairport_sync_mpris_test_client_SOURCES = shairport-sync-mpris-test-client.c
+shairport_sync_mpris_test_client_LDADD = lib_mpris_interface.a
 endif
 
 install-exec-hook:
