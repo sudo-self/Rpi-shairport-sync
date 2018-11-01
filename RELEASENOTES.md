@@ -1,4 +1,14 @@
 
+Version 3.3d20
+====
+**Enhancements**
+* The code that deals with packet loss resulting from network problems has been completely rewritten. The reason is that, while the old code worked quite well, it could be overwhelmed if the network problems were very serious. The new code is simpler and more robust in testing so far. This code interacts with the code for flushing audio before and after a play session, so it may have introduced regressions.
+* The build instructions have been changed to avoid compiler warnings coming from automatically-generated code produced for the D-Bus-based interfaces.
+* Warnings are now logged if the ALSA subsystem fails to recover properly after an error has been cleared.
+
+**Bug Fix**
+* A compilation problem in OpenBSD has been fixed by changing the order of some include files.
+
 Version 3.3d16
 ====
 **Enhancement**
