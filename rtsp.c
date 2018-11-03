@@ -1784,12 +1784,12 @@ static void apple_challenge(int fd, rtsp_message *req, rtsp_message *resp) {
 
 static char *make_nonce(void) {
   uint8_t random[8];
-  int fd = open("/dev/random", O_RDONLY);
+  int fd = open("/dev/urandom", O_RDONLY);
   if (fd < 0)
-    die("could not open /dev/random!");
+    die("could not open /dev/urandom!");
   // int ignore =
   if (read(fd, random, sizeof(random)) != sizeof(random))
-    debug(1, "Error reading /dev/random");
+    debug(1, "Error reading /dev/urandom");
   close(fd);
   return base64_enc(random, 8); // returns a pointer to malloc'ed memory
 }
