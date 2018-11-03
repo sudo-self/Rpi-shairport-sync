@@ -60,13 +60,14 @@ void on_message(__attribute__((unused)) struct mosquitto *mosq,
   int it = 0;
 
   // send command if it's a valid one
-  while (commands[it++] != NULL) {
+  while (commands[it] != NULL) {
     if ((size_t)msg->payloadlen >= strlen(commands[it]) &&
         strncmp(msg->payload, commands[it], strlen(commands[it])) == 0) {
       debug(1, "[MQTT]: DACP Command: %s\n", commands[it]);
       send_simple_dacp_command(commands[it]);
       break;
     }
+    it++;
   }
 }
 
