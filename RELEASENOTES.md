@@ -1,4 +1,9 @@
 
+Version 3.3d21
+====
+**Enhancements**
+* Use `/dev/urandom` rather than `/dev/random` as a source of some kind of randomness for the crtptographic nonce used in AirPlay password exchange, as `/dev/random` blocks occasionally. Please see [here](https://unix.stackexchange.com/questions/324209/when-to-use-dev-random-vs-dev-urandom) for a discussion of the merits of both. The effect of `/dev/random`'s blocking on Shairport Sync was to make the source of randomness somewhat less random. (By the way, you should never use an important password as an AirPlay password for Shairport Sync -- it is stored in Shairport Sync's configuration file in plain text.)
+
 Version 3.3d20
 ====
 **Enhancements**
