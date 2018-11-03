@@ -323,7 +323,11 @@ general =
   // ... other general settings
 };
 ```
-(Remember, anything preceded by `//` is a comment and will have no effect on the setting of Shairport Sync.) No backend is specified here, so it will default to the `alsa` backend if more than one back end has been compiled. To route the output to PulseAudio, add:
+(Remember, anything preceded by `//` is a comment and will have no effect on the setting of Shairport Sync.)
+
+**Important:** You should *never* use an important password as the AirPlay password for a Shairport Sync player -- the password is stored in Shairport Sync's configuration file in plain text and is thus completely vulnerable.
+
+No backend is specified here, so it will default to the `alsa` backend if more than one back end has been compiled. To route the output to PulseAudio, add:
 
 ```
   output_backend = "pa";
