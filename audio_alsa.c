@@ -914,12 +914,15 @@ int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp)	{
   //snd_htimestamp_t audio_timestamp = {0,0}; //actually a struct timespec
   //snd_htimestamp_t driver_timestamp = {0,0}; //actually a struct timespec
 
-  ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
+  ret = snd_pcm_status(pcm, alsa_snd_pcm_status);
   if (ret) {
     *delayp = 0;
     return ret;  
   }
   
+  //snd_pcm_sframes_t reported_delay = 0;
+  //snd_pcm_delay(pcm, &reported_delay);
+ 
   snd_pcm_state_t state = snd_pcm_status_get_state(alsa_snd_pcm_status);
   if (state != SND_PCM_STATE_RUNNING) {
     *delayp = 0;
@@ -949,10 +952,8 @@ int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp)	{
   
   //debug(1,"Delta: %.3f, frames played in interval: %" PRIu64 ".",(delta*1.0)/1000000,frames_played_since_last_interrupt);
   // snd_pcm_status_dump(alsa_snd_pcm_status, output);
-  snd_pcm_sframes_t reported_delay = 0;
-  snd_pcm_delay(pcm, &reported_delay);
-  if (reported_delay != delay)
-    debug(1,"Difference between reported delay and status delay is: %ld.",reported_delay-delay);
+  //if (reported_delay != delay)
+  //  debug(1,"Difference between reported delay and status delay is: %ld.",reported_delay-delay);
   
   *delayp = delay - frames_played_since_last_interrupt_sized;
   return 0;  
