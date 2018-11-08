@@ -74,11 +74,13 @@ audio_output audio_alsa = {
 
 static pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+static snd_output_t *output = NULL;
 static unsigned int desired_sample_rate;
 static enum sps_format_t sample_format;
 
 static snd_pcm_t *alsa_handle = NULL;
 static snd_pcm_hw_params_t *alsa_params = NULL;
+static snd_pcm_sw_params_t *alsa_swparams = NULL;
 static snd_ctl_t *ctl = NULL;
 static snd_ctl_elem_id_t *elem_id = NULL;
 static snd_mixer_t *alsa_mix_handle = NULL;
@@ -194,6 +196,9 @@ void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double v
 }
 
 static int init(int argc, char **argv) {
+  snd_output_stdio_attach(&output, stdout, 0);
+
+
   // debug(2,"audio_alsa init called.");
   int response = 0; // this will be what we return to the caller.
   const char *str;
@@ -502,6 +507,7 @@ static int init(int argc, char **argv) {
 static void deinit(void) {
   // debug(2,"audio_alsa deinit called.");
   stop();
+  
 }
 
 int open_alsa_device(void) {
@@ -536,7 +542,8 @@ int open_alsa_device(void) {
     return (-10);
 
   snd_pcm_hw_params_alloca(&alsa_params);
-
+  snd_pcm_sw_params_alloca(&alsa_swparams);
+  
   ret = snd_pcm_hw_params_any(alsa_handle, alsa_params);
   if (ret < 0) {
     warn("audio_alsa: Broken configuration for device \"%s\": no configurations "
@@ -691,7 +698,36 @@ int open_alsa_device(void) {
          snd_strerror(ret));
     return -9;
   }
+  
+  ret = snd_pcm_sw_params_current(alsa_handle, alsa_swparams);
+  if (ret < 0) {
+    warn("audio_alsa: Unable to get current sw parameters for device \"%s\": %s.", alsa_out_dev,
+         snd_strerror(ret));
+    return -10;
+  }
 
+  ret = snd_pcm_sw_params_set_tstamp_mode(alsa_handle, alsa_swparams, SND_PCM_TSTAMP_ENABLE);
+  if (ret < 0) {
+    warn("audio_alsa: Can't enable timestamp mode of device: \"%s\": %s.", alsa_out_dev,
+         snd_strerror(ret));
+    return -11;
+  }
+  
+  ret = snd_pcm_sw_params_set_tstamp_type(alsa_handle, alsa_swparams, SND_PCM_TSTAMP_TYPE_MONOTONIC);
+  if (ret < 0) {
+    warn("audio_alsa: Can't set timestamp type of device: \"%s\": %s.", alsa_out_dev,
+         snd_strerror(ret));
+    return -12;
+  }
+  
+  /* write the sw parameters */
+  ret = snd_pcm_sw_params(alsa_handle, alsa_swparams);
+  if (ret < 0) {
+    warn("audio_alsa: Unable to set swparams_p of device: \"%s\": %s.", alsa_out_dev,
+        snd_strerror(ret));
+    return -13;
+  }
+  
   if (actual_buffer_length < config.audio_backend_buffer_desired_length + minimal_buffer_headroom) {
     /*
     // the dac buffer is too small, so let's try to set it
@@ -719,7 +755,7 @@ int open_alsa_device(void) {
              "length (%ld) you have chosen.",
           actual_buffer_length, config.audio_backend_buffer_desired_length);
   }
-
+  
   if (alsa_characteristics_already_listed == 0) {
     alsa_characteristics_already_listed = 1;
     int log_level = 2; // the level at which debug information should be output
@@ -867,6 +903,42 @@ static void start(int i_sample_rate, int i_sample_format) {
   measurement_data_is_valid = 0;
 }
 
+int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp)	{  
+  snd_pcm_status_t *alsa_snd_pcm_status;
+  snd_pcm_status_alloca(&alsa_snd_pcm_status);
+  
+  
+  struct timespec tn = {0,0};
+
+  snd_htimestamp_t snd_timestamp = {0,0}; //actually a struct timespec
+  snd_htimestamp_t audio_timestamp = {0,0}; //actually a struct timespec
+  snd_htimestamp_t driver_timestamp = {0,0}; //actually a struct timespec
+  if (snd_pcm_status(alsa_handle, alsa_snd_pcm_status) == 0) {
+    clock_gettime(CLOCK_MONOTONIC, &tn);
+    snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &snd_timestamp);
+    
+    uint64_t t1 = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec; 
+    uint64_t t2 = snd_timestamp.tv_sec * (uint64_t)1000000000 + snd_timestamp.tv_nsec; 
+    uint64_t delta = t1 - t2;
+    
+    
+    snd_pcm_status_get_audio_htstamp(alsa_snd_pcm_status, &audio_timestamp);
+    snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &driver_timestamp);
+    snd_pcm_sframes_t delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);   
+    debug(1,"Time now: %ld,%ld, Timestamp: %ld,%ld, delta: %" PRIu64 ", audio_timestamp: %ld,%ld, driver_timestamp: %ld,%ld, Delay: %ld.",
+    tn.tv_sec,tn.tv_nsec,
+    snd_timestamp.tv_sec,snd_timestamp.tv_nsec,
+    delta,
+    audio_timestamp.tv_sec,audio_timestamp.tv_nsec,
+    driver_timestamp.tv_sec,driver_timestamp.tv_nsec,
+    delay);
+    // snd_pcm_status_dump(alsa_snd_pcm_status, output);
+
+  }
+  
+  return snd_pcm_delay(pcm, delayp);
+}
+
 int delay(long *the_delay) {
   // snd_pcm_sframes_t is a signed long -- hence the return of a "long"
   int reply = 0;
@@ -879,7 +951,7 @@ int delay(long *the_delay) {
     snd_pcm_state_t dac_state = snd_pcm_state(alsa_handle);
     if (dac_state == SND_PCM_STATE_RUNNING) {
       *the_delay = 0; // just to see what happens
-      reply = snd_pcm_delay(alsa_handle, the_delay);
+      reply = my_snd_pcm_delay(alsa_handle, the_delay);
       if (reply != 0) {
         debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", reply,
               snd_strerror(reply), *the_delay);
@@ -1000,7 +1072,7 @@ static int play(void *buf, int samples) {
         frame_index++;
         if ((frame_index == start_measurement_from_this_frame) || (frame_index % 32 == 0)) {
           long fl = 0;
-          err2 = snd_pcm_delay(alsa_handle, &fl);
+          err2 = my_snd_pcm_delay(alsa_handle, &fl);
           if (err2 != 0) {
             debug(1, "Error %d in delay in play(): \"%s\". Delay reported is %d frames.", err2,
                   snd_strerror(err2), fl);
