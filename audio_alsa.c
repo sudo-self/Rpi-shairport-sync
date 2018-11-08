@@ -903,40 +903,60 @@ static void start(int i_sample_rate, int i_sample_format) {
   measurement_data_is_valid = 0;
 }
 
-int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp)	{  
+int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp)	{ 
+  int ret;   
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
-  
-  
+
   struct timespec tn = {0,0};
+  snd_htimestamp_t update_timestamp = {0,0}; //actually a struct timespec
 
-  snd_htimestamp_t snd_timestamp = {0,0}; //actually a struct timespec
-  snd_htimestamp_t audio_timestamp = {0,0}; //actually a struct timespec
-  snd_htimestamp_t driver_timestamp = {0,0}; //actually a struct timespec
-  if (snd_pcm_status(alsa_handle, alsa_snd_pcm_status) == 0) {
-    clock_gettime(CLOCK_MONOTONIC, &tn);
-    snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &snd_timestamp);
-    
-    uint64_t t1 = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec; 
-    uint64_t t2 = snd_timestamp.tv_sec * (uint64_t)1000000000 + snd_timestamp.tv_nsec; 
-    uint64_t delta = t1 - t2;
-    
-    
-    snd_pcm_status_get_audio_htstamp(alsa_snd_pcm_status, &audio_timestamp);
-    snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &driver_timestamp);
-    snd_pcm_sframes_t delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);   
-    debug(1,"Time now: %ld,%ld, Timestamp: %ld,%ld, delta: %" PRIu64 ", audio_timestamp: %ld,%ld, driver_timestamp: %ld,%ld, Delay: %ld.",
-    tn.tv_sec,tn.tv_nsec,
-    snd_timestamp.tv_sec,snd_timestamp.tv_nsec,
-    delta,
-    audio_timestamp.tv_sec,audio_timestamp.tv_nsec,
-    driver_timestamp.tv_sec,driver_timestamp.tv_nsec,
-    delay);
-    // snd_pcm_status_dump(alsa_snd_pcm_status, output);
+  //snd_htimestamp_t audio_timestamp = {0,0}; //actually a struct timespec
+  //snd_htimestamp_t driver_timestamp = {0,0}; //actually a struct timespec
 
+  ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
+  if (ret) {
+    *delayp = 0;
+    return ret;  
   }
   
-  return snd_pcm_delay(pcm, delayp);
+  snd_pcm_state_t state = snd_pcm_status_get_state(alsa_snd_pcm_status);
+  if (state != SND_PCM_STATE_RUNNING) {
+    *delayp = 0;
+    return -EIO;  // might be a better code than this...   
+  }
+  
+  clock_gettime(CLOCK_MONOTONIC, &tn);
+  snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
+  
+  uint64_t t1 = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec; 
+  uint64_t t2 = update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec; 
+  uint64_t delta = t1 - t2;
+  
+  //snd_pcm_status_get_audio_htstamp(alsa_snd_pcm_status, &audio_timestamp);
+  //snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &driver_timestamp);
+  snd_pcm_sframes_t delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);   
+  //debug(1,"Time now: %ld,%ld, Timestamp: %ld,%ld, delta: %.3f milliseconds, audio_timestamp: %ld,%ld, driver_timestamp: %ld,%ld, Delay: %ld.",
+  //tn.tv_sec,tn.tv_nsec,
+  //snd_timestamp.tv_sec,snd_timestamp.tv_nsec,
+  //(delta*1.0)/1000000,
+  //audio_timestamp.tv_sec,audio_timestamp.tv_nsec,
+  //driver_timestamp.tv_sec,driver_timestamp.tv_nsec,
+  //delay);
+  
+  uint64_t frames_played_since_last_interrupt = ((uint64_t)desired_sample_rate * delta)/1000000000;
+  snd_pcm_sframes_t frames_played_since_last_interrupt_sized = frames_played_since_last_interrupt;
+  
+  //debug(1,"Delta: %.3f, frames played in interval: %" PRIu64 ".",(delta*1.0)/1000000,frames_played_since_last_interrupt);
+  // snd_pcm_status_dump(alsa_snd_pcm_status, output);
+  snd_pcm_sframes_t reported_delay = 0;
+  snd_pcm_delay(pcm, &reported_delay);
+  if (reported_delay != delay)
+    debug(1,"Difference between reported delay and status delay is: %ld.",reported_delay-delay);
+  
+  *delayp = delay - frames_played_since_last_interrupt_sized;
+  return 0;  
+  //return snd_pcm_delay(pcm, delayp);
 }
 
 int delay(long *the_delay) {
