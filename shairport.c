@@ -25,8 +25,6 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
@@ -37,7 +35,9 @@
 #include <popt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
