@@ -712,20 +712,13 @@ int open_alsa_device(void) {
          snd_strerror(ret));
     return -11;
   }
-  
-  ret = snd_pcm_sw_params_set_tstamp_type(alsa_handle, alsa_swparams, SND_PCM_TSTAMP_TYPE_MONOTONIC);
-  if (ret < 0) {
-    warn("audio_alsa: Can't set timestamp type of device: \"%s\": %s.", alsa_out_dev,
-         snd_strerror(ret));
-    return -12;
-  }
-  
+    
   /* write the sw parameters */
   ret = snd_pcm_sw_params(alsa_handle, alsa_swparams);
   if (ret < 0) {
-    warn("audio_alsa: Unable to set swparams_p of device: \"%s\": %s.", alsa_out_dev,
+    warn("audio_alsa: Unable to set software parameters of device: \"%s\": %s.", alsa_out_dev,
         snd_strerror(ret));
-    return -13;
+    return -12;
   }
   
   if (actual_buffer_length < config.audio_backend_buffer_desired_length + minimal_buffer_headroom) {
@@ -908,11 +901,8 @@ int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp)	{
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
 
-  struct timespec tn = {0,0};
-  snd_htimestamp_t update_timestamp = {0,0}; //actually a struct timespec
-
-  //snd_htimestamp_t audio_timestamp = {0,0}; //actually a struct timespec
-  //snd_htimestamp_t driver_timestamp = {0,0}; //actually a struct timespec
+  struct timespec tn; // time now
+  snd_htimestamp_t update_timestamp; //actually a struct timespec
 
   ret = snd_pcm_status(pcm, alsa_snd_pcm_status);
   if (ret) {
@@ -920,9 +910,6 @@ int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp)	{
     return ret;  
   }
   
-  //snd_pcm_sframes_t reported_delay = 0;
-  //snd_pcm_delay(pcm, &reported_delay);
- 
   snd_pcm_state_t state = snd_pcm_status_get_state(alsa_snd_pcm_status);
   if (state != SND_PCM_STATE_RUNNING) {
     *delayp = 0;
@@ -935,29 +922,12 @@ int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp)	{
   uint64_t t1 = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec; 
   uint64_t t2 = update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec; 
   uint64_t delta = t1 - t2;
-  
-  //snd_pcm_status_get_audio_htstamp(alsa_snd_pcm_status, &audio_timestamp);
-  //snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &driver_timestamp);
-  snd_pcm_sframes_t delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);   
-  //debug(1,"Time now: %ld,%ld, Timestamp: %ld,%ld, delta: %.3f milliseconds, audio_timestamp: %ld,%ld, driver_timestamp: %ld,%ld, Delay: %ld.",
-  //tn.tv_sec,tn.tv_nsec,
-  //snd_timestamp.tv_sec,snd_timestamp.tv_nsec,
-  //(delta*1.0)/1000000,
-  //audio_timestamp.tv_sec,audio_timestamp.tv_nsec,
-  //driver_timestamp.tv_sec,driver_timestamp.tv_nsec,
-  //delay);
-  
+    
   uint64_t frames_played_since_last_interrupt = ((uint64_t)desired_sample_rate * delta)/1000000000;
   snd_pcm_sframes_t frames_played_since_last_interrupt_sized = frames_played_since_last_interrupt;
   
-  //debug(1,"Delta: %.3f, frames played in interval: %" PRIu64 ".",(delta*1.0)/1000000,frames_played_since_last_interrupt);
-  // snd_pcm_status_dump(alsa_snd_pcm_status, output);
-  //if (reported_delay != delay)
-  //  debug(1,"Difference between reported delay and status delay is: %ld.",reported_delay-delay);
-  
-  *delayp = delay - frames_played_since_last_interrupt_sized;
+  *delayp = snd_pcm_status_get_delay(alsa_snd_pcm_status) - frames_played_since_last_interrupt_sized;
   return 0;  
-  //return snd_pcm_delay(pcm, delayp);
 }
 
 int delay(long *the_delay) {
