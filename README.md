@@ -364,7 +364,7 @@ Note: Shairport Sync can take configuration settings from command line options. 
 
 The Raspberry Pi Models A and B have a built-in audio DAC that is connected to the device's headphone jack. Apart from a loud click when used for the first time after power-up, it is now quite adequate for casual listening. 
 
-To get the benefits of improvements in the Pi's software and firmware, you should update to the Raspian release of October 2018 or later, as a number of improvements have been made to the built-in DAC's firmware.
+To get the benefits of improvements in the Pi's software and firmware, you should update to the Raspian release of October 2018 or later, as a number of improvements have been made to the built-in DAC.
 
 Do the usual update and upgrade:
 ```
@@ -381,7 +381,7 @@ alsa =
 ```
 (Remember to uncomment the lines by removing the `//` at the start of each.) When these changes have been made, reboot the machine.
 
-A problem with the built-in DAC that it declares itself to have a very large mixer volume control range – all the way from -102.38dB up to +4dB, a range of 106.38 dB. In reality, only the top 60 dB of it is in any way usable. To help get the most from the DAC, consider using the `volume_range_db` setting in the `general` group to instruct Shairport Sync to use the top of the DAC mixer's declared range. For example, if you set the `volume_range_db` figure to 60, the top 60 dB of the range will the used. With this setting on the Raspberry Pi, maximum volume will be +4dB and minimum volume will be -56dB, below which muting will occur.
+A problem with the built-in DAC that it declares itself to have a very large mixer volume control range – all the way from -102.38dB up to +4dB, a range of 106.38 dB. In reality, only the top 60 dB of it is in any way usable. To help get the most from it, consider using the `volume_range_db` setting in the `general` group to instruct Shairport Sync to use the top of the DAC mixer's declared range. For example, if you set the `volume_range_db` figure to 60, the top 60 dB of the range will the used. With this setting on the Raspberry Pi, maximum volume will be +4dB and minimum volume will be -56dB, below which muting will occur.
 
 From a user's point of view, the effect of using this setting is to move the minimum usable volume all the way down to the bottom of the user's volume control, rather than have the minimum usable volume concentrated very close to the maximum volume.
 
