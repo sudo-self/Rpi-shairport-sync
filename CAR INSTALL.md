@@ -43,9 +43,7 @@ The first thing to do on a Pi would be to use the `raspi-config` tool to expand 
 # apt update
 # apt upgrade
 ``` 
-**Note:** If you are following this guide but are using a full-size Rapsberry Pi with the built-in DAC, then it is a good idea to update to the Raspian release of October 2018 or later, as a number of improvements have been made to the built-in DAC.
-
-(Separately, if you haven't done so already, consider using the `raspi-config` tool to expand the file system to use the entire card.)
+**Note:** If you are following this guide but are using a full-size Rapsberry Pi with the built-in DAC, then it is a good idea to update to the Raspian release of October 2018 or later, as a number of changes have been made in the firmware that improve the built-in DAC.
 
 ### Shairport Sync
 First, install the packages needed by Shairport Sync:
