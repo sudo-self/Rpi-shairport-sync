@@ -362,31 +362,15 @@ Note: Shairport Sync can take configuration settings from command line options. 
 
 **Raspberry Pi**
 
-The Raspberry Pi Models A and B have a built-in audio DAC that is connected to the device's headphone jack. To get the benefits of improvements in the Pi's software and firmware, you should update the Raspberry Pi as follows:
+The Raspberry Pi Models A and B have a built-in audio DAC that is connected to the device's headphone jack. Apart from a loud click when used for the first time after power-up, it is now quite adequate for casual listening. 
+
+To get the benefits of improvements in the Pi's software and firmware, you should update to the Raspian release of October 2018 or later, as a number of improvements have been made to the built-in DAC's firmware.
 
 Do the usual update and upgrade:
 ```
 # apt update
 # apt upgrade
 ```
-Update the Pi's firmware:
-```
-# rpi-update
-``` 
-Recent (September 2018) improvements include:
-* An updated audio driver has greatly improved the quality of the output – see [#525](https://github.com/mikebrady/shairport-sync/issues/525) for details.
-* A [significant improvement](https://github.com/raspberrypi/firmware/commit/200c2f4dd54b2048b5dcb8661ea3f232beb7d81e) has been made to the [timing software](https://github.com/raspberrypi/firmware/issues/1026) of the built-in audio DAC's drivers. It should be incorporated in firmware from Raspbian 4.14.66-v7 onwards.
-
-Separately, if you haven't done so already, consider using the `raspi-config` tool to expand the file system to use the entire card.
-
-To activate the updated audio driver referred to above, add the line:
-```
-audio_pwm_mode=2
-
-(Note that this isn't needed in the most recent versions of Raspbian as it will enable this driver mode by default)
-```
-to `/boot/config.txt`.
-
 To make Shairport Sync output to the built-in audio DAC and use its hardware mixer, in the `alsa` section of the configuration file, set the output device and mixer as follows:
 ```
 alsa =
@@ -397,11 +381,9 @@ alsa =
 ```
 (Remember to uncomment the lines by removing the `//` at the start of each.) When these changes have been made, reboot the machine.
 
-Apart from a loud click when used for the first time after power-up, it is quite adequate for casual listening. A problem is that it declares itself to have a very large mixer volume control range – all the way from -102.38dB up to +4dB, a range of 106.38 dB. In reality, only the top 50 dB of it is in any way usable. To help get the most from the DAC, consider using the `volume_range_db` setting in the `general` group to instruct Shairport Sync to use the top of the DAC mixer's declared range. For example, if you set the `volume_range_db` figure to 50, the top 50 dB of the range will the used. With this setting on the Raspberry Pi, maximum volume will be +4dB and minimum volume will be -46dB, below which muting will occur.
+A problem with the built-in DAC that it declares itself to have a very large mixer volume control range – all the way from -102.38dB up to +4dB, a range of 106.38 dB. In reality, only the top 60 dB of it is in any way usable. To help get the most from the DAC, consider using the `volume_range_db` setting in the `general` group to instruct Shairport Sync to use the top of the DAC mixer's declared range. For example, if you set the `volume_range_db` figure to 60, the top 60 dB of the range will the used. With this setting on the Raspberry Pi, maximum volume will be +4dB and minimum volume will be -56dB, below which muting will occur.
 
 From a user's point of view, the effect of using this setting is to move the minimum usable volume all the way down to the bottom of the user's volume control, rather than have the minimum usable volume concentrated very close to the maximum volume.
-
-If you have not updated the Pi's firmware as discussed above, then another setting to consider is the `general` `drift_tolerance_in_seconds` setting: you should set it to a larger tolerance, say 10 milliseconds – `drift_tolerance_in_seconds=0.010;` – to reduce the amount of overcorrection that seems to occur when using the Raspberry Pi's built-in DAC.
 
 *Command Line Arguments*
 
