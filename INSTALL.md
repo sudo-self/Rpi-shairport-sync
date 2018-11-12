@@ -10,7 +10,7 @@ Do the usual update and upgrade:
 # apt update
 # apt upgrade
 ``` 
-**Note:** If you are following this guide on a Rapsberry Pi, the second step above will, in addition, automatically update to the most recent stable Rapsberry Pi firmware.
+**Note:** The upgrade step above will automatically update to the most recent stable Rapsberry Pi firmware.
 
 (Separately, if you haven't done so already, consider using the `raspi-config` tool to expand the file system to use the entire card.)
 
