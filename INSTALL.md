@@ -10,7 +10,7 @@ Do the usual update and upgrade:
 # apt update
 # apt upgrade
 ``` 
-**Note:** If you are following this guide but are using a full-size Rapsberry Pi with the built-in DAC, then it is a good idea to update to the Raspian release of October 2018 or later, as a number of changes have been made in the firmware that improve the built-in DAC.
+**Note:** If you are following this guide on a Rapsberry Pi, the second step above will, in addition, automatically update to the most recent stable Rapsberry Pi firmware.
 
 (Separately, if you haven't done so already, consider using the `raspi-config` tool to expand the file system to use the entire card.)
 
