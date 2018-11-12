@@ -648,7 +648,7 @@ shutdown:
   return reply;
 }
 
-void msg_write_response(int fd, rtsp_message *resp) {
+int msg_write_response(int fd, rtsp_message *resp) {
   char pkt[2048];
   int pktfree = sizeof(pkt);
   char *p = pkt;
@@ -666,8 +666,10 @@ void msg_write_response(int fd, rtsp_message *resp) {
     n = snprintf(p, pktfree, "%s: %s\r\n", resp->name[i], resp->value[i]);
     pktfree -= n;
     p += n;
-    if (pktfree <= 1024)
-      die("Attempted to write overlong RTSP packet 1");
+    if (pktfree <= 1024) {
+      debug(1,"Attempted to write overlong RTSP packet 1");
+      return -1;
+    }
   }
 
   // Here, if there's content, write the Content-Length header ...
@@ -677,8 +679,10 @@ void msg_write_response(int fd, rtsp_message *resp) {
     n = snprintf(p, pktfree, "Content-Length: %d\r\n", resp->contentlength);
     pktfree -= n;
     p += n;
-    if (pktfree <= 1024)
-      die("Attempted to write overlong RTSP packet 2");
+    if (pktfree <= 1024) {
+      debug(1,"Attempted to write overlong RTSP packet 2");
+      return -2;
+    }
     debug(1, "Content is \"%s\"", resp->content);
     memcpy(p, resp->content, resp->contentlength);
     pktfree -= resp->contentlength;
@@ -689,11 +693,15 @@ void msg_write_response(int fd, rtsp_message *resp) {
   pktfree -= n;
   p += n;
 
-  if (pktfree <= 1024)
-    die("Attempted to write overlong RTSP packet 3");
-
-  if (write(fd, pkt, p - pkt) != p - pkt)
+  if (pktfree <= 1024) {
+    debug(1,"Attempted to write overlong RTSP packet 3");
+    return -3;
+  }
+  if (write(fd, pkt, p - pkt) != p - pkt) {
     debug(1, "Error writing an RTSP packet -- requested bytes not fully written.");
+    return -4;
+  }
+  return 0;
 }
 
 void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
@@ -2069,7 +2077,12 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       } while (conn->stop == 0 &&
                pselect(conn->fd + 1, NULL, &writefds, NULL, NULL, &pselect_sigset) <= 0);
       if (conn->stop == 0) {
-        msg_write_response(conn->fd, resp);
+        int err = msg_write_response(conn->fd, resp);
+        if (err) {
+        	debug(1,"A communication error was detected. Closing the play session.");
+        	conn->stop = 1;
+        	pthread_cancel(conn->thread);
+        }
       }
       pthread_cleanup_pop(1);
       pthread_cleanup_pop(1);
