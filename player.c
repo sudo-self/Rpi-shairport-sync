@@ -2777,6 +2777,7 @@ int player_stop(rtsp_conn_info *conn) {
   if (conn->player_thread) {
     debug(2, "player_thread cancel...");
     pthread_cancel(*conn->player_thread);
+    debug(2, "player_thread join...");
     pthread_join(*conn->player_thread, NULL);
     debug(2, "player_thread joined.");
     free(conn->player_thread);
