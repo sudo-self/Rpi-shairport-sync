@@ -2063,9 +2063,28 @@ static void *rtsp_conversation_thread_func(void *pconn) {
             break;
           }
         }
-        if (method_selected == 0)
+        if (method_selected == 0) {
           debug(1, "RTSP thread %d: Unrecognised and unhandled rtsp request \"%s\".",
                 conn->connection_number, req->method);
+                
+          
+        	int y = req->contentlength;
+        	if (y > 0) {
+        		char obf[4096];
+        		if (y > 4096)
+        			y = 4096;
+        		char *p = req->content;
+						char *obfp = obf;
+						int obfc;
+						for (obfc = 0; obfc < y; obfc++) {
+							snprintf(obfp, 3, "%02X", (unsigned int)p);
+							p++;
+							obfp += 2;
+						};
+						*obfp = 0;
+						debug(1, "Content: \"%s\".",obf);
+					}
+        }
       }
       debug(debug_level, "RTSP thread %d: RTSP Response:", conn->connection_number);
       debug_print_msg_headers(debug_level, resp);
