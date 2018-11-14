@@ -2077,7 +2077,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
 						char *obfp = obf;
 						int obfc;
 						for (obfc = 0; obfc < y; obfc++) {
-							snprintf(obfp, 3, "%02X", (unsigned int)p);
+							snprintf(obfp, 3, "%02X", (unsigned int)*p);
 							p++;
 							obfp += 2;
 						};
