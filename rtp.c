@@ -621,9 +621,14 @@ void *rtp_timing_receiver(void *arg) {
 
             distant_transmit_time = (uint64_t)nctohl(&packet[24]) << 32;
             distant_transmit_time += nctohl(&packet[28]);
-
-            uint64_t remote_processing_time = distant_transmit_time - distant_receive_time;
-
+            
+            uint64_t remote_processing_time = 0;
+            
+            if (distant_transmit_time >= distant_receive_time)
+            	remote_processing_time = distant_transmit_time - distant_receive_time;
+            else {
+            	debug(1, "Yikes: distant_transmit_time is before distant_receive_time; remote processing time set to zero.");
+            }
             // debug(1,"Return trip time: %" PRIu64 " uS, remote processing time: %" PRIu64 "
             // uS.",(return_time*1000000)>>32,(remote_processing_time*1000000)>>32);
 
@@ -632,10 +637,10 @@ void *rtp_timing_receiver(void *arg) {
             // remove the remote processing time from the record of the return time, as long at the
             // processing time looks sensible.
 
-            if ((remote_processing_time > 0) && (remote_processing_time < return_time))
+            if (remote_processing_time < return_time)
               return_time -= remote_processing_time;
             else
-              debug(1, "Non-sensical remote processing time -- ignored.");
+              debug(1, "Remote processing time greater than return time -- ignored.");
 
             int cc;
             for (cc = time_ping_history - 1; cc > 0; cc--) {
