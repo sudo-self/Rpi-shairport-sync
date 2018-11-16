@@ -2220,6 +2220,13 @@ void rtsp_listen_loop(void) {
     // See: https://github.com/mikebrady/shairport-sync/issues/329
     fcntl(fd, F_SETFD, FD_CLOEXEC);
     ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+    
+    struct timeval tv;
+    tv.tv_sec = 3; // three seconds write timeout
+    tv.tv_usec = 0;
+    if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
+      debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
+
 
 #ifdef IPV6_V6ONLY
     // some systems don't support v4 access on v6 sockets, but some do.
