@@ -831,7 +831,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
     uint32_t flush_limit = 0;
     if (conn->ab_synced) {
+      int frame_flushed;
       do {
+        frame_flushed = 0;
         curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
         if ((conn->ab_read != conn->ab_write) &&
             (curframe->ready)) { // it could be synced and empty, under
@@ -862,6 +864,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             curframe->resend_level = 0;
             flush_limit += curframe->length;
             conn->ab_read = SUCCESSOR(conn->ab_read);
+            frame_flushed = 1;
             conn->initial_reference_time = 0;
             conn->initial_reference_timestamp = 0;
           }
@@ -871,8 +874,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             debug(2, "Dropping flush request in buffer_get_frame");
             conn->flush_rtp_timestamp = 0;
           }
+        } else {
+          if (curframe->ready == 0)
+            debug(1, "An unready frame was seen in a flush sequence!");
         }
-      } while ((conn->flush_rtp_timestamp != 0) && (flush_limit <= 8820) && (curframe->ready == 0));
+      } while ((conn->flush_rtp_timestamp != 0) && (flush_limit <= 8820) && (frame_flushed));
 
       if (flush_limit == 8820) {
         debug(1, "Flush hit the 8820 frame limit!");
@@ -1758,7 +1764,7 @@ void *player_thread_func(void *arg) {
 
   pthread_cleanup_push(player_thread_cleanup_handler, arg); // undo what's been done so far
 
-  // debug(1, "Play begin");
+  debug(2, "Play begin");
   while (1) {
     abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s)
     if (inframe) {
@@ -2772,6 +2778,9 @@ int player_play(rtsp_conn_info *conn) {
 }
 
 int player_stop(rtsp_conn_info *conn) {
+  int dl = debuglev;
+  if (debuglev)
+    debuglev = 3;
   // note -- this may be called from another connection thread.
   debug(3, "player_stop");
   if (conn->player_thread) {
@@ -2786,10 +2795,12 @@ int player_stop(rtsp_conn_info *conn) {
     debug(2, "pend");
     send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
+    debuglev = dl;
     command_stop();
     return 0;
   } else {
-    debug(3, "Connection %d: player thread already deleted.", conn->connection_number);
+    debug(3, "player_stop: player thread not running on connection %d.", conn->connection_number);
+    debuglev = dl;
     return -1;
   }
 }
