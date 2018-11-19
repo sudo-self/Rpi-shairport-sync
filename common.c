@@ -90,7 +90,7 @@ static volatile int requested_connection_state_to_output = 1;
 
 shairport_cfg config;
 
-int debuglev = 0;
+volatile int debuglev = 0;
 
 sigset_t pselect_sigset;
 
@@ -588,6 +588,7 @@ int config_set_lookup_bool(config_t *cfg, char *where, int *dst) {
 }
 
 void command_set_volume(double volume) {
+//this has a cancellation point if waiting is enabled
   if (config.cmd_set_volume) {
     /*Spawn a child to run the program.*/
     pid_t pid = fork();
@@ -634,6 +635,7 @@ void command_set_volume(double volume) {
 }
 
 void command_start(void) {
+	//this has a cancellation point if waiting is enabled or a response is awaited
   if (config.cmd_start) {
     pid_t pid;
     int pipes[2];
@@ -701,6 +703,7 @@ void command_start(void) {
 }
 
 void command_stop(void) {
+//this has a cancellation point if waiting is enabled
   if (config.cmd_stop) {
     /*Spawn a child to run the program.*/
     pid_t pid = fork();

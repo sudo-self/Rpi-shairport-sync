@@ -2098,11 +2098,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
-        	int odv = debuglev;
-        	debuglev = 3;
         	debug(1,"A communication error was detected. Closing the play session.");
         	player_stop(conn);
-        	debuglev = odv;
         }
       }
       pthread_cleanup_pop(1);

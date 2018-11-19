@@ -831,9 +831,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
     uint32_t flush_limit = 0;
     if (conn->ab_synced) {
-      int frame_flushed;
       do {
-        frame_flushed = 0;
         curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
         if ((conn->ab_read != conn->ab_write) &&
             (curframe->ready)) { // it could be synced and empty, under
@@ -864,7 +862,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             curframe->resend_level = 0;
             flush_limit += curframe->length;
             conn->ab_read = SUCCESSOR(conn->ab_read);
-            frame_flushed = 1;
             conn->initial_reference_time = 0;
             conn->initial_reference_timestamp = 0;
           }
@@ -874,11 +871,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             debug(2, "Dropping flush request in buffer_get_frame");
             conn->flush_rtp_timestamp = 0;
           }
-        } else {
-          if (curframe->ready == 0)
-            debug(1, "An unready frame was seen in a flush sequence!");
         }
-      } while ((conn->flush_rtp_timestamp != 0) && (flush_limit <= 8820) && (frame_flushed));
+      } while ((conn->flush_rtp_timestamp != 0) && (flush_limit <= 8820) && (curframe->ready == 0));
 
       if (flush_limit == 8820) {
         debug(1, "Flush hit the 8820 frame limit!");
@@ -1410,11 +1404,14 @@ typedef struct stats { // statistics for running averages
   int64_t sync_error, correction, drift;
 } stats_t;
 
-void player_thread_cleanup_handler(void *arg) {
-  debug(1, "player_thread_cleanup_handler called");
+void player_thread_initial_cleanup_handler(__attribute__((unused)) void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(3, "Connection %d: player thread main loop exit via player_thread_initial_cleanup_handler.", conn->connection_number);
+}
 
-  debug(3, "Connection %d: player thread main loop exit.", conn->connection_number);
+void player_thread_cleanup_handler(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(3, "Connection %d: player thread main loop exit via player_thread_cleanup_handler.", conn->connection_number);
 
   if (config.statistics_requested) {
     int rawSeconds = (int)difftime(time(NULL), conn->playstart);
@@ -1486,7 +1483,7 @@ void player_thread_cleanup_handler(void *arg) {
 
 void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-
+  pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
   conn->packet_count = 0;
   conn->packet_count_since_flush = 0;
   conn->previous_random_number = 0;
@@ -1510,7 +1507,7 @@ void *player_thread_func(void *arg) {
                conn); // this sets up incoming rate, bit depth, channels.
                       // No pthread cancellation point in here
   // This must be after init_decoder
-  init_buffer(conn); // will need a corresponding deallocation
+  init_buffer(conn); // will need a corresponding deallocation. No cancellation points in here
 
   if (conn->stream.encrypted) {
 #ifdef CONFIG_MBEDTLS
@@ -1694,7 +1691,7 @@ void *player_thread_func(void *arg) {
     debug(1, "DACP monitor already initialised?");
   else
     // this does not have pthread cancellation points in it (assuming avahi doesn't)
-    conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id); // ??
+    conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id);
 #endif
 
   conn->framesProcessedInThisEpoch = 0;
@@ -1752,9 +1749,6 @@ void *player_thread_func(void *arg) {
     }
   }
 
-  // set the default volume to whaterver it was before, as stored in the config airplay_volume
-  debug(3, "Set initial volume to %f.", config.airplay_volume);
-  player_volume(config.airplay_volume, conn); // ??
   int64_t frames_to_drop = 0;
 
   // create and start the timing, control and audio receiver threads
@@ -1763,6 +1757,10 @@ void *player_thread_func(void *arg) {
   pthread_create(&conn->rtp_timing_thread, NULL, &rtp_timing_receiver, (void *)conn);
 
   pthread_cleanup_push(player_thread_cleanup_handler, arg); // undo what's been done so far
+
+  // set the default volume to whaterver it was before, as stored in the config airplay_volume
+  debug(2, "Set initial volume to %f.", config.airplay_volume);
+  player_volume(config.airplay_volume, conn); // will contain a cancellation point if asked to wait
 
   debug(2, "Play begin");
   while (1) {
@@ -2480,8 +2478,10 @@ void *player_thread_func(void *arg) {
   }
 
   debug(1, "This should never be called.");
-  pthread_cleanup_pop(1);
-  pthread_exit(NULL);
+  pthread_cleanup_pop(1); // pop the cleanup handler
+  debug(1, "This should never be called either.");
+  pthread_cleanup_pop(1); // pop the initial cleanup handler
+  pthread_exit(NULL); 
 }
 
 // takes the volume as specified by the airplay protocol
@@ -2756,11 +2756,9 @@ int player_play(rtsp_conn_info *conn) {
   if (config.buffer_start_fill > BUFFER_FRAMES)
     die("specified buffer starting fill %d > buffer size %d", config.buffer_start_fill,
         BUFFER_FRAMES);
+  debug(1,"Executing the run_this_before_play_begins hook, if any.");
   command_start();
-#ifdef CONFIG_METADATA
-  debug(2, "pbeg");
-  send_ssnc_metadata('pbeg', NULL, 0, 1); // contains cancellation points
-#endif
+  debug(1,"Create a player thread...");
   pthread_t *pt = malloc(sizeof(pthread_t));
   if (pt == NULL)
     die("Couldn't allocate space for pthread_t");
@@ -2772,16 +2770,22 @@ int player_play(rtsp_conn_info *conn) {
   if (rc)
     debug(1, "Error setting stack size for player_thread: %s", strerror(errno));
   // finished initialising.
-  pthread_create(pt, &tattr, player_thread_func, (void *)conn);
+  rc = pthread_create(pt, &tattr, player_thread_func, (void *)conn);
+  if (rc)
+    debug(1, "Error creating player_thread: %s", strerror(errno));
   pthread_attr_destroy(&tattr);
+  debug(1,"Player thread successfully created.");
+#ifdef CONFIG_METADATA
+  debug(2, "pbeg");
+  send_ssnc_metadata('pbeg', NULL, 0, 1); // contains cancellation points
+#endif
   return 0;
 }
 
 int player_stop(rtsp_conn_info *conn) {
-  int dl = debuglev;
-  if (debuglev)
-    debuglev = 3;
   // note -- this may be called from another connection thread.
+  int dl = debuglev;
+  debuglev = 3;
   debug(3, "player_stop");
   if (conn->player_thread) {
     debug(2, "player_thread cancel...");
@@ -2795,12 +2799,12 @@ int player_stop(rtsp_conn_info *conn) {
     debug(2, "pend");
     send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
-    debuglev = dl;
+	debuglev = dl;
     command_stop();
     return 0;
   } else {
-    debug(3, "player_stop: player thread not running on connection %d.", conn->connection_number);
-    debuglev = dl;
+    debug(3, "Connection %d: player thread already deleted.", conn->connection_number);
+  debuglev = dl;
     return -1;
   }
 }

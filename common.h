@@ -243,7 +243,7 @@ void r64arrayinit();
 uint64_t ranarray64u();
 int64_t ranarray64i();
 
-extern int debuglev;
+volatile int debuglev;
 void die(const char *format, ...);
 void warn(const char *format, ...);
 void inform(const char *format, ...);
