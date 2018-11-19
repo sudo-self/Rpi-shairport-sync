@@ -299,20 +299,20 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel);
 // wait for the specified time, checking every 20 milliseconds, and block if it can't acquire the
 // lock
-int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *filename,
+int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexName, const char *filename,
                       const int line, int debuglevel);
 
-#define debug_mutex_lock(mu, t, d) _debug_mutex_lock(mu, t, __FILE__, __LINE__, d)
+#define debug_mutex_lock(mu, t, d) _debug_mutex_lock(mu, t, #mu , __FILE__, __LINE__, d)
 
-int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int line,
+int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexName, const char *filename, const int line,
                         int debuglevel);
 
-#define debug_mutex_unlock(mu, d) _debug_mutex_unlock(mu, __FILE__, __LINE__, d)
+#define debug_mutex_unlock(mu, d) _debug_mutex_unlock(mu, #mu, __FILE__, __LINE__, d)
 
 void pthread_cleanup_debug_mutex_unlock(void *arg);
 
 #define pthread_cleanup_debug_mutex_lock(mu, t, d)                                                 \
-  if (_debug_mutex_lock(mu, t, __FILE__, __LINE__, d) == 0)                                        \
+  if (_debug_mutex_lock(mu, t, #mu, __FILE__, __LINE__, d) == 0)                                        \
   pthread_cleanup_push(pthread_cleanup_debug_mutex_unlock, (void *)mu)
 
 char *get_version_string(); // mallocs a string space -- remember to free it afterwards

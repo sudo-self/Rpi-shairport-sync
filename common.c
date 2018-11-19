@@ -1143,9 +1143,9 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 }
 #endif
 
-int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *filename,
+int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexname, const char *filename,
                       const int line, int debuglevel) {
-  if (debuglevel > debuglev)
+  if ((debuglevel > debuglev) || (debuglevel == 0))
     return pthread_mutex_lock(mutex);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
@@ -1153,7 +1153,7 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
   char dstring[1000];
   memset(dstring, 0, sizeof(dstring));
   snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
-  debug(3, "debug_mutex_lock at \"%s\".", dstring);
+  debug(3, "mutex_lock \"%s\" at \"%s\".", mutexname, dstring);
   int result = sps_pthread_mutex_timedlock(mutex, dally_time, dstring, debuglevel);
   if (result == ETIMEDOUT) {
     result = pthread_mutex_lock(mutex);
@@ -1161,16 +1161,16 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
     uint64_t divisor = (uint64_t)1 << 32;
     double delay = 1.0 * time_delay / divisor;
     debug(debuglevel,
-          "debug_mutex_lock at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.", dstring,
+          "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.", mutexname, dstring,
           (1.0 * dally_time) / 1000000, delay);
   }
   pthread_setcancelstate(oldState,NULL);
   return result;
 }
 
-int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int line,
+int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const char *filename, const int line,
                         int debuglevel) {
-  if (debuglevel > debuglev)
+  if ((debuglevel > debuglev) || (debuglevel == 0))
     return pthread_mutex_unlock(mutex);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
@@ -1178,11 +1178,11 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int 
   char errstr[512];
   memset(dstring, 0, sizeof(dstring));
   snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
-  debug(debuglevel, "debug_mutex_unlock at \"%s\".", dstring);
+  debug(debuglevel, "mutex_unlock \"%s\" at \"%s\".", mutexname, dstring);
   int r = pthread_mutex_unlock(mutex);
   if (r != 0)
-    debug(1, "error %d: \"%s\" unlocking a mutex: \"%s\".", r,
-          strerror_r(r, errstr, sizeof(errstr)), dstring);
+    debug(1, "error %d: \"%s\" unlocking mutex \"%s\" at \"%s\".", r,
+          strerror_r(r, errstr, sizeof(errstr)), mutexname, dstring);
   pthread_setcancelstate(oldState,NULL);
   return r;
 }
