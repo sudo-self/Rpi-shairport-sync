@@ -1152,7 +1152,7 @@ static void mute(int mute_state_requested) {
   mute_request_pending = 1;
   overriding_mute_state_requested = mute_state_requested;
   do_mute(mute_state_requested);
-  debug_mutex_unlock(&alsa_mutex, 0);
+  debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
 }
 
