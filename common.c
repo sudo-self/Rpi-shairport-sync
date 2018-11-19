@@ -99,6 +99,8 @@ int get_requested_connection_state_to_output() { return requested_connection_sta
 void set_requested_connection_state_to_output(int v) { requested_connection_state_to_output = v; }
 
 void die(const char *format, ...) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
   uint64_t time_now = get_absolute_time_in_fp();
@@ -121,10 +123,13 @@ void die(const char *format, ...) {
     daemon_log(LOG_EMERG, "% 20.9f|*fatal error: %s", tss, s);
   else
     daemon_log(LOG_EMERG, "fatal error: %s", s);
+  pthread_setcancelstate(oldState,NULL);
   exit(1);
 }
 
 void warn(const char *format, ...) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
   uint64_t time_now = get_absolute_time_in_fp();
@@ -147,11 +152,14 @@ void warn(const char *format, ...) {
     daemon_log(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
   else
     daemon_log(LOG_WARNING, "%s", s);
+  pthread_setcancelstate(oldState,NULL);
 }
 
 void debug(int level, const char *format, ...) {
   if (level > debuglev)
     return;
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
   uint64_t time_now = get_absolute_time_in_fp();
@@ -173,9 +181,12 @@ void debug(int level, const char *format, ...) {
     daemon_log(LOG_DEBUG, "% 20.9f|%s", tss, s);
   else
     daemon_log(LOG_DEBUG, "%s", s);
+  pthread_setcancelstate(oldState,NULL);
 }
 
 void inform(const char *format, ...) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
   uint64_t time_now = get_absolute_time_in_fp();
@@ -198,6 +209,7 @@ void inform(const char *format, ...) {
     daemon_log(LOG_INFO, "% 20.9f|%s", tss, s);
   else
     daemon_log(LOG_INFO, "%s", s);
+  pthread_setcancelstate(oldState,NULL);
 }
 
 // The following two functions are adapted slightly and with thanks from Jonathan Leffler's sample
@@ -1050,6 +1062,8 @@ void sps_nanosleep(const time_t sec, const long nanosec) {
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel) {
 
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   struct timespec tn;
   clock_gettime(CLOCK_REALTIME, &tn);
   uint64_t tnfpsec = tn.tv_sec;
@@ -1091,6 +1105,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
   }
+  pthread_setcancelstate(oldState,NULL);
   return r;
 }
 #endif
@@ -1099,6 +1114,8 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel) {
 
   // this is not pthread_cancellation safe because is contains a cancellation point
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   useconds_t time_to_wait = dally_time;
   int r = pthread_mutex_trylock(mutex);
   while ((r == EBUSY) && (time_to_wait > 0)) {
@@ -1121,6 +1138,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
     }
   }
+  pthread_setcancelstate(oldState,NULL);
   return r;
 }
 #endif
@@ -1129,6 +1147,8 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
                       const int line, int debuglevel) {
   if (debuglevel > debuglev)
     return pthread_mutex_lock(mutex);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   uint64_t time_at_start = get_absolute_time_in_fp();
   char dstring[1000];
   memset(dstring, 0, sizeof(dstring));
@@ -1144,6 +1164,7 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
           "debug_mutex_lock at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.", dstring,
           (1.0 * dally_time) / 1000000, delay);
   }
+  pthread_setcancelstate(oldState,NULL);
   return result;
 }
 
@@ -1151,6 +1172,8 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int 
                         int debuglevel) {
   if (debuglevel > debuglev)
     return pthread_mutex_unlock(mutex);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char dstring[1000];
   char errstr[512];
   memset(dstring, 0, sizeof(dstring));
@@ -1160,6 +1183,7 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int 
   if (r != 0)
     debug(1, "error %d: \"%s\" unlocking a mutex: \"%s\".", r,
           strerror_r(r, errstr, sizeof(errstr)), dstring);
+  pthread_setcancelstate(oldState,NULL);
   return r;
 }
 

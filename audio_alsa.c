@@ -919,8 +919,8 @@ int delay(long *the_delay) {
         }
       }
     }
-    // debug_mutex_unlock(&alsa_mutex, 3);
-    pthread_cleanup_pop(1);
+    debug_mutex_unlock(&alsa_mutex, 3);
+    pthread_cleanup_pop(0);
     // here, occasionally pretend there's a problem with pcm_get_delay()
     // if ((random() % 100000) < 3) // keep it pretty rare
     //	reply = -EIO; // pretend something bad has happened
@@ -954,8 +954,8 @@ static int play(void *buf, int samples) {
         do_mute(0);
     }
 
-    // debug_mutex_unlock(&alsa_mutex, 3);
-    pthread_cleanup_pop(1); // release the mutex
+    debug_mutex_unlock(&alsa_mutex, 3);
+    pthread_cleanup_pop(0); // release the mutex
   }
   if (ret == 0) {
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
@@ -1040,8 +1040,8 @@ static int play(void *buf, int samples) {
       frame_index = 0;
       measurement_data_is_valid = 0;
     }
-    // debug_mutex_unlock(&alsa_mutex, 3);
-    pthread_cleanup_pop(1); // release the mutex
+    debug_mutex_unlock(&alsa_mutex, 3);
+    pthread_cleanup_pop(0); // release the mutex
   }
   return ret;
 }
@@ -1067,8 +1067,8 @@ static void flush(void) {
     measurement_data_is_valid = 0;
     alsa_handle = NULL;
   }
-  // debug_mutex_unlock(&alsa_mutex, 3);
-  pthread_cleanup_pop(1); // release the mutex
+  debug_mutex_unlock(&alsa_mutex, 3);
+  pthread_cleanup_pop(0); // release the mutex
 }
 
 static void stop(void) {
@@ -1124,8 +1124,8 @@ void volume(double vol) {
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 1000, 1);
   volume_set_request = 1; // an external request has been made to set the volume
   do_volume(vol);
-  // debug_mutex_unlock(&alsa_mutex, 3);
-  pthread_cleanup_pop(1); // release the mutex
+  debug_mutex_unlock(&alsa_mutex, 3);
+  pthread_cleanup_pop(0); // release the mutex
 }
 
 /*
@@ -1152,8 +1152,8 @@ static void mute(int mute_state_requested) {
   mute_request_pending = 1;
   overriding_mute_state_requested = mute_state_requested;
   do_mute(mute_state_requested);
-  // debug_mutex_unlock(&alsa_mutex, 3);
-  pthread_cleanup_pop(1); // release the mutex
+  debug_mutex_unlock(&alsa_mutex, 0);
+  pthread_cleanup_pop(0); // release the mutex
 }
 
 void do_mute(int mute_state_requested) {

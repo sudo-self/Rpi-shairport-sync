@@ -1954,7 +1954,8 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   // debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
   //      conn->connection_number);
-  player_stop(conn);
+  if (conn->player_thread)
+  	player_stop(conn);
   if (conn->fd > 0) {
     // debug(1, "Connection %d: closing fd %d.",
     //    conn->connection_number,conn->fd);
@@ -2136,7 +2137,6 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         if (conn->player_thread)
           debug(1, "RTSP Channel unexpectedly closed or a serious error occured -- closing the "
                    "player thread.");
-        player_stop(conn);
         debug(3, "Successful termination of playing thread of RTSP conversation thread %d.",
               conn->connection_number);
         debug(3, "Request termination of RTSP conversation thread %d.", conn->connection_number);
