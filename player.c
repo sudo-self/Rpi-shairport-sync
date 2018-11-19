@@ -1212,7 +1212,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       //      pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex, &time_of_wakeup);
       int rc = pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex,
                                       &time_of_wakeup); // this is a pthread cancellation point
-      if (rc != 0)
+      if ((rc != 0) && (rc != ETIMEDOUT))
         debug(3, "pthread_cond_timedwait returned error code %d.", rc);
 #endif
 #ifdef COMPILE_FOR_OSX
