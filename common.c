@@ -1095,7 +1095,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
 
-  if ((r != 0) && (debugmessage != NULL)) {
+  if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
     char errstr[1000];
     if (r == ETIMEDOUT)
       debug(debuglevel,
@@ -1126,7 +1126,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
     time_to_wait -= st;
     r = pthread_mutex_trylock(mutex);
   }
-  if ((r != 0) && (debugmessage != NULL)) {
+  if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
     char errstr[1000];
     if (r == EBUSY) {
       debug(debuglevel,
@@ -1153,7 +1153,8 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
   char dstring[1000];
   memset(dstring, 0, sizeof(dstring));
   snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
-  debug(3, "mutex_lock \"%s\" at \"%s\".", mutexname, dstring);
+  if (debuglevel != 0)
+    debug(3, "mutex_lock \"%s\" at \"%s\".", mutexname, dstring); // only if you really ask for it!
   int result = sps_pthread_mutex_timedlock(mutex, dally_time, dstring, debuglevel);
   if (result == ETIMEDOUT) {
     result = pthread_mutex_lock(mutex);
@@ -1180,7 +1181,7 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const cha
   snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
   debug(debuglevel, "mutex_unlock \"%s\" at \"%s\".", mutexname, dstring);
   int r = pthread_mutex_unlock(mutex);
-  if (r != 0)
+  if ((debuglevel != 0) && (r != 0))
     debug(1, "error %d: \"%s\" unlocking mutex \"%s\" at \"%s\".", r,
           strerror_r(r, errstr, sizeof(errstr)), mutexname, dstring);
   pthread_setcancelstate(oldState,NULL);
