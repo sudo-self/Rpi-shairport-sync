@@ -1,6 +1,0 @@
-#!/bin/bash
-# My first script
-
-/bin/sleep 3
-/usr/bin/logger "Shairport Sync Play Script Executed!"
-
