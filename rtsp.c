@@ -2131,15 +2131,10 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         debug(1, "rtsp_read_request error %d, packet ignored.", (int)reply);
       }
       if (tstop) {
+        if (conn->player_thread)
+          debug(1, "RTSP Channel unexpectedly closed or a serious error occurred.");
         debug(3, "Synchronously terminate playing thread of RTSP conversation thread %d.",
               conn->connection_number);
-
-        if (conn->player_thread)
-          debug(1, "RTSP Channel unexpectedly closed or a serious error occured -- closing the "
-                   "player thread.");
-        debug(3, "Successful termination of playing thread of RTSP conversation thread %d.",
-              conn->connection_number);
-        debug(3, "Request termination of RTSP conversation thread %d.", conn->connection_number);
         conn->stop = 1;
       }
     }

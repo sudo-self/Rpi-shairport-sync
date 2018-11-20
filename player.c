@@ -1742,9 +1742,10 @@ void *player_thread_func(void *arg) {
   pthread_cleanup_push(player_thread_cleanup_handler, arg); // undo what's been done so far
 
 // stop looking elsewhere for DACP stuff
+
 #ifdef CONFIG_DACP_CLIENT
   // debug(1, "Set dacp server info");
-  // this does not have pthread cancellation points in it (assuming avahi doesn't)
+  // may have pthread cancellation points in it -- beware
   set_dacp_server_information(conn); //  this will start scanning when a port is registered by the
                                      // code initiated by the mdns_dacp_monitor
 #else
@@ -1754,7 +1755,7 @@ void *player_thread_func(void *arg) {
   if (conn->dapo_private_storage)
     debug(1, "DACP monitor already initialised?");
   else
-    // this does not have pthread cancellation points in it (assuming avahi doesn't)
+    // almost certainly, this has pthread cancellation points in it -- beware
     conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id);
 #endif
 
@@ -1764,7 +1765,8 @@ void *player_thread_func(void *arg) {
 
   debug(2, "Play begin");
   while (1) {
-    abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s)
+    pthread_testcancel(); // allow a pthread_cancel request to take effect.
+    abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not guaranteed that they'll aways be executed
     if (inframe) {
       inbuf = inframe->data;
       inbuflength = inframe->length;
@@ -2756,9 +2758,7 @@ int player_play(rtsp_conn_info *conn) {
   if (config.buffer_start_fill > BUFFER_FRAMES)
     die("specified buffer starting fill %d > buffer size %d", config.buffer_start_fill,
         BUFFER_FRAMES);
-  debug(1,"Executing the run_this_before_play_begins hook, if any.");
   command_start();
-  debug(1,"Create a player thread...");
   pthread_t *pt = malloc(sizeof(pthread_t));
   if (pt == NULL)
     die("Couldn't allocate space for pthread_t");
@@ -2774,7 +2774,6 @@ int player_play(rtsp_conn_info *conn) {
   if (rc)
     debug(1, "Error creating player_thread: %s", strerror(errno));
   pthread_attr_destroy(&tattr);
-  debug(1,"Player thread successfully created.");
 #ifdef CONFIG_METADATA
   debug(2, "pbeg");
   send_ssnc_metadata('pbeg', NULL, 0, 1); // contains cancellation points
