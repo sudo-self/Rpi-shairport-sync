@@ -123,7 +123,7 @@ void die(const char *format, ...) {
     daemon_log(LOG_EMERG, "% 20.9f|*fatal error: %s", tss, s);
   else
     daemon_log(LOG_EMERG, "fatal error: %s", s);
-  pthread_setcancelstate(oldState,NULL);
+  pthread_setcancelstate(oldState, NULL);
   exit(1);
 }
 
@@ -152,7 +152,7 @@ void warn(const char *format, ...) {
     daemon_log(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
   else
     daemon_log(LOG_WARNING, "%s", s);
-  pthread_setcancelstate(oldState,NULL);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void debug(int level, const char *format, ...) {
@@ -188,7 +188,7 @@ void debug(int level, const char *format, ...) {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &currentState);
   if (currentState == PTHREAD_CANCEL_ENABLE)
     daemon_log(LOG_DEBUG, "Warning -- cancellation is enabled after logging");
-  pthread_setcancelstate(oldState,NULL);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void inform(const char *format, ...) {
@@ -216,7 +216,7 @@ void inform(const char *format, ...) {
     daemon_log(LOG_INFO, "% 20.9f|%s", tss, s);
   else
     daemon_log(LOG_INFO, "%s", s);
-  pthread_setcancelstate(oldState,NULL);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 // The following two functions are adapted slightly and with thanks from Jonathan Leffler's sample
@@ -607,7 +607,7 @@ int config_set_lookup_bool(config_t *cfg, char *where, int *dst) {
 }
 
 void command_set_volume(double volume) {
-//this has a cancellation point if waiting is enabled
+  // this has a cancellation point if waiting is enabled
   if (config.cmd_set_volume) {
     /*Spawn a child to run the program.*/
     pid_t pid = fork();
@@ -654,7 +654,7 @@ void command_set_volume(double volume) {
 }
 
 void command_start(void) {
-	//this has a cancellation point if waiting is enabled or a response is awaited
+  // this has a cancellation point if waiting is enabled or a response is awaited
   if (config.cmd_start) {
     pid_t pid;
     int pipes[2];
@@ -722,7 +722,7 @@ void command_start(void) {
 }
 
 void command_stop(void) {
-//this has a cancellation point if waiting is enabled
+  // this has a cancellation point if waiting is enabled
   if (config.cmd_stop) {
     /*Spawn a child to run the program.*/
     pid_t pid = fork();
@@ -1112,7 +1112,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
   }
-  pthread_setcancelstate(oldState,NULL);
+  pthread_setcancelstate(oldState, NULL);
   return r;
 }
 #endif
@@ -1145,13 +1145,13 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
     }
   }
-  pthread_setcancelstate(oldState,NULL);
+  pthread_setcancelstate(oldState, NULL);
   return r;
 }
 #endif
 
-int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexname, const char *filename,
-                      const int line, int debuglevel) {
+int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexname,
+                      const char *filename, const int line, int debuglevel) {
   if ((debuglevel > debuglev) || (debuglevel == 0))
     return pthread_mutex_lock(mutex);
   int oldState;
@@ -1169,15 +1169,15 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
     uint64_t divisor = (uint64_t)1 << 32;
     double delay = 1.0 * time_delay / divisor;
     debug(debuglevel,
-          "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.", mutexname, dstring,
-          (1.0 * dally_time) / 1000000, delay);
+          "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.",
+          mutexname, dstring, (1.0 * dally_time) / 1000000, delay);
   }
-  pthread_setcancelstate(oldState,NULL);
+  pthread_setcancelstate(oldState, NULL);
   return result;
 }
 
-int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const char *filename, const int line,
-                        int debuglevel) {
+int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const char *filename,
+                        const int line, int debuglevel) {
   if ((debuglevel > debuglev) || (debuglevel == 0))
     return pthread_mutex_unlock(mutex);
   int oldState;
@@ -1191,7 +1191,7 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const cha
   if ((debuglevel != 0) && (r != 0))
     debug(1, "error %d: \"%s\" unlocking mutex \"%s\" at \"%s\".", r,
           strerror_r(r, errstr, sizeof(errstr)), mutexname, dstring);
-  pthread_setcancelstate(oldState,NULL);
+  pthread_setcancelstate(oldState, NULL);
   return r;
 }
 
