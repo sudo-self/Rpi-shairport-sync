@@ -763,7 +763,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   // int16_t buf_fill;
   uint64_t local_time_now;
   // struct timespec tn;
-  abuf_t *curframe = 0;
+  abuf_t *curframe = NULL;
   int notified_buffer_empty = 0; // diagnostic only
 
   debug_mutex_lock(&conn->ab_mutex, 30000, 1);
@@ -777,6 +777,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     // get the time
     local_time_now = get_absolute_time_in_fp(); // type okay
     debug(3, "buffer_get_frame is iterating");
+
 
     // if config.timeout (default 120) seconds have elapsed since the last audio packet was
     // received, then we should stop.
@@ -829,59 +830,52 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     }
     debug_mutex_unlock(&conn->flush_mutex, 3);
 
-    uint32_t flush_limit = 0;
     if (conn->ab_synced) {
-      do {
-        curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
-        if ((conn->ab_read != conn->ab_write) &&
-            (curframe->ready)) { // it could be synced and empty, under
-                                 // exceptional circumstances, with the
-                                 // frame unused, thus apparently ready
+      curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
+      
+      
+      
+      
+      if ((conn->ab_read != conn->ab_write) &&
+          (curframe->ready)) { // it could be synced and empty, under
+                               // exceptional circumstances, with the
+                               // frame unused, thus apparently ready
 
-          if (curframe->sequence_number != conn->ab_read) {
-            // some kind of sync problem has occurred.
-            if (BUFIDX(curframe->sequence_number) == BUFIDX(conn->ab_read)) {
-              // it looks like some kind of aliasing has happened
-              if (seq_order(conn->ab_read, curframe->sequence_number, conn->ab_read)) {
-                conn->ab_read = curframe->sequence_number;
-                debug(1, "Aliasing of buffer index -- reset.");
-              }
-            } else {
-              debug(1, "Inconsistent sequence numbers detected");
+        if (curframe->sequence_number != conn->ab_read) {
+          // some kind of sync problem has occurred.
+          if (BUFIDX(curframe->sequence_number) == BUFIDX(conn->ab_read)) {
+            // it looks like some kind of aliasing has happened
+            if (seq_order(conn->ab_read, curframe->sequence_number, conn->ab_read)) {
+              conn->ab_read = curframe->sequence_number;
+              debug(1, "Aliasing of buffer index -- reset.");
             }
-          }
-
-          if ((conn->flush_rtp_timestamp != 0) && (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
-              (modulo_32_offset(curframe->given_timestamp, conn->flush_rtp_timestamp) <
-               conn->input_rate * 10)) { // if it's less than ten seconds
-            debug(2, "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
-                     ", flushing to "
-                     "timestamp: %" PRIu32 ".",
-                  curframe->sequence_number, curframe->given_timestamp, conn->flush_rtp_timestamp);
-            curframe->ready = 0;
-            curframe->resend_level = 0;
-            flush_limit += curframe->length;
-            conn->ab_read = SUCCESSOR(conn->ab_read);
-            conn->initial_reference_time = 0;
-            conn->initial_reference_timestamp = 0;
-          }
-          if ((conn->flush_rtp_timestamp != 0) &&
-              (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) > conn->input_rate / 5) &&
-              (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) < conn->input_rate * 10 )) {
-            debug(2, "Dropping flush request in buffer_get_frame");
-            conn->flush_rtp_timestamp = 0;
+          } else {
+            debug(1, "Inconsistent sequence numbers detected");
           }
         }
-      } while ((conn->flush_rtp_timestamp != 0) && (flush_limit <= 8820) && (curframe->ready == 0));
 
-      if (flush_limit == 8820) {
-        debug(1, "Flush hit the 8820 frame limit!");
-        flush_limit = 0;
+        if ((conn->flush_rtp_timestamp != 0) && (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
+            (modulo_32_offset(curframe->given_timestamp, conn->flush_rtp_timestamp) <
+             conn->input_rate * 10)) { // if it's less than ten seconds
+          debug(2, "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
+                   ", flushing to "
+                   "timestamp: %" PRIu32 ".",
+                curframe->sequence_number, curframe->given_timestamp, conn->flush_rtp_timestamp);
+          curframe->ready = 0;
+          curframe->resend_level = 0;
+          curframe = NULL; // this will be returned and will cause the loop to go around again
+          conn->initial_reference_time = 0;
+          conn->initial_reference_timestamp = 0;
+        }
+        if ((conn->flush_rtp_timestamp != 0) &&
+            (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) > conn->input_rate / 5) &&
+            (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) < conn->input_rate * 10 )) {
+          debug(2, "Dropping flush request in buffer_get_frame");
+          conn->flush_rtp_timestamp = 0;
+        }
       }
-
-      curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
-
-      if (curframe->ready) {
+      
+      if ((curframe) && (curframe->ready)) {
         notified_buffer_empty = 0; // at least one buffer now -- diagnostic only.
         if (conn->ab_buffering) {  // if we are getting packets but not yet forwarding them to the
                                    // player
@@ -1227,15 +1221,16 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   } while (wait);
 
   // seq_t read = conn->ab_read;
-  if (!curframe->ready) {
-    // debug(1, "Supplying a silent frame for frame %u", read);
-    conn->missing_packets++;
-    curframe->given_timestamp = 0; // indicate a silent frame should be substituted
+  if (curframe) {
+    if (!curframe->ready) {
+      // debug(1, "Supplying a silent frame for frame %u", read);
+      conn->missing_packets++;
+      curframe->given_timestamp = 0; // indicate a silent frame should be substituted
+    }
+    curframe->ready = 0;
+    curframe->resend_level = 0;
   }
-  curframe->ready = 0;
-  curframe->resend_level = 0;
   conn->ab_read = SUCCESSOR(conn->ab_read);
-
   pthread_cleanup_pop(1);
   return curframe;
 }
@@ -1732,8 +1727,6 @@ void *player_thread_func(void *arg) {
     }
   }
 
-  int64_t frames_to_drop = 0;
-
   // create and start the timing, control and audio receiver threads
   pthread_create(&conn->rtp_audio_thread, NULL, &rtp_audio_receiver, (void *)conn);
   pthread_create(&conn->rtp_control_thread, NULL, &rtp_control_receiver, (void *)conn);
@@ -1814,19 +1807,6 @@ void *player_thread_func(void *arg) {
             config.output->play(silence, conn->max_frames_per_packet * conn->output_sample_ratio);
             free(silence);
           }
-        } else if (frames_to_drop) {
-          /*
-          if (frames_to_drop > 3 * config.output_rate) {
-            warn("Shome mhistake shurely: very large number of frames to drop: %" PRId64
-                 " -- setting it to %" PRId64 ".",
-                 frames_to_drop, 3 * config.output_rate);
-            frames_to_drop = 3 * config.output_rate;
-          }
-          */
-          debug(3, "%" PRId64 " frames to drop.", frames_to_drop);
-          frames_to_drop -= inframe->length;
-          if (frames_to_drop < 0)
-            frames_to_drop = 0;
         } else {
           int enable_dither = 0;
           if ((conn->fix_volume != 0x10000) || (conn->input_bit_depth > output_bit_depth) ||
@@ -2071,8 +2051,9 @@ void *player_thread_func(void *arg) {
               int64_t filler_length = (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
                 debug(2, "Large positive sync error: %" PRId64 ".", sync_error);
-                frames_to_drop = sync_error / conn->output_sample_ratio;
-                reset_input_flow_metrics(conn);
+                int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
+                uint32_t frames_to_drop_sized = local_frames_to_drop;
+                do_flush(inframe->given_timestamp+frames_to_drop_sized,conn);
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
                 debug(2, "Large negative sync error: %" PRId64 " with should_be_frame_32 of %" PRIu32
                 ", nt of %" PRId64 " and current_delay of %" PRId64 ".", sync_error, should_be_frame_32, nt, current_delay);
@@ -2733,7 +2714,12 @@ void do_flush(uint32_t timestamp, rtsp_conn_info *conn) {
   // conn->play_segment_reference_frame = 0;
   reset_input_flow_metrics(conn);
   debug_mutex_unlock(&conn->flush_mutex, 3);
+  debug(3, "Flush request made.");
+}
 
+void player_flush(uint32_t timestamp, rtsp_conn_info *conn) {
+  debug(3, "player_flush");
+  do_flush(timestamp, conn);
 #ifdef CONFIG_METADATA
   // only send a flush metadata message if the first packet has been seen -- it's a bogus message
   // otherwise
@@ -2742,13 +2728,6 @@ void do_flush(uint32_t timestamp, rtsp_conn_info *conn) {
     send_ssnc_metadata('pfls', NULL, 0, 1); // contains cancellation points
   }
 #endif
-
-  debug(3, "Flush request made.");
-}
-
-void player_flush(uint32_t timestamp, rtsp_conn_info *conn) {
-  debug(3, "player_flush");
-  do_flush(timestamp, conn);
 }
 
 int player_play(rtsp_conn_info *conn) {
