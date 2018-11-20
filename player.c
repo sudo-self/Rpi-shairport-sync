@@ -454,7 +454,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
     // now, if a flush_rtp_timestamp has been defined and the incoming timestamp is "before" it,
     // drop it…
 
-    if ((conn->flush_rtp_timestamp != 0) && (actual_timestamp != conn->flush_rtp_timestamp) && 
+    if ((conn->flush_rtp_timestamp != 0) && (actual_timestamp != conn->flush_rtp_timestamp) &&
         (modulo_32_offset(actual_timestamp, conn->flush_rtp_timestamp) <
          conn->input_rate * 10)) { // if it's less than 10 seconds
       debug(2, "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRIu32
@@ -465,9 +465,9 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       conn->initial_reference_timestamp = 0;
     } else {
       if ((conn->flush_rtp_timestamp != 0) &&
-          (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) > conn->input_rate/5) &&
+          (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) > conn->input_rate / 5) &&
           (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) < conn->input_rate)) {
-          // between 0.2 and 1 second
+        // between 0.2 and 1 second
         debug(2, "Dropping flush request in player_put_packet");
         conn->flush_rtp_timestamp = 0;
       }
@@ -778,7 +778,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     local_time_now = get_absolute_time_in_fp(); // type okay
     debug(3, "buffer_get_frame is iterating");
 
-
     // if config.timeout (default 120) seconds have elapsed since the last audio packet was
     // received, then we should stop.
     // config.timeout of zero means don't check..., but iTunes may be confused by a long gap
@@ -832,10 +831,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
     if (conn->ab_synced) {
       curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
-      
-      
-      
-      
+
       if ((conn->ab_read != conn->ab_write) &&
           (curframe->ready)) { // it could be synced and empty, under
                                // exceptional circumstances, with the
@@ -854,7 +850,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           }
         }
 
-        if ((conn->flush_rtp_timestamp != 0) && (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
+        if ((conn->flush_rtp_timestamp != 0) &&
+            (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
             (modulo_32_offset(curframe->given_timestamp, conn->flush_rtp_timestamp) <
              conn->input_rate * 10)) { // if it's less than ten seconds
           debug(2, "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
@@ -868,13 +865,15 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           conn->initial_reference_timestamp = 0;
         }
         if ((conn->flush_rtp_timestamp != 0) &&
-            (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) > conn->input_rate / 5) &&
-            (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) < conn->input_rate * 10 )) {
+            (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) >
+             conn->input_rate / 5) &&
+            (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) <
+             conn->input_rate * 10)) {
           debug(2, "Dropping flush request in buffer_get_frame");
           conn->flush_rtp_timestamp = 0;
         }
       }
-      
+
       if ((curframe) && (curframe->ready)) {
         notified_buffer_empty = 0; // at least one buffer now -- diagnostic only.
         if (conn->ab_buffering) {  // if we are getting packets but not yet forwarding them to the
@@ -1401,12 +1400,14 @@ typedef struct stats { // statistics for running averages
 
 void player_thread_initial_cleanup_handler(__attribute__((unused)) void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(3, "Connection %d: player thread main loop exit via player_thread_initial_cleanup_handler.", conn->connection_number);
+  debug(3, "Connection %d: player thread main loop exit via player_thread_initial_cleanup_handler.",
+        conn->connection_number);
 }
 
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(3, "Connection %d: player thread main loop exit via player_thread_cleanup_handler.", conn->connection_number);
+  debug(3, "Connection %d: player thread main loop exit via player_thread_cleanup_handler.",
+        conn->connection_number);
 
   if (config.statistics_requested) {
     int rawSeconds = (int)difftime(time(NULL), conn->playstart);
@@ -1758,8 +1759,9 @@ void *player_thread_func(void *arg) {
 
   debug(2, "Play begin");
   while (1) {
-    pthread_testcancel(); // allow a pthread_cancel request to take effect.
-    abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not guaranteed that they'll aways be executed
+    pthread_testcancel();                     // allow a pthread_cancel request to take effect.
+    abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not
+                                              // guaranteed that they'll aways be executed
     if (inframe) {
       inbuf = inframe->data;
       inbuflength = inframe->length;
@@ -1898,8 +1900,8 @@ void *player_thread_func(void *arg) {
           int64_t rt, nt;
           rt = reference_timestamp;      // uint32_t to int64_t
           nt = inframe->given_timestamp; // uint32_t to int64_t
-          rt = rt*conn->output_sample_ratio;
-          nt = nt*conn->output_sample_ratio;
+          rt = rt * conn->output_sample_ratio;
+          nt = nt * conn->output_sample_ratio;
 
           uint64_t local_time_now = get_absolute_time_in_fp(); // types okay
           // struct timespec tn;
@@ -2048,15 +2050,18 @@ void *player_thread_func(void *arg) {
               //        sync_error_out_of_bounds, sync_error);
               sync_error_out_of_bounds = 0;
 
-              int64_t filler_length = (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
+              int64_t filler_length =
+                  (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
                 debug(2, "Large positive sync error: %" PRId64 ".", sync_error);
                 int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
                 uint32_t frames_to_drop_sized = local_frames_to_drop;
-                do_flush(inframe->given_timestamp+frames_to_drop_sized,conn);
+                do_flush(inframe->given_timestamp + frames_to_drop_sized, conn);
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
-                debug(2, "Large negative sync error: %" PRId64 " with should_be_frame_32 of %" PRIu32
-                ", nt of %" PRId64 " and current_delay of %" PRId64 ".", sync_error, should_be_frame_32, nt, current_delay);
+                debug(2,
+                      "Large negative sync error: %" PRId64 " with should_be_frame_32 of %" PRIu32
+                      ", nt of %" PRId64 " and current_delay of %" PRId64 ".",
+                      sync_error, should_be_frame_32, nt, current_delay);
                 int64_t silence_length = -sync_error;
                 if (silence_length > (filler_length * 5))
                   silence_length = filler_length * 5;
@@ -2064,7 +2069,7 @@ void *player_thread_func(void *arg) {
                 char *long_silence = malloc(conn->output_bytes_per_frame * silence_length_sized);
                 if (long_silence) {
                   memset(long_silence, 0, conn->output_bytes_per_frame * silence_length_sized);
-                  debug(2,"Play a silence of %d frames.",silence_length_sized);
+                  debug(2, "Play a silence of %d frames.", silence_length_sized);
                   config.output->play(long_silence, silence_length_sized);
                   free(long_silence);
                 } else {
@@ -2464,7 +2469,7 @@ void *player_thread_func(void *arg) {
   pthread_cleanup_pop(1); // pop the cleanup handler
   debug(1, "This should never be called either.");
   pthread_cleanup_pop(1); // pop the initial cleanup handler
-  pthread_exit(NULL); 
+  pthread_exit(NULL);
 }
 
 // takes the volume as specified by the airplay protocol
@@ -2777,12 +2782,12 @@ int player_stop(rtsp_conn_info *conn) {
     debug(2, "pend");
     send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
-	debuglev = dl;
+    debuglev = dl;
     command_stop();
     return 0;
   } else {
     debug(3, "Connection %d: player thread already deleted.", conn->connection_number);
-  debuglev = dl;
+    debuglev = dl;
     return -1;
   }
 }

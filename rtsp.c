@@ -667,7 +667,7 @@ int msg_write_response(int fd, rtsp_message *resp) {
     pktfree -= n;
     p += n;
     if (pktfree <= 1024) {
-      debug(1,"Attempted to write overlong RTSP packet 1");
+      debug(1, "Attempted to write overlong RTSP packet 1");
       return -1;
     }
   }
@@ -680,7 +680,7 @@ int msg_write_response(int fd, rtsp_message *resp) {
     pktfree -= n;
     p += n;
     if (pktfree <= 1024) {
-      debug(1,"Attempted to write overlong RTSP packet 2");
+      debug(1, "Attempted to write overlong RTSP packet 2");
       return -2;
     }
     debug(1, "Content is \"%s\"", resp->content);
@@ -694,7 +694,7 @@ int msg_write_response(int fd, rtsp_message *resp) {
   p += n;
 
   if (pktfree <= 1024) {
-    debug(1,"Attempted to write overlong RTSP packet 3");
+    debug(1, "Attempted to write overlong RTSP packet 3");
     return -3;
   }
   if (write(fd, pkt, p - pkt) != p - pkt) {
@@ -1955,7 +1955,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   // debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
   //      conn->connection_number);
   if (conn->player_thread)
-  	player_stop(conn);
+    player_stop(conn);
   if (conn->fd > 0) {
     // debug(1, "Connection %d: closing fd %d.",
     //    conn->connection_number,conn->fd);
@@ -2067,24 +2067,23 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         if (method_selected == 0) {
           debug(1, "RTSP thread %d: Unrecognised and unhandled rtsp request \"%s\".",
                 conn->connection_number, req->method);
-                
-          
-        	int y = req->contentlength;
-        	if (y > 0) {
-        		char obf[4096];
-        		if (y > 4096)
-        			y = 4096;
-        		char *p = req->content;
-						char *obfp = obf;
-						int obfc;
-						for (obfc = 0; obfc < y; obfc++) {
-							snprintf(obfp, 3, "%02X", (unsigned int)*p);
-							p++;
-							obfp += 2;
-						};
-						*obfp = 0;
-						debug(1, "Content: \"%s\".",obf);
-					}
+
+          int y = req->contentlength;
+          if (y > 0) {
+            char obf[4096];
+            if (y > 4096)
+              y = 4096;
+            char *p = req->content;
+            char *obfp = obf;
+            int obfc;
+            for (obfc = 0; obfc < y; obfc++) {
+              snprintf(obfp, 3, "%02X", (unsigned int)*p);
+              p++;
+              obfp += 2;
+            };
+            *obfp = 0;
+            debug(1, "Content: \"%s\".", obf);
+          }
         }
       }
       debug(debug_level, "RTSP thread %d: RTSP Response:", conn->connection_number);
@@ -2099,8 +2098,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
-        	debug(1,"A communication error was detected. Closing the play session.");
-        	player_stop(conn);
+          debug(1, "A communication error was detected. Closing the play session.");
+          player_stop(conn);
         }
       }
       pthread_cleanup_pop(1);
@@ -2212,13 +2211,12 @@ void rtsp_listen_loop(void) {
     // See: https://github.com/mikebrady/shairport-sync/issues/329
     fcntl(fd, F_SETFD, FD_CLOEXEC);
     ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
-    
+
     struct timeval tv;
     tv.tv_sec = 3; // three seconds write timeout
     tv.tv_usec = 0;
     if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
       debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
-
 
 #ifdef IPV6_V6ONLY
     // some systems don't support v4 access on v6 sockets, but some do.
