@@ -1556,13 +1556,19 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     }
 
     if (should_wait) {
-      usleep(1000000); // here, it is possible for other connections to come in and nab the player.
-      debug(1, "Try to get the player now");
+      useconds_t time_remaining = 3000000; // three seconds
+      
+      while ((time_remaining > 0) && (have_the_player == 0)) {
+        if (pthread_mutex_trylock(&play_lock) == 0)
+          have_the_player = 1;
+        else {
+          usleep(100000);
+          time_remaining -= 100000;
+        }
+      }
+      if (have_the_player == 0)
+        debug(1, "Connection %d: ANNOUNCE failed to get the player", conn->connection_number);
     }
-    if (pthread_mutex_trylock(&play_lock) == 0)
-      have_the_player = 1;
-    else
-      debug(1, "Connection %d: ANNOUNCE failed to get the player", conn->connection_number);
   }
 
   if (have_the_player) {
