@@ -1677,23 +1677,6 @@ void *player_thread_func(void *arg) {
   int sync_error_out_of_bounds =
       0; // number of times in a row that there's been a serious sync error
 
-// stop looking elsewhere for DACP stuff
-#ifdef CONFIG_DACP_CLIENT
-  // debug(1, "Set dacp server info");
-  // this does not have pthread cancellation points in it (assuming avahi doesn't)
-  set_dacp_server_information(conn); //  this will start scanning when a port is registered by the
-                                     // code initiated by the mdns_dacp_monitor
-#else
-  // this is only used for compatability, if dacp stuff isn't enabled.
-  // start an mdns/zeroconf thread to look for DACP messages containing our DACP_ID and getting the
-  // port number
-  if (conn->dapo_private_storage)
-    debug(1, "DACP monitor already initialised?");
-  else
-    // this does not have pthread cancellation points in it (assuming avahi doesn't)
-    conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id);
-#endif
-
   conn->framesProcessedInThisEpoch = 0;
   conn->framesGeneratedInThisEpoch = 0;
   conn->correctionsRequestedInThisEpoch = 0;
@@ -1757,6 +1740,23 @@ void *player_thread_func(void *arg) {
   pthread_create(&conn->rtp_timing_thread, NULL, &rtp_timing_receiver, (void *)conn);
 
   pthread_cleanup_push(player_thread_cleanup_handler, arg); // undo what's been done so far
+
+// stop looking elsewhere for DACP stuff
+#ifdef CONFIG_DACP_CLIENT
+  // debug(1, "Set dacp server info");
+  // this does not have pthread cancellation points in it (assuming avahi doesn't)
+  set_dacp_server_information(conn); //  this will start scanning when a port is registered by the
+                                     // code initiated by the mdns_dacp_monitor
+#else
+  // this is only used for compatability, if dacp stuff isn't enabled.
+  // start an mdns/zeroconf thread to look for DACP messages containing our DACP_ID and getting the
+  // port number
+  if (conn->dapo_private_storage)
+    debug(1, "DACP monitor already initialised?");
+  else
+    // this does not have pthread cancellation points in it (assuming avahi doesn't)
+    conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id);
+#endif
 
   // set the default volume to whaterver it was before, as stored in the config airplay_volume
   debug(2, "Set initial volume to %f.", config.airplay_volume);
