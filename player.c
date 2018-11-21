@@ -1479,7 +1479,7 @@ void player_thread_cleanup_handler(void *arg) {
 
 void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
+  // pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
   conn->packet_count = 0;
   conn->packet_count_since_flush = 0;
   conn->previous_random_number = 0;
@@ -2467,8 +2467,8 @@ void *player_thread_func(void *arg) {
 
   debug(1, "This should never be called.");
   pthread_cleanup_pop(1); // pop the cleanup handler
-  debug(1, "This should never be called either.");
-  pthread_cleanup_pop(1); // pop the initial cleanup handler
+//  debug(1, "This should never be called either.");
+//  pthread_cleanup_pop(1); // pop the initial cleanup handler
   pthread_exit(NULL);
 }
 

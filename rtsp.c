@@ -1537,26 +1537,27 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 
     if (!playing_conn)
       die("Non existent playing_conn with play_lock enabled.");
-    debug(1, "Connection %d: already playing when asked by connection %d.",
+    debug(1, "Connection %d: ANNOUNCE: already playing when checked by connection %d.",
           playing_conn->connection_number, conn->connection_number);
     if (playing_conn->stop) {
-      debug(1, "Playing connection is already shutting down; waiting for it...");
+      debug(1, "Connetion %d: ANNOUNCE: already shutting down; waiting for it...",playing_conn->connection_number);
       should_wait = 1;
     } else if (config.allow_session_interruption == 1) {
       // some thread has the player ... ask it to relinquish the thread
-      debug(1, "ANNOUNCE: playing connection %d being interrupted by connection %d.",
-            playing_conn->connection_number, conn->connection_number);
+      debug(1, "Connection %d: ANNOUNCE: asking playing connection %d to shut down.",
+            conn->connection_number, playing_conn->connection_number);
       if (playing_conn == conn) {
-        debug(1, "ANNOUNCE asking to stop itself! Nothing done.");
+        debug(1, "Connection %d: ANNOUNCE: asking to stop itself! Nothing done.",conn->connection_number);
       } else {
         player_stop(playing_conn);
         playing_conn->stop = 1;
+        pthread_cancel(playing_conn->thread); // asking the RTSP thread to exit
         should_wait = 1;
       }
     }
 
     if (should_wait) {
-      useconds_t time_remaining = 3000000; // three seconds
+      useconds_t time_remaining = 3000000;
       
       while ((time_remaining > 0) && (have_the_player == 0)) {
         if (pthread_mutex_trylock(&play_lock) == 0)
@@ -1566,7 +1567,10 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
           time_remaining -= 100000;
         }
       }
-      if (have_the_player == 0)
+      if (have_the_player == 1) {
+        debug(1, "Connection %d: ANNOUNCE got the player", conn->connection_number);
+        usleep(1000000); // this is just to let everything settle a bit
+      } else
         debug(1, "Connection %d: ANNOUNCE failed to get the player", conn->connection_number);
     }
   }
@@ -1973,7 +1977,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   }
   rtp_terminate(conn);
   if (playing_conn == conn) {
-    debug(3, "Unlocking play lock on RTSP conversation thread %d.", conn->connection_number);
+    debug(3, "Connection %d: Unlocking play lock.", conn->connection_number);
     playing_conn = NULL;
     pthread_mutex_unlock(&play_lock);
   }
@@ -2048,7 +2052,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (strcmp(req->method, "OPTIONS") !=
           0) // the options message is very common, so don't log it until level 3
         debug_level = 2;
-      debug(debug_level, "RTSP thread %d received an RTSP Packet of type \"%s\":",
+      debug(debug_level, "Connection %d: Received an RTSP Packet of type \"%s\":",
             conn->connection_number, req->method),
           debug_print_msg_headers(debug_level, req);
 
@@ -2071,7 +2075,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         }
         if (method_selected == 0) {
-          debug(1, "RTSP thread %d: Unrecognised and unhandled rtsp request \"%s\".",
+          debug(1, "Connection %d: Unrecognised and unhandled rtsp request \"%s\".",
                 conn->connection_number, req->method);
 
           int y = req->contentlength;
@@ -2092,7 +2096,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         }
       }
-      debug(debug_level, "RTSP thread %d: RTSP Response:", conn->connection_number);
+      debug(debug_level, "Connection %d: RTSP Response:", conn->connection_number);
       debug_print_msg_headers(debug_level, resp);
       fd_set writefds;
       FD_ZERO(&writefds);
@@ -2104,8 +2108,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
-          debug(1, "A communication error was detected. Closing the play session.");
-          player_stop(conn);
+          debug(1, "Connection %d: Unable to write an RTSP message response. Terminating the connection.", conn->connection_number);
+          conn->stop = 1;
         }
       }
       pthread_cleanup_pop(1);
@@ -2122,24 +2126,21 @@ static void *rtsp_conversation_thread_func(void *pconn) {
             tstop = 1;
           else {
             if (reply == rtsp_read_request_response_channel_closed)
-              debug(2, "RTSP channel unexpectedly closed -- will try again %d time(s).",
-                    rtsp_read_request_attempt_count);
+              debug(2, "Connection %d: RTSP channel unexpectedly closed -- will try again %d time(s).",
+                    conn->connection_number, rtsp_read_request_attempt_count);
             if (reply == rtsp_read_request_response_read_error)
-              debug(2, "RTSP channel read error -- will try again %d time(s).",
-                    rtsp_read_request_attempt_count);
+              debug(2, "Connection %d: RTSP channel read error -- will try again %d time(s).",
+                    conn->connection_number, rtsp_read_request_attempt_count);
             usleep(20000);
           }
         } else {
           tstop = 1;
         }
       } else {
-        debug(1, "rtsp_read_request error %d, packet ignored.", (int)reply);
+        debug(1, "Connection %d: rtsp_read_request error %d, packet ignored.", conn->connection_number, (int)reply);
       }
       if (tstop) {
-        if (conn->player_thread)
-          debug(1, "RTSP Channel unexpectedly closed or a serious error occurred.");
-        debug(3, "Synchronously terminate playing thread of RTSP conversation thread %d.",
-              conn->connection_number);
+        debug(3, "Connection %d: Terminate RTSP connection.", conn->connection_number);
         conn->stop = 1;
       }
     }

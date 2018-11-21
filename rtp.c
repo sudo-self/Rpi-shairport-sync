@@ -104,6 +104,7 @@ void rtp_audio_receiver_cleanup_handler(void *arg) {
   shutdown(conn->audio_socket, SHUT_RDWR);
   debug(1, "close audio socket.");
   close(conn->audio_socket);
+  
   debug(3, "Audio Receiver Cleanup Successful.");
 }
 
