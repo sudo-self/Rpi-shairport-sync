@@ -1051,6 +1051,8 @@ static int play(void *buf, int samples) {
 
 static void flush(void) {
   // debug(2,"audio_alsa flush called.");
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
   int derr;
   do_mute(1);
@@ -1072,6 +1074,7 @@ static void flush(void) {
   }
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
+  pthread_setcancelstate(oldState, NULL);
 }
 
 static void stop(void) {

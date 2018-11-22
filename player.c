@@ -464,6 +464,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       conn->initial_reference_time = 0;
       conn->initial_reference_timestamp = 0;
     } else {
+    /*
       if ((conn->flush_rtp_timestamp != 0) &&
           (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) > conn->input_rate / 5) &&
           (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) < conn->input_rate)) {
@@ -471,6 +472,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
         debug(2, "Dropping flush request in player_put_packet");
         conn->flush_rtp_timestamp = 0;
       }
+    */
 
       abuf_t *abuf = 0;
 
@@ -849,7 +851,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             debug(1, "Inconsistent sequence numbers detected");
           }
         }
-
+        
+        //if (conn->flush_rtp_timestamp != 0)
+        //  debug(2,"flush_rtp_timestamp is %" PRIx32 " and curframe->given_timestamp is %" PRIx32 ".", conn->flush_rtp_timestamp , curframe->given_timestamp);
+        
         if ((conn->flush_rtp_timestamp != 0) &&
             (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
             (modulo_32_offset(curframe->given_timestamp, conn->flush_rtp_timestamp) <
@@ -945,11 +950,13 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               conn->first_packet_time_to_play = should_be_time;
 
-              if (local_time_now >= conn->first_packet_time_to_play) {
+              if (local_time_now > conn->first_packet_time_to_play) {
+                uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
+                lateness = (lateness * 1000000) >> 32; // microseconds
                 debug(
                     1,
-                    "First packet is late! It should have played before now. Flushing 0.5 seconds");
-                player_flush(conn->first_packet_timestamp + 5 * 4410 * conn->output_sample_ratio,
+                    "First packet is %" PRIu64 " microseconds late! Flushing 0.5 seconds",lateness);
+                do_flush(conn->first_packet_timestamp + 5 * 4410,
                              conn);
               }
             }
@@ -978,8 +985,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                                                              // dynamic adjustment
             int64_t filler_size = max_dac_delay;
 
-            if (local_time_now >= conn->first_packet_time_to_play) {
-              // debug(1,"Gone past starting time");
+            if (local_time_now > conn->first_packet_time_to_play) {
+              uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
+              lateness = (lateness * 1000000) >> 32; // microseconds
+              debug(1,"Gone past starting time by %" PRIu64 " microseconds.", lateness);
               have_sent_prefiller_silence = 1;
               conn->ab_buffering = 0;
 
