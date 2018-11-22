@@ -90,7 +90,7 @@ static volatile int requested_connection_state_to_output = 1;
 
 shairport_cfg config;
 
-int debuglev = 0;
+volatile int debuglev = 0;
 
 sigset_t pselect_sigset;
 
@@ -99,6 +99,8 @@ int get_requested_connection_state_to_output() { return requested_connection_sta
 void set_requested_connection_state_to_output(int v) { requested_connection_state_to_output = v; }
 
 void die(const char *format, ...) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
   uint64_t time_now = get_absolute_time_in_fp();
@@ -121,10 +123,13 @@ void die(const char *format, ...) {
     daemon_log(LOG_EMERG, "% 20.9f|*fatal error: %s", tss, s);
   else
     daemon_log(LOG_EMERG, "fatal error: %s", s);
+  pthread_setcancelstate(oldState, NULL);
   exit(1);
 }
 
 void warn(const char *format, ...) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
   uint64_t time_now = get_absolute_time_in_fp();
@@ -147,11 +152,14 @@ void warn(const char *format, ...) {
     daemon_log(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
   else
     daemon_log(LOG_WARNING, "%s", s);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void debug(int level, const char *format, ...) {
   if (level > debuglev)
     return;
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
   uint64_t time_now = get_absolute_time_in_fp();
@@ -165,6 +173,10 @@ void debug(int level, const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
+  int currentState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &currentState);
+  if (currentState == PTHREAD_CANCEL_ENABLE)
+    daemon_log(LOG_DEBUG, "Warning -- cancellation is enabled before logging");
   if ((config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
     daemon_log(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
   else if (config.debugger_show_relative_time)
@@ -173,9 +185,15 @@ void debug(int level, const char *format, ...) {
     daemon_log(LOG_DEBUG, "% 20.9f|%s", tss, s);
   else
     daemon_log(LOG_DEBUG, "%s", s);
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &currentState);
+  if (currentState == PTHREAD_CANCEL_ENABLE)
+    daemon_log(LOG_DEBUG, "Warning -- cancellation is enabled after logging");
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void inform(const char *format, ...) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
   uint64_t time_now = get_absolute_time_in_fp();
@@ -198,6 +216,7 @@ void inform(const char *format, ...) {
     daemon_log(LOG_INFO, "% 20.9f|%s", tss, s);
   else
     daemon_log(LOG_INFO, "%s", s);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 // The following two functions are adapted slightly and with thanks from Jonathan Leffler's sample
@@ -588,6 +607,7 @@ int config_set_lookup_bool(config_t *cfg, char *where, int *dst) {
 }
 
 void command_set_volume(double volume) {
+  // this has a cancellation point if waiting is enabled
   if (config.cmd_set_volume) {
     /*Spawn a child to run the program.*/
     pid_t pid = fork();
@@ -634,6 +654,7 @@ void command_set_volume(double volume) {
 }
 
 void command_start(void) {
+  // this has a cancellation point if waiting is enabled or a response is awaited
   if (config.cmd_start) {
     pid_t pid;
     int pipes[2];
@@ -701,6 +722,7 @@ void command_start(void) {
 }
 
 void command_stop(void) {
+  // this has a cancellation point if waiting is enabled
   if (config.cmd_stop) {
     /*Spawn a child to run the program.*/
     pid_t pid = fork();
@@ -1047,6 +1069,8 @@ void sps_nanosleep(const time_t sec, const long nanosec) {
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel) {
 
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   struct timespec tn;
   clock_gettime(CLOCK_REALTIME, &tn);
   uint64_t tnfpsec = tn.tv_sec;
@@ -1078,7 +1102,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
 
-  if ((r != 0) && (debugmessage != NULL)) {
+  if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
     char errstr[1000];
     if (r == ETIMEDOUT)
       debug(debuglevel,
@@ -1088,6 +1112,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
   }
+  pthread_setcancelstate(oldState, NULL);
   return r;
 }
 #endif
@@ -1096,6 +1121,8 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel) {
 
   // this is not pthread_cancellation safe because is contains a cancellation point
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   useconds_t time_to_wait = dally_time;
   int r = pthread_mutex_trylock(mutex);
   while ((r == EBUSY) && (time_to_wait > 0)) {
@@ -1106,7 +1133,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
     time_to_wait -= st;
     r = pthread_mutex_trylock(mutex);
   }
-  if ((r != 0) && (debugmessage != NULL)) {
+  if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
     char errstr[1000];
     if (r == EBUSY) {
       debug(debuglevel,
@@ -1118,19 +1145,23 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
     }
   }
+  pthread_setcancelstate(oldState, NULL);
   return r;
 }
 #endif
 
-int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *filename,
-                      const int line, int debuglevel) {
-  if (debuglevel > debuglev)
+int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexname,
+                      const char *filename, const int line, int debuglevel) {
+  if ((debuglevel > debuglev) || (debuglevel == 0))
     return pthread_mutex_lock(mutex);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   uint64_t time_at_start = get_absolute_time_in_fp();
   char dstring[1000];
   memset(dstring, 0, sizeof(dstring));
   snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
-  debug(3, "debug_mutex_lock at \"%s\".", dstring);
+  if (debuglevel != 0)
+    debug(3, "mutex_lock \"%s\" at \"%s\".", mutexname, dstring); // only if you really ask for it!
   int result = sps_pthread_mutex_timedlock(mutex, dally_time, dstring, debuglevel);
   if (result == ETIMEDOUT) {
     result = pthread_mutex_lock(mutex);
@@ -1138,25 +1169,29 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
     uint64_t divisor = (uint64_t)1 << 32;
     double delay = 1.0 * time_delay / divisor;
     debug(debuglevel,
-          "debug_mutex_lock at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.", dstring,
-          (1.0 * dally_time) / 1000000, delay);
+          "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.",
+          mutexname, dstring, (1.0 * dally_time) / 1000000, delay);
   }
+  pthread_setcancelstate(oldState, NULL);
   return result;
 }
 
-int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int line,
-                        int debuglevel) {
-  if (debuglevel > debuglev)
+int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const char *filename,
+                        const int line, int debuglevel) {
+  if ((debuglevel > debuglev) || (debuglevel == 0))
     return pthread_mutex_unlock(mutex);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char dstring[1000];
   char errstr[512];
   memset(dstring, 0, sizeof(dstring));
   snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
-  debug(debuglevel, "debug_mutex_unlock at \"%s\".", dstring);
+  debug(debuglevel, "mutex_unlock \"%s\" at \"%s\".", mutexname, dstring);
   int r = pthread_mutex_unlock(mutex);
-  if (r != 0)
-    debug(1, "error %d: \"%s\" unlocking a mutex: \"%s\".", r,
-          strerror_r(r, errstr, sizeof(errstr)), dstring);
+  if ((debuglevel != 0) && (r != 0))
+    debug(1, "error %d: \"%s\" unlocking mutex \"%s\" at \"%s\".", r,
+          strerror_r(r, errstr, sizeof(errstr)), mutexname, dstring);
+  pthread_setcancelstate(oldState, NULL);
   return r;
 }
 

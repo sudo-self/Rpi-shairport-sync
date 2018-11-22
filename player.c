@@ -763,7 +763,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   // int16_t buf_fill;
   uint64_t local_time_now;
   // struct timespec tn;
-  abuf_t *curframe = 0;
+  abuf_t *curframe = NULL;
   int notified_buffer_empty = 0; // diagnostic only
 
   debug_mutex_lock(&conn->ab_mutex, 30000, 1);
@@ -829,62 +829,52 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     }
     debug_mutex_unlock(&conn->flush_mutex, 3);
 
-    uint32_t flush_limit = 0;
     if (conn->ab_synced) {
-      do {
-        curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
-        if ((conn->ab_read != conn->ab_write) &&
-            (curframe->ready)) { // it could be synced and empty, under
-                                 // exceptional circumstances, with the
-                                 // frame unused, thus apparently ready
-
-          if (curframe->sequence_number != conn->ab_read) {
-            // some kind of sync problem has occurred.
-            if (BUFIDX(curframe->sequence_number) == BUFIDX(conn->ab_read)) {
-              // it looks like some kind of aliasing has happened
-              if (seq_order(conn->ab_read, curframe->sequence_number, conn->ab_read)) {
-                conn->ab_read = curframe->sequence_number;
-                debug(1, "Aliasing of buffer index -- reset.");
-              }
-            } else {
-              debug(1, "Inconsistent sequence numbers detected");
-            }
-          }
-
-          if ((conn->flush_rtp_timestamp != 0) &&
-              (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
-              (modulo_32_offset(curframe->given_timestamp, conn->flush_rtp_timestamp) <
-               conn->input_rate * 10)) { // if it's less than ten seconds
-            debug(2, "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
-                     ", flushing to "
-                     "timestamp: %" PRIu32 ".",
-                  curframe->sequence_number, curframe->given_timestamp, conn->flush_rtp_timestamp);
-            curframe->ready = 0;
-            curframe->resend_level = 0;
-            flush_limit += curframe->length;
-            conn->ab_read = SUCCESSOR(conn->ab_read);
-            conn->initial_reference_time = 0;
-            conn->initial_reference_timestamp = 0;
-          }
-          if ((conn->flush_rtp_timestamp != 0) &&
-              (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) >
-               conn->input_rate / 5) &&
-              (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) <
-               conn->input_rate * 10)) {
-            debug(2, "Dropping flush request in buffer_get_frame");
-            conn->flush_rtp_timestamp = 0;
-          }
-        }
-      } while ((conn->flush_rtp_timestamp != 0) && (flush_limit <= 8820) && (curframe->ready == 0));
-
-      if (flush_limit == 8820) {
-        debug(1, "Flush hit the 8820 frame limit!");
-        flush_limit = 0;
-      }
-
       curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
 
-      if (curframe->ready) {
+      if ((conn->ab_read != conn->ab_write) &&
+          (curframe->ready)) { // it could be synced and empty, under
+                               // exceptional circumstances, with the
+                               // frame unused, thus apparently ready
+
+        if (curframe->sequence_number != conn->ab_read) {
+          // some kind of sync problem has occurred.
+          if (BUFIDX(curframe->sequence_number) == BUFIDX(conn->ab_read)) {
+            // it looks like some kind of aliasing has happened
+            if (seq_order(conn->ab_read, curframe->sequence_number, conn->ab_read)) {
+              conn->ab_read = curframe->sequence_number;
+              debug(1, "Aliasing of buffer index -- reset.");
+            }
+          } else {
+            debug(1, "Inconsistent sequence numbers detected");
+          }
+        }
+
+        if ((conn->flush_rtp_timestamp != 0) &&
+            (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
+            (modulo_32_offset(curframe->given_timestamp, conn->flush_rtp_timestamp) <
+             conn->input_rate * 10)) { // if it's less than ten seconds
+          debug(2, "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
+                   ", flushing to "
+                   "timestamp: %" PRIu32 ".",
+                curframe->sequence_number, curframe->given_timestamp, conn->flush_rtp_timestamp);
+          curframe->ready = 0;
+          curframe->resend_level = 0;
+          curframe = NULL; // this will be returned and will cause the loop to go around again
+          conn->initial_reference_time = 0;
+          conn->initial_reference_timestamp = 0;
+        }
+        if ((conn->flush_rtp_timestamp != 0) &&
+            (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) >
+             conn->input_rate / 5) &&
+            (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) <
+             conn->input_rate * 10)) {
+          debug(2, "Dropping flush request in buffer_get_frame");
+          conn->flush_rtp_timestamp = 0;
+        }
+      }
+
+      if ((curframe) && (curframe->ready)) {
         notified_buffer_empty = 0; // at least one buffer now -- diagnostic only.
         if (conn->ab_buffering) {  // if we are getting packets but not yet forwarding them to the
                                    // player
@@ -1215,7 +1205,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       //      pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex, &time_of_wakeup);
       int rc = pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex,
                                       &time_of_wakeup); // this is a pthread cancellation point
-      if (rc != 0)
+      if ((rc != 0) && (rc != ETIMEDOUT))
         debug(3, "pthread_cond_timedwait returned error code %d.", rc);
 #endif
 #ifdef COMPILE_FOR_OSX
@@ -1230,15 +1220,16 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   } while (wait);
 
   // seq_t read = conn->ab_read;
-  if (!curframe->ready) {
-    // debug(1, "Supplying a silent frame for frame %u", read);
-    conn->missing_packets++;
-    curframe->given_timestamp = 0; // indicate a silent frame should be substituted
+  if (curframe) {
+    if (!curframe->ready) {
+      // debug(1, "Supplying a silent frame for frame %u", read);
+      conn->missing_packets++;
+      curframe->given_timestamp = 0; // indicate a silent frame should be substituted
+    }
+    curframe->ready = 0;
+    curframe->resend_level = 0;
   }
-  curframe->ready = 0;
-  curframe->resend_level = 0;
   conn->ab_read = SUCCESSOR(conn->ab_read);
-
   pthread_cleanup_pop(1);
   return curframe;
 }
@@ -1407,11 +1398,16 @@ typedef struct stats { // statistics for running averages
   int64_t sync_error, correction, drift;
 } stats_t;
 
-void player_thread_cleanup_handler(void *arg) {
-  debug(1, "player_thread_cleanup_handler called");
+void player_thread_initial_cleanup_handler(__attribute__((unused)) void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(3, "Connection %d: player thread main loop exit via player_thread_initial_cleanup_handler.",
+        conn->connection_number);
+}
 
-  debug(3, "Connection %d: player thread main loop exit.", conn->connection_number);
+void player_thread_cleanup_handler(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(3, "Connection %d: player thread main loop exit via player_thread_cleanup_handler.",
+        conn->connection_number);
 
   if (config.statistics_requested) {
     int rawSeconds = (int)difftime(time(NULL), conn->playstart);
@@ -1483,7 +1479,7 @@ void player_thread_cleanup_handler(void *arg) {
 
 void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-
+  // pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
   conn->packet_count = 0;
   conn->packet_count_since_flush = 0;
   conn->previous_random_number = 0;
@@ -1507,7 +1503,7 @@ void *player_thread_func(void *arg) {
                conn); // this sets up incoming rate, bit depth, channels.
                       // No pthread cancellation point in here
   // This must be after init_decoder
-  init_buffer(conn); // will need a corresponding deallocation
+  init_buffer(conn); // will need a corresponding deallocation. No cancellation points in here
 
   if (conn->stream.encrypted) {
 #ifdef CONFIG_MBEDTLS
@@ -1677,23 +1673,6 @@ void *player_thread_func(void *arg) {
   int sync_error_out_of_bounds =
       0; // number of times in a row that there's been a serious sync error
 
-// stop looking elsewhere for DACP stuff
-#ifdef CONFIG_DACP_CLIENT
-  // debug(1, "Set dacp server info");
-  // this does not have pthread cancellation points in it (assuming avahi doesn't)
-  set_dacp_server_information(conn); //  this will start scanning when a port is registered by the
-                                     // code initiated by the mdns_dacp_monitor
-#else
-  // this is only used for compatability, if dacp stuff isn't enabled.
-  // start an mdns/zeroconf thread to look for DACP messages containing our DACP_ID and getting the
-  // port number
-  if (conn->dapo_private_storage)
-    debug(1, "DACP monitor already initialised?");
-  else
-    // this does not have pthread cancellation points in it (assuming avahi doesn't)
-    conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id); // ??
-#endif
-
   conn->framesProcessedInThisEpoch = 0;
   conn->framesGeneratedInThisEpoch = 0;
   conn->correctionsRequestedInThisEpoch = 0;
@@ -1749,11 +1728,6 @@ void *player_thread_func(void *arg) {
     }
   }
 
-  // set the default volume to whaterver it was before, as stored in the config airplay_volume
-  debug(3, "Set initial volume to %f.", config.airplay_volume);
-  player_volume(config.airplay_volume, conn); // ??
-  int64_t frames_to_drop = 0;
-
   // create and start the timing, control and audio receiver threads
   pthread_create(&conn->rtp_audio_thread, NULL, &rtp_audio_receiver, (void *)conn);
   pthread_create(&conn->rtp_control_thread, NULL, &rtp_control_receiver, (void *)conn);
@@ -1761,9 +1735,33 @@ void *player_thread_func(void *arg) {
 
   pthread_cleanup_push(player_thread_cleanup_handler, arg); // undo what's been done so far
 
-  // debug(1, "Play begin");
+// stop looking elsewhere for DACP stuff
+
+#ifdef CONFIG_DACP_CLIENT
+  // debug(1, "Set dacp server info");
+  // may have pthread cancellation points in it -- beware
+  set_dacp_server_information(conn); //  this will start scanning when a port is registered by the
+                                     // code initiated by the mdns_dacp_monitor
+#else
+  // this is only used for compatability, if dacp stuff isn't enabled.
+  // start an mdns/zeroconf thread to look for DACP messages containing our DACP_ID and getting the
+  // port number
+  if (conn->dapo_private_storage)
+    debug(1, "DACP monitor already initialised?");
+  else
+    // almost certainly, this has pthread cancellation points in it -- beware
+    conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id);
+#endif
+
+  // set the default volume to whaterver it was before, as stored in the config airplay_volume
+  debug(2, "Set initial volume to %f.", config.airplay_volume);
+  player_volume(config.airplay_volume, conn); // will contain a cancellation point if asked to wait
+
+  debug(2, "Play begin");
   while (1) {
-    abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s)
+    pthread_testcancel();                     // allow a pthread_cancel request to take effect.
+    abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not
+                                              // guaranteed that they'll aways be executed
     if (inframe) {
       inbuf = inframe->data;
       inbuflength = inframe->length;
@@ -1811,19 +1809,6 @@ void *player_thread_func(void *arg) {
             config.output->play(silence, conn->max_frames_per_packet * conn->output_sample_ratio);
             free(silence);
           }
-        } else if (frames_to_drop) {
-          /*
-          if (frames_to_drop > 3 * config.output_rate) {
-            warn("Shome mhistake shurely: very large number of frames to drop: %" PRId64
-                 " -- setting it to %" PRId64 ".",
-                 frames_to_drop, 3 * config.output_rate);
-            frames_to_drop = 3 * config.output_rate;
-          }
-          */
-          debug(3, "%" PRId64 " frames to drop.", frames_to_drop);
-          frames_to_drop -= inframe->length;
-          if (frames_to_drop < 0)
-            frames_to_drop = 0;
         } else {
           int enable_dither = 0;
           if ((conn->fix_volume != 0x10000) || (conn->input_bit_depth > output_bit_depth) ||
@@ -2069,8 +2054,9 @@ void *player_thread_func(void *arg) {
                   (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
                 debug(2, "Large positive sync error: %" PRId64 ".", sync_error);
-                frames_to_drop = sync_error / conn->output_sample_ratio;
-                reset_input_flow_metrics(conn);
+                int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
+                uint32_t frames_to_drop_sized = local_frames_to_drop;
+                do_flush(inframe->given_timestamp + frames_to_drop_sized, conn);
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
                 debug(2,
                       "Large negative sync error: %" PRId64 " with should_be_frame_32 of %" PRIu32
@@ -2480,7 +2466,9 @@ void *player_thread_func(void *arg) {
   }
 
   debug(1, "This should never be called.");
-  pthread_cleanup_pop(1);
+  pthread_cleanup_pop(1); // pop the cleanup handler
+//  debug(1, "This should never be called either.");
+//  pthread_cleanup_pop(1); // pop the initial cleanup handler
   pthread_exit(NULL);
 }
 
@@ -2731,7 +2719,12 @@ void do_flush(uint32_t timestamp, rtsp_conn_info *conn) {
   // conn->play_segment_reference_frame = 0;
   reset_input_flow_metrics(conn);
   debug_mutex_unlock(&conn->flush_mutex, 3);
+  debug(3, "Flush request made.");
+}
 
+void player_flush(uint32_t timestamp, rtsp_conn_info *conn) {
+  debug(3, "player_flush");
+  do_flush(timestamp, conn);
 #ifdef CONFIG_METADATA
   // only send a flush metadata message if the first packet has been seen -- it's a bogus message
   // otherwise
@@ -2740,13 +2733,6 @@ void do_flush(uint32_t timestamp, rtsp_conn_info *conn) {
     send_ssnc_metadata('pfls', NULL, 0, 1); // contains cancellation points
   }
 #endif
-
-  debug(3, "Flush request made.");
-}
-
-void player_flush(uint32_t timestamp, rtsp_conn_info *conn) {
-  debug(3, "player_flush");
-  do_flush(timestamp, conn);
 }
 
 int player_play(rtsp_conn_info *conn) {
@@ -2757,10 +2743,6 @@ int player_play(rtsp_conn_info *conn) {
     die("specified buffer starting fill %d > buffer size %d", config.buffer_start_fill,
         BUFFER_FRAMES);
   command_start();
-#ifdef CONFIG_METADATA
-  debug(2, "pbeg");
-  send_ssnc_metadata('pbeg', NULL, 0, 1); // contains cancellation points
-#endif
   pthread_t *pt = malloc(sizeof(pthread_t));
   if (pt == NULL)
     die("Couldn't allocate space for pthread_t");
@@ -2772,13 +2754,21 @@ int player_play(rtsp_conn_info *conn) {
   if (rc)
     debug(1, "Error setting stack size for player_thread: %s", strerror(errno));
   // finished initialising.
-  pthread_create(pt, &tattr, player_thread_func, (void *)conn);
+  rc = pthread_create(pt, &tattr, player_thread_func, (void *)conn);
+  if (rc)
+    debug(1, "Error creating player_thread: %s", strerror(errno));
   pthread_attr_destroy(&tattr);
+#ifdef CONFIG_METADATA
+  debug(2, "pbeg");
+  send_ssnc_metadata('pbeg', NULL, 0, 1); // contains cancellation points
+#endif
   return 0;
 }
 
 int player_stop(rtsp_conn_info *conn) {
   // note -- this may be called from another connection thread.
+  int dl = debuglev;
+  debuglev = 3;
   debug(3, "player_stop");
   if (conn->player_thread) {
     debug(2, "player_thread cancel...");
@@ -2792,10 +2782,12 @@ int player_stop(rtsp_conn_info *conn) {
     debug(2, "pend");
     send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
+    debuglev = dl;
     command_stop();
     return 0;
   } else {
     debug(3, "Connection %d: player thread already deleted.", conn->connection_number);
+    debuglev = dl;
     return -1;
   }
 }

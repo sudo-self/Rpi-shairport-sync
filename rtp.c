@@ -104,6 +104,7 @@ void rtp_audio_receiver_cleanup_handler(void *arg) {
   shutdown(conn->audio_socket, SHUT_RDWR);
   debug(1, "close audio socket.");
   close(conn->audio_socket);
+  
   debug(3, "Audio Receiver Cleanup Successful.");
 }
 
@@ -621,13 +622,14 @@ void *rtp_timing_receiver(void *arg) {
 
             distant_transmit_time = (uint64_t)nctohl(&packet[24]) << 32;
             distant_transmit_time += nctohl(&packet[28]);
-            
+
             uint64_t remote_processing_time = 0;
-            
+
             if (distant_transmit_time >= distant_receive_time)
-            	remote_processing_time = distant_transmit_time - distant_receive_time;
+              remote_processing_time = distant_transmit_time - distant_receive_time;
             else {
-            	debug(1, "Yikes: distant_transmit_time is before distant_receive_time; remote processing time set to zero.");
+              debug(1, "Yikes: distant_transmit_time is before distant_receive_time; remote "
+                       "processing time set to zero.");
             }
             // debug(1,"Return trip time: %" PRIu64 " uS, remote processing time: %" PRIu64 "
             // uS.",(return_time*1000000)>>32,(remote_processing_time*1000000)>>32);
