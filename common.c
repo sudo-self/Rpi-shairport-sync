@@ -100,8 +100,7 @@ void resetFreeUDPPort() {
 	UDPPortIndex = 0;
 }
 
-uint16_t nextFreeUDPPort() {
-	
+uint16_t nextFreeUDPPort() {	
 	if (UDPPortIndex == 0)
 		UDPPortIndex = config.udp_port_base;
 	else if (UDPPortIndex == (config.udp_port_base + config.udp_port_range - 1))
@@ -190,10 +189,6 @@ void debug(int level, const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-  int currentState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &currentState);
-  if (currentState == PTHREAD_CANCEL_ENABLE)
-    daemon_log(LOG_DEBUG, "Warning -- cancellation is enabled before logging");
   if ((config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
     daemon_log(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
   else if (config.debugger_show_relative_time)
@@ -202,9 +197,6 @@ void debug(int level, const char *format, ...) {
     daemon_log(LOG_DEBUG, "% 20.9f|%s", tss, s);
   else
     daemon_log(LOG_DEBUG, "%s", s);
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &currentState);
-  if (currentState == PTHREAD_CANCEL_ENABLE)
-    daemon_log(LOG_DEBUG, "Warning -- cancellation is enabled after logging");
   pthread_setcancelstate(oldState, NULL);
 }
 
