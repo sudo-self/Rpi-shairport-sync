@@ -543,7 +543,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
         continue;
       char errorstring[1024];
       strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-      debug(1, "rtsp_read_request_response_read_error %d: \"%s\".", errno, (char *)errorstring);
+      debug(1, "Connection %d: rtsp_read_request_response_read_error %d: \"%s\".", conn->connection_number, errno, (char *)errorstring);
       reply = rtsp_read_request_response_read_error;
       goto shutdown;
     }
@@ -2106,7 +2106,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         }
         if (method_selected == 0) {
-          debug(1, "Connection %d: Unrecognised and unhandled rtsp request \"%s\".",
+          debug(3, "Connection %d: Unrecognised and unhandled rtsp request \"%s\".",
                 conn->connection_number, req->method);
 
           int y = req->contentlength;
@@ -2123,7 +2123,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
               obfp += 2;
             };
             *obfp = 0;
-            debug(1, "Content: \"%s\".", obf);
+            debug(3, "Content: \"%s\".", obf);
           }
         }
       }

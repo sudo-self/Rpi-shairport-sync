@@ -954,7 +954,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                 uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
                 lateness = (lateness * 1000000) >> 32; // microseconds
                 debug(
-                    1,
+                    3,
                     "First packet is %" PRIu64 " microseconds late! Flushing 0.5 seconds",lateness);
                 do_flush(conn->first_packet_timestamp + 5 * 4410,
                              conn);
@@ -988,7 +988,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             if (local_time_now > conn->first_packet_time_to_play) {
               uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
               lateness = (lateness * 1000000) >> 32; // microseconds
-              debug(1,"Gone past starting time by %" PRIu64 " microseconds.", lateness);
+              debug(3,"Gone past starting time by %" PRIu64 " microseconds.", lateness);
               have_sent_prefiller_silence = 1;
               conn->ab_buffering = 0;
 
@@ -1642,11 +1642,11 @@ void *player_thread_func(void *arg) {
   debug(3, "Output bit depth is %d.", output_bit_depth);
 
   if (conn->input_bit_depth > output_bit_depth) {
-    debug(1, "Dithering will be enabled because the input bit depth is greater than the output bit "
+    debug(3, "Dithering will be enabled because the input bit depth is greater than the output bit "
              "depth");
   }
   if (conn->fix_volume != 0x10000) {
-    debug(1, "Dithering will be enabled because the output volume is being altered in software");
+    debug(3, "Dithering will be enabled because the output volume is being altered in software");
   }
 
   // we need an intermediate "transition" buffer
