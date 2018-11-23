@@ -129,11 +129,8 @@ void *rtp_audio_receiver(void *arg) {
   ssize_t nread;
   while (1) {
     nread = recv(conn->audio_socket, packet, sizeof(packet), 0);
-    
+
     frame_count++;
-    if (frame_count<10)
-      debug(1,"Recv'ed %d bytes. First two bytes are %02X,%02X ",nread,packet[0],packet[1]);
-   else {
 
     uint64_t local_time_now_fp = get_absolute_time_in_fp();
     if (time_of_previous_packet_fp) {
@@ -200,8 +197,8 @@ void *rtp_audio_receiver(void *arg) {
 
         uint32_t actual_timestamp = ntohl(*(uint32_t *)(pktp + 4));
         
-        uint32_t ssid = ntohl(*(uint32_t *)(pktp + 8));
-        debug(1, "Audio packet SSID: %08X,%u", ssid,ssid);
+        // uint32_t ssid = ntohl(*(uint32_t *)(pktp + 8));
+        // debug(1, "Audio packet SSID: %08X,%u", ssid,ssid);
 
         // if (packet[1]&0x10)
         //	debug(1,"Audio packet Extension bit set.");
@@ -228,7 +225,6 @@ void *rtp_audio_receiver(void *arg) {
       warn("Audio receiver -- Unknown RTP packet of type 0x%02X length %d.", type, nread);
     } else {
       debug(1, "Error receiving an audio packet.");
-    }
     }
   }
 
@@ -605,10 +601,10 @@ void *rtp_timing_receiver(void *arg) {
           (drand48() > config.diagnostic_drop_packet_fraction)) {
         arrival_time = get_absolute_time_in_fp();
 
-        ssize_t plen = nread;
+        // ssize_t plen = nread;
         // debug(1,"Packet Received on Timing Port.");
         if (packet[1] == 0xd3) { // timing reply
-          
+          /*
           char obf[4096];
           char *obfp = obf;
           int obfc;
@@ -618,7 +614,7 @@ void *rtp_timing_receiver(void *arg) {
           };
           *obfp=0;
           debug(1,"Timing Packet Received: \"%s\"",obf);
-          
+          */
 
           // arrival_time = ((uint64_t)att.tv_sec<<32)+((uint64_t)att.tv_nsec<<32)/1000000000;
           // departure_time = ((uint64_t)dtt.tv_sec<<32)+((uint64_t)dtt.tv_nsec<<32)/1000000000;
@@ -855,14 +851,17 @@ void *rtp_timing_receiver(void *arg) {
 static uint16_t bind_port(int ip_family, const char *self_ip_address, uint32_t scope_id,
                           int *sock) {
   // look for a port in the range, if any was specified.
-  uint16_t desired_port = config.udp_port_base;
   int ret = 0;
 
   int local_socket = socket(ip_family, SOCK_DGRAM, IPPROTO_UDP);
   if (local_socket == -1)
     die("Could not allocate a socket.");
   SOCKADDR myaddr;
+  int tryCount = 0;
+  uint16_t desired_port;
   do {
+  	tryCount++;
+	  desired_port = nextFreeUDPPort();
     memset(&myaddr, 0, sizeof(myaddr));
     if (ip_family == AF_INET) {
       struct sockaddr_in *sa = (struct sockaddr_in *)&myaddr;
@@ -883,13 +882,13 @@ static uint16_t bind_port(int ip_family, const char *self_ip_address, uint32_t s
 #endif
 
   } while ((ret < 0) && (errno == EADDRINUSE) && (desired_port != 0) &&
-           (++desired_port < config.udp_port_base + config.udp_port_range));
+           (tryCount < config.udp_port_range));
 
   // debug(1,"UDP port chosen: %d.",desired_port);
 
   if (ret < 0) {
     close(local_socket);
-    die("error: could not bind a UDP port! Check the udp_port_range is large enough (>= 10) or "
+    die("error: could not bind a UDP port! Check the udp_port_range is large enough -- it must be at least 3, and 10 or more is suggested -- or "
         "check for restrictive firewall settings or a bad router!");
   }
 

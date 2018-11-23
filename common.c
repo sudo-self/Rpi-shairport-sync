@@ -94,6 +94,23 @@ volatile int debuglev = 0;
 
 sigset_t pselect_sigset;
 
+static uint16_t UDPPortIndex = 0;
+
+void resetFreeUDPPort() {
+	UDPPortIndex = 0;
+}
+
+uint16_t nextFreeUDPPort() {
+	
+	if (UDPPortIndex == 0)
+		UDPPortIndex = config.udp_port_base;
+	else if (UDPPortIndex == (config.udp_port_base + config.udp_port_range))
+		UDPPortIndex = config.udp_port_base;
+	else
+		UDPPortIndex++;
+	return UDPPortIndex;
+}
+
 int get_requested_connection_state_to_output() { return requested_connection_state_to_output; }
 
 void set_requested_connection_state_to_output(int v) { requested_connection_state_to_output = v; }

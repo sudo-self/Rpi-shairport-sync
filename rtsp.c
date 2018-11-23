@@ -459,7 +459,7 @@ int msg_handle_line(rtsp_message **pmsg, char *line) {
     char *sp, *p;
     sp = NULL; // this is to quieten a compiler warning
 
-    debug(1, "received request: %s", line);
+    debug(3, "RTSP Message Received: \"%s\".", line);
 
     p = strtok_r(line, " ", &sp);
     if (!p)
@@ -1525,7 +1525,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
   
   
   int have_the_player = 0;
-  int should_wait = 0;
+  int should_wait = 0; // this will be true if you're trying to break in to the current session
   
   // try to become the current playing_conn
   
@@ -1568,7 +1568,6 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 
     if (have_the_player == 1) {
       debug(1, "Connection %d: ANNOUNCE got the player", conn->connection_number);
-      usleep(2000000); // this is just to let everything settle a bit
     } else {
       debug(1, "Connection %d: ANNOUNCE failed to get the player", conn->connection_number);
     }
@@ -1577,17 +1576,25 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
   if (have_the_player) {
     debug(3, "RTSP conversation thread %d has acquired play lock.", conn->connection_number);
     
+    // now, if this new session did not break in, then it's okay to reset the next UDP ports
+    // to the start of the range
+    
+    if (should_wait == 0) { // will be zero if it didn't need to wait to break in
+    	resetFreeUDPPort();
+    }
+    
+    /*
     {
       char *cp = req->content;
       int cp_left = req->contentlength;
       while (cp_left > 1) {
         if (strlen(cp) != 0)
-          warn("    %s", cp);
+          debug(1,">>>>>> %s", cp);
         cp += strlen(cp) + 1;
         cp_left -= strlen(cp) + 1;
       }
     }
-
+*/
     
     
     resp->respcode = 456; // 456 - Header Field Not Valid for Resource
@@ -1637,7 +1644,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     
     if (pssid) {
       uint32_t ssid = uatoi(pssid);
-      debug(1, "Synchronisation Source Identifier: %08X,%u", ssid,ssid);
+      debug(3, "Synchronisation Source Identifier: %08X,%u", ssid,ssid);
     }    
 
     if (pminlatency) {
@@ -1992,7 +1999,6 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     // debug(1, "Connection %d: closing fd %d.",
     //    conn->connection_number,conn->fd);
     close(conn->fd);
-    usleep(1000000);
   }
   if (conn->auth_nonce) {
     free(conn->auth_nonce);
@@ -2019,7 +2025,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
 
   debug_mutex_lock(&playing_conn_lock, 1000000 , 3); //get it
   if (playing_conn == conn) {
-    debug(1, "Connection %d: Unlocking play lock.", conn->connection_number);
+    debug(3, "Connection %d: Unlocking play lock.", conn->connection_number);
     playing_conn = NULL;
   }
   debug_mutex_unlock(&playing_conn_lock, 3);

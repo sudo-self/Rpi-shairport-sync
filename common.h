@@ -243,6 +243,17 @@ void r64arrayinit();
 uint64_t ranarray64u();
 int64_t ranarray64i();
 
+// if you are breaking in to a session, you need to avoid the ports of the current session
+// if you are law-abiding, then you can reuse the ports.
+// so, you can reset the free UDP ports minder when you're legit, and leave it otherwise
+
+// the downside of using different ports each time is that it might make the firewall
+// rules a bit more complex, as they need to allow more than the minimum three ports.
+// a range of 10 is suggested anyway
+
+void resetFreeUDPPort();
+uint16_t nextFreeUDPPort();
+
 volatile int debuglev;
 void die(const char *format, ...);
 void warn(const char *format, ...);

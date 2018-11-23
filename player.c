@@ -457,7 +457,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
     if ((conn->flush_rtp_timestamp != 0) && (actual_timestamp != conn->flush_rtp_timestamp) &&
         (modulo_32_offset(actual_timestamp, conn->flush_rtp_timestamp) <
          conn->input_rate * 10)) { // if it's less than 10 seconds
-      debug(2, "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRIu32
+      debug(3, "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRIu32
                ", flushing to "
                "timestamp: %" PRIu32 ".",
             seqno, actual_timestamp, conn->flush_rtp_timestamp);
@@ -859,7 +859,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
             (modulo_32_offset(curframe->given_timestamp, conn->flush_rtp_timestamp) <
              conn->input_rate * 10)) { // if it's less than ten seconds
-          debug(2, "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
+          debug(3, "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
                    ", flushing to "
                    "timestamp: %" PRIu32 ".",
                 curframe->sequence_number, curframe->given_timestamp, conn->flush_rtp_timestamp);
@@ -874,7 +874,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
              conn->input_rate / 5) &&
             (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) <
              conn->input_rate * 10)) {
-          debug(2, "Dropping flush request in buffer_get_frame");
+          debug(3, "Dropping flush request in buffer_get_frame");
           conn->flush_rtp_timestamp = 0;
         }
       }
