@@ -89,7 +89,9 @@ enum rtsp_read_request_response {
 };
 
 // Mike Brady's part...
-static pthread_mutex_t play_lock = PTHREAD_MUTEX_INITIALIZER;
+
+// always lock use this when accessing the playing conn value
+static pthread_mutex_t playing_conn_lock = PTHREAD_MUTEX_INITIALIZER;
 
 // every time we want to retain or release a reference count, lock it with this
 // if a reference count is read as zero, it means the it's being deallocated.
@@ -279,8 +281,6 @@ void cancel_all_RTSP_threads(void) {
   for (i = 0; i < nconns; i++) {
     debug(1, "Connection %d: joining.", conns[i]->connection_number);
     pthread_join(conns[i]->thread, NULL);
-    if (conns[i] == playing_conn)
-      playing_conn = NULL;
     free(conns[i]);
   }
 }
@@ -295,8 +295,6 @@ void cleanup_threads(void) {
             conns[i]->connection_number);
       pthread_join(conns[i]->thread, &retval);
       debug(3, "RTSP connection thread %d deleted...", conns[i]->connection_number);
-      if (conns[i] == playing_conn)
-        playing_conn = NULL;
       free(conns[i]);
       nconns--;
       if (nconns)
@@ -461,7 +459,7 @@ int msg_handle_line(rtsp_message **pmsg, char *line) {
     char *sp, *p;
     sp = NULL; // this is to quieten a compiler warning
 
-    // debug(1, "received request: %s", line);
+    debug(1, "received request: %s", line);
 
     p = strtok_r(line, " ", &sp);
     if (!p)
@@ -898,8 +896,9 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 error:
   warn("Connection %d: SETUP -- Error in setup request -- unlocking play lock.",
        conn->connection_number);
-  playing_conn = NULL;
-  pthread_mutex_unlock(&play_lock);
+  debug_mutex_lock(&playing_conn_lock, 1000000 , 3);
+  playing_conn = NULL; // this connection definitely doesn't have the play lock
+  debug_mutex_unlock(&playing_conn_lock, 3);
   resp->respcode = 451; // invalid arguments
 }
 
@@ -1523,62 +1522,76 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
 
 static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(2, "Connection %d: ANNOUNCE", conn->connection_number);
+  
+  
   int have_the_player = 0;
-
-  // interrupt session if permitted
-  if (pthread_mutex_trylock(&play_lock) == 0) {
+  int should_wait = 0;
+  
+  // try to become the current playing_conn
+  
+  debug_mutex_lock(&playing_conn_lock, 1000000 , 3); //get it
+  
+  if (playing_conn == NULL) {
+    playing_conn = conn;
     have_the_player = 1;
-  } else if ((playing_conn) &&
-             (playing_conn->connection_number == conn->connection_number)) { // duplicate ANNOUNCE
-    warn("Duplicate ANNOUNCE, by the look of it!");
-    have_the_player = 1;
-  } else {
-    int should_wait = 0;
-
-    if (!playing_conn)
-      die("Non existent playing_conn with play_lock enabled.");
-    debug(1, "Connection %d: ANNOUNCE: already playing when checked by connection %d.",
-          playing_conn->connection_number, conn->connection_number);
-    if (playing_conn->stop) {
-      debug(1, "Connetion %d: ANNOUNCE: already shutting down; waiting for it...",playing_conn->connection_number);
+  } else if (playing_conn == conn) {
+      have_the_player = 1;
+      warn("Duplicate ANNOUNCE, by the look of it!");
+  } else if (playing_conn->stop) {
+      debug(1, "Connection %d: ANNOUNCE: already shutting down; waiting for it...",playing_conn->connection_number);
       should_wait = 1;
-    } else if (config.allow_session_interruption == 1) {
-      // some thread has the player ... ask it to relinquish the thread
-      debug(1, "Connection %d: ANNOUNCE: asking playing connection %d to shut down.",
+  } else if (config.allow_session_interruption == 1) {
+    debug(1, "Connection %d: ANNOUNCE: asking playing connection %d to shut down.",
             conn->connection_number, playing_conn->connection_number);
-      if (playing_conn == conn) {
-        debug(1, "Connection %d: ANNOUNCE: asking to stop itself! Nothing done.",conn->connection_number);
-      } else {
-        player_stop(playing_conn);
-        playing_conn->stop = 1;
-        pthread_cancel(playing_conn->thread); // asking the RTSP thread to exit
-        should_wait = 1;
-      }
-    }
+    playing_conn->stop = 1;
+    pthread_cancel(playing_conn->thread); // asking the RTSP thread to exit
+    should_wait = 1;    
+  } 
+  debug_mutex_unlock(&playing_conn_lock, 3);
 
-    if (should_wait) {
-      useconds_t time_remaining = 3000000;
+  if (should_wait) {
+    useconds_t time_remaining = 3000000;
       
-      while ((time_remaining > 0) && (have_the_player == 0)) {
-        if (pthread_mutex_trylock(&play_lock) == 0)
-          have_the_player = 1;
-        else {
+    while ((time_remaining > 0) && (have_the_player == 0)) {
+      debug_mutex_lock(&playing_conn_lock, 1000000 , 3); //get it
+      if (playing_conn == NULL) {
+        playing_conn = conn;
+        have_the_player = 1;
+      }
+      debug_mutex_unlock(&playing_conn_lock, 3);
+
+      if (have_the_player == 0) {
           usleep(100000);
           time_remaining -= 100000;
         }
       }
-      if (have_the_player == 1) {
-        debug(1, "Connection %d: ANNOUNCE got the player", conn->connection_number);
-        usleep(1000000); // this is just to let everything settle a bit
-      } else
-        debug(1, "Connection %d: ANNOUNCE failed to get the player", conn->connection_number);
+
+    if (have_the_player == 1) {
+      debug(1, "Connection %d: ANNOUNCE got the player", conn->connection_number);
+      usleep(2000000); // this is just to let everything settle a bit
+    } else {
+      debug(1, "Connection %d: ANNOUNCE failed to get the player", conn->connection_number);
     }
   }
 
   if (have_the_player) {
-    playing_conn = conn; // the present connection is now playing
     debug(3, "RTSP conversation thread %d has acquired play lock.", conn->connection_number);
+    
+    {
+      char *cp = req->content;
+      int cp_left = req->contentlength;
+      while (cp_left > 1) {
+        if (strlen(cp) != 0)
+          warn("    %s", cp);
+        cp += strlen(cp) + 1;
+        cp_left -= strlen(cp) + 1;
+      }
+    }
+
+    
+    
     resp->respcode = 456; // 456 - Header Field Not Valid for Resource
+    char *pssid = NULL;
     char *paesiv = NULL;
     char *prsaaeskey = NULL;
     char *pfmtp = NULL;
@@ -1601,6 +1614,9 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
         goto out;
       }
 
+      if (!strncmp(cp, "o=iTunes", 7))
+        pssid = cp + 8;
+
       if (!strncmp(cp, "a=fmtp:", 7))
         pfmtp = cp + 7;
 
@@ -1618,6 +1634,11 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 
       cp = next;
     }
+    
+    if (pssid) {
+      uint32_t ssid = uatoi(pssid);
+      debug(1, "Synchronisation Source Identifier: %08X,%u", ssid,ssid);
+    }    
 
     if (pminlatency) {
       conn->minimum_latency = atoi(pminlatency);
@@ -1719,10 +1740,11 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 
 out:
   if (resp->respcode != 200 && resp->respcode != 453) {
-    debug(1, "Error in handling ANNOUNCE on conversation thread %d. Unlocking the play lock.",
+    debug(1, "Connection %d: Error in handling ANNOUNCE. Unlocking the play lock.",
           conn->connection_number);
+    debug_mutex_lock(&playing_conn_lock, 1000000 , 3); //get it
     playing_conn = NULL;
-    pthread_mutex_unlock(&play_lock);
+    debug_mutex_unlock(&playing_conn_lock, 3);
   }
 }
 
@@ -1970,25 +1992,18 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     // debug(1, "Connection %d: closing fd %d.",
     //    conn->connection_number,conn->fd);
     close(conn->fd);
+    usleep(1000000);
   }
   if (conn->auth_nonce) {
     free(conn->auth_nonce);
     conn->auth_nonce = NULL;
   }
   rtp_terminate(conn);
-  if (playing_conn == conn) {
-    debug(3, "Connection %d: Unlocking play lock.", conn->connection_number);
-    playing_conn = NULL;
-    pthread_mutex_unlock(&play_lock);
-  }
-
+  
   if (conn->dacp_id) {
     free(conn->dacp_id);
     conn->dacp_id = NULL;
   }
-
-  debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
-  conn->running = 0;
 
   // remove flow control and mutexes
   int rc = pthread_cond_destroy(&conn->flowcontrol);
@@ -2001,6 +2016,16 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   rc = pthread_mutex_destroy(&conn->flush_mutex);
   if (rc)
     debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
+
+  debug_mutex_lock(&playing_conn_lock, 1000000 , 3); //get it
+  if (playing_conn == conn) {
+    debug(1, "Connection %d: Unlocking play lock.", conn->connection_number);
+    playing_conn = NULL;
+  }
+  debug_mutex_unlock(&playing_conn_lock, 3);
+
+  debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
+  conn->running = 0;
 }
 
 void msg_cleanup_function(void *arg) {
@@ -2109,6 +2134,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
           debug(1, "Connection %d: Unable to write an RTSP message response. Terminating the connection.", conn->connection_number);
+          if (debuglev != 0)
+            debuglev = 3; // see what happens next
           conn->stop = 1;
         }
       }
@@ -2122,9 +2149,11 @@ static void *rtsp_conversation_thread_func(void *pconn) {
                (reply == rtsp_read_request_response_read_error)) {
         if (conn->player_thread) {
           rtsp_read_request_attempt_count--;
-          if (rtsp_read_request_attempt_count == 0)
+          if (rtsp_read_request_attempt_count == 0) {
             tstop = 1;
-          else {
+            if ((reply == rtsp_read_request_response_read_error) && (debuglev != 0))
+              debuglev = 3; // see what happens next
+          } else {
             if (reply == rtsp_read_request_response_channel_closed)
               debug(2, "Connection %d: RTSP channel unexpectedly closed -- will try again %d time(s).",
                     conn->connection_number, rtsp_read_request_attempt_count);

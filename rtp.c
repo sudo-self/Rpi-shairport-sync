@@ -58,7 +58,7 @@ void rtp_initialise(rtsp_conn_info *conn) {
 }
 
 void rtp_terminate(rtsp_conn_info *conn) {
-
+  conn->reference_timestamp = 0;
   // destroy the timer mutex
   int rc = pthread_mutex_destroy(&conn->reference_time_mutex);
   if (rc)
@@ -125,9 +125,15 @@ void *rtp_audio_receiver(void *arg) {
   float stat_mean = 0.0;
   float stat_M2 = 0.0;
 
+  int frame_count = 0;
   ssize_t nread;
   while (1) {
     nread = recv(conn->audio_socket, packet, sizeof(packet), 0);
+    
+    frame_count++;
+    if (frame_count<10)
+      debug(1,"Recv'ed %d bytes. First two bytes are %02X,%02X ",nread,packet[0],packet[1]);
+   else {
 
     uint64_t local_time_now_fp = get_absolute_time_in_fp();
     if (time_of_previous_packet_fp) {
@@ -167,6 +173,19 @@ void *rtp_audio_receiver(void *arg) {
         // increment last_seqno and see if it's the same as the incoming seqno
 
         if (type == 0x60) { // regular audio data
+        
+          /*      
+          char obf[4096];
+          char *obfp = obf;
+          int obfc;
+          for (obfc=0;obfc<plen;obfc++) {
+            snprintf(obfp, 3, "%02X", pktp[obfc]);
+            obfp+=2;
+          };
+          *obfp=0;
+          debug(1,"Audio Packet Received: \"%s\"",obf);
+          */        
+        
           if (last_seqno == -1)
             last_seqno = seqno;
           else {
@@ -180,6 +199,9 @@ void *rtp_audio_receiver(void *arg) {
         }
 
         uint32_t actual_timestamp = ntohl(*(uint32_t *)(pktp + 4));
+        
+        uint32_t ssid = ntohl(*(uint32_t *)(pktp + 8));
+        debug(1, "Audio packet SSID: %08X,%u", ssid,ssid);
 
         // if (packet[1]&0x10)
         //	debug(1,"Audio packet Extension bit set.");
@@ -206,6 +228,7 @@ void *rtp_audio_receiver(void *arg) {
       warn("Audio receiver -- Unknown RTP packet of type 0x%02X length %d.", type, nread);
     } else {
       debug(1, "Error receiving an audio packet.");
+    }
     }
   }
 
@@ -284,16 +307,13 @@ void *rtp_control_receiver(void *arg) {
                                              
                                                               // Best guess is that this delay is 11,025 frames.
                                              
-                                                              // uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
-                                                              // uint32_t rt = nctohl(&packet[16]);  // raw timestamp
+                                                              uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
+                                                              uint32_t rt = nctohl(&packet[16]);  // raw timestamp
                                              
-                                                              // uint32_t fl = nctohs(&packet[2]); //
+                                                              uint32_t fl = nctohs(&packet[2]); //
                                              
-                                                              // debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and
-                                                         %u,
-                                                         giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
-                                                              // debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
-                                                         respectively.",monotonic_timestamp(rt, conn),monotonic_timestamp(rtlt, conn));
+                                                              debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u, giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
+                                                              //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 " respectively.",monotonic_timestamp(rt, conn),monotonic_timestamp(rtlt, conn));
                                                             }
                                                        */
           if (conn->local_to_remote_time_difference) { // need a time packet to be interchanged
@@ -585,10 +605,10 @@ void *rtp_timing_receiver(void *arg) {
           (drand48() > config.diagnostic_drop_packet_fraction)) {
         arrival_time = get_absolute_time_in_fp();
 
-        // ssize_t plen = nread;
+        ssize_t plen = nread;
         // debug(1,"Packet Received on Timing Port.");
         if (packet[1] == 0xd3) { // timing reply
-          /*
+          
           char obf[4096];
           char *obfp = obf;
           int obfc;
@@ -597,8 +617,8 @@ void *rtp_timing_receiver(void *arg) {
             obfp+=2;
           };
           *obfp=0;
-          //debug(1,"Timing Packet Received: \"%s\"",obf);
-          */
+          debug(1,"Timing Packet Received: \"%s\"",obf);
+          
 
           // arrival_time = ((uint64_t)att.tv_sec<<32)+((uint64_t)att.tv_nsec<<32)/1000000000;
           // departure_time = ((uint64_t)dtt.tv_sec<<32)+((uint64_t)dtt.tv_nsec<<32)/1000000000;

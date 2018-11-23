@@ -489,7 +489,8 @@ static int init(int argc, char **argv) {
       }
       close_mixer();
     }
-    pthread_cleanup_pop(1); // release the mutex
+    debug_mutex_unlock(&alsa_mutex, 3); // release the mutex
+    pthread_cleanup_pop(0);
   } else {
     // debug(1, "Has no mixer and thus no hardware mute.");
   }
