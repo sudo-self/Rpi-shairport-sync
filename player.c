@@ -2776,8 +2776,8 @@ int player_play(rtsp_conn_info *conn) {
 
 int player_stop(rtsp_conn_info *conn) {
   // note -- this may be called from another connection thread.
-  int dl = debuglev;
-  debuglev = 3;
+  //int dl = debuglev;
+  // debuglev = 3;
   debug(3, "player_stop");
   if (conn->player_thread) {
     debug(2, "player_thread cancel...");
@@ -2791,12 +2791,12 @@ int player_stop(rtsp_conn_info *conn) {
     debug(2, "pend");
     send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
-    debuglev = dl;
+    // debuglev = dl;
     command_stop();
     return 0;
   } else {
     debug(3, "Connection %d: player thread already deleted.", conn->connection_number);
-    debuglev = dl;
+    // debuglev = dl;
     return -1;
   }
 }

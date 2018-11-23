@@ -2140,8 +2140,6 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
           debug(1, "Connection %d: Unable to write an RTSP message response. Terminating the connection.", conn->connection_number);
-          if (debuglev != 0)
-            debuglev = 3; // see what happens next
           conn->stop = 1;
         }
       }
@@ -2157,8 +2155,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           rtsp_read_request_attempt_count--;
           if (rtsp_read_request_attempt_count == 0) {
             tstop = 1;
-            if ((reply == rtsp_read_request_response_read_error) && (debuglev != 0))
-              debuglev = 3; // see what happens next
+            // if ((reply == rtsp_read_request_response_read_error) && (debuglev != 0))
+            // debuglev = 3; // see what happens next
           } else {
             if (reply == rtsp_read_request_response_channel_closed)
               debug(2, "Connection %d: RTSP channel unexpectedly closed -- will try again %d time(s).",
