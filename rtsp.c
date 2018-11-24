@@ -1526,6 +1526,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
   
   int have_the_player = 0;
   int should_wait = 0; // this will be true if you're trying to break in to the current session
+  int interrupting_current_session = 0;
   
   // try to become the current playing_conn
   
@@ -1538,14 +1539,15 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
       have_the_player = 1;
       warn("Duplicate ANNOUNCE, by the look of it!");
   } else if (playing_conn->stop) {
-      debug(1, "Connection %d: ANNOUNCE: already shutting down; waiting for it...",playing_conn->connection_number);
+      debug(2, "Connection %d: ANNOUNCE: already shutting down; waiting for it...",playing_conn->connection_number);
       should_wait = 1;
   } else if (config.allow_session_interruption == 1) {
-    debug(1, "Connection %d: ANNOUNCE: asking playing connection %d to shut down.",
+    debug(2, "Connection %d: ANNOUNCE: asking playing connection %d to shut down.",
             conn->connection_number, playing_conn->connection_number);
     playing_conn->stop = 1;
-    pthread_cancel(playing_conn->thread); // asking the RTSP thread to exit
+    interrupting_current_session = 1;
     should_wait = 1;    
+    pthread_cancel(playing_conn->thread); // asking the RTSP thread to exit
   } 
   debug_mutex_unlock(&playing_conn_lock, 3);
 
@@ -1566,10 +1568,10 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
         }
       }
 
-    if (have_the_player == 1) {
-      debug(1, "Connection %d: ANNOUNCE got the player", conn->connection_number);
+    if ((have_the_player == 1) && (interrupting_current_session == 1)) {
+      debug(2, "Connection %d: ANNOUNCE got the player", conn->connection_number);
     } else {
-      debug(1, "Connection %d: ANNOUNCE failed to get the player", conn->connection_number);
+      debug(2, "Connection %d: ANNOUNCE failed to get the player", conn->connection_number);
     }
   }
 
@@ -1579,7 +1581,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     // now, if this new session did not break in, then it's okay to reset the next UDP ports
     // to the start of the range
     
-    if (should_wait == 0) { // will be zero if it didn't need to wait to break in
+    if (interrupting_current_session == 0) { // will be zero if it wasn't waiting to break in
     	resetFreeUDPPort();
     }
     
