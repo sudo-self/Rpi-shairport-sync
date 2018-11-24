@@ -409,6 +409,8 @@ static int init(int argc, char **argv) {
   debug(1, "alsa output device name is \"%s\".", alsa_out_dev);
 
   if (hardware_mixer) {
+    int oldState;
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
 
     if (alsa_mix_dev == NULL)
       alsa_mix_dev = alsa_out_dev;
@@ -493,8 +495,9 @@ static int init(int argc, char **argv) {
       }
       close_mixer();
     }
-    debug_mutex_unlock(&alsa_mutex, 3);
-    pthread_cleanup_pop(0); // release the mutex
+    debug_mutex_unlock(&alsa_mutex, 3); // release the mutex
+    pthread_cleanup_pop(0);
+    pthread_setcancelstate(oldState, NULL);
   } else {
     // debug(1, "Has no mixer and thus no hardware mute.");
   }
@@ -508,7 +511,7 @@ static void deinit(void) {
   stop();
 }
 
-int open_alsa_device(void) {
+int actual_open_alsa_device(void) {
   // the alsa mutex is already acquired when this is called
   const snd_pcm_uframes_t minimal_buffer_headroom =
       352 * 2; // we accept this much headroom in the hardware buffer, but we'll
@@ -878,6 +881,15 @@ int open_alsa_device(void) {
   return 0;
 }
 
+int open_alsa_device(void)  {
+  int result;
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+  result = actual_open_alsa_device();
+  pthread_setcancelstate(oldState, NULL);
+  return result;
+}
+
 static void start(int i_sample_rate, int i_sample_format) {
   // debug(2,"audio_alsa start called.");
   if (i_sample_rate == 0)
@@ -937,6 +949,8 @@ int delay(long *the_delay) {
   if (alsa_handle == NULL) {
     return -ENODEV;
   } else {
+    int oldState;
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
     int derr;
     snd_pcm_state_t dac_state = snd_pcm_state(alsa_handle);
@@ -989,6 +1003,7 @@ int delay(long *the_delay) {
     // here, occasionally pretend there's a problem with pcm_get_delay()
     // if ((random() % 100000) < 3) // keep it pretty rare
     //	reply = -EIO; // pretend something bad has happened
+    pthread_setcancelstate(oldState, NULL);
     return reply;
   }
 }
@@ -1008,10 +1023,13 @@ int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
 
 static int play(void *buf, int samples) {
   // debug(3,"audio_alsa play called.");
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   int ret = 0;
   if (alsa_handle == NULL) {
+
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
-    ret = open_alsa_device();
+    ret = actual_open_alsa_device();
     if (ret == 0) {
       if (audio_alsa.volume)
         do_volume(set_volume);
@@ -1110,11 +1128,14 @@ static int play(void *buf, int samples) {
     debug_mutex_unlock(&alsa_mutex, 3);
     pthread_cleanup_pop(0); // release the mutex
   }
+  pthread_setcancelstate(oldState, NULL);
   return ret;
 }
 
 static void flush(void) {
   // debug(2,"audio_alsa flush called.");
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
   int derr;
   do_mute(1);
@@ -1136,6 +1157,7 @@ static void flush(void) {
   }
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
+  pthread_setcancelstate(oldState, NULL);
 }
 
 static void stop(void) {
@@ -1154,6 +1176,8 @@ static void parameters(audio_parameters *info) {
 }
 
 void do_volume(double vol) { // caller is assumed to have the alsa_mutex when using this function
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   debug(3, "Setting volume db to %f.", vol);
   set_volume = vol;
   if (volume_set_request && (open_mixer() == 1)) {
@@ -1185,6 +1209,7 @@ void do_volume(double vol) { // caller is assumed to have the alsa_mutex when us
     volume_set_request = 0; // any external request that has been made is now satisfied
     close_mixer();
   }
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void volume(double vol) {
@@ -1224,6 +1249,9 @@ static void mute(int mute_state_requested) {
 }
 
 void do_mute(int mute_state_requested) {
+
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
 
   // if a mute is requested now, then
   // 	if an external mute request is in place, leave everything muted
@@ -1265,4 +1293,6 @@ void do_mute(int mute_state_requested) {
     }
   }
   mute_request_pending = 0;
+  
+  pthread_setcancelstate(oldState, NULL);
 }

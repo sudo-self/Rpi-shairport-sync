@@ -58,7 +58,7 @@ void rtp_initialise(rtsp_conn_info *conn) {
 }
 
 void rtp_terminate(rtsp_conn_info *conn) {
-
+  conn->reference_timestamp = 0;
   // destroy the timer mutex
   int rc = pthread_mutex_destroy(&conn->reference_time_mutex);
   if (rc)
@@ -98,14 +98,16 @@ uint64_t local_to_remote_time_difference_now(rtsp_conn_info *conn) {
 }
 
 void rtp_audio_receiver_cleanup_handler(void *arg) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Audio Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(1, "shutdown audio socket.");
+  debug(3, "shutdown audio socket.");
   shutdown(conn->audio_socket, SHUT_RDWR);
-  debug(1, "close audio socket.");
+  debug(3, "close audio socket.");
   close(conn->audio_socket);
-  
-  debug(3, "Audio Receiver Cleanup Successful.");
+  debug(3, "Connection %d: Audio Receiver Cleanup.", conn->connection_number);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void *rtp_audio_receiver(void *arg) {
@@ -125,9 +127,12 @@ void *rtp_audio_receiver(void *arg) {
   float stat_mean = 0.0;
   float stat_M2 = 0.0;
 
+  int frame_count = 0;
   ssize_t nread;
   while (1) {
     nread = recv(conn->audio_socket, packet, sizeof(packet), 0);
+
+    frame_count++;
 
     uint64_t local_time_now_fp = get_absolute_time_in_fp();
     if (time_of_previous_packet_fp) {
@@ -167,6 +172,19 @@ void *rtp_audio_receiver(void *arg) {
         // increment last_seqno and see if it's the same as the incoming seqno
 
         if (type == 0x60) { // regular audio data
+
+          /*
+          char obf[4096];
+          char *obfp = obf;
+          int obfc;
+          for (obfc=0;obfc<plen;obfc++) {
+            snprintf(obfp, 3, "%02X", pktp[obfc]);
+            obfp+=2;
+          };
+          *obfp=0;
+          debug(1,"Audio Packet Received: \"%s\"",obf);
+          */
+
           if (last_seqno == -1)
             last_seqno = seqno;
           else {
@@ -180,6 +198,9 @@ void *rtp_audio_receiver(void *arg) {
         }
 
         uint32_t actual_timestamp = ntohl(*(uint32_t *)(pktp + 4));
+
+        // uint32_t ssid = ntohl(*(uint32_t *)(pktp + 8));
+        // debug(1, "Audio packet SSID: %08X,%u", ssid,ssid);
 
         // if (packet[1]&0x10)
         //	debug(1,"Audio packet Extension bit set.");
@@ -221,13 +242,16 @@ void *rtp_audio_receiver(void *arg) {
 }
 
 void rtp_control_handler_cleanup_handler(void *arg) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Control Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(1, "shutdown control socket.");
+  debug(3, "shutdown control socket.");
   shutdown(conn->control_socket, SHUT_RDWR);
-  debug(1, "close control socket.");
+  debug(3, "close control socket.");
   close(conn->control_socket);
-  debug(3, "Control Receiver Cleanup Successful.");
+  debug(3, "Connection %d: Control Receiver Cleanup.", conn->connection_number);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void *rtp_control_receiver(void *arg) {
@@ -284,16 +308,15 @@ void *rtp_control_receiver(void *arg) {
                                              
                                                               // Best guess is that this delay is 11,025 frames.
                                              
-                                                              // uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
-                                                              // uint32_t rt = nctohl(&packet[16]);  // raw timestamp
+                                                              uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
+                                                              uint32_t rt = nctohl(&packet[16]);  // raw timestamp
                                              
-                                                              // uint32_t fl = nctohs(&packet[2]); //
+                                                              uint32_t fl = nctohs(&packet[2]); //
                                              
-                                                              // debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and
-                                                         %u,
-                                                         giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
-                                                              // debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
-                                                         respectively.",monotonic_timestamp(rt, conn),monotonic_timestamp(rtlt, conn));
+                                                              debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
+                                                          giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
+                                                              //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
+                                                          respectively.",monotonic_timestamp(rt, conn),monotonic_timestamp(rtlt, conn));
                                                             }
                                                        */
           if (conn->local_to_remote_time_difference) { // need a time packet to be interchanged
@@ -477,7 +500,13 @@ void *rtp_control_receiver(void *arg) {
   pthread_exit(NULL);
 }
 
+void rtp_timing_sender_cleanup_handler(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(3, "Connection %d: Timing Sender Cleanup.", conn->connection_number);
+}
+
 void *rtp_timing_sender(void *arg) {
+  pthread_cleanup_push(rtp_timing_sender_cleanup_handler, arg);
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   struct timing_request {
     char leader;
@@ -537,19 +566,23 @@ void *rtp_timing_sender(void *arg) {
       usleep(3000000);
   }
   debug(3, "rtp_timing_sender thread interrupted. This should never happen.");
+  pthread_cleanup_pop(0); // don't execute anything here.
   pthread_exit(NULL);
 }
 
 void rtp_timing_receiver_cleanup_handler(void *arg) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Timing Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   pthread_cancel(conn->timer_requester);
   pthread_join(conn->timer_requester, NULL);
-  debug(1, "shutdown timing socket.");
+  debug(3, "shutdown timing socket.");
   shutdown(conn->timing_socket, SHUT_RDWR);
-  debug(1, "close timing socket.");
+  debug(3, "close timing socket.");
   close(conn->timing_socket);
-  debug(3, "Timing Receiver Cleanup Successful.");
+  debug(3, "Connection %d: Timing Receiver Cleanup.", conn->connection_number);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void *rtp_timing_receiver(void *arg) {
@@ -597,7 +630,7 @@ void *rtp_timing_receiver(void *arg) {
             obfp+=2;
           };
           *obfp=0;
-          //debug(1,"Timing Packet Received: \"%s\"",obf);
+          debug(1,"Timing Packet Received: \"%s\"",obf);
           */
 
           // arrival_time = ((uint64_t)att.tv_sec<<32)+((uint64_t)att.tv_nsec<<32)/1000000000;
@@ -835,14 +868,17 @@ void *rtp_timing_receiver(void *arg) {
 static uint16_t bind_port(int ip_family, const char *self_ip_address, uint32_t scope_id,
                           int *sock) {
   // look for a port in the range, if any was specified.
-  uint16_t desired_port = config.udp_port_base;
   int ret = 0;
 
   int local_socket = socket(ip_family, SOCK_DGRAM, IPPROTO_UDP);
   if (local_socket == -1)
     die("Could not allocate a socket.");
   SOCKADDR myaddr;
+  int tryCount = 0;
+  uint16_t desired_port;
   do {
+    tryCount++;
+    desired_port = nextFreeUDPPort();
     memset(&myaddr, 0, sizeof(myaddr));
     if (ip_family == AF_INET) {
       struct sockaddr_in *sa = (struct sockaddr_in *)&myaddr;
@@ -863,13 +899,14 @@ static uint16_t bind_port(int ip_family, const char *self_ip_address, uint32_t s
 #endif
 
   } while ((ret < 0) && (errno == EADDRINUSE) && (desired_port != 0) &&
-           (++desired_port < config.udp_port_base + config.udp_port_range));
+           (tryCount < config.udp_port_range));
 
   // debug(1,"UDP port chosen: %d.",desired_port);
 
   if (ret < 0) {
     close(local_socket);
-    die("error: could not bind a UDP port! Check the udp_port_range is large enough (>= 10) or "
+    die("error: could not bind a UDP port! Check the udp_port_range is large enough -- it must be "
+        "at least 3, and 10 or more is suggested -- or "
         "check for restrictive firewall settings or a bad router!");
   }
 

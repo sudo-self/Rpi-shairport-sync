@@ -31,11 +31,11 @@
 #include <libconfig.h>
 #include <libgen.h>
 #include <memory.h>
-#include <net/if.h>
 #include <popt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <net/if.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -419,8 +419,8 @@ int parse_options(int argc, char **argv) {
       /* Get the udp port range setting. This is number of ports that will be tried for free ports ,
        * starting at the port base. Only three ports are needed. */
       if (config_lookup_int(config.cfg, "general.udp_port_range", &value)) {
-        if ((value < 0) || (value > 65535))
-          die("Invalid port range  \"%sd\". It should be between 0 and 65535, default is 100",
+        if ((value < 3) || (value > 65535))
+          die("Invalid port range  \"%sd\". It should be between 3 and 65535, default is 10",
               value);
         else
           config.udp_port_range = value;
@@ -1234,7 +1234,7 @@ int main(int argc, char **argv) {
       1); // we expect to be able to connect to the output device
   config.audio_backend_buffer_desired_length = 6615; // 0.15 seconds.
   config.udp_port_base = 6001;
-  config.udp_port_range = 100;
+  config.udp_port_range = 10;
   config.output_format = SPS_FORMAT_S16; // default
   config.output_rate = 44100;            // default
   config.decoders_supported =

@@ -457,20 +457,23 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
     if ((conn->flush_rtp_timestamp != 0) && (actual_timestamp != conn->flush_rtp_timestamp) &&
         (modulo_32_offset(actual_timestamp, conn->flush_rtp_timestamp) <
          conn->input_rate * 10)) { // if it's less than 10 seconds
-      debug(2, "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRIu32
+      debug(3, "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRIu32
                ", flushing to "
                "timestamp: %" PRIu32 ".",
             seqno, actual_timestamp, conn->flush_rtp_timestamp);
       conn->initial_reference_time = 0;
       conn->initial_reference_timestamp = 0;
     } else {
-      if ((conn->flush_rtp_timestamp != 0) &&
-          (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) > conn->input_rate / 5) &&
-          (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) < conn->input_rate)) {
-        // between 0.2 and 1 second
-        debug(2, "Dropping flush request in player_put_packet");
-        conn->flush_rtp_timestamp = 0;
-      }
+      /*
+        if ((conn->flush_rtp_timestamp != 0) &&
+            (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) > conn->input_rate / 5)
+        &&
+            (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) < conn->input_rate)) {
+          // between 0.2 and 1 second
+          debug(2, "Dropping flush request in player_put_packet");
+          conn->flush_rtp_timestamp = 0;
+        }
+      */
 
       abuf_t *abuf = 0;
 
@@ -850,11 +853,15 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           }
         }
 
+        // if (conn->flush_rtp_timestamp != 0)
+        //  debug(2,"flush_rtp_timestamp is %" PRIx32 " and curframe->given_timestamp is %" PRIx32
+        //  ".", conn->flush_rtp_timestamp , curframe->given_timestamp);
+
         if ((conn->flush_rtp_timestamp != 0) &&
             (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
             (modulo_32_offset(curframe->given_timestamp, conn->flush_rtp_timestamp) <
              conn->input_rate * 10)) { // if it's less than ten seconds
-          debug(2, "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
+          debug(3, "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
                    ", flushing to "
                    "timestamp: %" PRIu32 ".",
                 curframe->sequence_number, curframe->given_timestamp, conn->flush_rtp_timestamp);
@@ -869,7 +876,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
              conn->input_rate / 5) &&
             (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) <
              conn->input_rate * 10)) {
-          debug(2, "Dropping flush request in buffer_get_frame");
+          debug(3, "Dropping flush request in buffer_get_frame");
           conn->flush_rtp_timestamp = 0;
         }
       }
@@ -945,12 +952,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               conn->first_packet_time_to_play = should_be_time;
 
-              if (local_time_now >= conn->first_packet_time_to_play) {
-                debug(
-                    1,
-                    "First packet is late! It should have played before now. Flushing 0.5 seconds");
-                player_flush(conn->first_packet_timestamp + 5 * 4410 * conn->output_sample_ratio,
-                             conn);
+              if (local_time_now > conn->first_packet_time_to_play) {
+                uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
+                lateness = (lateness * 1000000) >> 32; // microseconds
+                debug(3, "First packet is %" PRIu64 " microseconds late! Flushing 0.5 seconds",
+                      lateness);
+                do_flush(conn->first_packet_timestamp + 5 * 4410, conn);
               }
             }
           }
@@ -978,8 +985,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                                                              // dynamic adjustment
             int64_t filler_size = max_dac_delay;
 
-            if (local_time_now >= conn->first_packet_time_to_play) {
-              // debug(1,"Gone past starting time");
+            if (local_time_now > conn->first_packet_time_to_play) {
+              uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
+              lateness = (lateness * 1000000) >> 32; // microseconds
+              debug(3, "Gone past starting time by %" PRIu64 " microseconds.", lateness);
               have_sent_prefiller_silence = 1;
               conn->ab_buffering = 0;
 
@@ -1633,11 +1642,11 @@ void *player_thread_func(void *arg) {
   debug(3, "Output bit depth is %d.", output_bit_depth);
 
   if (conn->input_bit_depth > output_bit_depth) {
-    debug(1, "Dithering will be enabled because the input bit depth is greater than the output bit "
+    debug(3, "Dithering will be enabled because the input bit depth is greater than the output bit "
              "depth");
   }
   if (conn->fix_volume != 0x10000) {
-    debug(1, "Dithering will be enabled because the output volume is being altered in software");
+    debug(3, "Dithering will be enabled because the output volume is being altered in software");
   }
 
   // we need an intermediate "transition" buffer
@@ -2467,8 +2476,8 @@ void *player_thread_func(void *arg) {
 
   debug(1, "This should never be called.");
   pthread_cleanup_pop(1); // pop the cleanup handler
-//  debug(1, "This should never be called either.");
-//  pthread_cleanup_pop(1); // pop the initial cleanup handler
+                          //  debug(1, "This should never be called either.");
+                          //  pthread_cleanup_pop(1); // pop the initial cleanup handler
   pthread_exit(NULL);
 }
 
@@ -2767,8 +2776,8 @@ int player_play(rtsp_conn_info *conn) {
 
 int player_stop(rtsp_conn_info *conn) {
   // note -- this may be called from another connection thread.
-  int dl = debuglev;
-  debuglev = 3;
+  // int dl = debuglev;
+  // debuglev = 3;
   debug(3, "player_stop");
   if (conn->player_thread) {
     debug(2, "player_thread cancel...");
@@ -2782,12 +2791,12 @@ int player_stop(rtsp_conn_info *conn) {
     debug(2, "pend");
     send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
-    debuglev = dl;
+    // debuglev = dl;
     command_stop();
     return 0;
   } else {
     debug(3, "Connection %d: player thread already deleted.", conn->connection_number);
-    debuglev = dl;
+    // debuglev = dl;
     return -1;
   }
 }
