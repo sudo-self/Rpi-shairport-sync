@@ -98,14 +98,16 @@ uint64_t local_to_remote_time_difference_now(rtsp_conn_info *conn) {
 }
 
 void rtp_audio_receiver_cleanup_handler(void *arg) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Audio Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(3, "shutdown audio socket.");
   shutdown(conn->audio_socket, SHUT_RDWR);
   debug(3, "close audio socket.");
   close(conn->audio_socket);
-
-  debug(3, "Audio Receiver Cleanup Successful.");
+  debug(3, "Connection %d: Audio Receiver Cleanup.", conn->connection_number);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void *rtp_audio_receiver(void *arg) {
@@ -240,13 +242,16 @@ void *rtp_audio_receiver(void *arg) {
 }
 
 void rtp_control_handler_cleanup_handler(void *arg) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Control Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(3, "shutdown control socket.");
   shutdown(conn->control_socket, SHUT_RDWR);
   debug(3, "close control socket.");
   close(conn->control_socket);
-  debug(3, "Control Receiver Cleanup Successful.");
+  debug(3, "Connection %d: Control Receiver Cleanup.", conn->connection_number);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void *rtp_control_receiver(void *arg) {
@@ -495,7 +500,13 @@ void *rtp_control_receiver(void *arg) {
   pthread_exit(NULL);
 }
 
+void rtp_timing_sender_cleanup_handler(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(3, "Connection %d: Timing Sender Cleanup.", conn->connection_number);
+}
+
 void *rtp_timing_sender(void *arg) {
+  pthread_cleanup_push(rtp_timing_sender_cleanup_handler, arg);
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   struct timing_request {
     char leader;
@@ -555,10 +566,13 @@ void *rtp_timing_sender(void *arg) {
       usleep(3000000);
   }
   debug(3, "rtp_timing_sender thread interrupted. This should never happen.");
+  pthread_cleanup_pop(0); // don't execute anything here.
   pthread_exit(NULL);
 }
 
 void rtp_timing_receiver_cleanup_handler(void *arg) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Timing Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   pthread_cancel(conn->timer_requester);
@@ -567,7 +581,8 @@ void rtp_timing_receiver_cleanup_handler(void *arg) {
   shutdown(conn->timing_socket, SHUT_RDWR);
   debug(3, "close timing socket.");
   close(conn->timing_socket);
-  debug(3, "Timing Receiver Cleanup Successful.");
+  debug(3, "Connection %d: Timing Receiver Cleanup.", conn->connection_number);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void *rtp_timing_receiver(void *arg) {
