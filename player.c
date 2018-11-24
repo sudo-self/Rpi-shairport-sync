@@ -464,15 +464,16 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       conn->initial_reference_time = 0;
       conn->initial_reference_timestamp = 0;
     } else {
-    /*
-      if ((conn->flush_rtp_timestamp != 0) &&
-          (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) > conn->input_rate / 5) &&
-          (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) < conn->input_rate)) {
-        // between 0.2 and 1 second
-        debug(2, "Dropping flush request in player_put_packet");
-        conn->flush_rtp_timestamp = 0;
-      }
-    */
+      /*
+        if ((conn->flush_rtp_timestamp != 0) &&
+            (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) > conn->input_rate / 5)
+        &&
+            (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) < conn->input_rate)) {
+          // between 0.2 and 1 second
+          debug(2, "Dropping flush request in player_put_packet");
+          conn->flush_rtp_timestamp = 0;
+        }
+      */
 
       abuf_t *abuf = 0;
 
@@ -851,10 +852,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             debug(1, "Inconsistent sequence numbers detected");
           }
         }
-        
-        //if (conn->flush_rtp_timestamp != 0)
-        //  debug(2,"flush_rtp_timestamp is %" PRIx32 " and curframe->given_timestamp is %" PRIx32 ".", conn->flush_rtp_timestamp , curframe->given_timestamp);
-        
+
+        // if (conn->flush_rtp_timestamp != 0)
+        //  debug(2,"flush_rtp_timestamp is %" PRIx32 " and curframe->given_timestamp is %" PRIx32
+        //  ".", conn->flush_rtp_timestamp , curframe->given_timestamp);
+
         if ((conn->flush_rtp_timestamp != 0) &&
             (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
             (modulo_32_offset(curframe->given_timestamp, conn->flush_rtp_timestamp) <
@@ -953,11 +955,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               if (local_time_now > conn->first_packet_time_to_play) {
                 uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
                 lateness = (lateness * 1000000) >> 32; // microseconds
-                debug(
-                    3,
-                    "First packet is %" PRIu64 " microseconds late! Flushing 0.5 seconds",lateness);
-                do_flush(conn->first_packet_timestamp + 5 * 4410,
-                             conn);
+                debug(3, "First packet is %" PRIu64 " microseconds late! Flushing 0.5 seconds",
+                      lateness);
+                do_flush(conn->first_packet_timestamp + 5 * 4410, conn);
               }
             }
           }
@@ -988,7 +988,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             if (local_time_now > conn->first_packet_time_to_play) {
               uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
               lateness = (lateness * 1000000) >> 32; // microseconds
-              debug(3,"Gone past starting time by %" PRIu64 " microseconds.", lateness);
+              debug(3, "Gone past starting time by %" PRIu64 " microseconds.", lateness);
               have_sent_prefiller_silence = 1;
               conn->ab_buffering = 0;
 
@@ -2476,8 +2476,8 @@ void *player_thread_func(void *arg) {
 
   debug(1, "This should never be called.");
   pthread_cleanup_pop(1); // pop the cleanup handler
-//  debug(1, "This should never be called either.");
-//  pthread_cleanup_pop(1); // pop the initial cleanup handler
+                          //  debug(1, "This should never be called either.");
+                          //  pthread_cleanup_pop(1); // pop the initial cleanup handler
   pthread_exit(NULL);
 }
 
@@ -2776,7 +2776,7 @@ int player_play(rtsp_conn_info *conn) {
 
 int player_stop(rtsp_conn_info *conn) {
   // note -- this may be called from another connection thread.
-  //int dl = debuglev;
+  // int dl = debuglev;
   // debuglev = 3;
   debug(3, "player_stop");
   if (conn->player_thread) {

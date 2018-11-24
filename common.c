@@ -96,18 +96,16 @@ sigset_t pselect_sigset;
 
 static uint16_t UDPPortIndex = 0;
 
-void resetFreeUDPPort() {
-	UDPPortIndex = 0;
-}
+void resetFreeUDPPort() { UDPPortIndex = 0; }
 
-uint16_t nextFreeUDPPort() {	
-	if (UDPPortIndex == 0)
-		UDPPortIndex = config.udp_port_base;
-	else if (UDPPortIndex == (config.udp_port_base + config.udp_port_range - 1))
-		UDPPortIndex = config.udp_port_base;
-	else
-		UDPPortIndex++;
-	return UDPPortIndex;
+uint16_t nextFreeUDPPort() {
+  if (UDPPortIndex == 0)
+    UDPPortIndex = config.udp_port_base;
+  else if (UDPPortIndex == (config.udp_port_base + config.udp_port_range - 1))
+    UDPPortIndex = config.udp_port_base;
+  else
+    UDPPortIndex++;
+  return UDPPortIndex;
 }
 
 int get_requested_connection_state_to_output() { return requested_connection_state_to_output; }

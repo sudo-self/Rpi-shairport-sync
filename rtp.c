@@ -104,7 +104,7 @@ void rtp_audio_receiver_cleanup_handler(void *arg) {
   shutdown(conn->audio_socket, SHUT_RDWR);
   debug(3, "close audio socket.");
   close(conn->audio_socket);
-  
+
   debug(3, "Audio Receiver Cleanup Successful.");
 }
 
@@ -170,8 +170,8 @@ void *rtp_audio_receiver(void *arg) {
         // increment last_seqno and see if it's the same as the incoming seqno
 
         if (type == 0x60) { // regular audio data
-        
-          /*      
+
+          /*
           char obf[4096];
           char *obfp = obf;
           int obfc;
@@ -181,8 +181,8 @@ void *rtp_audio_receiver(void *arg) {
           };
           *obfp=0;
           debug(1,"Audio Packet Received: \"%s\"",obf);
-          */        
-        
+          */
+
           if (last_seqno == -1)
             last_seqno = seqno;
           else {
@@ -196,7 +196,7 @@ void *rtp_audio_receiver(void *arg) {
         }
 
         uint32_t actual_timestamp = ntohl(*(uint32_t *)(pktp + 4));
-        
+
         // uint32_t ssid = ntohl(*(uint32_t *)(pktp + 8));
         // debug(1, "Audio packet SSID: %08X,%u", ssid,ssid);
 
@@ -308,8 +308,10 @@ void *rtp_control_receiver(void *arg) {
                                              
                                                               uint32_t fl = nctohs(&packet[2]); //
                                              
-                                                              debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u, giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
-                                                              //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 " respectively.",monotonic_timestamp(rt, conn),monotonic_timestamp(rtlt, conn));
+                                                              debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
+                                                          giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
+                                                              //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
+                                                          respectively.",monotonic_timestamp(rt, conn),monotonic_timestamp(rtlt, conn));
                                                             }
                                                        */
           if (conn->local_to_remote_time_difference) { // need a time packet to be interchanged
@@ -860,8 +862,8 @@ static uint16_t bind_port(int ip_family, const char *self_ip_address, uint32_t s
   int tryCount = 0;
   uint16_t desired_port;
   do {
-  	tryCount++;
-	  desired_port = nextFreeUDPPort();
+    tryCount++;
+    desired_port = nextFreeUDPPort();
     memset(&myaddr, 0, sizeof(myaddr));
     if (ip_family == AF_INET) {
       struct sockaddr_in *sa = (struct sockaddr_in *)&myaddr;
@@ -888,7 +890,8 @@ static uint16_t bind_port(int ip_family, const char *self_ip_address, uint32_t s
 
   if (ret < 0) {
     close(local_socket);
-    die("error: could not bind a UDP port! Check the udp_port_range is large enough -- it must be at least 3, and 10 or more is suggested -- or "
+    die("error: could not bind a UDP port! Check the udp_port_range is large enough -- it must be "
+        "at least 3, and 10 or more is suggested -- or "
         "check for restrictive firewall settings or a bad router!");
   }
 
