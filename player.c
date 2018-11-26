@@ -114,6 +114,7 @@ uint64_t modulo_64_offset(uint64_t from, uint64_t to) {
 }
 
 void do_flush(uint32_t timestamp, rtsp_conn_info *conn);
+void *player_watchdog_thread_code(void *arg);
 
 static void ab_resync(rtsp_conn_info *conn) {
   int i;
@@ -781,25 +782,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     local_time_now = get_absolute_time_in_fp(); // type okay
     debug(3, "buffer_get_frame is iterating");
 
-    // if config.timeout (default 120) seconds have elapsed since the last audio packet was
-    // received, then we should stop.
-    // config.timeout of zero means don't check..., but iTunes may be confused by a long gap
-    // followed by a resumption...
-
-    if ((conn->time_of_last_audio_packet != 0) && (conn->stop == 0) &&
-        (config.dont_check_timeout == 0)) {
-      uint64_t ct = config.timeout; // go from int to 64-bit int
-      //      if (conn->packet_count>500) { //for testing -- about 4 seconds of play first
-      if ((local_time_now > conn->time_of_last_audio_packet) &&
-          (local_time_now - conn->time_of_last_audio_packet >= ct << 32)) {
-        debug(1, "As Yeats almost said, \"Too long a silence / can make a stone of the heart\" "
-                 "from RTSP conversation %d.",
-              conn->connection_number);
-        conn->stop = 1;
-        pthread_cancel(conn->thread);
-        // pthread_kill(conn->thread, SIGUSR1);
-      }
-    }
     int rco = get_requested_connection_state_to_output();
 
     if (conn->connection_state_to_output != rco) {
@@ -1449,6 +1431,12 @@ void player_thread_cleanup_handler(void *arg) {
 #endif
 
   debug(2, "Cancelling timing, control and audio threads...");
+  debug(2, "Cancel watchdog thread.");
+  pthread_cancel(conn->player_watchdog_thread);
+  debug(2, "Join watchdog thread.");
+  pthread_join(conn->player_watchdog_thread, NULL);
+  debug(2, "Delete watchdog mutex.");
+  pthread_mutex_destroy(&conn->watchdog_mutex);
   debug(2, "Cancel timing thread.");
   pthread_cancel(conn->rtp_timing_thread);
   debug(2, "Join timing thread.");
@@ -1741,6 +1729,10 @@ void *player_thread_func(void *arg) {
   pthread_create(&conn->rtp_audio_thread, NULL, &rtp_audio_receiver, (void *)conn);
   pthread_create(&conn->rtp_control_thread, NULL, &rtp_control_receiver, (void *)conn);
   pthread_create(&conn->rtp_timing_thread, NULL, &rtp_timing_receiver, (void *)conn);
+
+  // create the watchdog mutex and start the watchdog thread;
+  pthread_mutex_init(&conn->watchdog_mutex, NULL);
+  pthread_create(&conn->player_watchdog_thread, NULL, &player_watchdog_thread_code, (void *)conn);
 
   pthread_cleanup_push(player_thread_cleanup_handler, arg); // undo what's been done so far
 
@@ -2275,6 +2267,14 @@ void *player_thread_func(void *arg) {
           inframe->given_timestamp = 0;
           inframe->sequence_number = 0;
 
+          // update the watchdog
+          if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
+            uint64_t time_now = get_absolute_time_in_fp();
+            debug_mutex_lock(&conn->watchdog_mutex, 1000, 1);
+            conn->watchdog_bark_time = time_now;
+            debug_mutex_unlock(&conn->watchdog_mutex, 3);
+          }
+
           // debug(1,"Sync error %lld frames. Amount to stuff %d." ,sync_error,amount_to_stuff);
 
           // new stats calculation. We want a running average of sync error, drift, adjustment,
@@ -2799,4 +2799,38 @@ int player_stop(rtsp_conn_info *conn) {
     // debuglev = dl;
     return -1;
   }
+}
+
+void player_watchdog_thread_cleanup_handler(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(2, "Connection %d: Watchdog Exit.", conn->connection_number);
+}
+
+void *player_watchdog_thread_code(void *arg) {
+  pthread_cleanup_push(player_watchdog_thread_cleanup_handler, arg);
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  do {
+    usleep(2000000); // check every two seconds
+    debug(3, "Connection %d: Check the player thread is doing something...",
+          conn->connection_number);
+    if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
+      debug_mutex_lock(&conn->watchdog_mutex, 1000, 1);
+      uint64_t last_watchdog_bark_time = conn->watchdog_bark_time;
+      debug_mutex_unlock(&conn->watchdog_mutex, 3);
+      if (last_watchdog_bark_time != 0) {
+        uint64_t time_since_last_bark = (get_absolute_time_in_fp() - last_watchdog_bark_time) >> 32;
+        uint64_t ct = config.timeout; // go from int to 64-bit int
+
+        if (time_since_last_bark >= ct) {
+          debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
+                   "of the heart\".",
+                conn->connection_number);
+          conn->stop = 1;
+          pthread_cancel(conn->thread);
+        }
+      }
+    }
+  } while (1);
+  pthread_cleanup_pop(0); // should never happen
+  pthread_exit(NULL);
 }
