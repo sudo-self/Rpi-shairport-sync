@@ -425,13 +425,9 @@ static void debug_print_msg_content(int level, rtsp_message *msg) {
 void msg_free(rtsp_message *msg) {
 
   if (msg) {
-    int rc = pthread_mutex_lock(&reference_counter_lock);
-    if (rc)
-      debug(1, "Error %d locking reference counter lock during msg_free()", rc);
+    debug_mutex_lock(&reference_counter_lock,1000,3);
     msg->referenceCount--;
-    rc = pthread_mutex_unlock(&reference_counter_lock);
-    if (rc)
-      debug(1, "Error %d unlocking reference counter lock during msg_free()", rc);
+    debug_mutex_unlock(&reference_counter_lock,3);
     if (msg->referenceCount == 0) {
       unsigned int i;
       for (i = 0; i < msg->nheaders; i++) {
@@ -1998,9 +1994,9 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   if (conn->player_thread)
     player_stop(conn);
   if (conn->fd > 0) {
-    // debug(1, "Connection %d: closing fd %d.",
-    //    conn->connection_number,conn->fd);
+    debug(3, "Connection %d: closing fd %d.", conn->connection_number,conn->fd);
     close(conn->fd);
+    debug(3, "Connection %d: closed fd %d.", conn->connection_number,conn->fd);
   }
   if (conn->auth_nonce) {
     free(conn->auth_nonce);
@@ -2025,6 +2021,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   if (rc)
     debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
 
+  debug(3, "Connection %d: Checking play lock.", conn->connection_number);
   debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
   if (playing_conn == conn) {
     debug(3, "Connection %d: Unlocking play lock.", conn->connection_number);
@@ -2037,7 +2034,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
 }
 
 void msg_cleanup_function(void *arg) {
-  // debug(1, "msg_cleanup_function called.");
+  debug(3, "msg_cleanup_function called.");
   msg_free((rtsp_message *)arg);
 }
 
@@ -2131,6 +2128,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       }
       debug(debug_level, "Connection %d: RTSP Response:", conn->connection_number);
       debug_print_msg_headers(debug_level, resp);
+      
+      /*
       fd_set writefds;
       FD_ZERO(&writefds);
       FD_SET(conn->fd, &writefds);
@@ -2138,6 +2137,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         memory_barrier();
       } while (conn->stop == 0 &&
                pselect(conn->fd + 1, NULL, &writefds, NULL, NULL, &pselect_sigset) <= 0);
+      */
+      
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
@@ -2145,6 +2146,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
                    "connection.",
                 conn->connection_number);
           conn->stop = 1;
+          if (debuglev >= 1)
+            debuglev = 3; // see what happens next
         }
       }
       pthread_cleanup_pop(1);
