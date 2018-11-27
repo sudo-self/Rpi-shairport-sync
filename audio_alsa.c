@@ -895,8 +895,6 @@ int delay(long *the_delay) {
           // there's nothing in the pipeline, so we can't measure frame rate.
           frame_index = 0; // we'll be starting over...
           measurement_data_is_valid = 0;
-        } else if (*the_delay > 10000) {
-        	debug(1,"long delay: %ld.",*the_delay);
         }
       }
     } else {
