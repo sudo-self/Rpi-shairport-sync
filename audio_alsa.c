@@ -874,7 +874,7 @@ int delay(long *the_delay) {
   if (alsa_handle == NULL) {
     return -ENODEV;
   } else {
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
+    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
     int derr;
     snd_pcm_state_t dac_state = snd_pcm_state(alsa_handle);
     if (dac_state == SND_PCM_STATE_RUNNING) {
@@ -895,6 +895,8 @@ int delay(long *the_delay) {
           // there's nothing in the pipeline, so we can't measure frame rate.
           frame_index = 0; // we'll be starting over...
           measurement_data_is_valid = 0;
+        } else if (*the_delay > 10000) {
+        	debug(1,"long delay: %ld.",*the_delay);
         }
       }
     } else {
@@ -921,7 +923,7 @@ int delay(long *the_delay) {
         }
       }
     }
-    debug_mutex_unlock(&alsa_mutex, 3);
+    debug_mutex_unlock(&alsa_mutex, 0);
     pthread_cleanup_pop(0);
     // here, occasionally pretend there's a problem with pcm_get_delay()
     // if ((random() % 100000) < 3) // keep it pretty rare
@@ -960,7 +962,7 @@ static int play(void *buf, int samples) {
     pthread_cleanup_pop(0); // release the mutex
   }
   if (ret == 0) {
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
+    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
     //    snd_pcm_sframes_t current_delay = 0;
     int err, err2;
     if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_XRUN) {
@@ -980,6 +982,7 @@ static int play(void *buf, int samples) {
       if (samples == 0)
         debug(1, "empty buffer being passed to pcm_writei -- skipping it");
       if ((samples != 0) && (buf != NULL)) {
+      	debug(3,"write %d frames.",samples);
         err = alsa_pcm_write(alsa_handle, buf, samples);
         if (err < 0) {
           frame_index = 0;
@@ -1044,7 +1047,7 @@ static int play(void *buf, int samples) {
       frame_index = 0;
       measurement_data_is_valid = 0;
     }
-    debug_mutex_unlock(&alsa_mutex, 3);
+    debug_mutex_unlock(&alsa_mutex, 0);
     pthread_cleanup_pop(0); // release the mutex
   }
   return ret;
@@ -1065,7 +1068,7 @@ static void flush(void) {
 
     if ((derr = snd_pcm_hw_free(alsa_handle)))
       debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
-
+    
     // flush also closes the device
     if ((derr = snd_pcm_close(alsa_handle)))
       debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));

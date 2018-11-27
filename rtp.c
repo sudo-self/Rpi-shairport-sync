@@ -1040,7 +1040,7 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport, uint16_t tport
 void get_reference_timestamp_stuff(uint32_t *timestamp, uint64_t *timestamp_time,
                                    uint64_t *remote_timestamp_time, rtsp_conn_info *conn) {
   // types okay
-  debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
+  debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
   *timestamp = conn->reference_timestamp;
   *remote_timestamp_time = conn->remote_reference_timestamp_time;
   *timestamp_time =
@@ -1048,7 +1048,7 @@ void get_reference_timestamp_stuff(uint32_t *timestamp, uint64_t *timestamp_time
   // if ((*timestamp == 0) && (*timestamp_time == 0)) {
   //  debug(1,"Reference timestamp is invalid.");
   //}
-  debug_mutex_unlock(&conn->reference_time_mutex, 3);
+  debug_mutex_unlock(&conn->reference_time_mutex, 0);
 }
 
 void clear_reference_timestamp(rtsp_conn_info *conn) {
@@ -1103,7 +1103,7 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_con
 // the reference timestamps are denominated in terms of the input rate
 
 int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
-  debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
+  debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
   int result = 0;
   uint64_t time_difference;
   uint32_t frame_difference;
@@ -1135,12 +1135,12 @@ int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn
                                                         // on the specified fps.
   }
   *time = remote_time_of_timestamp - local_to_remote_time_difference_now(conn);
-  debug_mutex_unlock(&conn->reference_time_mutex, 3);
+  debug_mutex_unlock(&conn->reference_time_mutex, 0);
   return result;
 }
 
 int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
-  debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
+  debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
   int result = 0;
 
   uint64_t time_difference;
@@ -1171,7 +1171,7 @@ int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
     // debug(1,"Frame interval is %" PRId64 " frames.",-frame_interval);
     *frame = (conn->reference_timestamp - frame_interval);
   }
-  debug_mutex_unlock(&conn->reference_time_mutex, 3);
+  debug_mutex_unlock(&conn->reference_time_mutex, 0);
   return result;
 }
 

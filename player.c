@@ -443,7 +443,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
     debug_mutex_unlock(&conn->flush_mutex, 3);
   }
 
-  debug_mutex_lock(&conn->ab_mutex, 30000, 1);
+  debug_mutex_lock(&conn->ab_mutex, 30000, 0);
   conn->packet_count++;
   conn->packet_count_since_flush++;
   conn->time_of_last_audio_packet = get_absolute_time_in_fp();
@@ -615,7 +615,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       }
     }
   }
-  debug_mutex_unlock(&conn->ab_mutex, 3);
+  debug_mutex_unlock(&conn->ab_mutex, 0);
 }
 
 int32_t rand_in_range(int32_t exclusive_range_limit) {
@@ -759,7 +759,7 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
 
 void buffer_get_frame_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug_mutex_unlock(&conn->ab_mutex, 3);
+  debug_mutex_unlock(&conn->ab_mutex, 0);
 }
 
 // get the next frame, when available. return 0 if underrun/stream reset.
@@ -770,7 +770,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   abuf_t *curframe = NULL;
   int notified_buffer_empty = 0; // diagnostic only
 
-  debug_mutex_lock(&conn->ab_mutex, 30000, 1);
+  debug_mutex_lock(&conn->ab_mutex, 30000, 0);
 
   int wait;
   long dac_delay = 0; // long because alsa returns a long
@@ -780,7 +780,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   do {
     // get the time
     local_time_now = get_absolute_time_in_fp(); // type okay
-    debug(3, "buffer_get_frame is iterating");
+    // debug(3, "buffer_get_frame is iterating");
 
     int rco = get_requested_connection_state_to_output();
 
@@ -797,12 +797,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     if (config.output->is_running)
       if (config.output->is_running() != 0) { // if the back end isn't running for any reason
         debug(3, "not running");
-        debug_mutex_lock(&conn->flush_mutex, 1000, 1);
+        debug_mutex_lock(&conn->flush_mutex, 1000, 0);
         conn->flush_requested = 1;
-        debug_mutex_unlock(&conn->flush_mutex, 3);
+        debug_mutex_unlock(&conn->flush_mutex, 0);
       }
 
-    debug_mutex_lock(&conn->flush_mutex, 1000, 1);
+    debug_mutex_lock(&conn->flush_mutex, 1000, 0);
     if (conn->flush_requested == 1) {
       if (config.output->flush)
         config.output->flush(); // no cancellation points
@@ -812,7 +812,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       conn->time_since_play_started = 0;
       conn->flush_requested = 0;
     }
-    debug_mutex_unlock(&conn->flush_mutex, 3);
+    debug_mutex_unlock(&conn->flush_mutex, 0);
 
     if (conn->ab_synced) {
       curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
@@ -2270,9 +2270,9 @@ void *player_thread_func(void *arg) {
           // update the watchdog
           if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
             uint64_t time_now = get_absolute_time_in_fp();
-            debug_mutex_lock(&conn->watchdog_mutex, 1000, 1);
+            debug_mutex_lock(&conn->watchdog_mutex, 1000, 0);
             conn->watchdog_bark_time = time_now;
-            debug_mutex_unlock(&conn->watchdog_mutex, 3);
+            debug_mutex_unlock(&conn->watchdog_mutex, 0);
           }
 
           // debug(1,"Sync error %lld frames. Amount to stuff %d." ,sync_error,amount_to_stuff);
@@ -2814,9 +2814,9 @@ void *player_watchdog_thread_code(void *arg) {
     debug(3, "Connection %d: Check the player thread is doing something...",
           conn->connection_number);
     if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
-      debug_mutex_lock(&conn->watchdog_mutex, 1000, 1);
+      debug_mutex_lock(&conn->watchdog_mutex, 1000, 0);
       uint64_t last_watchdog_bark_time = conn->watchdog_bark_time;
-      debug_mutex_unlock(&conn->watchdog_mutex, 3);
+      debug_mutex_unlock(&conn->watchdog_mutex, 0);
       if (last_watchdog_bark_time != 0) {
         uint64_t time_since_last_bark = (get_absolute_time_in_fp() - last_watchdog_bark_time) >> 32;
         uint64_t ct = config.timeout; // go from int to 64-bit int
