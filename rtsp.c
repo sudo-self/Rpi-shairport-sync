@@ -692,9 +692,17 @@ int msg_write_response(int fd, rtsp_message *resp) {
     debug(1, "Attempted to write overlong RTSP packet 3");
     return -3;
   }
-  if (write(fd, pkt, p - pkt) != p - pkt) {
-    debug(1, "Error writing an RTSP packet -- requested bytes not fully written.");
-    return -4;
+  ssize_t reply = write(fd, pkt, p - pkt);
+  if (reply == -1) {
+    char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      debug(1, "msg_write_response error %d: \"%s\".",
+            errno, (char *)errorstring);
+      return -4; 
+  }
+  if (reply != p - pkt) {
+    debug(1, "msg_write_response error -- requested bytes not fully written.");
+    return -5;
   }
   return 0;
 }
