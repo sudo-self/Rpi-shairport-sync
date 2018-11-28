@@ -98,14 +98,14 @@ uint64_t local_to_remote_time_difference_now(rtsp_conn_info *conn) {
 }
 
 void rtp_audio_receiver_cleanup_handler(void *arg) {
-  debug(3, "Audio Receiver Cleanup.");
+  debug(1, "Audio Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(3, "shutdown audio socket.");
   shutdown(conn->audio_socket, SHUT_RDWR);
   debug(3, "close audio socket.");
   close(conn->audio_socket);
 
-  debug(3, "Audio Receiver Cleanup Successful.");
+  debug(1, "Audio Receiver Cleanup Successful.");
 }
 
 void *rtp_audio_receiver(void *arg) {
@@ -242,11 +242,11 @@ void *rtp_audio_receiver(void *arg) {
 void rtp_control_handler_cleanup_handler(void *arg) {
   debug(3, "Control Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(3, "shutdown control socket.");
+  debug(1, "shutdown control socket.");
   shutdown(conn->control_socket, SHUT_RDWR);
   debug(3, "close control socket.");
   close(conn->control_socket);
-  debug(3, "Control Receiver Cleanup Successful.");
+  debug(1, "Control Receiver Cleanup Successful.");
 }
 
 void *rtp_control_receiver(void *arg) {
@@ -563,11 +563,11 @@ void rtp_timing_receiver_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   pthread_cancel(conn->timer_requester);
   pthread_join(conn->timer_requester, NULL);
-  debug(3, "shutdown timing socket.");
+  debug(1, "shutdown timing socket.");
   shutdown(conn->timing_socket, SHUT_RDWR);
   debug(3, "close timing socket.");
   close(conn->timing_socket);
-  debug(3, "Timing Receiver Cleanup Successful.");
+  debug(1, "Timing Receiver Cleanup Successful.");
 }
 
 void *rtp_timing_receiver(void *arg) {
