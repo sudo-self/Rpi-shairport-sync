@@ -96,7 +96,10 @@ sigset_t pselect_sigset;
 
 static uint16_t UDPPortIndex = 0;
 
-void resetFreeUDPPort() { UDPPortIndex = 0; }
+void resetFreeUDPPort() {
+	debug(1,"Resetting UDP Port Suggestion to %u",config.udp_port_base);
+	UDPPortIndex = 0;
+}
 
 uint16_t nextFreeUDPPort() {
   if (UDPPortIndex == 0)

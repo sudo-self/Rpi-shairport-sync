@@ -253,6 +253,39 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
 
 #endif
 
+void player_watchdog_thread_cleanup_handler(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(2, "Connection %d: Watchdog Exit.", conn->connection_number);
+}
+
+void *player_watchdog_thread_code(void *arg) {
+  pthread_cleanup_push(player_watchdog_thread_cleanup_handler, arg);
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  do {
+    usleep(2000000); // check every two seconds
+    debug(3, "Connection %d: Check the thread is doing something...", conn->connection_number);
+    if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
+      debug_mutex_lock(&conn->watchdog_mutex, 1000, 0);
+      uint64_t last_watchdog_bark_time = conn->watchdog_bark_time;
+      debug_mutex_unlock(&conn->watchdog_mutex, 0);
+      if (last_watchdog_bark_time != 0) {
+        uint64_t time_since_last_bark = (get_absolute_time_in_fp() - last_watchdog_bark_time) >> 32;
+        uint64_t ct = config.timeout; // go from int to 64-bit int
+
+        if (time_since_last_bark >= ct) {
+          debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
+                   "of the heart\".",
+                conn->connection_number);
+          conn->stop = 1;
+          pthread_cancel(conn->thread);
+        }
+      }
+    }
+  } while (1);
+  pthread_cleanup_pop(0); // should never happen
+  pthread_exit(NULL);
+}
+
 void ask_other_rtsp_conversation_threads_to_stop(pthread_t except_this_thread);
 
 void rtsp_request_shutdown_stream(void) {
@@ -425,9 +458,9 @@ static void debug_print_msg_content(int level, rtsp_message *msg) {
 void msg_free(rtsp_message *msg) {
 
   if (msg) {
-    debug_mutex_lock(&reference_counter_lock,1000,3);
+    debug_mutex_lock(&reference_counter_lock, 1000, 3);
     msg->referenceCount--;
-    debug_mutex_unlock(&reference_counter_lock,3);
+    debug_mutex_unlock(&reference_counter_lock, 3);
     if (msg->referenceCount == 0) {
       unsigned int i;
       for (i = 0; i < msg->nheaders; i++) {
@@ -695,10 +728,9 @@ int msg_write_response(int fd, rtsp_message *resp) {
   ssize_t reply = write(fd, pkt, p - pkt);
   if (reply == -1) {
     char errorstring[1024];
-      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-      debug(1, "msg_write_response error %d: \"%s\".",
-            errno, (char *)errorstring);
-      return -4; 
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    debug(1, "msg_write_response error %d: \"%s\".", errno, (char *)errorstring);
+    return -4;
   }
   if (reply != p - pkt) {
     debug(1, "msg_write_response error -- requested bytes not fully written.");
@@ -890,12 +922,14 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
                                      "timing_port=%d;server_"
                                      "port=%d",
            conn->local_control_port, conn->local_timing_port, conn->local_audio_port);
+  
 
   msg_add_header(resp, "Transport", resphdr);
 
   msg_add_header(resp, "Session", "1");
 
   resp->respcode = 200;
+  debug(1, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.", conn->connection_number, conn->local_control_port, conn->local_timing_port, conn->local_audio_port);
   return;
 
 error:
@@ -2002,9 +2036,9 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   if (conn->player_thread)
     player_stop(conn);
   if (conn->fd > 0) {
-    debug(3, "Connection %d: closing fd %d.", conn->connection_number,conn->fd);
+    debug(3, "Connection %d: closing fd %d.", conn->connection_number, conn->fd);
     close(conn->fd);
-    debug(3, "Connection %d: closed fd %d.", conn->connection_number,conn->fd);
+    debug(3, "Connection %d: closed fd %d.", conn->connection_number, conn->fd);
   }
   if (conn->auth_nonce) {
     free(conn->auth_nonce);
@@ -2035,7 +2069,17 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     debug(3, "Connection %d: Unlocking play lock.", conn->connection_number);
     playing_conn = NULL;
   }
+
   debug_mutex_unlock(&playing_conn_lock, 3);
+  debug(2, "Cancel watchdog thread.");
+  pthread_cancel(conn->player_watchdog_thread);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+  debug(2, "Join watchdog thread.");
+  pthread_join(conn->player_watchdog_thread, NULL);
+  pthread_setcancelstate(oldState, NULL);
+  debug(2, "Delete watchdog mutex.");
+  pthread_mutex_destroy(&conn->watchdog_mutex);
 
   debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
   conn->running = 0;
@@ -2048,6 +2092,10 @@ void msg_cleanup_function(void *arg) {
 
 static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_conn_info *conn = pconn;
+
+  // create the watchdog mutex and start the watchdog thread;
+  pthread_mutex_init(&conn->watchdog_mutex, NULL);
+  pthread_create(&conn->player_watchdog_thread, NULL, &player_watchdog_thread_code, (void *)conn);
 
   int rc = pthread_mutex_init(&conn->flush_mutex, NULL);
   if (rc)
@@ -2136,7 +2184,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       }
       debug(debug_level, "Connection %d: RTSP Response:", conn->connection_number);
       debug_print_msg_headers(debug_level, resp);
-      
+
       /*
       fd_set writefds;
       FD_ZERO(&writefds);
@@ -2146,7 +2194,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       } while (conn->stop == 0 &&
                pselect(conn->fd + 1, NULL, &writefds, NULL, NULL, &pselect_sigset) <= 0);
       */
-      
+
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
@@ -2154,8 +2202,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
                    "connection.",
                 conn->connection_number);
           conn->stop = 1;
-          if (debuglev >= 1)
-            debuglev = 3; // see what happens next
+          // if (debuglev >= 1)
+          //  debuglev = 3; // see what happens next
         }
       }
       pthread_cleanup_pop(1);

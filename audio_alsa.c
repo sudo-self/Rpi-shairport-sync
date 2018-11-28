@@ -980,7 +980,7 @@ static int play(void *buf, int samples) {
       if (samples == 0)
         debug(1, "empty buffer being passed to pcm_writei -- skipping it");
       if ((samples != 0) && (buf != NULL)) {
-      	debug(3,"write %d frames.",samples);
+        debug(3, "write %d frames.", samples);
         err = alsa_pcm_write(alsa_handle, buf, samples);
         if (err < 0) {
           frame_index = 0;
@@ -1066,7 +1066,7 @@ static void flush(void) {
 
     if ((derr = snd_pcm_hw_free(alsa_handle)))
       debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
-    
+
     // flush also closes the device
     if ((derr = snd_pcm_close(alsa_handle)))
       debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));

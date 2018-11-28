@@ -890,9 +890,14 @@ static uint16_t bind_port(int ip_family, const char *self_ip_address, uint32_t s
 
   if (ret < 0) {
     close(local_socket);
-    die("error: could not bind a UDP port! Check the udp_port_range is large enough -- it must be "
+    char errorstring[1024];
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    die("error %d: \"%s\". Could not bind a UDP port! Check the udp_port_range is large enough -- "
+        "it must be "
         "at least 3, and 10 or more is suggested -- or "
-        "check for restrictive firewall settings or a bad router!");
+        "check for restrictive firewall settings or a bad router! UDP base is %u, range is %u and "
+        "current suggestion is %u.",
+        errno, errorstring, config.udp_port_base, config.udp_port_range, desired_port);
   }
 
   uint16_t sport;
