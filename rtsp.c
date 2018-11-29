@@ -752,11 +752,9 @@ int msg_write_response(int fd, rtsp_message *resp) {
 
 void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(2, "Connection %d: RECORD", conn->connection_number);
-
   if (have_player(conn)) {
-
     if (conn->player_thread)
-      warn("Duplicate RECORD message -- ignored");
+      warn("Connection %d: RECORD: Duplicate RECORD message -- ignored", conn->connection_number);
     else
       player_play(conn); // the thread better be 0
 
@@ -809,59 +807,62 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                      rtsp_message *resp) {
   debug(2, "Connection %d: TEARDOWN", conn->connection_number);
-  // if (!rtsp_playing())
-  //  debug(1, "This RTSP connection thread (%d) doesn't think it's playing, but "
-  //           "it's sending a response to teardown anyway",conn->connection_number);
-  resp->respcode = 200;
-  msg_add_header(resp, "Connection", "close");
-
-  debug(3,
+  if (have_player(conn)) {
+    resp->respcode = 200;
+    msg_add_header(resp, "Connection", "close");
+    debug(
+        3,
         "TEARDOWN: synchronously terminating the player thread of RTSP conversation thread %d (2).",
         conn->connection_number);
-  player_stop(conn);
-  debug(3, "TEARDOWN: successful termination of playing thread of RTSP conversation thread %d.",
-        conn->connection_number);
+    player_stop(conn);
+    debug(3, "TEARDOWN: successful termination of playing thread of RTSP conversation thread %d.",
+          conn->connection_number);
+  } else {
+    warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
+         conn->connection_number);
+    resp->respcode = 451;
+  }
 }
 
 void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: FLUSH", conn->connection_number);
-  //  if (!rtsp_playing())
-  //    debug(1, "This RTSP conversation thread (%d) doesn't think it's playing, but "
-  //            "it's sending a response to flush anyway",conn->connection_number);
-  char *p = NULL;
-  uint32_t rtptime = 0;
-  char *hdr = msg_get_header(req, "RTP-Info");
+  if (have_player(conn)) {
+    char *p = NULL;
+    uint32_t rtptime = 0;
+    char *hdr = msg_get_header(req, "RTP-Info");
 
-  if (hdr) {
-    // debug(1,"FLUSH message received: \"%s\".",hdr);
-    // get the rtp timestamp
-    p = strstr(hdr, "rtptime=");
-    if (p) {
-      p = strchr(p, '=');
-      if (p)
-        rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
+    if (hdr) {
+      // debug(1,"FLUSH message received: \"%s\".",hdr);
+      // get the rtp timestamp
+      p = strstr(hdr, "rtptime=");
+      if (p) {
+        p = strchr(p, '=');
+        if (p)
+          rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
+      }
     }
-  }
 // debug(1,"RTSP Flush Requested: %u.",rtptime);
 #ifdef CONFIG_METADATA
-  if (p)
-    send_metadata('ssnc', 'flsr', p + 1, strlen(p + 1), req, 1);
-  else
-    send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
+    if (p)
+      send_metadata('ssnc', 'flsr', p + 1, strlen(p + 1), req, 1);
+    else
+      send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
 #endif
-  player_flush(rtptime, conn); // will not crash even it there is no player thread.
-  resp->respcode = 200;
+    player_flush(rtptime, conn); // will not crash even it there is no player thread.
+    resp->respcode = 200;
+
+  } else {
+    warn("Connection %d FLUSH received without having the player (no ANNOUNCE?)",
+         conn->connection_number);
+    resp->respcode = 451;
+  }
 }
 
 void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: SETUP", conn->connection_number);
-
   resp->respcode = 451; // invalid arguments -- expect them
-
   if (have_player(conn)) {
-
     uint16_t cport, tport;
-
     char *ar = msg_get_header(req, "Active-Remote");
     if (ar) {
       debug(2, "Connection %d: SETUP -- Active-Remote string seen: \"%s\".",
@@ -959,6 +960,7 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
       debug(1, "Connection %d: SETUP doesn't contain a Transport header.", conn->connection_number);
     }
     if (resp->respcode != 200) {
+      debug(1, "Connection %d: SETUP error -- releasing the player lock.", conn->connection_number);
       debug_mutex_lock(&playing_conn_lock, 1000000, 3);
       playing_conn = NULL; // this connection definitely doesn't have the play lock
       debug_mutex_unlock(&playing_conn_lock, 3);
