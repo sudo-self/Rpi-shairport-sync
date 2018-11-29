@@ -97,16 +97,8 @@ uint64_t local_to_remote_time_difference_now(rtsp_conn_info *conn) {
   return conn->local_to_remote_time_difference + (uint64_t)(drift * (uint64_t)0x100000000);
 }
 
-void rtp_audio_receiver_cleanup_handler(void *arg) {
-  int oldState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  debug(3, "Audio Receiver Cleanup.");
-  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(3, "Close Audio Socket.");
-  close(conn->audio_socket);
-  debug(3, "Audio Receiver Cleanup Successful.");
-  usleep(20000); // microseconds
-  pthread_setcancelstate(oldState, NULL);
+void rtp_audio_receiver_cleanup_handler(__attribute__((unused)) void *arg) {
+  debug(3, "Audio Receiver Cleanup Done.");
 }
 
 void *rtp_audio_receiver(void *arg) {
@@ -240,18 +232,8 @@ void *rtp_audio_receiver(void *arg) {
   pthread_exit(NULL);
 }
 
-void rtp_control_handler_cleanup_handler(void *arg) {
-  int oldState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  debug(3, "Control Receiver Cleanup.");
-  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(3, "Shut Down Control Socket.");
-  shutdown(conn->control_socket, SHUT_RDWR);
-  debug(3, "Close Control Socket.");
-  close(conn->control_socket);
-  debug(3, "Control Receiver Cleanup Successful.");
-  usleep(20000); // microseconds
-  pthread_setcancelstate(oldState, NULL);
+void rtp_control_handler_cleanup_handler(__attribute__((unused)) void *arg) {
+  debug(3, "Control Receiver Cleanup Done.");
 }
 
 void *rtp_control_receiver(void *arg) {
@@ -564,18 +546,15 @@ void *rtp_timing_sender(void *arg) {
 }
 
 void rtp_timing_receiver_cleanup_handler(void *arg) {
-  int oldState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Timing Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(3, "Cancel Timing Requester.");
   pthread_cancel(conn->timer_requester);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Join Timing Requester.");
   pthread_join(conn->timer_requester, NULL);
-  debug(3, "Close Timing Socket.");
-  close(conn->timing_socket);
   debug(3, "Timing Receiver Cleanup Successful.");
-  usleep(20000); // microseconds
   pthread_setcancelstate(oldState, NULL);
 }
 

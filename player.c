@@ -1448,6 +1448,14 @@ void player_thread_cleanup_handler(void *arg) {
   pthread_join(conn->rtp_audio_thread, NULL);
   debug(2, "Audio thread terminated.");
 
+  debug(2, "Closing timing, control and audio sockets...");
+  if (conn->control_socket)
+    close(conn->control_socket);
+  if (conn->timing_socket)
+    close(conn->timing_socket);
+  if (conn->audio_socket)
+    close(conn->audio_socket);
+
   if (conn->outbuf) {
     free(conn->outbuf);
     conn->outbuf = NULL;
