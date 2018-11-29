@@ -94,10 +94,9 @@ volatile int debuglev = 0;
 
 sigset_t pselect_sigset;
 
-
 int usleep_uncancellable(useconds_t usec) {
-	int response;
-	int oldState;
+  int response;
+  int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   response = usleep_uncancellable(usec);
   pthread_setcancelstate(oldState, NULL);
@@ -107,8 +106,8 @@ int usleep_uncancellable(useconds_t usec) {
 static uint16_t UDPPortIndex = 0;
 
 void resetFreeUDPPort() {
-	debug(1,"Resetting UDP Port Suggestion to %u",config.udp_port_base);
-	UDPPortIndex = 0;
+  debug(1, "Resetting UDP Port Suggestion to %u", config.udp_port_base);
+  UDPPortIndex = 0;
 }
 
 uint16_t nextFreeUDPPort() {

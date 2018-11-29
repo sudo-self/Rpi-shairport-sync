@@ -571,10 +571,10 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       if (errno == EINTR)
         continue;
       if (errno != ECONNRESET) {
-				char errorstring[1024];
-				strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-				debug(1, "Connection %d: rtsp_read_request_response_read_error %d: \"%s\".",
-							conn->connection_number, errno, (char *)errorstring);
+        char errorstring[1024];
+        strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+        debug(1, "Connection %d: rtsp_read_request_response_read_error %d: \"%s\".",
+              conn->connection_number, errno, (char *)errorstring);
       }
       reply = rtsp_read_request_response_read_error;
       goto shutdown;
@@ -924,14 +924,15 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
                                      "timing_port=%d;server_"
                                      "port=%d",
            conn->local_control_port, conn->local_timing_port, conn->local_audio_port);
-  
 
   msg_add_header(resp, "Transport", resphdr);
 
   msg_add_header(resp, "Session", "1");
 
   resp->respcode = 200;
-  debug(1, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.", conn->connection_number, conn->local_control_port, conn->local_timing_port, conn->local_audio_port);
+  debug(1, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.",
+        conn->connection_number, conn->local_control_port, conn->local_timing_port,
+        conn->local_audio_port);
   return;
 
 error:
@@ -2065,7 +2066,6 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   if (rc)
     debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
 
-
   debug(2, "Cancel watchdog thread.");
   pthread_cancel(conn->player_watchdog_thread);
   int oldState;
@@ -2076,7 +2076,6 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   debug(2, "Delete watchdog mutex.");
   pthread_mutex_destroy(&conn->watchdog_mutex);
 
-
   debug(3, "Connection %d: Checking play lock.", conn->connection_number);
   debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
   if (playing_conn == conn) {
@@ -2084,7 +2083,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     playing_conn = NULL;
   }
   debug_mutex_unlock(&playing_conn_lock, 3);
-  
+
   debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
   conn->running = 0;
 }

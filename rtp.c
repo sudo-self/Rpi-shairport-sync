@@ -98,7 +98,7 @@ uint64_t local_to_remote_time_difference_now(rtsp_conn_info *conn) {
 }
 
 void rtp_audio_receiver_cleanup_handler(void *arg) {
-	int oldState;
+  int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Audio Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
@@ -564,13 +564,13 @@ void *rtp_timing_sender(void *arg) {
 }
 
 void rtp_timing_receiver_cleanup_handler(void *arg) {
-	int oldState;
+  int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Timing Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(3, "Cancel Timing Requester.");
   pthread_cancel(conn->timer_requester);
-  debug(3, "Join Timing Requester.");  
+  debug(3, "Join Timing Requester.");
   pthread_join(conn->timer_requester, NULL);
   debug(3, "Close Timing Socket.");
   close(conn->timing_socket);
@@ -867,16 +867,15 @@ static uint16_t bind_port(int ip_family, const char *self_ip_address, uint32_t s
   int local_socket = socket(ip_family, SOCK_DGRAM, IPPROTO_UDP);
   if (local_socket == -1)
     die("Could not allocate a socket.");
-  
+
   int val = 1;
   ret = setsockopt(local_socket, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
   if (ret < 0) {
     char errorstring[1024];
     strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-    debug(1,"Error %d: \"%s\". Couldn't set SO_REUSEADDR");
+    debug(1, "Error %d: \"%s\". Couldn't set SO_REUSEADDR");
   }
 
-  
   SOCKADDR myaddr;
   int tryCount = 0;
   uint16_t desired_port;
