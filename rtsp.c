@@ -1591,7 +1591,7 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
 }
 
 static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
-  debug(2, "Connection %d: ANNOUNCE", conn->connection_number);
+  debug(3, "Connection %d: ANNOUNCE", conn->connection_number);
 
   int have_the_player = 0;
   int should_wait = 0; // this will be true if you're trying to break in to the current session
@@ -1608,8 +1608,8 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     have_the_player = 1;
     warn("Duplicate ANNOUNCE, by the look of it!");
   } else if (playing_conn->stop) {
-    debug(1, "Connection %d: ANNOUNCE: already shutting down; waiting for it...",
-          playing_conn->connection_number);
+    debug(1, "Connection %d ANNOUNCE is waiting for connection %d to shut down.",
+          conn->connection_number, playing_conn->connection_number);
     should_wait = 1;
   } else if (config.allow_session_interruption == 1) {
     debug(2, "Connection %d: ANNOUNCE: asking playing connection %d to shut down.",
@@ -2062,10 +2062,14 @@ authenticate:
 
 void rtsp_conversation_thread_cleanup_function(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  // debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
-  //      conn->connection_number);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+
+  debug(3, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
+        conn->connection_number);
   if (conn->player_thread)
     player_stop(conn);
+
   if (conn->fd > 0) {
     debug(3, "Connection %d: closing fd %d.", conn->connection_number, conn->fd);
     close(conn->fd);
@@ -2096,11 +2100,8 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
 
   debug(2, "Cancel watchdog thread.");
   pthread_cancel(conn->player_watchdog_thread);
-  int oldState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(2, "Join watchdog thread.");
   pthread_join(conn->player_watchdog_thread, NULL);
-  pthread_setcancelstate(oldState, NULL);
   debug(2, "Delete watchdog mutex.");
   pthread_mutex_destroy(&conn->watchdog_mutex);
 
@@ -2114,6 +2115,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
 
   debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
   conn->running = 0;
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void msg_cleanup_function(void *arg) {
@@ -2148,6 +2150,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
     die("Connection %d: error %d initialising flow control condition variable.",
         conn->connection_number, rc);
 
+  // nothing before this is cancellable
+  pthread_cleanup_push(rtsp_conversation_thread_cleanup_function, (void *)conn);
+
   rtp_initialise(conn);
   char *hdr = NULL;
 
@@ -2156,7 +2161,6 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   int rtsp_read_request_attempt_count = 1; // 1 means exit immediately
   rtsp_message *req, *resp;
 
-  pthread_cleanup_push(rtsp_conversation_thread_cleanup_function, (void *)conn);
   while (conn->stop == 0) {
     int debug_level = 3; // for printing the request and response
     reply = rtsp_read_request(conn, &req);
@@ -2232,6 +2236,12 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           debug(1, "Connection %d: Unable to write an RTSP message response. Terminating the "
                    "connection.",
                 conn->connection_number);
+          struct linger so_linger;
+          so_linger.l_onoff = 1; // "true"
+          so_linger.l_linger = 0;
+          err = setsockopt(conn->fd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
+          if (err)
+            debug(1, "Could not set the RTSP socket to abort due to a write error on closing.");
           conn->stop = 1;
           // if (debuglev >= 1)
           //  debuglev = 3; // see what happens next
@@ -2249,7 +2259,14 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           rtsp_read_request_attempt_count--;
           if (rtsp_read_request_attempt_count == 0) {
             tstop = 1;
-            // if ((reply == rtsp_read_request_response_read_error) && (debuglev != 0))
+            if (reply == rtsp_read_request_response_read_error) {
+              struct linger so_linger;
+              so_linger.l_onoff = 1; // "true"
+              so_linger.l_linger = 0;
+              int err = setsockopt(conn->fd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
+              if (err)
+                debug(1, "Could not set the RTSP socket to abort due to a read error on closing.");
+            }
             // debuglev = 3; // see what happens next
           } else {
             if (reply == rtsp_read_request_response_channel_closed)
@@ -2298,15 +2315,20 @@ static const char *format_address(struct sockaddr *fsa) {
 */
 
 void rtsp_listen_loop_cleanup_handler(__attribute__((unused)) void *arg) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(1, "rtsp_listen_loop_cleanup_handler called.");
   cancel_all_RTSP_threads();
   int *sockfd = (int *)arg;
   mdns_unregister();
   if (sockfd)
     free(sockfd);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void rtsp_listen_loop(void) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   struct addrinfo hints, *info, *p;
   char portstr[6];
   int *sockfd = NULL;
@@ -2405,9 +2427,7 @@ void rtsp_listen_loop(void) {
 
   mdns_register();
 
-  // printf("Listening for connections.");
-  // shairport_startup_complete();
-
+  pthread_setcancelstate(oldState, NULL);
   int acceptfd;
   struct timeval tv;
   pthread_cleanup_push(rtsp_listen_loop_cleanup_handler, (void *)sockfd);
@@ -2509,6 +2529,6 @@ void rtsp_listen_loop(void) {
     }
   } while (1);
 
-  pthread_cleanup_pop(0);
+  pthread_cleanup_pop(1); // should never happen
   debug(1, "Oops -- fell out of the RTSP select loop");
 }
