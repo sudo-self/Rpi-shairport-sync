@@ -106,7 +106,7 @@ int usleep_uncancellable(useconds_t usec) {
 static uint16_t UDPPortIndex = 0;
 
 void resetFreeUDPPort() {
-  debug(1, "Resetting UDP Port Suggestion to %u", config.udp_port_base);
+  debug(3, "Resetting UDP Port Suggestion to %u", config.udp_port_base);
   UDPPortIndex = 0;
 }
 
