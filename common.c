@@ -94,6 +94,16 @@ volatile int debuglev = 0;
 
 sigset_t pselect_sigset;
 
+
+int usleep_uncancellable(useconds_t usec) {
+	int response;
+	int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+  response = usleep_uncancellable(usec);
+  pthread_setcancelstate(oldState, NULL);
+  return response;
+}
+
 static uint16_t UDPPortIndex = 0;
 
 void resetFreeUDPPort() {

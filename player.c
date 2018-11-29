@@ -1396,6 +1396,8 @@ void player_thread_initial_cleanup_handler(__attribute__((unused)) void *arg) {
 
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Connection %d: player thread main loop exit via player_thread_cleanup_handler.",
         conn->connection_number);
 
@@ -1465,6 +1467,7 @@ void player_thread_cleanup_handler(void *arg) {
 
   clear_reference_timestamp(conn);
   conn->rtp_running = 0;
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void *player_thread_func(void *arg) {

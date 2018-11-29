@@ -570,10 +570,12 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
     if (nread < 0) {
       if (errno == EINTR)
         continue;
-      char errorstring[1024];
-      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-      debug(1, "Connection %d: rtsp_read_request_response_read_error %d: \"%s\".",
-            conn->connection_number, errno, (char *)errorstring);
+      if (errno != ECONNRESET) {
+				char errorstring[1024];
+				strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+				debug(1, "Connection %d: rtsp_read_request_response_read_error %d: \"%s\".",
+							conn->connection_number, errno, (char *)errorstring);
+      }
       reply = rtsp_read_request_response_read_error;
       goto shutdown;
     }
@@ -1577,7 +1579,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     have_the_player = 1;
     warn("Duplicate ANNOUNCE, by the look of it!");
   } else if (playing_conn->stop) {
-    debug(2, "Connection %d: ANNOUNCE: already shutting down; waiting for it...",
+    debug(1, "Connection %d: ANNOUNCE: already shutting down; waiting for it...",
           playing_conn->connection_number);
     should_wait = 1;
   } else if (config.allow_session_interruption == 1) {
@@ -2063,14 +2065,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   if (rc)
     debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
 
-  debug(3, "Connection %d: Checking play lock.", conn->connection_number);
-  debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
-  if (playing_conn == conn) {
-    debug(3, "Connection %d: Unlocking play lock.", conn->connection_number);
-    playing_conn = NULL;
-  }
 
-  debug_mutex_unlock(&playing_conn_lock, 3);
   debug(2, "Cancel watchdog thread.");
   pthread_cancel(conn->player_watchdog_thread);
   int oldState;
@@ -2081,6 +2076,15 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   debug(2, "Delete watchdog mutex.");
   pthread_mutex_destroy(&conn->watchdog_mutex);
 
+
+  debug(3, "Connection %d: Checking play lock.", conn->connection_number);
+  debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
+  if (playing_conn == conn) {
+    debug(1, "Connection %d: Unlocking play lock.", conn->connection_number);
+    playing_conn = NULL;
+  }
+  debug_mutex_unlock(&playing_conn_lock, 3);
+  
   debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
   conn->running = 0;
 }
