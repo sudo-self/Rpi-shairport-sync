@@ -253,6 +253,15 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
 
 #endif
 
+int have_player(rtsp_conn_info *conn) {
+  int response = 0;
+  debug_mutex_lock(&playing_conn_lock, 1000000, 3);
+  if (playing_conn == conn) // this connection definitely doesn't have the play lock
+    response = 1;
+  debug_mutex_unlock(&playing_conn_lock, 3);
+  return response;
+}
+
 void player_watchdog_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(2, "Connection %d: Watchdog Exit.", conn->connection_number);
@@ -744,40 +753,47 @@ int msg_write_response(int fd, rtsp_message *resp) {
 void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(2, "Connection %d: RECORD", conn->connection_number);
 
-  if (conn->player_thread)
-    warn("Duplicate RECORD message -- ignored");
-  else
-    player_play(conn); // the thread better be 0
+  if (have_player(conn)) {
 
-  resp->respcode = 200;
-  // I think this is for telling the client what the absolute minimum latency
-  // actually is,
-  // and when the client specifies a latency, it should be added to this figure.
+    if (conn->player_thread)
+      warn("Duplicate RECORD message -- ignored");
+    else
+      player_play(conn); // the thread better be 0
 
-  // Thus, [the old version of] AirPlay's latency figure of 77175, when added to 11025 gives you
-  // exactly 88200
-  // and iTunes' latency figure of 88553, when added to 11025 gives you 99578,
-  // pretty close to the 99400 we guessed.
+    resp->respcode = 200;
+    // I think this is for telling the client what the absolute minimum latency
+    // actually is,
+    // and when the client specifies a latency, it should be added to this figure.
 
-  msg_add_header(resp, "Audio-Latency", "11025");
+    // Thus, [the old version of] AirPlay's latency figure of 77175, when added to 11025 gives you
+    // exactly 88200
+    // and iTunes' latency figure of 88553, when added to 11025 gives you 99578,
+    // pretty close to the 99400 we guessed.
 
-  char *p;
-  uint32_t rtptime = 0;
-  char *hdr = msg_get_header(req, "RTP-Info");
+    msg_add_header(resp, "Audio-Latency", "11025");
 
-  if (hdr) {
-    // debug(1,"FLUSH message received: \"%s\".",hdr);
-    // get the rtp timestamp
-    p = strstr(hdr, "rtptime=");
-    if (p) {
-      p = strchr(p, '=');
+    char *p;
+    uint32_t rtptime = 0;
+    char *hdr = msg_get_header(req, "RTP-Info");
+
+    if (hdr) {
+      // debug(1,"FLUSH message received: \"%s\".",hdr);
+      // get the rtp timestamp
+      p = strstr(hdr, "rtptime=");
       if (p) {
-        rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
-        // rtptime--;
-        // debug(1,"RTSP Flush Requested by handle_record: %u.",rtptime);
-        player_flush(rtptime, conn);
+        p = strchr(p, '=');
+        if (p) {
+          rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
+          // rtptime--;
+          // debug(1,"RTSP Flush Requested by handle_record: %u.",rtptime);
+          player_flush(rtptime, conn);
+        }
       }
     }
+  } else {
+    warn("Connection %d RECORD received without having the player (no ANNOUNCE?)",
+         conn->connection_number);
+    resp->respcode = 451;
   }
 }
 
@@ -839,109 +855,119 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 
 void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: SETUP", conn->connection_number);
-  uint16_t cport, tport;
 
-  char *ar = msg_get_header(req, "Active-Remote");
-  if (ar) {
-    debug(2, "Connection %d: SETUP -- Active-Remote string seen: \"%s\".", conn->connection_number,
-          ar);
-    // get the active remote
-    char *p;
-    conn->dacp_active_remote = strtoul(ar, &p, 10);
+  resp->respcode = 451; // invalid arguments -- expect them
+
+  if (have_player(conn)) {
+
+    uint16_t cport, tport;
+
+    char *ar = msg_get_header(req, "Active-Remote");
+    if (ar) {
+      debug(2, "Connection %d: SETUP -- Active-Remote string seen: \"%s\".",
+            conn->connection_number, ar);
+      // get the active remote
+      char *p;
+      conn->dacp_active_remote = strtoul(ar, &p, 10);
 #ifdef CONFIG_METADATA
-    send_metadata('ssnc', 'acre', ar, strlen(ar), req, 1);
+      send_metadata('ssnc', 'acre', ar, strlen(ar), req, 1);
 #endif
-  } else {
-    debug(2, "Connection %d: SETUP -- Note: no Active-Remote information  the SETUP Record.",
-          conn->connection_number);
-    conn->dacp_active_remote = 0;
-  }
-
-  ar = msg_get_header(req, "DACP-ID");
-  if (ar) {
-    debug(2, "Connection %d: SETUP -- DACP-ID string seen: \"%s\".", conn->connection_number, ar);
-    if (conn->dacp_id) // this is in case SETUP was previously called
-      free(conn->dacp_id);
-    conn->dacp_id = strdup(ar);
-#ifdef CONFIG_METADATA
-    send_metadata('ssnc', 'daid', ar, strlen(ar), req, 1);
-#endif
-  } else {
-    debug(2, "Connection %d: SETUP doesn't include DACP-ID string information.",
-          conn->connection_number);
-    if (conn->dacp_id) // this is in case SETUP was previously called
-      free(conn->dacp_id);
-    conn->dacp_id = NULL;
-  }
-
-  char *hdr = msg_get_header(req, "Transport");
-  if (!hdr) {
-    debug(1, "Connection %d: SETUP doesn't contain a Transport header.", conn->connection_number);
-    goto error;
-  }
-
-  char *p;
-  p = strstr(hdr, "control_port=");
-  if (!p) {
-    debug(1, "Connection %d: SETUP doesn't specify a control_port.", conn->connection_number);
-    goto error;
-  }
-  p = strchr(p, '=') + 1;
-  cport = atoi(p);
-
-  p = strstr(hdr, "timing_port=");
-  if (!p) {
-    debug(1, "Connection %d: SETUP doesn't specify a timing_port.", conn->connection_number);
-    goto error;
-  }
-  p = strchr(p, '=') + 1;
-  tport = atoi(p);
-
-  if (conn->rtp_running) {
-    if ((conn->remote_control_port != cport) || (conn->remote_timing_port != tport)) {
-      warn("Connection %d: Duplicate SETUP message with different control (old %u, new %u) or "
-           "timing (old %u, new "
-           "%u) ports! This is probably fatal!",
-           conn->connection_number, conn->remote_control_port, cport, conn->remote_timing_port,
-           tport);
     } else {
-      warn("Connection %d: Duplicate SETUP message with the same control (%u) and timing (%u) "
-           "ports. This is "
-           "probably not fatal.",
-           conn->connection_number, conn->remote_control_port, conn->remote_timing_port);
+      debug(2, "Connection %d: SETUP -- Note: no Active-Remote information  the SETUP Record.",
+            conn->connection_number);
+      conn->dacp_active_remote = 0;
     }
+
+    ar = msg_get_header(req, "DACP-ID");
+    if (ar) {
+      debug(2, "Connection %d: SETUP -- DACP-ID string seen: \"%s\".", conn->connection_number, ar);
+      if (conn->dacp_id) // this is in case SETUP was previously called
+        free(conn->dacp_id);
+      conn->dacp_id = strdup(ar);
+#ifdef CONFIG_METADATA
+      send_metadata('ssnc', 'daid', ar, strlen(ar), req, 1);
+#endif
+    } else {
+      debug(2, "Connection %d: SETUP doesn't include DACP-ID string information.",
+            conn->connection_number);
+      if (conn->dacp_id) // this is in case SETUP was previously called
+        free(conn->dacp_id);
+      conn->dacp_id = NULL;
+    }
+
+    char *hdr = msg_get_header(req, "Transport");
+    if (hdr) {
+      char *p;
+      p = strstr(hdr, "control_port=");
+      if (p) {
+        p = strchr(p, '=') + 1;
+        cport = atoi(p);
+
+        p = strstr(hdr, "timing_port=");
+        if (p) {
+          p = strchr(p, '=') + 1;
+          tport = atoi(p);
+
+          if (conn->rtp_running) {
+            if ((conn->remote_control_port != cport) || (conn->remote_timing_port != tport)) {
+              warn("Connection %d: Duplicate SETUP message with different control (old %u, new %u) "
+                   "or "
+                   "timing (old %u, new "
+                   "%u) ports! This is probably fatal!",
+                   conn->connection_number, conn->remote_control_port, cport,
+                   conn->remote_timing_port, tport);
+            } else {
+              warn("Connection %d: Duplicate SETUP message with the same control (%u) and timing "
+                   "(%u) "
+                   "ports. This is "
+                   "probably not fatal.",
+                   conn->connection_number, conn->remote_control_port, conn->remote_timing_port);
+            }
+          } else {
+            rtp_setup(&conn->local, &conn->remote, cport, tport, conn);
+          }
+          if (conn->local_audio_port != 0) {
+
+            char resphdr[256] = "";
+            snprintf(resphdr, sizeof(resphdr),
+                     "RTP/AVP/"
+                     "UDP;unicast;interleaved=0-1;mode=record;control_port=%d;"
+                     "timing_port=%d;server_"
+                     "port=%d",
+                     conn->local_control_port, conn->local_timing_port, conn->local_audio_port);
+
+            msg_add_header(resp, "Transport", resphdr);
+
+            msg_add_header(resp, "Session", "1");
+
+            resp->respcode = 200; // it all worked out okay
+            debug(1, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.",
+                  conn->connection_number, conn->local_control_port, conn->local_timing_port,
+                  conn->local_audio_port);
+
+          } else {
+            debug(1, "Connection %d: SETUP seems to specify a null audio port.",
+                  conn->connection_number);
+          }
+        } else {
+          debug(1, "Connection %d: SETUP doesn't specify a timing_port.", conn->connection_number);
+        }
+      } else {
+        debug(1, "Connection %d: SETUP doesn't specify a control_port.", conn->connection_number);
+      }
+    } else {
+      debug(1, "Connection %d: SETUP doesn't contain a Transport header.", conn->connection_number);
+    }
+    if (resp->respcode != 200) {
+      debug_mutex_lock(&playing_conn_lock, 1000000, 3);
+      playing_conn = NULL; // this connection definitely doesn't have the play lock
+      debug_mutex_unlock(&playing_conn_lock, 3);
+    }
+
   } else {
-    rtp_setup(&conn->local, &conn->remote, cport, tport, conn);
+    warn("Connection %d SETUP received without having the player (no ANNOUNCE?)",
+         conn->connection_number);
   }
-  if (conn->local_audio_port == 0) {
-    debug(1, "Connection %d: SETUP seems to specify a null audio port.", conn->connection_number);
-    goto error;
-  }
-
-  char resphdr[256] = "";
-  snprintf(resphdr, sizeof(resphdr), "RTP/AVP/"
-                                     "UDP;unicast;interleaved=0-1;mode=record;control_port=%d;"
-                                     "timing_port=%d;server_"
-                                     "port=%d",
-           conn->local_control_port, conn->local_timing_port, conn->local_audio_port);
-
-  msg_add_header(resp, "Transport", resphdr);
-
-  msg_add_header(resp, "Session", "1");
-
-  resp->respcode = 200;
-  debug(1, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.",
-        conn->connection_number, conn->local_control_port, conn->local_timing_port,
-        conn->local_audio_port);
-  return;
-
-error:
-  warn("Connection %d: SETUP -- Error in setup request -- unlocking play lock.",
-       conn->connection_number);
-  debug_mutex_lock(&playing_conn_lock, 1000000, 3);
-  playing_conn = NULL; // this connection definitely doesn't have the play lock
-  debug_mutex_unlock(&playing_conn_lock, 3);
-  resp->respcode = 451; // invalid arguments
 }
 
 /*
@@ -2079,7 +2105,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   debug(3, "Connection %d: Checking play lock.", conn->connection_number);
   debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
   if (playing_conn == conn) {
-    debug(1, "Connection %d: Unlocking play lock.", conn->connection_number);
+    debug(2, "Connection %d: Unlocking play lock.", conn->connection_number);
     playing_conn = NULL;
   }
   debug_mutex_unlock(&playing_conn_lock, 3);
