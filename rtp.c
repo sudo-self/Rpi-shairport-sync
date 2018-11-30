@@ -847,13 +847,15 @@ static uint16_t bind_port(int ip_family, const char *self_ip_address, uint32_t s
   if (local_socket == -1)
     die("Could not allocate a socket.");
 
-  int val = 1;
-  ret = setsockopt(local_socket, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
-  if (ret < 0) {
-    char errorstring[1024];
-    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-    debug(1, "Error %d: \"%s\". Couldn't set SO_REUSEADDR");
-  }
+  /*
+    int val = 1;
+    ret = setsockopt(local_socket, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+    if (ret < 0) {
+      char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      debug(1, "Error %d: \"%s\". Couldn't set SO_REUSEADDR");
+    }
+  */
 
   SOCKADDR myaddr;
   int tryCount = 0;

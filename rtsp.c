@@ -555,18 +555,21 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
   int msg_size = -1;
 
   while (msg_size < 0) {
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(conn->fd, &readfds);
-    do {
-      memory_barrier();
-    } while (conn->stop == 0 &&
-             pselect(conn->fd + 1, &readfds, NULL, NULL, NULL, &pselect_sigset) <= 0);
+    /*
+fd_set readfds;
+FD_ZERO(&readfds);
+FD_SET(conn->fd, &readfds);
+do {
+  memory_barrier();
+} while (conn->stop == 0 &&
+         pselect(conn->fd + 1, &readfds, NULL, NULL, NULL, &pselect_sigset) <= 0);
+*/
     if (conn->stop != 0) {
       debug(3, "RTSP conversation thread %d shutdown requested.", conn->connection_number);
       reply = rtsp_read_request_response_immediate_shutdown_requested;
       goto shutdown;
     }
+
     nread = read(conn->fd, buf + inbuf, buflen - inbuf);
 
     if (nread == 0) {
@@ -640,6 +643,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
         warning_message_sent = 1;
       }
     }
+
+    /*
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(conn->fd, &readfds);
@@ -647,6 +652,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       memory_barrier();
     } while (conn->stop == 0 &&
              pselect(conn->fd + 1, &readfds, NULL, NULL, NULL, &pselect_sigset) <= 0);
+    */
+
     if (conn->stop != 0) {
       debug(1, "RTSP shutdown requested.");
       reply = rtsp_read_request_response_immediate_shutdown_requested;
@@ -2070,6 +2077,14 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   if (conn->player_thread)
     player_stop(conn);
 
+  debug(3, "Closing timing, control and audio sockets...");
+  if (conn->control_socket)
+    close(conn->control_socket);
+  if (conn->timing_socket)
+    close(conn->timing_socket);
+  if (conn->audio_socket)
+    close(conn->audio_socket);
+
   if (conn->fd > 0) {
     debug(3, "Connection %d: closing fd %d.", conn->connection_number, conn->fd);
     close(conn->fd);
@@ -2517,7 +2532,7 @@ void rtsp_listen_loop(void) {
       //      conn->thread = rtsp_conversation_thread;
       //      conn->stop = 0; // record's memory has been zeroed
       //      conn->authorized = 0; // record's memory has been zeroed
-      fcntl(conn->fd, F_SETFL, O_NONBLOCK);
+      // fcntl(conn->fd, F_SETFL, O_NONBLOCK);
 
       ret = pthread_create(&conn->thread, NULL, rtsp_conversation_thread_func,
                            conn); // also acts as a memory barrier

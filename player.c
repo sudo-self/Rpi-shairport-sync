@@ -1448,14 +1448,6 @@ void player_thread_cleanup_handler(void *arg) {
   pthread_join(conn->rtp_audio_thread, NULL);
   debug(2, "Audio thread terminated.");
 
-  debug(2, "Closing timing, control and audio sockets...");
-  if (conn->control_socket)
-    close(conn->control_socket);
-  if (conn->timing_socket)
-    close(conn->timing_socket);
-  if (conn->audio_socket)
-    close(conn->audio_socket);
-
   if (conn->outbuf) {
     free(conn->outbuf);
     conn->outbuf = NULL;
@@ -1736,7 +1728,9 @@ void *player_thread_func(void *arg) {
 
   pthread_cleanup_push(player_thread_cleanup_handler, arg); // undo what's been done so far
 
-// stop looking elsewhere for DACP stuff
+  // stop looking elsewhere for DACP stuff
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
 
 #ifdef CONFIG_DACP_CLIENT
   // debug(1, "Set dacp server info");
@@ -1753,6 +1747,7 @@ void *player_thread_func(void *arg) {
     // almost certainly, this has pthread cancellation points in it -- beware
     conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id);
 #endif
+  pthread_setcancelstate(oldState, NULL);
 
   // set the default volume to whaterver it was before, as stored in the config airplay_volume
   debug(2, "Set initial volume to %f.", config.airplay_volume);
