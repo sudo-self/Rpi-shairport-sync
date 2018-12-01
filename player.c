@@ -1749,7 +1749,7 @@ void *player_thread_func(void *arg) {
 #endif
   pthread_setcancelstate(oldState, NULL);
 
-  // set the default volume to whaterver it was before, as stored in the config airplay_volume
+  // set the default volume to whatever it was before, as stored in the config airplay_volume
   debug(2, "Set initial volume to %f.", config.airplay_volume);
   player_volume(config.airplay_volume, conn); // will contain a cancellation point if asked to wait
 
@@ -2778,8 +2778,14 @@ int player_stop(rtsp_conn_info *conn) {
     debug(2, "player_thread cancel...");
     pthread_cancel(*conn->player_thread);
     debug(2, "player_thread join...");
-    pthread_join(*conn->player_thread, NULL);
-    debug(2, "player_thread joined.");
+    if (pthread_join(*conn->player_thread, NULL) == -1) {
+      char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      debug(1, "Connection %d: error %d joining player thread: \"%s\".", conn->connection_number,
+            errno, (char *)errorstring);
+    } else {
+      debug(2, "player_thread joined.");
+    }
     free(conn->player_thread);
     conn->player_thread = NULL;
 #ifdef CONFIG_METADATA

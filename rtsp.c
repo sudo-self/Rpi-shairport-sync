@@ -170,6 +170,7 @@ int send_ssnc_metadata(uint32_t code, char *data, uint32_t length, int block) {
 }
 
 void pc_queue_cleanup_handler(void *arg) {
+  // debug(1, "pc_queue_cleanup_handler called.");
   pc_queue *the_queue = (pc_queue *)arg;
   int rc = pthread_mutex_unlock(&the_queue->pc_queue_lock);
   if (rc)
