@@ -70,7 +70,7 @@ audio_output audio_alsa = {
     .rate_info = &get_rate_information,
     .mute = NULL,   // a function will be provided if it can, and is allowed to, do hardware mute
     .volume = NULL, // a function will be provided if it can do hardware volume
-    .parameters = &parameters};
+    .parameters = NULL}; // a function will be provided if it can do hardware volume
 
 static pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -402,7 +402,7 @@ static int init(int argc, char **argv) {
     warn("Invalid audio argument: \"%s\" -- ignored", argv[optind]);
   }
 
-  debug(1, "alsa output device name is \"%s\".", alsa_out_dev);
+  debug(1, "alsa: output device name is \"%s\".", alsa_out_dev);
 
   if (hardware_mixer) {
 
@@ -453,8 +453,8 @@ static int init(int argc, char **argv) {
             snd_ctl_elem_id_set_name(elem_id, alsa_mix_ctrl);
 
             if (snd_ctl_get_dB_range(ctl, elem_id, &alsa_mix_mindb, &alsa_mix_maxdb) == 0) {
-              debug(1, "Volume control \"%s\" has dB volume from %f to %f.", alsa_mix_ctrl,
-                    (1.0 * alsa_mix_mindb) / 100.0, (1.0 * alsa_mix_maxdb) / 100.0);
+              debug(1, "alsa: hardware mixer \"%s\" selected, with dB volume from %f to %f.",
+                    alsa_mix_ctrl, (1.0 * alsa_mix_mindb) / 100.0, (1.0 * alsa_mix_maxdb) / 100.0);
               has_softvol = 1;
               audio_alsa.volume =
                   &volume; // insert the volume function now we know it can do dB stuff
@@ -492,7 +492,7 @@ static int init(int argc, char **argv) {
     debug_mutex_unlock(&alsa_mutex, 3); // release the mutex
     pthread_cleanup_pop(0);
   } else {
-    // debug(1, "Has no mixer and thus no hardware mute.");
+    debug(1, "alsa: no hardware mixer selected.");
   }
 
   alsa_mix_handle = NULL;
