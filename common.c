@@ -1142,10 +1142,10 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
   // this is not pthread_cancellation safe because is contains a cancellation point
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  useconds_t time_to_wait = dally_time;
+  int time_to_wait = dally_time;
   int r = pthread_mutex_trylock(mutex);
   while ((r == EBUSY) && (time_to_wait > 0)) {
-    useconds_t st = time_to_wait;
+    int st = time_to_wait;
     if (st > 1000)
       st = 1000;
     sps_nanosleep(0, st * 1000); // this contains a cancellation point
