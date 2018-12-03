@@ -506,7 +506,8 @@ static int init(int argc, char **argv) {
   } else {
     debug(1, "alsa: no hardware mixer selected.");
   }
-
+  
+  usleep(200000); // see if it makes a difference
   alsa_mix_handle = NULL;
   return response;
 }
@@ -883,7 +884,7 @@ int actual_open_alsa_device(void) {
       break;
     }
   }
-
+  usleep(200000); // see if it makes a difference
   return 0;
 }
 
@@ -910,6 +911,7 @@ static void start(int i_sample_rate, int i_sample_format) {
 
   frame_index = 0;
   measurement_data_is_valid = 0;
+  usleep(200000); // see if it makes a difference
 }
 
 //assuming pthread cancellation is disabled
@@ -1163,6 +1165,7 @@ static void flush(void) {
     measurement_data_is_valid = 0;
     alsa_handle = NULL;
   }
+  usleep(200000); // see if it makes a difference
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
   pthread_setcancelstate(oldState, NULL);
