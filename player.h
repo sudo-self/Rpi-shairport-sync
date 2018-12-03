@@ -82,8 +82,8 @@ typedef struct {
   char *auth_nonce; // the session nonce, if needed
   stream_cfg stream;
   SOCKADDR remote, local;
-  int stop;
-  int running;
+  volatile int stop;
+  volatile int running;
   time_t playstart;
   pthread_t thread, timer_requester, rtp_audio_thread, rtp_control_thread, rtp_timing_thread,
       player_watchdog_thread;
