@@ -265,7 +265,7 @@ int have_player(rtsp_conn_info *conn) {
 
 void player_watchdog_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(1, "Connection %d: Watchdog Exit.", conn->connection_number);
+  debug(2, "Connection %d: Watchdog Exit.", conn->connection_number);
 }
 
 void *player_watchdog_thread_code(void *arg) {
@@ -2116,6 +2116,13 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   if (rc)
     debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
 
+  debug(2, "Cancel watchdog thread.");
+  pthread_cancel(conn->player_watchdog_thread);
+  debug(2, "Join watchdog thread.");
+  pthread_join(conn->player_watchdog_thread, NULL);
+  debug(2, "Delete watchdog mutex.");
+  pthread_mutex_destroy(&conn->watchdog_mutex);
+
   debug(3, "Connection %d: Checking play lock.", conn->connection_number);
   debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
   if (playing_conn == conn) {                       // if it's ours
@@ -2123,13 +2130,6 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     playing_conn = NULL; // let it go
   }
   debug_mutex_unlock(&playing_conn_lock, 3);
-
-  debug(2, "Cancel watchdog thread.");
-  pthread_cancel(conn->player_watchdog_thread);
-  debug(2, "Join watchdog thread.");
-  pthread_join(conn->player_watchdog_thread, NULL);
-  debug(2, "Delete watchdog mutex.");
-  pthread_mutex_destroy(&conn->watchdog_mutex);
 
   debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
   conn->running = 0;
@@ -2393,6 +2393,12 @@ void rtsp_listen_loop(void) {
     tv.tv_usec = 0;
     if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
       debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
+    
+    tv.tv_sec = 30; // 30 seconds read timeout
+    tv.tv_usec = 0;
+     if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
+      debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
+   
 
 #ifdef IPV6_V6ONLY
     // some systems don't support v4 access on v6 sockets, but some do.
