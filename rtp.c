@@ -97,17 +97,8 @@ uint64_t local_to_remote_time_difference_now(rtsp_conn_info *conn) {
   return conn->local_to_remote_time_difference + (uint64_t)(drift * (uint64_t)0x100000000);
 }
 
-void rtp_audio_receiver_cleanup_handler(void *arg) {
-  int oldState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  debug(3, "Audio Receiver Cleanup.");
-  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(3, "shutdown audio socket.");
-  shutdown(conn->audio_socket, SHUT_RDWR);
-  debug(3, "close audio socket.");
-  close(conn->audio_socket);
-  debug(3, "Connection %d: Audio Receiver Cleanup.", conn->connection_number);
-  pthread_setcancelstate(oldState, NULL);
+void rtp_audio_receiver_cleanup_handler(__attribute__((unused)) void *arg) {
+  debug(3, "Audio Receiver Cleanup Done.");
 }
 
 void *rtp_audio_receiver(void *arg) {
@@ -241,17 +232,8 @@ void *rtp_audio_receiver(void *arg) {
   pthread_exit(NULL);
 }
 
-void rtp_control_handler_cleanup_handler(void *arg) {
-  int oldState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  debug(3, "Control Receiver Cleanup.");
-  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(3, "shutdown control socket.");
-  shutdown(conn->control_socket, SHUT_RDWR);
-  debug(3, "close control socket.");
-  close(conn->control_socket);
-  debug(3, "Connection %d: Control Receiver Cleanup.", conn->connection_number);
-  pthread_setcancelstate(oldState, NULL);
+void rtp_control_handler_cleanup_handler(__attribute__((unused)) void *arg) {
+  debug(3, "Control Receiver Cleanup Done.");
 }
 
 void *rtp_control_receiver(void *arg) {
@@ -571,17 +553,15 @@ void *rtp_timing_sender(void *arg) {
 }
 
 void rtp_timing_receiver_cleanup_handler(void *arg) {
-  int oldState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Timing Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(3, "Cancel Timing Requester.");
   pthread_cancel(conn->timer_requester);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+  debug(3, "Join Timing Requester.");
   pthread_join(conn->timer_requester, NULL);
-  debug(3, "shutdown timing socket.");
-  shutdown(conn->timing_socket, SHUT_RDWR);
-  debug(3, "close timing socket.");
-  close(conn->timing_socket);
-  debug(3, "Connection %d: Timing Receiver Cleanup.", conn->connection_number);
+  debug(3, "Timing Receiver Cleanup Successful.");
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -873,6 +853,17 @@ static uint16_t bind_port(int ip_family, const char *self_ip_address, uint32_t s
   int local_socket = socket(ip_family, SOCK_DGRAM, IPPROTO_UDP);
   if (local_socket == -1)
     die("Could not allocate a socket.");
+
+  /*
+    int val = 1;
+    ret = setsockopt(local_socket, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+    if (ret < 0) {
+      char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      debug(1, "Error %d: \"%s\". Couldn't set SO_REUSEADDR");
+    }
+  */
+
   SOCKADDR myaddr;
   int tryCount = 0;
   uint16_t desired_port;
@@ -905,9 +896,14 @@ static uint16_t bind_port(int ip_family, const char *self_ip_address, uint32_t s
 
   if (ret < 0) {
     close(local_socket);
-    die("error: could not bind a UDP port! Check the udp_port_range is large enough -- it must be "
+    char errorstring[1024];
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    die("error %d: \"%s\". Could not bind a UDP port! Check the udp_port_range is large enough -- "
+        "it must be "
         "at least 3, and 10 or more is suggested -- or "
-        "check for restrictive firewall settings or a bad router!");
+        "check for restrictive firewall settings or a bad router! UDP base is %u, range is %u and "
+        "current suggestion is %u.",
+        errno, errorstring, config.udp_port_base, config.udp_port_range, desired_port);
   }
 
   uint16_t sport;
@@ -1055,7 +1051,7 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport, uint16_t tport
 void get_reference_timestamp_stuff(uint32_t *timestamp, uint64_t *timestamp_time,
                                    uint64_t *remote_timestamp_time, rtsp_conn_info *conn) {
   // types okay
-  debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
+  debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
   *timestamp = conn->reference_timestamp;
   *remote_timestamp_time = conn->remote_reference_timestamp_time;
   *timestamp_time =
@@ -1063,7 +1059,7 @@ void get_reference_timestamp_stuff(uint32_t *timestamp, uint64_t *timestamp_time
   // if ((*timestamp == 0) && (*timestamp_time == 0)) {
   //  debug(1,"Reference timestamp is invalid.");
   //}
-  debug_mutex_unlock(&conn->reference_time_mutex, 3);
+  debug_mutex_unlock(&conn->reference_time_mutex, 0);
 }
 
 void clear_reference_timestamp(rtsp_conn_info *conn) {
@@ -1102,7 +1098,7 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_con
       double calculated_frame_rate = ((1.0 * local_frames) / local_time) * one_fp;
       if (((calculated_frame_rate / conn->input_rate) > 1.002) ||
           ((calculated_frame_rate / conn->input_rate) < 0.998)) {
-        debug(1, "input frame rate out of bounds at %.2f fps.", calculated_frame_rate);
+        debug(2, "input frame rate out of bounds at %.2f fps.", calculated_frame_rate);
         result = 1;
       } else {
         *frames = local_frames;
@@ -1118,7 +1114,7 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_con
 // the reference timestamps are denominated in terms of the input rate
 
 int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
-  debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
+  debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
   int result = 0;
   uint64_t time_difference;
   uint32_t frame_difference;
@@ -1150,12 +1146,12 @@ int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn
                                                         // on the specified fps.
   }
   *time = remote_time_of_timestamp - local_to_remote_time_difference_now(conn);
-  debug_mutex_unlock(&conn->reference_time_mutex, 3);
+  debug_mutex_unlock(&conn->reference_time_mutex, 0);
   return result;
 }
 
 int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
-  debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
+  debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
   int result = 0;
 
   uint64_t time_difference;
@@ -1186,7 +1182,7 @@ int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
     // debug(1,"Frame interval is %" PRId64 " frames.",-frame_interval);
     *frame = (conn->reference_timestamp - frame_interval);
   }
-  debug_mutex_unlock(&conn->reference_time_mutex, 3);
+  debug_mutex_unlock(&conn->reference_time_mutex, 0);
   return result;
 }
 

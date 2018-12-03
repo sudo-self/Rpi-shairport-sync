@@ -70,7 +70,7 @@ audio_output audio_alsa = {
     .rate_info = &get_rate_information,
     .mute = NULL,   // a function will be provided if it can, and is allowed to, do hardware mute
     .volume = NULL, // a function will be provided if it can do hardware volume
-    .parameters = &parameters};
+    .parameters = NULL}; // a function will be provided if it can do hardware volume
 
 static pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -136,6 +136,8 @@ static void help(void) {
 
 void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; }
 
+
+//assuming pthread cancellation is disabled
 int open_mixer() {
   int response = 0;
   if (hardware_mixer) {
@@ -179,6 +181,7 @@ int open_mixer() {
   return response;
 }
 
+//assuming pthread cancellation is disabled
 void close_mixer() {
   if (alsa_mix_handle) {
     snd_mixer_close(alsa_mix_handle);
@@ -186,6 +189,7 @@ void close_mixer() {
   }
 }
 
+//assuming pthread cancellation is disabled
 void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double vol) {
   if (snd_mixer_selem_set_playback_dB_all(mix_elem, vol, 0) != 0) {
     debug(1, "Can't set playback volume accurately to %f dB.", vol);
@@ -196,6 +200,7 @@ void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double v
 }
 
 static int init(int argc, char **argv) {
+	// for debugging
   snd_output_stdio_attach(&output, stdout, 0);
 
   // debug(2,"audio_alsa init called.");
@@ -406,7 +411,7 @@ static int init(int argc, char **argv) {
     warn("Invalid audio argument: \"%s\" -- ignored", argv[optind]);
   }
 
-  debug(1, "alsa output device name is \"%s\".", alsa_out_dev);
+  debug(1, "alsa: output device name is \"%s\".", alsa_out_dev);
 
   if (hardware_mixer) {
     int oldState;
@@ -459,8 +464,8 @@ static int init(int argc, char **argv) {
             snd_ctl_elem_id_set_name(elem_id, alsa_mix_ctrl);
 
             if (snd_ctl_get_dB_range(ctl, elem_id, &alsa_mix_mindb, &alsa_mix_maxdb) == 0) {
-              debug(1, "Volume control \"%s\" has dB volume from %f to %f.", alsa_mix_ctrl,
-                    (1.0 * alsa_mix_mindb) / 100.0, (1.0 * alsa_mix_maxdb) / 100.0);
+              debug(1, "alsa: hardware mixer \"%s\" selected, with dB volume from %f to %f.",
+                    alsa_mix_ctrl, (1.0 * alsa_mix_mindb) / 100.0, (1.0 * alsa_mix_maxdb) / 100.0);
               has_softvol = 1;
               audio_alsa.volume =
                   &volume; // insert the volume function now we know it can do dB stuff
@@ -499,7 +504,7 @@ static int init(int argc, char **argv) {
     pthread_cleanup_pop(0);
     pthread_setcancelstate(oldState, NULL);
   } else {
-    // debug(1, "Has no mixer and thus no hardware mute.");
+    debug(1, "alsa: no hardware mixer selected.");
   }
 
   alsa_mix_handle = NULL;
@@ -511,6 +516,7 @@ static void deinit(void) {
   stop();
 }
 
+//assuming pthread cancellation is disabled
 int actual_open_alsa_device(void) {
   // the alsa mutex is already acquired when this is called
   const snd_pcm_uframes_t minimal_buffer_headroom =
@@ -906,6 +912,7 @@ static void start(int i_sample_rate, int i_sample_format) {
   measurement_data_is_valid = 0;
 }
 
+//assuming pthread cancellation is disabled
 int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp) {
   int ret;
   snd_pcm_status_t *alsa_snd_pcm_status;
@@ -998,7 +1005,7 @@ int delay(long *the_delay) {
         }
       }
     }
-    debug_mutex_unlock(&alsa_mutex, 3);
+    debug_mutex_unlock(&alsa_mutex, 0);
     pthread_cleanup_pop(0);
     // here, occasionally pretend there's a problem with pcm_get_delay()
     // if ((random() % 100000) < 3) // keep it pretty rare
@@ -1041,7 +1048,7 @@ static int play(void *buf, int samples) {
     pthread_cleanup_pop(0); // release the mutex
   }
   if (ret == 0) {
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
+    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
     //    snd_pcm_sframes_t current_delay = 0;
     int err, err2;
     if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_XRUN) {
@@ -1061,6 +1068,7 @@ static int play(void *buf, int samples) {
       if (samples == 0)
         debug(1, "empty buffer being passed to pcm_writei -- skipping it");
       if ((samples != 0) && (buf != NULL)) {
+        debug(3, "write %d frames.", samples);
         err = alsa_pcm_write(alsa_handle, buf, samples);
         if (err < 0) {
           frame_index = 0;
@@ -1125,7 +1133,7 @@ static int play(void *buf, int samples) {
       frame_index = 0;
       measurement_data_is_valid = 0;
     }
-    debug_mutex_unlock(&alsa_mutex, 3);
+    debug_mutex_unlock(&alsa_mutex, 0);
     pthread_cleanup_pop(0); // release the mutex
   }
   pthread_setcancelstate(oldState, NULL);
@@ -1292,7 +1300,6 @@ void do_mute(int mute_state_requested) {
       close_mixer();
     }
   }
-  mute_request_pending = 0;
-  
+  mute_request_pending = 0;  
   pthread_setcancelstate(oldState, NULL);
 }

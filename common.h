@@ -331,4 +331,6 @@ char *get_version_string(); // mallocs a string space -- remember to free it aft
 void sps_nanosleep(const time_t sec,
                    const long nanosec); // waits for this time, even through interruptions
 
+int usleep_uncancellable(useconds_t usec);
+
 #endif // _COMMON_H

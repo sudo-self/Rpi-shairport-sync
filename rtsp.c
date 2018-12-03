@@ -170,6 +170,7 @@ int send_ssnc_metadata(uint32_t code, char *data, uint32_t length, int block) {
 }
 
 void pc_queue_cleanup_handler(void *arg) {
+  // debug(1, "pc_queue_cleanup_handler called.");
   pc_queue *the_queue = (pc_queue *)arg;
   int rc = pthread_mutex_unlock(&the_queue->pc_queue_lock);
   if (rc)
@@ -252,6 +253,48 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
 }
 
 #endif
+
+int have_player(rtsp_conn_info *conn) {
+  int response = 0;
+  debug_mutex_lock(&playing_conn_lock, 1000000, 3);
+  if (playing_conn == conn) // this connection definitely has the play lock
+    response = 1;
+  debug_mutex_unlock(&playing_conn_lock, 3);
+  return response;
+}
+
+void player_watchdog_thread_cleanup_handler(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(2, "Connection %d: Watchdog Exit.", conn->connection_number);
+}
+
+void *player_watchdog_thread_code(void *arg) {
+  pthread_cleanup_push(player_watchdog_thread_cleanup_handler, arg);
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  do {
+    usleep(2000000); // check every two seconds
+    debug(3, "Connection %d: Check the thread is doing something...", conn->connection_number);
+    if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
+      debug_mutex_lock(&conn->watchdog_mutex, 1000, 0);
+      uint64_t last_watchdog_bark_time = conn->watchdog_bark_time;
+      debug_mutex_unlock(&conn->watchdog_mutex, 0);
+      if (last_watchdog_bark_time != 0) {
+        uint64_t time_since_last_bark = (get_absolute_time_in_fp() - last_watchdog_bark_time) >> 32;
+        uint64_t ct = config.timeout; // go from int to 64-bit int
+
+        if (time_since_last_bark >= ct) {
+          debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
+                   "of the heart\".",
+                conn->connection_number);
+          conn->stop = 1;
+          pthread_cancel(conn->thread);
+        }
+      }
+    }
+  } while (1);
+  pthread_cleanup_pop(0); // should never happen
+  pthread_exit(NULL);
+}
 
 void ask_other_rtsp_conversation_threads_to_stop(pthread_t except_this_thread);
 
@@ -425,13 +468,9 @@ static void debug_print_msg_content(int level, rtsp_message *msg) {
 void msg_free(rtsp_message *msg) {
 
   if (msg) {
-    int rc = pthread_mutex_lock(&reference_counter_lock);
-    if (rc)
-      debug(1, "Error %d locking reference counter lock during msg_free()", rc);
+    debug_mutex_lock(&reference_counter_lock, 1000, 3);
     msg->referenceCount--;
-    rc = pthread_mutex_unlock(&reference_counter_lock);
-    if (rc)
-      debug(1, "Error %d unlocking reference counter lock during msg_free()", rc);
+    debug_mutex_unlock(&reference_counter_lock, 3);
     if (msg->referenceCount == 0) {
       unsigned int i;
       for (i = 0; i < msg->nheaders; i++) {
@@ -517,18 +556,21 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
   int msg_size = -1;
 
   while (msg_size < 0) {
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(conn->fd, &readfds);
-    do {
-      memory_barrier();
-    } while (conn->stop == 0 &&
-             pselect(conn->fd + 1, &readfds, NULL, NULL, NULL, &pselect_sigset) <= 0);
+    /*
+fd_set readfds;
+FD_ZERO(&readfds);
+FD_SET(conn->fd, &readfds);
+do {
+  memory_barrier();
+} while (conn->stop == 0 &&
+         pselect(conn->fd + 1, &readfds, NULL, NULL, NULL, &pselect_sigset) <= 0);
+*/
     if (conn->stop != 0) {
       debug(3, "RTSP conversation thread %d shutdown requested.", conn->connection_number);
       reply = rtsp_read_request_response_immediate_shutdown_requested;
       goto shutdown;
     }
+
     nread = read(conn->fd, buf + inbuf, buflen - inbuf);
 
     if (nread == 0) {
@@ -541,10 +583,12 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
     if (nread < 0) {
       if (errno == EINTR)
         continue;
-      char errorstring[1024];
-      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-      debug(1, "Connection %d: rtsp_read_request_response_read_error %d: \"%s\".",
-            conn->connection_number, errno, (char *)errorstring);
+      if (errno != ECONNRESET) {
+        char errorstring[1024];
+        strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+        debug(1, "Connection %d: rtsp_read_request_response_read_error %d: \"%s\".",
+              conn->connection_number, errno, (char *)errorstring);
+      }
       reply = rtsp_read_request_response_read_error;
       goto shutdown;
     }
@@ -600,6 +644,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
         warning_message_sent = 1;
       }
     }
+
+    /*
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(conn->fd, &readfds);
@@ -607,6 +653,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       memory_barrier();
     } while (conn->stop == 0 &&
              pselect(conn->fd + 1, &readfds, NULL, NULL, NULL, &pselect_sigset) <= 0);
+    */
+
     if (conn->stop != 0) {
       debug(1, "RTSP shutdown requested.");
       reply = rtsp_read_request_response_immediate_shutdown_requested;
@@ -696,50 +744,62 @@ int msg_write_response(int fd, rtsp_message *resp) {
     debug(1, "Attempted to write overlong RTSP packet 3");
     return -3;
   }
-  if (write(fd, pkt, p - pkt) != p - pkt) {
-    debug(1, "Error writing an RTSP packet -- requested bytes not fully written.");
+  ssize_t reply = write(fd, pkt, p - pkt);
+  if (reply == -1) {
+    char errorstring[1024];
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    debug(1, "msg_write_response error %d: \"%s\".", errno, (char *)errorstring);
     return -4;
+  }
+  if (reply != p - pkt) {
+    debug(1, "msg_write_response error -- requested bytes not fully written.");
+    return -5;
   }
   return 0;
 }
 
 void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(2, "Connection %d: RECORD", conn->connection_number);
+  if (have_player(conn)) {
+    if (conn->player_thread)
+      warn("Connection %d: RECORD: Duplicate RECORD message -- ignored", conn->connection_number);
+    else
+      player_play(conn); // the thread better be 0
 
-  if (conn->player_thread)
-    warn("Duplicate RECORD message -- ignored");
-  else
-    player_play(conn); // the thread better be 0
+    resp->respcode = 200;
+    // I think this is for telling the client what the absolute minimum latency
+    // actually is,
+    // and when the client specifies a latency, it should be added to this figure.
 
-  resp->respcode = 200;
-  // I think this is for telling the client what the absolute minimum latency
-  // actually is,
-  // and when the client specifies a latency, it should be added to this figure.
+    // Thus, [the old version of] AirPlay's latency figure of 77175, when added to 11025 gives you
+    // exactly 88200
+    // and iTunes' latency figure of 88553, when added to 11025 gives you 99578,
+    // pretty close to the 99400 we guessed.
 
-  // Thus, [the old version of] AirPlay's latency figure of 77175, when added to 11025 gives you
-  // exactly 88200
-  // and iTunes' latency figure of 88553, when added to 11025 gives you 99578,
-  // pretty close to the 99400 we guessed.
+    msg_add_header(resp, "Audio-Latency", "11025");
 
-  msg_add_header(resp, "Audio-Latency", "11025");
+    char *p;
+    uint32_t rtptime = 0;
+    char *hdr = msg_get_header(req, "RTP-Info");
 
-  char *p;
-  uint32_t rtptime = 0;
-  char *hdr = msg_get_header(req, "RTP-Info");
-
-  if (hdr) {
-    // debug(1,"FLUSH message received: \"%s\".",hdr);
-    // get the rtp timestamp
-    p = strstr(hdr, "rtptime=");
-    if (p) {
-      p = strchr(p, '=');
+    if (hdr) {
+      // debug(1,"FLUSH message received: \"%s\".",hdr);
+      // get the rtp timestamp
+      p = strstr(hdr, "rtptime=");
       if (p) {
-        rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
-        // rtptime--;
-        // debug(1,"RTSP Flush Requested by handle_record: %u.",rtptime);
-        player_flush(rtptime, conn);
+        p = strchr(p, '=');
+        if (p) {
+          rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
+          // rtptime--;
+          // debug(1,"RTSP Flush Requested by handle_record: %u.",rtptime);
+          player_flush(rtptime, conn);
+        }
       }
     }
+  } else {
+    warn("Connection %d RECORD received without having the player (no ANNOUNCE?)",
+         conn->connection_number);
+    resp->respcode = 451;
   }
 }
 
@@ -755,152 +815,170 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                      rtsp_message *resp) {
   debug(2, "Connection %d: TEARDOWN", conn->connection_number);
-  // if (!rtsp_playing())
-  //  debug(1, "This RTSP connection thread (%d) doesn't think it's playing, but "
-  //           "it's sending a response to teardown anyway",conn->connection_number);
-  resp->respcode = 200;
-  msg_add_header(resp, "Connection", "close");
-
-  debug(3,
+  if (have_player(conn)) {
+    resp->respcode = 200;
+    msg_add_header(resp, "Connection", "close");
+    debug(
+        3,
         "TEARDOWN: synchronously terminating the player thread of RTSP conversation thread %d (2).",
         conn->connection_number);
-  player_stop(conn);
-  debug(3, "TEARDOWN: successful termination of playing thread of RTSP conversation thread %d.",
-        conn->connection_number);
+    player_stop(conn);
+    debug(3, "TEARDOWN: successful termination of playing thread of RTSP conversation thread %d.",
+          conn->connection_number);
+  } else {
+    warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
+         conn->connection_number);
+    resp->respcode = 451;
+  }
 }
 
 void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: FLUSH", conn->connection_number);
-  //  if (!rtsp_playing())
-  //    debug(1, "This RTSP conversation thread (%d) doesn't think it's playing, but "
-  //            "it's sending a response to flush anyway",conn->connection_number);
-  char *p = NULL;
-  uint32_t rtptime = 0;
-  char *hdr = msg_get_header(req, "RTP-Info");
+  if (have_player(conn)) {
+    char *p = NULL;
+    uint32_t rtptime = 0;
+    char *hdr = msg_get_header(req, "RTP-Info");
 
-  if (hdr) {
-    // debug(1,"FLUSH message received: \"%s\".",hdr);
-    // get the rtp timestamp
-    p = strstr(hdr, "rtptime=");
-    if (p) {
-      p = strchr(p, '=');
-      if (p)
-        rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
+    if (hdr) {
+      // debug(1,"FLUSH message received: \"%s\".",hdr);
+      // get the rtp timestamp
+      p = strstr(hdr, "rtptime=");
+      if (p) {
+        p = strchr(p, '=');
+        if (p)
+          rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
+      }
     }
-  }
 // debug(1,"RTSP Flush Requested: %u.",rtptime);
 #ifdef CONFIG_METADATA
-  if (p)
-    send_metadata('ssnc', 'flsr', p + 1, strlen(p + 1), req, 1);
-  else
-    send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
+    if (p)
+      send_metadata('ssnc', 'flsr', p + 1, strlen(p + 1), req, 1);
+    else
+      send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
 #endif
-  player_flush(rtptime, conn); // will not crash even it there is no player thread.
-  resp->respcode = 200;
+    player_flush(rtptime, conn); // will not crash even it there is no player thread.
+    resp->respcode = 200;
+
+  } else {
+    warn("Connection %d FLUSH received without having the player (no ANNOUNCE?)",
+         conn->connection_number);
+    resp->respcode = 451;
+  }
 }
 
 void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: SETUP", conn->connection_number);
-  uint16_t cport, tport;
-
-  char *ar = msg_get_header(req, "Active-Remote");
-  if (ar) {
-    debug(2, "Connection %d: SETUP -- Active-Remote string seen: \"%s\".", conn->connection_number,
-          ar);
-    // get the active remote
-    char *p;
-    conn->dacp_active_remote = strtoul(ar, &p, 10);
+  resp->respcode = 451; // invalid arguments -- expect them
+  if (have_player(conn)) {
+    uint16_t cport, tport;
+    char *ar = msg_get_header(req, "Active-Remote");
+    if (ar) {
+      debug(2, "Connection %d: SETUP -- Active-Remote string seen: \"%s\".",
+            conn->connection_number, ar);
+      // get the active remote
+      char *p;
+      conn->dacp_active_remote = strtoul(ar, &p, 10);
 #ifdef CONFIG_METADATA
-    send_metadata('ssnc', 'acre', ar, strlen(ar), req, 1);
+      send_metadata('ssnc', 'acre', ar, strlen(ar), req, 1);
 #endif
-  } else {
-    debug(2, "Connection %d: SETUP -- Note: no Active-Remote information  the SETUP Record.",
-          conn->connection_number);
-    conn->dacp_active_remote = 0;
-  }
-
-  ar = msg_get_header(req, "DACP-ID");
-  if (ar) {
-    debug(2, "Connection %d: SETUP -- DACP-ID string seen: \"%s\".", conn->connection_number, ar);
-    if (conn->dacp_id) // this is in case SETUP was previously called
-      free(conn->dacp_id);
-    conn->dacp_id = strdup(ar);
-#ifdef CONFIG_METADATA
-    send_metadata('ssnc', 'daid', ar, strlen(ar), req, 1);
-#endif
-  } else {
-    debug(2, "Connection %d: SETUP doesn't include DACP-ID string information.",
-          conn->connection_number);
-    if (conn->dacp_id) // this is in case SETUP was previously called
-      free(conn->dacp_id);
-    conn->dacp_id = NULL;
-  }
-
-  char *hdr = msg_get_header(req, "Transport");
-  if (!hdr) {
-    debug(1, "Connection %d: SETUP doesn't contain a Transport header.", conn->connection_number);
-    goto error;
-  }
-
-  char *p;
-  p = strstr(hdr, "control_port=");
-  if (!p) {
-    debug(1, "Connection %d: SETUP doesn't specify a control_port.", conn->connection_number);
-    goto error;
-  }
-  p = strchr(p, '=') + 1;
-  cport = atoi(p);
-
-  p = strstr(hdr, "timing_port=");
-  if (!p) {
-    debug(1, "Connection %d: SETUP doesn't specify a timing_port.", conn->connection_number);
-    goto error;
-  }
-  p = strchr(p, '=') + 1;
-  tport = atoi(p);
-
-  if (conn->rtp_running) {
-    if ((conn->remote_control_port != cport) || (conn->remote_timing_port != tport)) {
-      warn("Connection %d: Duplicate SETUP message with different control (old %u, new %u) or "
-           "timing (old %u, new "
-           "%u) ports! This is probably fatal!",
-           conn->connection_number, conn->remote_control_port, cport, conn->remote_timing_port,
-           tport);
     } else {
-      warn("Connection %d: Duplicate SETUP message with the same control (%u) and timing (%u) "
-           "ports. This is "
-           "probably not fatal.",
-           conn->connection_number, conn->remote_control_port, conn->remote_timing_port);
+      debug(2, "Connection %d: SETUP -- Note: no Active-Remote information  the SETUP Record.",
+            conn->connection_number);
+      conn->dacp_active_remote = 0;
     }
+
+    ar = msg_get_header(req, "DACP-ID");
+    if (ar) {
+      debug(2, "Connection %d: SETUP -- DACP-ID string seen: \"%s\".", conn->connection_number, ar);
+      if (conn->dacp_id) // this is in case SETUP was previously called
+        free(conn->dacp_id);
+      conn->dacp_id = strdup(ar);
+#ifdef CONFIG_METADATA
+      send_metadata('ssnc', 'daid', ar, strlen(ar), req, 1);
+#endif
+    } else {
+      debug(2, "Connection %d: SETUP doesn't include DACP-ID string information.",
+            conn->connection_number);
+      if (conn->dacp_id) // this is in case SETUP was previously called
+        free(conn->dacp_id);
+      conn->dacp_id = NULL;
+    }
+
+    char *hdr = msg_get_header(req, "Transport");
+    if (hdr) {
+      char *p;
+      p = strstr(hdr, "control_port=");
+      if (p) {
+        p = strchr(p, '=') + 1;
+        cport = atoi(p);
+
+        p = strstr(hdr, "timing_port=");
+        if (p) {
+          p = strchr(p, '=') + 1;
+          tport = atoi(p);
+
+          if (conn->rtp_running) {
+            if ((conn->remote_control_port != cport) || (conn->remote_timing_port != tport)) {
+              warn("Connection %d: Duplicate SETUP message with different control (old %u, new %u) "
+                   "or "
+                   "timing (old %u, new "
+                   "%u) ports! This is probably fatal!",
+                   conn->connection_number, conn->remote_control_port, cport,
+                   conn->remote_timing_port, tport);
+            } else {
+              warn("Connection %d: Duplicate SETUP message with the same control (%u) and timing "
+                   "(%u) "
+                   "ports. This is "
+                   "probably not fatal.",
+                   conn->connection_number, conn->remote_control_port, conn->remote_timing_port);
+            }
+          } else {
+            rtp_setup(&conn->local, &conn->remote, cport, tport, conn);
+          }
+          if (conn->local_audio_port != 0) {
+
+            char resphdr[256] = "";
+            snprintf(resphdr, sizeof(resphdr),
+                     "RTP/AVP/"
+                     "UDP;unicast;interleaved=0-1;mode=record;control_port=%d;"
+                     "timing_port=%d;server_"
+                     "port=%d",
+                     conn->local_control_port, conn->local_timing_port, conn->local_audio_port);
+
+            msg_add_header(resp, "Transport", resphdr);
+
+            msg_add_header(resp, "Session", "1");
+
+            resp->respcode = 200; // it all worked out okay
+            debug(1, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.",
+                  conn->connection_number, conn->local_control_port, conn->local_timing_port,
+                  conn->local_audio_port);
+
+          } else {
+            debug(1, "Connection %d: SETUP seems to specify a null audio port.",
+                  conn->connection_number);
+          }
+        } else {
+          debug(1, "Connection %d: SETUP doesn't specify a timing_port.", conn->connection_number);
+        }
+      } else {
+        debug(1, "Connection %d: SETUP doesn't specify a control_port.", conn->connection_number);
+      }
+    } else {
+      debug(1, "Connection %d: SETUP doesn't contain a Transport header.", conn->connection_number);
+    }
+    if (resp->respcode != 200) {
+      debug(1, "Connection %d: SETUP error -- releasing the player lock.", conn->connection_number);
+      debug_mutex_lock(&playing_conn_lock, 1000000, 3);
+      if (playing_conn == conn) // if we have the player
+        playing_conn = NULL;    // let it go
+      debug_mutex_unlock(&playing_conn_lock, 3);
+    }
+
   } else {
-    rtp_setup(&conn->local, &conn->remote, cport, tport, conn);
+    warn("Connection %d SETUP received without having the player (no ANNOUNCE?)",
+         conn->connection_number);
   }
-  if (conn->local_audio_port == 0) {
-    debug(1, "Connection %d: SETUP seems to specify a null audio port.", conn->connection_number);
-    goto error;
-  }
-
-  char resphdr[256] = "";
-  snprintf(resphdr, sizeof(resphdr), "RTP/AVP/"
-                                     "UDP;unicast;interleaved=0-1;mode=record;control_port=%d;"
-                                     "timing_port=%d;server_"
-                                     "port=%d",
-           conn->local_control_port, conn->local_timing_port, conn->local_audio_port);
-
-  msg_add_header(resp, "Transport", resphdr);
-
-  msg_add_header(resp, "Session", "1");
-
-  resp->respcode = 200;
-  return;
-
-error:
-  warn("Connection %d: SETUP -- Error in setup request -- unlocking play lock.",
-       conn->connection_number);
-  debug_mutex_lock(&playing_conn_lock, 1000000, 3);
-  playing_conn = NULL; // this connection definitely doesn't have the play lock
-  debug_mutex_unlock(&playing_conn_lock, 3);
-  resp->respcode = 451; // invalid arguments
 }
 
 /*
@@ -1522,7 +1600,7 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
 }
 
 static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
-  debug(2, "Connection %d: ANNOUNCE", conn->connection_number);
+  debug(3, "Connection %d: ANNOUNCE", conn->connection_number);
 
   int have_the_player = 0;
   int should_wait = 0; // this will be true if you're trying to break in to the current session
@@ -1539,8 +1617,8 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     have_the_player = 1;
     warn("Duplicate ANNOUNCE, by the look of it!");
   } else if (playing_conn->stop) {
-    debug(2, "Connection %d: ANNOUNCE: already shutting down; waiting for it...",
-          playing_conn->connection_number);
+    debug(1, "Connection %d ANNOUNCE is waiting for connection %d to shut down.",
+          conn->connection_number, playing_conn->connection_number);
     should_wait = 1;
   } else if (config.allow_session_interruption == 1) {
     debug(2, "Connection %d: ANNOUNCE: asking playing connection %d to shut down.",
@@ -1553,7 +1631,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
   debug_mutex_unlock(&playing_conn_lock, 3);
 
   if (should_wait) {
-    useconds_t time_remaining = 3000000;
+    int time_remaining = 3000000; // must be signed, as it could go negative...
 
     while ((time_remaining > 0) && (have_the_player == 0)) {
       debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
@@ -1752,7 +1830,8 @@ out:
     debug(1, "Connection %d: Error in handling ANNOUNCE. Unlocking the play lock.",
           conn->connection_number);
     debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
-    playing_conn = NULL;
+    if (playing_conn == conn)                         // if we managed to acquire it
+      playing_conn = NULL;                            // let it go
     debug_mutex_unlock(&playing_conn_lock, 3);
   }
 }
@@ -1993,14 +2072,26 @@ authenticate:
 
 void rtsp_conversation_thread_cleanup_function(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  // debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
-  //      conn->connection_number);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+
+  debug(3, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
+        conn->connection_number);
   if (conn->player_thread)
     player_stop(conn);
+
+  debug(3, "Closing timing, control and audio sockets...");
+  if (conn->control_socket)
+    close(conn->control_socket);
+  if (conn->timing_socket)
+    close(conn->timing_socket);
+  if (conn->audio_socket)
+    close(conn->audio_socket);
+
   if (conn->fd > 0) {
-    // debug(1, "Connection %d: closing fd %d.",
-    //    conn->connection_number,conn->fd);
+    debug(3, "Connection %d: closing fd %d.", conn->connection_number, conn->fd);
     close(conn->fd);
+    debug(3, "Connection %d: closed fd %d.", conn->connection_number, conn->fd);
   }
   if (conn->auth_nonce) {
     free(conn->auth_nonce);
@@ -2025,24 +2116,37 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   if (rc)
     debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
 
+  debug(2, "Cancel watchdog thread.");
+  pthread_cancel(conn->player_watchdog_thread);
+  debug(2, "Join watchdog thread.");
+  pthread_join(conn->player_watchdog_thread, NULL);
+  debug(2, "Delete watchdog mutex.");
+  pthread_mutex_destroy(&conn->watchdog_mutex);
+
+  debug(3, "Connection %d: Checking play lock.", conn->connection_number);
   debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
-  if (playing_conn == conn) {
-    debug(3, "Connection %d: Unlocking play lock.", conn->connection_number);
-    playing_conn = NULL;
+  if (playing_conn == conn) {                       // if it's ours
+    debug(2, "Connection %d: Unlocking play lock.", conn->connection_number);
+    playing_conn = NULL; // let it go
   }
   debug_mutex_unlock(&playing_conn_lock, 3);
 
   debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
   conn->running = 0;
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void msg_cleanup_function(void *arg) {
-  // debug(1, "msg_cleanup_function called.");
+  debug(3, "msg_cleanup_function called.");
   msg_free((rtsp_message *)arg);
 }
 
 static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_conn_info *conn = pconn;
+
+  // create the watchdog mutex and start the watchdog thread;
+  pthread_mutex_init(&conn->watchdog_mutex, NULL);
+  pthread_create(&conn->player_watchdog_thread, NULL, &player_watchdog_thread_code, (void *)conn);
 
   int rc = pthread_mutex_init(&conn->flush_mutex, NULL);
   if (rc)
@@ -2064,6 +2168,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
     die("Connection %d: error %d initialising flow control condition variable.",
         conn->connection_number, rc);
 
+  // nothing before this is cancellable
+  pthread_cleanup_push(rtsp_conversation_thread_cleanup_function, (void *)conn);
+
   rtp_initialise(conn);
   char *hdr = NULL;
 
@@ -2072,7 +2179,6 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   int rtsp_read_request_attempt_count = 1; // 1 means exit immediately
   rtsp_message *req, *resp;
 
-  pthread_cleanup_push(rtsp_conversation_thread_cleanup_function, (void *)conn);
   while (conn->stop == 0) {
     int debug_level = 3; // for printing the request and response
     reply = rtsp_read_request(conn, &req);
@@ -2131,6 +2237,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       }
       debug(debug_level, "Connection %d: RTSP Response:", conn->connection_number);
       debug_print_msg_headers(debug_level, resp);
+
+      /*
       fd_set writefds;
       FD_ZERO(&writefds);
       FD_SET(conn->fd, &writefds);
@@ -2138,13 +2246,23 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         memory_barrier();
       } while (conn->stop == 0 &&
                pselect(conn->fd + 1, NULL, &writefds, NULL, NULL, &pselect_sigset) <= 0);
+      */
+
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
           debug(1, "Connection %d: Unable to write an RTSP message response. Terminating the "
                    "connection.",
                 conn->connection_number);
+          struct linger so_linger;
+          so_linger.l_onoff = 1; // "true"
+          so_linger.l_linger = 0;
+          err = setsockopt(conn->fd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
+          if (err)
+            debug(1, "Could not set the RTSP socket to abort due to a write error on closing.");
           conn->stop = 1;
+          // if (debuglev >= 1)
+          //  debuglev = 3; // see what happens next
         }
       }
       pthread_cleanup_pop(1);
@@ -2159,7 +2277,14 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           rtsp_read_request_attempt_count--;
           if (rtsp_read_request_attempt_count == 0) {
             tstop = 1;
-            // if ((reply == rtsp_read_request_response_read_error) && (debuglev != 0))
+            if (reply == rtsp_read_request_response_read_error) {
+              struct linger so_linger;
+              so_linger.l_onoff = 1; // "true"
+              so_linger.l_linger = 0;
+              int err = setsockopt(conn->fd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
+              if (err)
+                debug(1, "Could not set the RTSP socket to abort due to a read error on closing.");
+            }
             // debuglev = 3; // see what happens next
           } else {
             if (reply == rtsp_read_request_response_channel_closed)
@@ -2208,15 +2333,20 @@ static const char *format_address(struct sockaddr *fsa) {
 */
 
 void rtsp_listen_loop_cleanup_handler(__attribute__((unused)) void *arg) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(1, "rtsp_listen_loop_cleanup_handler called.");
   cancel_all_RTSP_threads();
   int *sockfd = (int *)arg;
   mdns_unregister();
   if (sockfd)
     free(sockfd);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void rtsp_listen_loop(void) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   struct addrinfo hints, *info, *p;
   char portstr[6];
   int *sockfd = NULL;
@@ -2315,9 +2445,7 @@ void rtsp_listen_loop(void) {
 
   mdns_register();
 
-  // printf("Listening for connections.");
-  // shairport_startup_complete();
-
+  pthread_setcancelstate(oldState, NULL);
   int acceptfd;
   struct timeval tv;
   pthread_cleanup_push(rtsp_listen_loop_cleanup_handler, (void *)sockfd);
@@ -2407,7 +2535,7 @@ void rtsp_listen_loop(void) {
       //      conn->thread = rtsp_conversation_thread;
       //      conn->stop = 0; // record's memory has been zeroed
       //      conn->authorized = 0; // record's memory has been zeroed
-      fcntl(conn->fd, F_SETFL, O_NONBLOCK);
+      // fcntl(conn->fd, F_SETFL, O_NONBLOCK);
 
       ret = pthread_create(&conn->thread, NULL, rtsp_conversation_thread_func,
                            conn); // also acts as a memory barrier
@@ -2419,6 +2547,6 @@ void rtsp_listen_loop(void) {
     }
   } while (1);
 
-  pthread_cleanup_pop(0);
+  pthread_cleanup_pop(1); // should never happen
   debug(1, "Oops -- fell out of the RTSP select loop");
 }

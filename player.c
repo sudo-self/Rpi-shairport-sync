@@ -442,7 +442,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
     debug_mutex_unlock(&conn->flush_mutex, 3);
   }
 
-  debug_mutex_lock(&conn->ab_mutex, 30000, 1);
+  debug_mutex_lock(&conn->ab_mutex, 30000, 0);
   conn->packet_count++;
   conn->packet_count_since_flush++;
   conn->time_of_last_audio_packet = get_absolute_time_in_fp();
@@ -614,7 +614,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       }
     }
   }
-  debug_mutex_unlock(&conn->ab_mutex, 3);
+  debug_mutex_unlock(&conn->ab_mutex, 0);
 }
 
 int32_t rand_in_range(int32_t exclusive_range_limit) {
@@ -758,7 +758,7 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
 
 void buffer_get_frame_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug_mutex_unlock(&conn->ab_mutex, 3);
+  debug_mutex_unlock(&conn->ab_mutex, 0);
 }
 
 // get the next frame, when available. return 0 if underrun/stream reset.
@@ -769,7 +769,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   abuf_t *curframe = NULL;
   int notified_buffer_empty = 0; // diagnostic only
 
-  debug_mutex_lock(&conn->ab_mutex, 30000, 1);
+  debug_mutex_lock(&conn->ab_mutex, 30000, 0);
 
   int wait;
   long dac_delay = 0; // long because alsa returns a long
@@ -779,27 +779,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
   do {
     // get the time
     local_time_now = get_absolute_time_in_fp(); // type okay
-    debug(3, "buffer_get_frame is iterating");
+    // debug(3, "buffer_get_frame is iterating");
 
-    // if config.timeout (default 120) seconds have elapsed since the last audio packet was
-    // received, then we should stop.
-    // config.timeout of zero means don't check..., but iTunes may be confused by a long gap
-    // followed by a resumption...
-
-    if ((conn->time_of_last_audio_packet != 0) && (conn->stop == 0) &&
-        (config.dont_check_timeout == 0)) {
-      uint64_t ct = config.timeout; // go from int to 64-bit int
-      //      if (conn->packet_count>500) { //for testing -- about 4 seconds of play first
-      if ((local_time_now > conn->time_of_last_audio_packet) &&
-          (local_time_now - conn->time_of_last_audio_packet >= ct << 32)) {
-        debug(1, "As Yeats almost said, \"Too long a silence / can make a stone of the heart\" "
-                 "from RTSP conversation %d.",
-              conn->connection_number);
-        conn->stop = 1;
-        pthread_cancel(conn->thread);
-        // pthread_kill(conn->thread, SIGUSR1);
-      }
-    }
     int rco = get_requested_connection_state_to_output();
 
     if (conn->connection_state_to_output != rco) {
@@ -815,12 +796,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     if (config.output->is_running)
       if (config.output->is_running() != 0) { // if the back end isn't running for any reason
         debug(3, "not running");
-        debug_mutex_lock(&conn->flush_mutex, 1000, 1);
+        debug_mutex_lock(&conn->flush_mutex, 1000, 0);
         conn->flush_requested = 1;
-        debug_mutex_unlock(&conn->flush_mutex, 3);
+        debug_mutex_unlock(&conn->flush_mutex, 0);
       }
 
-    debug_mutex_lock(&conn->flush_mutex, 1000, 1);
+    debug_mutex_lock(&conn->flush_mutex, 1000, 0);
     if (conn->flush_requested == 1) {
       if (config.output->flush)
         config.output->flush(); // no cancellation points
@@ -830,7 +811,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       conn->time_since_play_started = 0;
       conn->flush_requested = 0;
     }
-    debug_mutex_unlock(&conn->flush_mutex, 3);
+    debug_mutex_unlock(&conn->flush_mutex, 0);
 
     if (conn->ab_synced) {
       curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
@@ -1415,6 +1396,8 @@ void player_thread_initial_cleanup_handler(__attribute__((unused)) void *arg) {
 
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Connection %d: player thread main loop exit via player_thread_cleanup_handler.",
         conn->connection_number);
 
@@ -1484,6 +1467,7 @@ void player_thread_cleanup_handler(void *arg) {
 
   clear_reference_timestamp(conn);
   conn->rtp_running = 0;
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void *player_thread_func(void *arg) {
@@ -1744,7 +1728,9 @@ void *player_thread_func(void *arg) {
 
   pthread_cleanup_push(player_thread_cleanup_handler, arg); // undo what's been done so far
 
-// stop looking elsewhere for DACP stuff
+  // stop looking elsewhere for DACP stuff
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
 
 #ifdef CONFIG_DACP_CLIENT
   // debug(1, "Set dacp server info");
@@ -1761,8 +1747,9 @@ void *player_thread_func(void *arg) {
     // almost certainly, this has pthread cancellation points in it -- beware
     conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id);
 #endif
+  pthread_setcancelstate(oldState, NULL);
 
-  // set the default volume to whaterver it was before, as stored in the config airplay_volume
+  // set the default volume to whatever it was before, as stored in the config airplay_volume
   debug(2, "Set initial volume to %f.", config.airplay_volume);
   player_volume(config.airplay_volume, conn); // will contain a cancellation point if asked to wait
 
@@ -2275,6 +2262,14 @@ void *player_thread_func(void *arg) {
           inframe->given_timestamp = 0;
           inframe->sequence_number = 0;
 
+          // update the watchdog
+          if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
+            uint64_t time_now = get_absolute_time_in_fp();
+            debug_mutex_lock(&conn->watchdog_mutex, 1000, 0);
+            conn->watchdog_bark_time = time_now;
+            debug_mutex_unlock(&conn->watchdog_mutex, 0);
+          }
+
           // debug(1,"Sync error %lld frames. Amount to stuff %d." ,sync_error,amount_to_stuff);
 
           // new stats calculation. We want a running average of sync error, drift, adjustment,
@@ -2783,8 +2778,14 @@ int player_stop(rtsp_conn_info *conn) {
     debug(2, "player_thread cancel...");
     pthread_cancel(*conn->player_thread);
     debug(2, "player_thread join...");
-    pthread_join(*conn->player_thread, NULL);
-    debug(2, "player_thread joined.");
+    if (pthread_join(*conn->player_thread, NULL) == -1) {
+      char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      debug(1, "Connection %d: error %d joining player thread: \"%s\".", conn->connection_number,
+            errno, (char *)errorstring);
+    } else {
+      debug(2, "player_thread joined.");
+    }
     free(conn->player_thread);
     conn->player_thread = NULL;
 #ifdef CONFIG_METADATA

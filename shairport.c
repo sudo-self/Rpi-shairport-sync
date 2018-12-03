@@ -31,11 +31,11 @@
 #include <libconfig.h>
 #include <libgen.h>
 #include <memory.h>
+#include <net/if.h>
 #include <popt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <net/if.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -1483,13 +1483,18 @@ int main(int argc, char **argv) {
 
   char *version_dbs = get_version_string();
   if (version_dbs) {
-    debug(1, "Version: \"%s\"", version_dbs);
+    debug(1, "software version: \"%s\"", version_dbs);
     free(version_dbs);
   } else {
-    debug(1, "Can't print the version information!");
+    debug(1, "can't print the version information!");
   }
 
   /* Print out options */
+  debug(1, "log verbosity is %d.", debuglev);
+  debug(1, "disable resend requests is %s.", config.disable_resend_requests ? "on" : "off");
+  debug(1, "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
+           "deliberately.",
+        config.diagnostic_drop_packet_fraction);
   debug(1, "statistics_requester status is %d.", config.statistics_requested);
   debug(1, "daemon status is %d.", config.daemonise);
   debug(1, "deamon pid file path is \"%s\".", pid_file_proc());
@@ -1563,10 +1568,6 @@ int main(int argc, char **argv) {
 #endif
   debug(1, "loudness is %d.", config.loudness);
   debug(1, "loudness reference level is %f", config.loudness_reference_volume_db);
-  debug(1, "disable resend requests is %s.", config.disable_resend_requests ? "on" : "off");
-  debug(1, "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
-           "deliberately.",
-        config.diagnostic_drop_packet_fraction);
 
   uint8_t ap_md5[16];
 
