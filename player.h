@@ -87,7 +87,7 @@ typedef struct {
   time_t playstart;
   pthread_t thread, timer_requester, rtp_audio_thread, rtp_control_thread, rtp_timing_thread,
       player_watchdog_thread;
-  int64_t watchdog_bark_time;
+  volatile int64_t watchdog_bark_time;
   // pthread_t *ptp;
 
   // buffers to delete on exit
