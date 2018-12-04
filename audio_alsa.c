@@ -136,8 +136,7 @@ static void help(void) {
 
 void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; }
 
-
-//assuming pthread cancellation is disabled
+// assuming pthread cancellation is disabled
 int open_mixer() {
   int response = 0;
   if (hardware_mixer) {
@@ -181,7 +180,7 @@ int open_mixer() {
   return response;
 }
 
-//assuming pthread cancellation is disabled
+// assuming pthread cancellation is disabled
 void close_mixer() {
   if (alsa_mix_handle) {
     snd_mixer_close(alsa_mix_handle);
@@ -189,7 +188,7 @@ void close_mixer() {
   }
 }
 
-//assuming pthread cancellation is disabled
+// assuming pthread cancellation is disabled
 void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double vol) {
   if (snd_mixer_selem_set_playback_dB_all(mix_elem, vol, 0) != 0) {
     debug(1, "Can't set playback volume accurately to %f dB.", vol);
@@ -200,7 +199,7 @@ void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double v
 }
 
 static int init(int argc, char **argv) {
-	// for debugging
+  // for debugging
   snd_output_stdio_attach(&output, stdout, 0);
 
   // debug(2,"audio_alsa init called.");
@@ -506,8 +505,7 @@ static int init(int argc, char **argv) {
   } else {
     debug(1, "alsa: no hardware mixer selected.");
   }
-  
-  usleep(100000); // see if it makes a difference
+
   alsa_mix_handle = NULL;
   return response;
 }
@@ -517,7 +515,7 @@ static void deinit(void) {
   stop();
 }
 
-//assuming pthread cancellation is disabled
+// assuming pthread cancellation is disabled
 int actual_open_alsa_device(void) {
   // the alsa mutex is already acquired when this is called
   const snd_pcm_uframes_t minimal_buffer_headroom =
@@ -884,11 +882,10 @@ int actual_open_alsa_device(void) {
       break;
     }
   }
-  usleep(100000); // see if it makes a difference
   return 0;
 }
 
-int open_alsa_device(void)  {
+int open_alsa_device(void) {
   int result;
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -911,10 +908,9 @@ static void start(int i_sample_rate, int i_sample_format) {
 
   frame_index = 0;
   measurement_data_is_valid = 0;
-  usleep(100000); // see if it makes a difference
 }
 
-//assuming pthread cancellation is disabled
+// assuming pthread cancellation is disabled
 int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp) {
   int ret;
   snd_pcm_status_t *alsa_snd_pcm_status;
@@ -1165,7 +1161,6 @@ static void flush(void) {
     measurement_data_is_valid = 0;
     alsa_handle = NULL;
   }
-  usleep(100000); // see if it makes a difference
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
   pthread_setcancelstate(oldState, NULL);
@@ -1303,6 +1298,6 @@ void do_mute(int mute_state_requested) {
       close_mixer();
     }
   }
-  mute_request_pending = 0;  
+  mute_request_pending = 0;
   pthread_setcancelstate(oldState, NULL);
 }

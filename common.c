@@ -739,6 +739,38 @@ void command_start(void) {
     }
   }
 }
+void command_execute(const char *command) {
+  // this has a cancellation point if waiting is enabled
+  if (command) {
+    /*Spawn a child to run the program.*/
+    pid_t pid = fork();
+    if (pid == 0) { /* child process */
+      int argC;
+      char **argV;
+      if (poptParseArgvString(command, &argC, (const char ***)&argV) !=
+          0) // note that argV should be free()'d after use, but we expect this fork to exit
+             // eventually.
+        debug(1, "Can't decipher command arguments in \"%s\".", command);
+      else {
+        // debug(1,"Executing command %s",command);
+        execv(argV[0], argV);
+        warn("Execution of command \"%s\" failed to start", command);
+        debug(1, "Error executing command \"%s\".", command);
+        exit(127); /* only if execv fails */
+      }
+    } else {
+      if (config.cmd_blocking) { /* pid!=0 means parent process and if blocking is true, wait for
+                                    process to finish */
+        pid_t rc = waitpid(pid, 0, 0); /* wait for child to exit */
+        if (rc != pid) {
+          warn("Execution of command \"%s\" returned an error.", command);
+          debug(1, "Command \"%s\" finished with error %d", command, errno);
+        }
+      }
+      // debug(1,"Continue after on-unfixable command");
+    }
+  }
+}
 
 void command_stop(void) {
   // this has a cancellation point if waiting is enabled

@@ -148,7 +148,7 @@ typedef struct {
   int debugger_show_relative_time; // in the debug message, display the time since the last one
   int statistics_requested, use_negotiated_latencies;
   enum playback_mode_type playback_mode;
-  char *cmd_start, *cmd_stop, *cmd_set_volume;
+  char *cmd_start, *cmd_stop, *cmd_set_volume, *cmd_unfixable;
   int cmd_blocking, cmd_start_returns_output;
   double tolerance; // allow this much drift before attempting to correct it
   enum stuffing_type packet_stuffing;
@@ -296,6 +296,7 @@ int config_set_lookup_bool(config_t *cfg, char *where, int *dst);
 
 void command_start(void);
 void command_stop(void);
+void command_execute(const char *command);
 void command_set_volume(double volume);
 
 int mkpath(const char *path, mode_t mode);
