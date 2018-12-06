@@ -961,7 +961,7 @@ int delay(long *the_delay) {
     snd_pcm_state_t dac_state = snd_pcm_state(alsa_handle);
     if (dac_state == SND_PCM_STATE_RUNNING) {
       *the_delay = 0; // just to see what happens
-      reply = my_snd_pcm_delay(alsa_handle, the_delay);
+      reply = snd_pcm_delay(alsa_handle, the_delay);
       if (reply != 0) {
         debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", reply,
               snd_strerror(reply), *the_delay);
