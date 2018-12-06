@@ -257,7 +257,7 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
 int have_player(rtsp_conn_info *conn) {
   int response = 0;
   debug_mutex_lock(&playing_conn_lock, 1000000, 3);
-  if (playing_conn == conn) // this connection definitely doesn't have the play lock
+  if (playing_conn == conn) // this connection definitely has the play lock
     response = 1;
   debug_mutex_unlock(&playing_conn_lock, 3);
   return response;
@@ -283,11 +283,25 @@ void *player_watchdog_thread_code(void *arg) {
         uint64_t ct = config.timeout; // go from int to 64-bit int
 
         if (time_since_last_bark >= ct) {
-          debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
-                   "of the heart\".",
-                conn->connection_number);
-          conn->stop = 1;
-          pthread_cancel(conn->thread);
+          conn->watchdog_barks++;
+          if (conn->watchdog_barks == 1) {
+            debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
+                     "of the heart\".",
+                  conn->connection_number);
+            conn->stop = 1;
+            pthread_cancel(conn->thread);
+          } else if (conn->watchdog_barks == 3) {
+            if (config.cmd_unfixable) {
+              warn("Connection %d: An unfixable error has been detected. Executing the "
+                   "\"run_this_if_an_unfixable_error_is_detected\" command.",
+                   conn->connection_number);
+              command_execute(config.cmd_unfixable);
+            } else {
+              warn("Connection %d: An unfixable error has been detected. \"No "
+                   "run_this_if_an_unfixable_error_is_detected\" command provided -- nothing done.",
+                   conn->connection_number);
+            }
+          }
         }
       }
     }
@@ -970,7 +984,8 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     if (resp->respcode != 200) {
       debug(1, "Connection %d: SETUP error -- releasing the player lock.", conn->connection_number);
       debug_mutex_lock(&playing_conn_lock, 1000000, 3);
-      playing_conn = NULL; // this connection definitely doesn't have the play lock
+      if (playing_conn == conn) // if we have the player
+        playing_conn = NULL;    // let it go
       debug_mutex_unlock(&playing_conn_lock, 3);
     }
 
@@ -1630,7 +1645,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
   debug_mutex_unlock(&playing_conn_lock, 3);
 
   if (should_wait) {
-    useconds_t time_remaining = 3000000;
+    int time_remaining = 3000000; // must be signed, as it could go negative...
 
     while ((time_remaining > 0) && (have_the_player == 0)) {
       debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
@@ -1829,7 +1844,8 @@ out:
     debug(1, "Connection %d: Error in handling ANNOUNCE. Unlocking the play lock.",
           conn->connection_number);
     debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
-    playing_conn = NULL;
+    if (playing_conn == conn)                         // if we managed to acquire it
+      playing_conn = NULL;                            // let it go
     debug_mutex_unlock(&playing_conn_lock, 3);
   }
 }
@@ -2123,9 +2139,9 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
 
   debug(3, "Connection %d: Checking play lock.", conn->connection_number);
   debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
-  if (playing_conn == conn) {
+  if (playing_conn == conn) {                       // if it's ours
     debug(2, "Connection %d: Unlocking play lock.", conn->connection_number);
-    playing_conn = NULL;
+    playing_conn = NULL; // let it go
   }
   debug_mutex_unlock(&playing_conn_lock, 3);
 
@@ -2142,7 +2158,8 @@ void msg_cleanup_function(void *arg) {
 static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_conn_info *conn = pconn;
 
-  // create the watchdog mutex and start the watchdog thread;
+  // create the watchdog mutex, initialise the watchdog time and start the watchdog thread;
+  conn->watchdog_bark_time = get_absolute_time_in_fp();
   pthread_mutex_init(&conn->watchdog_mutex, NULL);
   pthread_create(&conn->player_watchdog_thread, NULL, &player_watchdog_thread_code, (void *)conn);
 
@@ -2390,6 +2407,11 @@ void rtsp_listen_loop(void) {
     tv.tv_sec = 3; // three seconds write timeout
     tv.tv_usec = 0;
     if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
+      debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
+
+    tv.tv_sec = 30; // 30 seconds read timeout
+    tv.tv_usec = 0;
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
       debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
 
 #ifdef IPV6_V6ONLY

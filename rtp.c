@@ -482,7 +482,13 @@ void *rtp_control_receiver(void *arg) {
   pthread_exit(NULL);
 }
 
+void rtp_timing_sender_cleanup_handler(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(3, "Connection %d: Timing Sender Cleanup.", conn->connection_number);
+}
+
 void *rtp_timing_sender(void *arg) {
+  pthread_cleanup_push(rtp_timing_sender_cleanup_handler, arg);
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   struct timing_request {
     char leader;
@@ -542,6 +548,7 @@ void *rtp_timing_sender(void *arg) {
       usleep(3000000);
   }
   debug(3, "rtp_timing_sender thread interrupted. This should never happen.");
+  pthread_cleanup_pop(0); // don't execute anything here.
   pthread_exit(NULL);
 }
 

@@ -74,11 +74,13 @@ audio_output audio_alsa = {
 
 static pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+static snd_output_t *output = NULL;
 static unsigned int desired_sample_rate;
 static enum sps_format_t sample_format;
 
 static snd_pcm_t *alsa_handle = NULL;
 static snd_pcm_hw_params_t *alsa_params = NULL;
+static snd_pcm_sw_params_t *alsa_swparams = NULL;
 static snd_ctl_t *ctl = NULL;
 static snd_ctl_elem_id_t *elem_id = NULL;
 static snd_mixer_t *alsa_mix_handle = NULL;
@@ -134,6 +136,7 @@ static void help(void) {
 
 void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; }
 
+// assuming pthread cancellation is disabled
 int open_mixer() {
   int response = 0;
   if (hardware_mixer) {
@@ -177,6 +180,7 @@ int open_mixer() {
   return response;
 }
 
+// assuming pthread cancellation is disabled
 void close_mixer() {
   if (alsa_mix_handle) {
     snd_mixer_close(alsa_mix_handle);
@@ -184,6 +188,7 @@ void close_mixer() {
   }
 }
 
+// assuming pthread cancellation is disabled
 void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double vol) {
   if (snd_mixer_selem_set_playback_dB_all(mix_elem, vol, 0) != 0) {
     debug(1, "Can't set playback volume accurately to %f dB.", vol);
@@ -194,6 +199,9 @@ void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double v
 }
 
 static int init(int argc, char **argv) {
+  // for debugging
+  snd_output_stdio_attach(&output, stdout, 0);
+
   // debug(2,"audio_alsa init called.");
   int response = 0; // this will be what we return to the caller.
   const char *str;
@@ -405,6 +413,8 @@ static int init(int argc, char **argv) {
   debug(1, "alsa: output device name is \"%s\".", alsa_out_dev);
 
   if (hardware_mixer) {
+    int oldState;
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
 
     if (alsa_mix_dev == NULL)
       alsa_mix_dev = alsa_out_dev;
@@ -491,6 +501,7 @@ static int init(int argc, char **argv) {
     }
     debug_mutex_unlock(&alsa_mutex, 3); // release the mutex
     pthread_cleanup_pop(0);
+    pthread_setcancelstate(oldState, NULL);
   } else {
     debug(1, "alsa: no hardware mixer selected.");
   }
@@ -504,7 +515,8 @@ static void deinit(void) {
   stop();
 }
 
-int open_alsa_device(void) {
+// assuming pthread cancellation is disabled
+int actual_open_alsa_device(void) {
   // the alsa mutex is already acquired when this is called
   const snd_pcm_uframes_t minimal_buffer_headroom =
       352 * 2; // we accept this much headroom in the hardware buffer, but we'll
@@ -536,6 +548,7 @@ int open_alsa_device(void) {
     return (-10);
 
   snd_pcm_hw_params_alloca(&alsa_params);
+  snd_pcm_sw_params_alloca(&alsa_swparams);
 
   ret = snd_pcm_hw_params_any(alsa_handle, alsa_params);
   if (ret < 0) {
@@ -690,6 +703,28 @@ int open_alsa_device(void) {
     warn("audio_alsa: Unable to get hw buffer length for device \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
     return -9;
+  }
+
+  ret = snd_pcm_sw_params_current(alsa_handle, alsa_swparams);
+  if (ret < 0) {
+    warn("audio_alsa: Unable to get current sw parameters for device \"%s\": %s.", alsa_out_dev,
+         snd_strerror(ret));
+    return -10;
+  }
+
+  ret = snd_pcm_sw_params_set_tstamp_mode(alsa_handle, alsa_swparams, SND_PCM_TSTAMP_ENABLE);
+  if (ret < 0) {
+    warn("audio_alsa: Can't enable timestamp mode of device: \"%s\": %s.", alsa_out_dev,
+         snd_strerror(ret));
+    return -11;
+  }
+
+  /* write the sw parameters */
+  ret = snd_pcm_sw_params(alsa_handle, alsa_swparams);
+  if (ret < 0) {
+    warn("audio_alsa: Unable to set software parameters of device: \"%s\": %s.", alsa_out_dev,
+         snd_strerror(ret));
+    return -12;
   }
 
   if (actual_buffer_length < config.audio_backend_buffer_desired_length + minimal_buffer_headroom) {
@@ -847,8 +882,16 @@ int open_alsa_device(void) {
       break;
     }
   }
-
   return 0;
+}
+
+int open_alsa_device(void) {
+  int result;
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+  result = actual_open_alsa_device();
+  pthread_setcancelstate(oldState, NULL);
+  return result;
 }
 
 static void start(int i_sample_rate, int i_sample_format) {
@@ -867,6 +910,43 @@ static void start(int i_sample_rate, int i_sample_format) {
   measurement_data_is_valid = 0;
 }
 
+// assuming pthread cancellation is disabled
+int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp) {
+  int ret;
+  snd_pcm_status_t *alsa_snd_pcm_status;
+  snd_pcm_status_alloca(&alsa_snd_pcm_status);
+
+  struct timespec tn;                // time now
+  snd_htimestamp_t update_timestamp; // actually a struct timespec
+
+  ret = snd_pcm_status(pcm, alsa_snd_pcm_status);
+  if (ret) {
+    *delayp = 0;
+    return ret;
+  }
+
+  snd_pcm_state_t state = snd_pcm_status_get_state(alsa_snd_pcm_status);
+  if (state != SND_PCM_STATE_RUNNING) {
+    *delayp = 0;
+    return -EIO; // might be a better code than this...
+  }
+
+  clock_gettime(CLOCK_MONOTONIC, &tn);
+  snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
+
+  uint64_t t1 = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
+  uint64_t t2 = update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
+  uint64_t delta = t1 - t2;
+
+  uint64_t frames_played_since_last_interrupt =
+      ((uint64_t)desired_sample_rate * delta) / 1000000000;
+  snd_pcm_sframes_t frames_played_since_last_interrupt_sized = frames_played_since_last_interrupt;
+
+  *delayp =
+      snd_pcm_status_get_delay(alsa_snd_pcm_status) - frames_played_since_last_interrupt_sized;
+  return 0;
+}
+
 int delay(long *the_delay) {
   // snd_pcm_sframes_t is a signed long -- hence the return of a "long"
   int reply = 0;
@@ -874,7 +954,9 @@ int delay(long *the_delay) {
   if (alsa_handle == NULL) {
     return -ENODEV;
   } else {
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
+    int oldState;
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
     int derr;
     snd_pcm_state_t dac_state = snd_pcm_state(alsa_handle);
     if (dac_state == SND_PCM_STATE_RUNNING) {
@@ -926,6 +1008,7 @@ int delay(long *the_delay) {
     // here, occasionally pretend there's a problem with pcm_get_delay()
     // if ((random() % 100000) < 3) // keep it pretty rare
     //	reply = -EIO; // pretend something bad has happened
+    pthread_setcancelstate(oldState, NULL);
     return reply;
   }
 }
@@ -945,10 +1028,13 @@ int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
 
 static int play(void *buf, int samples) {
   // debug(3,"audio_alsa play called.");
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   int ret = 0;
   if (alsa_handle == NULL) {
+
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
-    ret = open_alsa_device();
+    ret = actual_open_alsa_device();
     if (ret == 0) {
       if (audio_alsa.volume)
         do_volume(set_volume);
@@ -1003,7 +1089,7 @@ static int play(void *buf, int samples) {
         frame_index++;
         if ((frame_index == start_measurement_from_this_frame) || (frame_index % 32 == 0)) {
           long fl = 0;
-          err2 = snd_pcm_delay(alsa_handle, &fl);
+          err2 = my_snd_pcm_delay(alsa_handle, &fl);
           if (err2 != 0) {
             debug(1, "Error %d in delay in play(): \"%s\". Delay reported is %d frames.", err2,
                   snd_strerror(err2), fl);
@@ -1048,13 +1134,14 @@ static int play(void *buf, int samples) {
     debug_mutex_unlock(&alsa_mutex, 0);
     pthread_cleanup_pop(0); // release the mutex
   }
+  pthread_setcancelstate(oldState, NULL);
   return ret;
 }
 
 static void flush(void) {
   // debug(2,"audio_alsa flush called.");
   int oldState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
   int derr;
   do_mute(1);
@@ -1095,6 +1182,8 @@ static void parameters(audio_parameters *info) {
 }
 
 void do_volume(double vol) { // caller is assumed to have the alsa_mutex when using this function
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   debug(3, "Setting volume db to %f.", vol);
   set_volume = vol;
   if (volume_set_request && (open_mixer() == 1)) {
@@ -1126,6 +1215,7 @@ void do_volume(double vol) { // caller is assumed to have the alsa_mutex when us
     volume_set_request = 0; // any external request that has been made is now satisfied
     close_mixer();
   }
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void volume(double vol) {
@@ -1165,6 +1255,9 @@ static void mute(int mute_state_requested) {
 }
 
 void do_mute(int mute_state_requested) {
+
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
 
   // if a mute is requested now, then
   // 	if an external mute request is in place, leave everything muted
@@ -1206,4 +1299,5 @@ void do_mute(int mute_state_requested) {
     }
   }
   mute_request_pending = 0;
+  pthread_setcancelstate(oldState, NULL);
 }
