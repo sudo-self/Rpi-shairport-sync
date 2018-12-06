@@ -283,11 +283,25 @@ void *player_watchdog_thread_code(void *arg) {
         uint64_t ct = config.timeout; // go from int to 64-bit int
 
         if (time_since_last_bark >= ct) {
-          debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
-                   "of the heart\".",
-                conn->connection_number);
-          conn->stop = 1;
-          pthread_cancel(conn->thread);
+          conn->watchdog_barks++;
+          if (conn->watchdog_barks == 1) {
+            debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
+                     "of the heart\".",
+                  conn->connection_number);
+            conn->stop = 1;
+            pthread_cancel(conn->thread);
+          } else if (conn->watchdog_barks == 3) {
+            if (config.cmd_unfixable) {
+              warn("Connection %d: An unfixable error has been detected. Executing the "
+                   "\"run_this_if_an_unfixable_error_is_detected\" command.",
+                   conn->connection_number);
+              command_execute(config.cmd_unfixable);
+            } else {
+              warn("Connection %d: An unfixable error has been detected. \"No "
+                   "run_this_if_an_unfixable_error_is_detected\" command provided -- nothing done.",
+                   conn->connection_number);
+            }
+          }
         }
       }
     }
@@ -2144,7 +2158,8 @@ void msg_cleanup_function(void *arg) {
 static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_conn_info *conn = pconn;
 
-  // create the watchdog mutex and start the watchdog thread;
+  // create the watchdog mutex, initialise the watchdog time and start the watchdog thread;
+  conn->watchdog_bark_time = get_absolute_time_in_fp();
   pthread_mutex_init(&conn->watchdog_mutex, NULL);
   pthread_create(&conn->player_watchdog_thread, NULL, &player_watchdog_thread_code, (void *)conn);
 
@@ -2392,6 +2407,11 @@ void rtsp_listen_loop(void) {
     tv.tv_sec = 3; // three seconds write timeout
     tv.tv_usec = 0;
     if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
+      debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
+
+    tv.tv_sec = 30; // 30 seconds read timeout
+    tv.tv_usec = 0;
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
       debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
 
 #ifdef IPV6_V6ONLY

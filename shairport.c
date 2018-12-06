@@ -721,6 +721,11 @@ int parse_options(int argc, char **argv) {
         config.cmd_stop = (char *)str;
       }
 
+      if (config_lookup_string(config.cfg,
+                               "sessioncontrol.run_this_if_an_unfixable_error_is_detected", &str)) {
+        config.cmd_unfixable = (char *)str;
+      }
+
       if (config_lookup_string(config.cfg, "sessioncontrol.wait_for_completion", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.cmd_blocking = 0;
