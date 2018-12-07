@@ -150,7 +150,7 @@ Version 3.2.d64
 Version 3.2.d63
 ====
 **Enhancement**
-* An [MQTT](https://en.wikipedia.org/wiki/MQTT) client interface is introduced, with support for metadata and for some remote control commands, thanks to the work [Till Zimmermann](https://github.com/tillz). MQTT is a fairly often used protocol in FOSS home-automation projects (as well as in commercial ones), and as Shairport Sync is often used in these setups, this adds client support for this protocol.
+* An [MQTT](https://en.wikipedia.org/wiki/MQTT) client interface is introduced, with support for metadata and for some remote control commands, thanks to the work of [Till Zimmermann](https://github.com/tillz). MQTT is a fairly often used protocol in FOSS home-automation projects (as well as in commercial ones), and as Shairport Sync is often used in these setups, this adds client support for this protocol.
 
 Version 3.2d62
 ====
