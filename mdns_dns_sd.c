@@ -93,5 +93,6 @@ static void mdns_dns_sd_unregister(void) {
 mdns_backend mdns_dns_sd = {.name = "dns-sd",
                             .mdns_register = mdns_dns_sd_register,
                             .mdns_unregister = mdns_dns_sd_unregister,
-                            .mdns_dacp_monitor = NULL,
-                            .mdns_dacp_dont_monitor = NULL};
+                            .mdns_dacp_monitor_start = NULL,
+                            .mdns_dacp_monitor_set_id = NULL,
+                            .mdns_dacp_monitor_stop = NULL};

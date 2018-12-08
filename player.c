@@ -76,6 +76,7 @@
 #endif
 
 #include "common.h"
+#include "mdns.h"
 #include "player.h"
 #include "rtp.h"
 #include "rtsp.h"
@@ -452,7 +453,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
     //    	debug(1,"Flush_rtp_timestamp is %u",flush_rtp_timestamp);
 
     // now, if a flush_rtp_timestamp has been defined and the incoming timestamp is "before" it,
-    // drop itâ€¦
+    // drop itÉ
 
     if ((conn->flush_rtp_timestamp != 0) && (actual_timestamp != conn->flush_rtp_timestamp) &&
         (modulo_32_offset(actual_timestamp, conn->flush_rtp_timestamp) <
@@ -478,7 +479,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       abuf_t *abuf = 0;
 
       if (!conn->ab_synced) {
-        // if this is the first packetâ€¦
+        // if this is the first packetÉ
         debug(3, "syncing to seqno %u.", seqno);
         conn->ab_write = seqno;
         conn->ab_read = seqno;
@@ -500,7 +501,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       }
 
       if (conn->ab_write ==
-          seqno) { // if this is the expected packet (which could be the first packetâ€¦)
+          seqno) { // if this is the expected packet (which could be the first packetÉ)
         uint64_t reception_time = get_absolute_time_in_fp();
         if (conn->input_frame_rate_starting_point_is_valid == 0) {
           if ((conn->packet_count_since_flush >= 500) && (conn->packet_count_since_flush <= 510)) {
@@ -1416,19 +1417,10 @@ void player_thread_cleanup_handler(void *arg) {
   }
 
 #ifdef CONFIG_DACP_CLIENT
-
   relinquish_dacp_server_information(
       conn); // say it doesn't belong to this conversation thread any more...
-
 #else
-  // stop watching for DACP port number stuff
-  // this is only used for compatability, if dacp stuff isn't enabled.
-  if (conn->dapo_private_storage) {
-    mdns_dacp_dont_monitor(conn->dapo_private_storage);
-    conn->dapo_private_storage = NULL;
-  } else {
-    debug(2, "DACP Monitor already stopped");
-  }
+  mdns_dacp_monitor_set_id(NULL); // say we're not interested in following that DACP id any more
 #endif
 
   debug(2, "Cancelling timing, control and audio threads...");
@@ -1733,20 +1725,11 @@ void *player_thread_func(void *arg) {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
 
 #ifdef CONFIG_DACP_CLIENT
-  // debug(1, "Set dacp server info");
-  // may have pthread cancellation points in it -- beware
-  set_dacp_server_information(conn); //  this will start scanning when a port is registered by the
-                                     // code initiated by the mdns_dacp_monitor
+  set_dacp_server_information(conn);
 #else
-  // this is only used for compatability, if dacp stuff isn't enabled.
-  // start an mdns/zeroconf thread to look for DACP messages containing our DACP_ID and getting the
-  // port number
-  if (conn->dapo_private_storage)
-    debug(1, "DACP monitor already initialised?");
-  else
-    // almost certainly, this has pthread cancellation points in it -- beware
-    conn->dapo_private_storage = mdns_dacp_monitor(conn->dacp_id);
+  mdns_dacp_monitor_set_id(conn->dacp_id);
 #endif
+
   pthread_setcancelstate(oldState, NULL);
 
   // set the default volume to whatever it was before, as stored in the config airplay_volume

@@ -96,34 +96,38 @@ void mdns_register(void) {
 
   if (config.mdns == NULL)
     die("Could not establish mDNS advertisement!");
+
+  mdns_dacp_monitor_start(); // create a dacp monitor thread
 }
 
 void mdns_unregister(void) {
+  mdns_dacp_monitor_stop();
   if (config.mdns) {
     config.mdns->mdns_unregister();
   }
 }
 
-void *mdns_dacp_monitor(char *dacp_id) {
-  void *reply = NULL;
-  if ((dacp_id != NULL) && (*dacp_id != '\0')) {
-    if ((config.mdns) && (config.mdns->mdns_dacp_monitor)) {
-      reply = config.mdns->mdns_dacp_monitor(dacp_id);
-      if (reply == NULL) {
-        debug(1, "Error starting a DACP monitor.");
-      }
-    } else
-      debug(3, "Can't start a DACP monitor -- none registered.");
-  }
-  return reply;
+void mdns_dacp_monitor_start(void) {
+  if ((config.mdns) && (config.mdns->mdns_dacp_monitor_start)) {
+    config.mdns->mdns_dacp_monitor_start();
+  } else
+    debug(3, "Can't start a DACP monitor -- no mdns_dacp_monitor start registered.");
 }
 
-void mdns_dacp_dont_monitor(void *userdata) {
-  if ((config.mdns) && (config.mdns->mdns_dacp_dont_monitor)) {
-    config.mdns->mdns_dacp_dont_monitor(userdata);
+void mdns_dacp_monitor_stop() {
+  if ((config.mdns) && (config.mdns->mdns_dacp_monitor_stop)) {
+    config.mdns->mdns_dacp_monitor_stop();
   } else
-    debug(3, "Can't stop a DACP monitor -- none registered.");
+    debug(3, "Can't stop a DACP monitor -- no mdns_dacp_monitor_stop registered.");
 }
+
+void mdns_dacp_monitor_set_id(const char *dacp_id) {
+  if ((config.mdns) && (config.mdns->mdns_dacp_monitor_set_id)) {
+    config.mdns->mdns_dacp_monitor_set_id(dacp_id);
+  } else
+    debug(3, "Can't set dacp_id -- no mdns_dacp_set_id registered.");
+}
+
 void mdns_ls_backends(void) {
   mdns_backend **b = NULL;
   printf("Available mDNS backends: \n");

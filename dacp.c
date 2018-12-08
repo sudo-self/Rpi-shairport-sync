@@ -60,6 +60,7 @@ typedef struct {
 
 pthread_t dacp_monitor_thread;
 dacp_server_record dacp_server;
+void *mdns_dacp_monitor_private_storage_pointer;
 
 // HTTP Response data/funcs (See the tinyhttp example.cpp file for more on this.)
 struct HttpResponse {
@@ -356,14 +357,10 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
     dacp_server.connection_family = conn->connection_ip_family;
     dacp_server.scope_id = conn->self_scope_id;
     strncpy(dacp_server.ip_string, conn->client_ip_string, INET6_ADDRSTRLEN);
-    debug(2, "set_dacp_server_information set IP to \"%s\" and DACP id to \"%s\".",
+    debug(3, "set_dacp_server_information set IP to \"%s\" and DACP id to \"%s\".",
           dacp_server.ip_string, dacp_server.dacp_id);
 
-    if (dacp_server.port_monitor_private_storage) // if there's is a monitor already active...
-      mdns_dacp_dont_monitor(dacp_server.port_monitor_private_storage); // let it go.
-    dacp_server.port_monitor_private_storage =
-        mdns_dacp_monitor(dacp_server.dacp_id); // create a new one for us if a DACP-ID is provided,
-                                                // otherwise will return a NULL
+    mdns_dacp_monitor_set_id(dacp_server.dacp_id);
 
     metadata_hub_modify_prolog();
     int ch = metadata_store.dacp_server_active != dacp_server.scan_enable;
@@ -389,16 +386,17 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
   }
   dacp_server.active_remote_id = conn->dacp_active_remote; // even if the dacp_id remains the same,
                                                            // the active remote will change.
-  debug(2, "set_dacp_server_information set active-remote id to %" PRIu32 ".",
+  debug(3, "set_dacp_server_information set active-remote id to %" PRIu32 ".",
         dacp_server.active_remote_id);
   pthread_cond_signal(&dacp_server_information_cv);
   debug_mutex_unlock(&dacp_server_information_lock, 3);
 }
 
 void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
-  debug(2, "dacp_monitor_port_update_callback with Remote ID \"%s\" and port number %d.", dacp_id,
-        port);
   debug_mutex_lock(&dacp_server_information_lock, 500000, 2);
+  debug(3, "dacp_monitor_port_update_callback with Remote ID \"%s\", target ID \"%s\" and port "
+           "number %d.",
+        dacp_id, dacp_server.dacp_id, port);
   if (strcmp(dacp_id, dacp_server.dacp_id) == 0) {
     dacp_server.port = port;
     if (port == 0)
@@ -856,6 +854,7 @@ void dacp_monitor_start() {
     debug(1, "Error creating the DACP Server Information Lock Attr Destroy");
 
   memset(&dacp_server, 0, sizeof(dacp_server_record));
+
   pthread_create(&dacp_monitor_thread, NULL, dacp_monitor_thread_code, NULL);
 }
 
