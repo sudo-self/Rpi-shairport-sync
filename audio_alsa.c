@@ -1066,6 +1066,7 @@ int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
 }
 
 static int play(void *buf, int samples) {
+  uint64_t time_before;
   // debug(3,"audio_alsa play called.");
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1073,7 +1074,9 @@ static int play(void *buf, int samples) {
   if (alsa_handle == NULL) {
 
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
+    time_before = get_absolute_time_in_fp();
     ret = actual_open_alsa_device();
+    debug(1, "Opening time: %8.2f us.", (1000000.0 * (get_absolute_time_in_fp() - time_before ) / (uint64_t)0x100000000));
     if (ret == 0) {
       if (audio_alsa.volume)
         do_volume(set_volume);
@@ -1110,7 +1113,7 @@ static int play(void *buf, int samples) {
         uint64_t maximum_permitted_writing_time = (config.alsa_maximum_write_time * 1000000000);
         maximum_permitted_writing_time = (maximum_permitted_writing_time << 32) / 1000000000;
 
-        uint64_t time_before = get_absolute_time_in_fp();
+        time_before = get_absolute_time_in_fp();
         err = alsa_pcm_write(alsa_handle, buf, samples);
         uint64_t writing_time = get_absolute_time_in_fp() - time_before;
 
