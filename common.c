@@ -98,7 +98,7 @@ int usleep_uncancellable(useconds_t usec) {
   int response;
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  response = usleep_uncancellable(usec);
+  response = usleep(usec);
   pthread_setcancelstate(oldState, NULL);
   return response;
 }
