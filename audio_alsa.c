@@ -216,6 +216,10 @@ static int init(int argc, char **argv) {
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.15;
 
+  config.alsa_maximum_write_time = 0.016; // 16 milliseconds -- if it takes longer, we need to know
+  config.alsa_maximum_interface_response_time =
+      0.001; // one millisecond -- if it takes longer, we need to know
+
   // get settings from settings file first, allow them to be overridden by
   // command line options
 
@@ -223,6 +227,7 @@ static int init(int argc, char **argv) {
   parse_general_audio_options();
 
   if (config.cfg != NULL) {
+    double dvalue;
 
     /* Get the Output Device Name. */
     if (config_lookup_string(config.cfg, "alsa.output_device", &str)) {
@@ -369,6 +374,28 @@ static int init(int argc, char **argv) {
         set_buffer_size_request = 0;
       } else {
         buffer_size_requested = value;
+      }
+    }
+
+    /* Get the optional alsa_maximum_interface_response_time setting. */
+    if (config_lookup_float(config.cfg, "alsa.maximum_interface_response_time", &dvalue)) {
+      if (dvalue < 0.0) {
+        warn("Invalid alsa maximum interface response time setting \"%f\". It "
+             "must be greater than 0. Default is \"%f\". No setting is made.",
+             dvalue, config.alsa_maximum_interface_response_time);
+      } else {
+        config.alsa_maximum_interface_response_time = dvalue;
+      }
+    }
+
+    /* Get the optional alsa_maximum_write_time setting. */
+    if (config_lookup_float(config.cfg, "alsa.maximum_write_time", &dvalue)) {
+      if (dvalue < 0.0) {
+        warn("Invalid alsa maximum write time setting \"%f\". It "
+             "must be greater than 0. Default is \"%f\". No setting is made.",
+             dvalue, config.alsa_maximum_write_time);
+      } else {
+        config.alsa_maximum_write_time = dvalue;
       }
     }
   }
@@ -956,12 +983,15 @@ int delay(long *the_delay) {
   } else {
     int oldState;
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
+    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
     int derr;
     snd_pcm_state_t dac_state = snd_pcm_state(alsa_handle);
     if (dac_state == SND_PCM_STATE_RUNNING) {
       *the_delay = 0; // just to see what happens
+      uint64_t time_before = get_absolute_time_in_fp();
       reply = snd_pcm_delay(alsa_handle, the_delay);
+      uint64_t response_time = get_absolute_time_in_fp() - time_before;
+
       if (reply != 0) {
         debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", reply,
               snd_strerror(reply), *the_delay);
@@ -978,6 +1008,15 @@ int delay(long *the_delay) {
           frame_index = 0; // we'll be starting over...
           measurement_data_is_valid = 0;
         }
+      }
+      uint64_t maximum_permitted_response_time =
+          (uint64_t)(config.alsa_maximum_interface_response_time * 1000000); // microseconds
+      maximum_permitted_response_time = (maximum_permitted_response_time << 32) / 1000000;
+      if (response_time > maximum_permitted_response_time) {
+        debug(3, "Maximum response time of %8.2f us exceeded reading delay. Response time was "
+                 "%12.2f us.",
+              (1000000.0 * maximum_permitted_response_time) / (uint64_t)0x100000000,
+              (1000000.0 * response_time) / (uint64_t)0x100000000);
       }
     } else {
       reply = -EIO;    // shomething is wrong
@@ -1066,13 +1105,15 @@ static int play(void *buf, int samples) {
       if (samples == 0)
         debug(1, "empty buffer being passed to pcm_writei -- skipping it");
       if ((samples != 0) && (buf != NULL)) {
-        debug(3, "write %d frames.", samples);
-        uint64_t nominal_playing_time = samples;
-        nominal_playing_time = (nominal_playing_time << 32) / desired_sample_rate;        
+        // debug(3, "write %d frames.", samples);
+
+        uint64_t maximum_permitted_writing_time = (config.alsa_maximum_write_time * 1000000000);
+        maximum_permitted_writing_time = (maximum_permitted_writing_time << 32) / 1000000000;
+
         uint64_t time_before = get_absolute_time_in_fp();
         err = alsa_pcm_write(alsa_handle, buf, samples);
         uint64_t writing_time = get_absolute_time_in_fp() - time_before;
-        
+
         if (err < 0) {
           frame_index = 0;
           measurement_data_is_valid = 0;
@@ -1084,11 +1125,14 @@ static int play(void *buf, int samples) {
                  "play():  \"%s\".",
                  err, samples, snd_strerror(err));
         }
-        
-        if (writing_time > nominal_playing_time) {
-          debug(1,"Taking too long to write %d samples. Playing time: %8.2f us, writing time: %8.2f us.", samples,(1000000.0 * nominal_playing_time)/(uint64_t)0x100000000, (1000000.0 * writing_time)/(uint64_t)0x100000000);
+
+        if (writing_time > maximum_permitted_writing_time) {
+          debug(3, "Taking too long to write %d samples. Playing time: %8.2f us, writing time: "
+                   "%8.2f us.",
+                samples, (1000000.0 * maximum_permitted_writing_time) / (uint64_t)0x100000000,
+                (1000000.0 * writing_time) / (uint64_t)0x100000000);
         }
-        
+
         if (frame_index == 0) {
           frames_sent_for_playing = samples;
         } else {

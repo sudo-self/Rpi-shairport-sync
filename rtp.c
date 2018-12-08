@@ -377,7 +377,7 @@ void *rtp_control_receiver(void *arg) {
               }
             }
 
-            debug_mutex_lock(&conn->reference_time_mutex, 1000, 1);
+            debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
 
             if (conn->packet_stream_established) {
               if (conn->initial_reference_time == 0) {
@@ -414,7 +414,7 @@ void *rtp_control_receiver(void *arg) {
             //    remote_time_of_sync - local_to_remote_time_difference_now(conn);
             conn->reference_timestamp = sync_rtp_timestamp;
             conn->latency_delayed_timestamp = rtp_timestamp_less_latency;
-            debug_mutex_unlock(&conn->reference_time_mutex, 3);
+            debug_mutex_unlock(&conn->reference_time_mutex, 0);
 
             conn->reference_to_previous_time_difference =
                 remote_time_of_sync - old_remote_reference_time;

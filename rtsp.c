@@ -273,7 +273,7 @@ void *player_watchdog_thread_code(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   do {
     usleep(2000000); // check every two seconds
-    debug(3, "Connection %d: Check the thread is doing something...", conn->connection_number);
+    // debug(3, "Connection %d: Check the thread is doing something...", conn->connection_number);
     if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
       debug_mutex_lock(&conn->watchdog_mutex, 1000, 0);
       uint64_t last_watchdog_bark_time = conn->watchdog_bark_time;
@@ -482,9 +482,9 @@ static void debug_print_msg_content(int level, rtsp_message *msg) {
 void msg_free(rtsp_message *msg) {
 
   if (msg) {
-    debug_mutex_lock(&reference_counter_lock, 1000, 3);
+    debug_mutex_lock(&reference_counter_lock, 1000, 0);
     msg->referenceCount--;
-    debug_mutex_unlock(&reference_counter_lock, 3);
+    debug_mutex_unlock(&reference_counter_lock, 0);
     if (msg->referenceCount == 0) {
       unsigned int i;
       for (i = 0; i < msg->nheaders; i++) {
@@ -2151,7 +2151,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
 }
 
 void msg_cleanup_function(void *arg) {
-  debug(3, "msg_cleanup_function called.");
+  // debug(3, "msg_cleanup_function called.");
   msg_free((rtsp_message *)arg);
 }
 
@@ -2409,11 +2409,12 @@ void rtsp_listen_loop(void) {
     if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
       debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
 
-    tv.tv_sec = 30; // 30 seconds read timeout
-    tv.tv_usec = 0;
-    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
-      debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
-
+    if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
+      tv.tv_sec = config.timeout; // 120 seconds read timeout by default.
+      tv.tv_usec = 0;
+      if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
+        debug(1, "Error %d setting read timeout for rtsp connection.", errno);
+    }
 #ifdef IPV6_V6ONLY
     // some systems don't support v4 access on v6 sockets, but some do.
     // since we need to account for two sockets we might as well
