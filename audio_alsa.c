@@ -1067,7 +1067,12 @@ static int play(void *buf, int samples) {
         debug(1, "empty buffer being passed to pcm_writei -- skipping it");
       if ((samples != 0) && (buf != NULL)) {
         debug(3, "write %d frames.", samples);
+        uint64_t nominal_playing_time = samples;
+        nominal_playing_time = (nominal_playing_time << 32) / desired_sample_rate;        
+        uint64_t time_before = get_absolute_time_in_fp();
         err = alsa_pcm_write(alsa_handle, buf, samples);
+        uint64_t writing_time = get_absolute_time_in_fp() - time_before;
+        
         if (err < 0) {
           frame_index = 0;
           measurement_data_is_valid = 0;
@@ -1079,6 +1084,11 @@ static int play(void *buf, int samples) {
                  "play():  \"%s\".",
                  err, samples, snd_strerror(err));
         }
+        
+        if (writing_time > nominal_playing_time) {
+          debug(1,"Taking too long to write %d samples. Playing time: %8.2f us, writing time: %8.2f us.", samples,(1000000.0 * nominal_playing_time)/(uint64_t)0x100000000, (1000000.0 * writing_time)/(uint64_t)0x100000000);
+        }
+        
         if (frame_index == 0) {
           frames_sent_for_playing = samples;
         } else {
