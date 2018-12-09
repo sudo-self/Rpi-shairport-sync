@@ -976,6 +976,7 @@ int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp) {
 
 int delay(long *the_delay) {
   uint64_t overall_time_before = get_absolute_time_in_fp();
+  *the_delay = 0;
   // snd_pcm_sframes_t is a signed long -- hence the return of a "long"
   int reply = 0;
   // debug(3,"audio_alsa delay called.");
@@ -1050,7 +1051,7 @@ int delay(long *the_delay) {
     //	reply = -EIO; // pretend something bad has happened
     pthread_setcancelstate(oldState, NULL);
   }
-  debug(1, "Total playing time to get delay: %8.2f us.",
+  debug(1, "Total playing time to get delay of %d frames: %8.2f us.", *the_delay,
     (1000000.0 * (get_absolute_time_in_fp() - overall_time_before) / (uint64_t)0x100000000));
   return reply;
 }
