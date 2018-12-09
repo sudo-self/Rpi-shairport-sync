@@ -975,11 +975,12 @@ int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp) {
 }
 
 int delay(long *the_delay) {
+  uint64_t overall_time_before = get_absolute_time_in_fp();
   // snd_pcm_sframes_t is a signed long -- hence the return of a "long"
   int reply = 0;
   // debug(3,"audio_alsa delay called.");
   if (alsa_handle == NULL) {
-    return -ENODEV;
+    reply = -ENODEV;
   } else {
     int oldState;
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1048,8 +1049,10 @@ int delay(long *the_delay) {
     // if ((random() % 100000) < 3) // keep it pretty rare
     //	reply = -EIO; // pretend something bad has happened
     pthread_setcancelstate(oldState, NULL);
-    return reply;
   }
+  debug(1, "Total playing time to get delay: %8.2f us.",
+    (1000000.0 * (get_absolute_time_in_fp() - overall_time_before) / (uint64_t)0x100000000));
+  return reply;
 }
 
 int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
@@ -1066,7 +1069,7 @@ int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
 }
 
 static int play(void *buf, int samples) {
-  uint64_t time_before;
+  uint64_t overall_time_before = get_absolute_time_in_fp();
   // debug(3,"audio_alsa play called.");
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1074,9 +1077,9 @@ static int play(void *buf, int samples) {
   if (alsa_handle == NULL) {
 
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
-    time_before = get_absolute_time_in_fp();
+    overall_time_before = get_absolute_time_in_fp();
     ret = actual_open_alsa_device();
-    debug(1, "Opening time: %8.2f us.", (1000000.0 * (get_absolute_time_in_fp() - time_before ) / (uint64_t)0x100000000));
+    debug(1, "Opening time: %8.2f us.", (1000000.0 * (get_absolute_time_in_fp() - overall_time_before ) / (uint64_t)0x100000000));
     if (ret == 0) {
       if (audio_alsa.volume)
         do_volume(set_volume);
@@ -1113,9 +1116,9 @@ static int play(void *buf, int samples) {
         uint64_t maximum_permitted_writing_time = (config.alsa_maximum_write_time * 1000000000);
         maximum_permitted_writing_time = (maximum_permitted_writing_time << 32) / 1000000000;
 
-        time_before = get_absolute_time_in_fp();
+        overall_time_before = get_absolute_time_in_fp();
         err = alsa_pcm_write(alsa_handle, buf, samples);
-        uint64_t writing_time = get_absolute_time_in_fp() - time_before;
+        uint64_t writing_time = get_absolute_time_in_fp() - overall_time_before;
 
         if (err < 0) {
           frame_index = 0;
@@ -1192,10 +1195,14 @@ static int play(void *buf, int samples) {
     pthread_cleanup_pop(0); // release the mutex
   }
   pthread_setcancelstate(oldState, NULL);
+  debug(1, "Total playing time to write %d samples: %8.2f us.",
+    samples, (1000000.0 * (get_absolute_time_in_fp() - overall_time_before) / (uint64_t)0x100000000));
+
   return ret;
 }
 
 static void flush(void) {
+  uint64_t overall_time_before = get_absolute_time_in_fp();
   // debug(2,"audio_alsa flush called.");
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1221,6 +1228,8 @@ static void flush(void) {
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
   pthread_setcancelstate(oldState, NULL);
+  debug(1, "Total playing time to flush: %8.2f us.",
+    (1000000.0 * (get_absolute_time_in_fp() - overall_time_before) / (uint64_t)0x100000000));
 }
 
 static void stop(void) {
