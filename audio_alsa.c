@@ -1069,11 +1069,11 @@ int delay(long *the_delay) {
     if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == *the_delay)) {
       // hasn't outputted anything since the last call to delay()
       int64_t time_stalled = stall_monitor_time_now - stall_monitor_start_time;
-      int64_t stall_monitor_error_threshold = 1000; // microseconds;
+      int64_t stall_monitor_error_threshold = 200000; // microseconds;
       stall_monitor_error_threshold = (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
       if (time_stalled > stall_monitor_error_threshold) {
         if (stall_monitor_error_notified == 0) {
-          debug(1, "alsa output device appears to be stalled -- no output in %8.2 us.",(1000000.0 * stall_monitor_error_threshold) / (uint64_t)0x100000000);
+          debug(1, "alsa output device stalled -- no output in %8.2f us.",(1000000.0 * stall_monitor_error_threshold) / (uint64_t)0x100000000);
           stall_monitor_error_notified = 1;
         }
       }
