@@ -74,6 +74,11 @@ audio_output audio_alsa = {
 
 static pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+// for tracking how long the output device has stalled
+uint64_t stall_monitor_start_time; // zero if not initialised / not started / zeroed by flush
+long stall_monitor_frame_count; // set to delay at start of time, incremented by any writes
+int stall_monitor_error_notified; 
+
 static snd_output_t *output = NULL;
 static unsigned int desired_sample_rate;
 static enum sps_format_t sample_format;
@@ -935,6 +940,11 @@ static void start(int i_sample_rate, int i_sample_format) {
 
   frame_index = 0;
   measurement_data_is_valid = 0;
+  
+  stall_monitor_start_time = 0;
+  stall_monitor_frame_count = 0;
+  stall_monitor_error_notified = 0;
+  
 }
 
 // assuming pthread cancellation is disabled
@@ -1051,8 +1061,32 @@ int delay(long *the_delay) {
     //	reply = -EIO; // pretend something bad has happened
     pthread_setcancelstate(oldState, NULL);
   }
-  debug(1, "Total playing time to get delay of %d frames: %8.2f us.", *the_delay,
+  debug(3, "Total playing time to get delay of %d frames: %8.2f us.", *the_delay,
     (1000000.0 * (get_absolute_time_in_fp() - overall_time_before) / (uint64_t)0x100000000));
+  
+  if ((reply == 0) && (*the_delay != 0)) {
+    uint64_t stall_monitor_time_now = get_absolute_time_in_fp();
+    if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == *the_delay)) {
+      // hasn't outputted anything since the last call to delay()
+      int64_t time_stalled = stall_monitor_time_now - stall_monitor_start_time;
+      int64_t stall_monitor_error_threshold = 1000; // microseconds;
+      stall_monitor_error_threshold = (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
+      if (time_stalled > stall_monitor_error_threshold) {
+        if (stall_monitor_error_notified == 0) {
+          debug(1, "alsa output device appears to be stalled -- no output in %8.2 us.",(1000000.0 * stall_monitor_error_threshold) / (uint64_t)0x100000000);
+          stall_monitor_error_notified = 1;
+        }
+      }
+    } else {
+      // is outputting stuff, so restart the monitoring here
+      stall_monitor_start_time = stall_monitor_time_now;
+      stall_monitor_frame_count = *the_delay;
+    }
+  } else {
+    // if there is an error or the delay is zero (from which it is assumed there is no output)
+    stall_monitor_start_time = 0; // zero if not initialised / not started / zeroed by flush
+    stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
+  }
   return reply;
 }
 
@@ -1080,7 +1114,7 @@ static int play(void *buf, int samples) {
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
     overall_time_before = get_absolute_time_in_fp();
     ret = actual_open_alsa_device();
-    debug(1, "Opening time: %8.2f us.", (1000000.0 * (get_absolute_time_in_fp() - overall_time_before ) / (uint64_t)0x100000000));
+    debug(3, "Opening time: %8.2f us.", (1000000.0 * (get_absolute_time_in_fp() - overall_time_before ) / (uint64_t)0x100000000));
     if (ret == 0) {
       if (audio_alsa.volume)
         do_volume(set_volume);
@@ -1120,6 +1154,7 @@ static int play(void *buf, int samples) {
         overall_time_before = get_absolute_time_in_fp();
         err = alsa_pcm_write(alsa_handle, buf, samples);
         uint64_t writing_time = get_absolute_time_in_fp() - overall_time_before;
+        stall_monitor_frame_count += samples;
 
         if (err < 0) {
           frame_index = 0;
@@ -1196,7 +1231,7 @@ static int play(void *buf, int samples) {
     pthread_cleanup_pop(0); // release the mutex
   }
   pthread_setcancelstate(oldState, NULL);
-  debug(1, "Total playing time to write %d samples: %8.2f us.",
+  debug(3, "Total playing time to write %d samples: %8.2f us.",
     samples, (1000000.0 * (get_absolute_time_in_fp() - overall_time_before) / (uint64_t)0x100000000));
 
   return ret;
@@ -1212,7 +1247,7 @@ static void flush(void) {
   do_mute(1);
 
   if (alsa_handle) {
-
+    stall_monitor_start_time = 0;
     if ((derr = snd_pcm_drop(alsa_handle)))
       debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
 
@@ -1229,7 +1264,7 @@ static void flush(void) {
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
   pthread_setcancelstate(oldState, NULL);
-  debug(1, "Total playing time to flush: %8.2f us.",
+  debug(3, "Total playing time to flush: %8.2f us.",
     (1000000.0 * (get_absolute_time_in_fp() - overall_time_before) / (uint64_t)0x100000000));
 }
 

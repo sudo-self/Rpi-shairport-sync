@@ -449,12 +449,6 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
   conn->time_of_last_audio_packet = get_absolute_time_in_fp();
   if (conn->connection_state_to_output) { // if we are supposed to be processing these packets
 
-    //    if (flush_rtp_timestamp != 0)
-    //    	debug(1,"Flush_rtp_timestamp is %u",flush_rtp_timestamp);
-
-    // now, if a flush_rtp_timestamp has been defined and the incoming timestamp is "before" it,
-    // drop itÉ
-
     if ((conn->flush_rtp_timestamp != 0) && (actual_timestamp != conn->flush_rtp_timestamp) &&
         (modulo_32_offset(actual_timestamp, conn->flush_rtp_timestamp) <
          conn->input_rate * 10)) { // if it's less than 10 seconds
@@ -2035,7 +2029,7 @@ void *player_thread_func(void *arg) {
                 debug(2, "Large positive sync error: %" PRId64 ".", sync_error);
                 int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
                 uint32_t frames_to_drop_sized = local_frames_to_drop;
-                do_flush(inframe->given_timestamp + frames_to_drop_sized, conn);
+                do_flush(inframe->given_timestamp + frames_to_drop_sized, conn); // this will reset_input_flow_metrics anyway
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
                 debug(2,
                       "Large negative sync error: %" PRId64 " with should_be_frame_32 of %" PRIu32
