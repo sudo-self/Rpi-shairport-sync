@@ -85,7 +85,8 @@ typedef struct {
   volatile int stop;
   volatile int running;
   volatile uint64_t watchdog_bark_time;
-  volatile int watchdog_barks; // number of times the watchdog has timed out and done something
+  volatile int watchdog_barks;  // number of times the watchdog has timed out and done something
+  int unfixable_error_reported; // set when an unfixable error command has been executed.
 
   time_t playstart;
   pthread_t thread, timer_requester, rtp_audio_thread, rtp_control_thread, rtp_timing_thread,

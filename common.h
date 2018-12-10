@@ -30,6 +30,8 @@ enum dbus_session_type {
 } dbt_type;
 #endif
 
+#define sps_extra_errno_output_stalled 32768
+
 enum endian_type {
   SS_LITTLE_ENDIAN = 0,
   SS_PDP_ENDIAN,
@@ -300,7 +302,7 @@ int config_set_lookup_bool(config_t *cfg, char *where, int *dst);
 
 void command_start(void);
 void command_stop(void);
-void command_execute(const char *command);
+void command_execute(const char *command, const char *extra_argument);
 void command_set_volume(double volume);
 
 int mkpath(const char *path, mode_t mode);

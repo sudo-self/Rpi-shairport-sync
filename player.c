@@ -1075,7 +1075,23 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                           1; // even if we haven't sent silence because it's zero frames long...
                     }
                   } else {
-                    // debug(1, "Unable to get dac delay.");
+                    if ((resp == sps_extra_errno_output_stalled) &&
+                        (conn->unfixable_error_reported == 0)) {
+                      conn->unfixable_error_reported = 1;
+                      if (config.cmd_unfixable) {
+                        warn("Connection %d: An unfixable error has been detected -- output device "
+                             "is stalled. Executing the "
+                             "\"run_this_if_an_unfixable_error_is_detected\" command.",
+                             conn->connection_number);
+                        command_execute(config.cmd_unfixable, "output_device_stalled");
+                      } else {
+                        warn("Connection %d: An unfixable error has been detected -- output device "
+                             "is stalled. \"No "
+                             "run_this_if_an_unfixable_error_is_detected\" command provided -- "
+                             "nothing done.",
+                             conn->connection_number);
+                      }
+                    }
                   }
                 } else {
                   // no delay function on back end -- just send the prefiller silence
@@ -1955,7 +1971,24 @@ void *player_thread_func(void *arg) {
                 minimum_dac_queue_size = current_delay; // update for display later
               }
             } else {
-              debug(2, "Delay error %d when checking running latency.", resp);
+              if ((resp == sps_extra_errno_output_stalled) &&
+                  (conn->unfixable_error_reported == 0)) {
+                conn->unfixable_error_reported = 1;
+                if (config.cmd_unfixable) {
+                  warn("Connection %d: An unfixable error has been detected -- output device is "
+                       "stalled. Executing the "
+                       "\"run_this_if_an_unfixable_error_is_detected\" command.",
+                       conn->connection_number);
+                  command_execute(config.cmd_unfixable, "output_device_stalled");
+                } else {
+                  warn("Connection %d: An unfixable error has been detected -- output device is "
+                       "stalled. \"No "
+                       "run_this_if_an_unfixable_error_is_detected\" command provided -- nothing "
+                       "done.",
+                       conn->connection_number);
+                }
+              } else
+                debug(2, "Delay error %d when checking running latency.", resp);
             }
           }
 
@@ -2029,7 +2062,8 @@ void *player_thread_func(void *arg) {
                 debug(2, "Large positive sync error: %" PRId64 ".", sync_error);
                 int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
                 uint32_t frames_to_drop_sized = local_frames_to_drop;
-                do_flush(inframe->given_timestamp + frames_to_drop_sized, conn); // this will reset_input_flow_metrics anyway
+                do_flush(inframe->given_timestamp + frames_to_drop_sized,
+                         conn); // this will reset_input_flow_metrics anyway
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
                 debug(2,
                       "Large negative sync error: %" PRId64 " with should_be_frame_32 of %" PRIu32

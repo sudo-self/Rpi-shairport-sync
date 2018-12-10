@@ -291,13 +291,16 @@ void *player_watchdog_thread_code(void *arg) {
             conn->stop = 1;
             pthread_cancel(conn->thread);
           } else if (conn->watchdog_barks == 3) {
-            if (config.cmd_unfixable) {
-              warn("Connection %d: An unfixable error has been detected. Executing the "
+            if ((config.cmd_unfixable) && (conn->unfixable_error_reported == 0)) {
+              conn->unfixable_error_reported = 1;
+              warn("Connection %d: An unfixable error has been detected -- can't stop a play "
+                   "session. Executing the "
                    "\"run_this_if_an_unfixable_error_is_detected\" command.",
                    conn->connection_number);
-              command_execute(config.cmd_unfixable);
+              command_execute(config.cmd_unfixable, "unable_to_cancel_play_session");
             } else {
-              warn("Connection %d: An unfixable error has been detected. \"No "
+              warn("Connection %d: An unfixable error has been detected -- can't stop a play "
+                   "session. \"No "
                    "run_this_if_an_unfixable_error_is_detected\" command provided -- nothing done.",
                    conn->connection_number);
             }

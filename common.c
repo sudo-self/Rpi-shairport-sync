@@ -739,23 +739,31 @@ void command_start(void) {
     }
   }
 }
-void command_execute(const char *command) {
+void command_execute(const char *command, const char *extra_argument) {
   // this has a cancellation point if waiting is enabled
   if (command) {
+    char new_command_buffer[1024];
+    char *full_command = (char *)command;
+    if (extra_argument != NULL) {
+      memset(new_command_buffer, 0, sizeof(new_command_buffer));
+      snprintf(new_command_buffer, sizeof(new_command_buffer), "%s %s", command, extra_argument);
+      full_command = new_command_buffer;
+    }
+
     /*Spawn a child to run the program.*/
     pid_t pid = fork();
     if (pid == 0) { /* child process */
       int argC;
       char **argV;
-      if (poptParseArgvString(command, &argC, (const char ***)&argV) !=
+      if (poptParseArgvString(full_command, &argC, (const char ***)&argV) !=
           0) // note that argV should be free()'d after use, but we expect this fork to exit
              // eventually.
-        debug(1, "Can't decipher command arguments in \"%s\".", command);
+        debug(1, "Can't decipher command arguments in \"%s\".", full_command);
       else {
-        // debug(1,"Executing command %s",command);
+        // debug(1,"Executing command %s",full_command);
         execv(argV[0], argV);
-        warn("Execution of command \"%s\" failed to start", command);
-        debug(1, "Error executing command \"%s\".", command);
+        warn("Execution of command \"%s\" failed to start", full_command);
+        debug(1, "Error executing command \"%s\".", full_command);
         exit(127); /* only if execv fails */
       }
     } else {
@@ -763,8 +771,8 @@ void command_execute(const char *command) {
                                     process to finish */
         pid_t rc = waitpid(pid, 0, 0); /* wait for child to exit */
         if (rc != pid) {
-          warn("Execution of command \"%s\" returned an error.", command);
-          debug(1, "Command \"%s\" finished with error %d", command, errno);
+          warn("Execution of command \"%s\" returned an error.", full_command);
+          debug(1, "Command \"%s\" finished with error %d", full_command, errno);
         }
       }
       // debug(1,"Continue after on-unfixable command");
