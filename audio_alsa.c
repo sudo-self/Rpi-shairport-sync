@@ -1140,7 +1140,7 @@ static int play(void *buf, int samples) {
         frame_index++;
         if ((frame_index == start_measurement_from_this_frame) || (frame_index % 32 == 0)) {
           long fl = 0;
-          err2 = my_snd_pcm_delay(alsa_handle, &fl);
+          err2 = snd_pcm_delay(alsa_handle, &fl);
           if (err2 != 0) {
             debug(1, "Error %d in delay in play(): \"%s\". Delay reported is %d frames.", err2,
                   snd_strerror(err2), fl);
