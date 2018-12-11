@@ -1081,8 +1081,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                       if (config.cmd_unfixable) {
                         command_execute(config.cmd_unfixable, "output_device_stalled");
                       } else {
-                        warn("An unfixable error, \"output_device_stalled\", has been detected.",
-                             conn->connection_number);
+                        warn(
+                            "an unrecoverable error, \"output_device_stalled\", has been detected.",
+                            conn->connection_number);
                       }
                     }
                   }

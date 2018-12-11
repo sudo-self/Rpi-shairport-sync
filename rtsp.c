@@ -295,8 +295,7 @@ void *player_watchdog_thread_code(void *arg) {
               conn->unfixable_error_reported = 1;
               command_execute(config.cmd_unfixable, "unable_to_cancel_play_session");
             } else {
-              warn("Connection %d: An unfixable error, code \"unable_to_cancel_play_session\" has "
-                   "been detected.",
+              warn("an unrecoverable error, \"unable_to_cancel_play_session\", has been detected.",
                    conn->connection_number);
             }
           }
