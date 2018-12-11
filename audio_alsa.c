@@ -75,9 +75,9 @@ audio_output audio_alsa = {
 static pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // for tracking how long the output device has stalled
-uint64_t stall_monitor_start_time; // zero if not initialised / not started / zeroed by flush
-long stall_monitor_frame_count;    // set to delay at start of time, incremented by any writes
-int stall_monitor_error_notified;
+uint64_t stall_monitor_start_time;      // zero if not initialised / not started / zeroed by flush
+long stall_monitor_frame_count;         // set to delay at start of time, incremented by any writes
+uint64_t stall_monitor_error_threshold; // if the time is longer than this, it's an error
 
 static snd_output_t *output = NULL;
 static unsigned int desired_sample_rate;
@@ -221,9 +221,7 @@ static int init(int argc, char **argv) {
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.15;
 
-  config.alsa_maximum_write_time = 0.016; // 16 milliseconds -- if it takes longer, we need to know
-  config.alsa_maximum_interface_response_time =
-      0.001; // one millisecond -- if it takes longer, we need to know
+  config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
 
   // get settings from settings file first, allow them to be overridden by
   // command line options
@@ -382,25 +380,14 @@ static int init(int argc, char **argv) {
       }
     }
 
-    /* Get the optional alsa_maximum_interface_response_time setting. */
-    if (config_lookup_float(config.cfg, "alsa.maximum_interface_response_time", &dvalue)) {
-      if (dvalue < 0.0) {
-        warn("Invalid alsa maximum interface response time setting \"%f\". It "
-             "must be greater than 0. Default is \"%f\". No setting is made.",
-             dvalue, config.alsa_maximum_interface_response_time);
-      } else {
-        config.alsa_maximum_interface_response_time = dvalue;
-      }
-    }
-
-    /* Get the optional alsa_maximum_write_time setting. */
-    if (config_lookup_float(config.cfg, "alsa.maximum_write_time", &dvalue)) {
+    /* Get the optional alsa_maximum_stall_time setting. */
+    if (config_lookup_float(config.cfg, "alsa.maximum_stall_time", &dvalue)) {
       if (dvalue < 0.0) {
         warn("Invalid alsa maximum write time setting \"%f\". It "
              "must be greater than 0. Default is \"%f\". No setting is made.",
-             dvalue, config.alsa_maximum_write_time);
+             dvalue, config.alsa_maximum_stall_time);
       } else {
-        config.alsa_maximum_write_time = dvalue;
+        config.alsa_maximum_stall_time = dvalue;
       }
     }
   }
@@ -943,7 +930,10 @@ static void start(int i_sample_rate, int i_sample_format) {
 
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
-  stall_monitor_error_notified = 0;
+
+  stall_monitor_error_threshold =
+      (uint64_t)1000000 * config.alsa_maximum_stall_time; // stall time max to microseconds;
+  stall_monitor_error_threshold = (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
 }
 
 // assuming pthread cancellation is disabled
@@ -984,7 +974,6 @@ int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp) {
 }
 
 int delay(long *the_delay) {
-  uint64_t overall_time_before = get_absolute_time_in_fp();
   *the_delay = 0;
   // snd_pcm_sframes_t is a signed long -- hence the return of a "long"
   int reply = 0;
@@ -998,10 +987,8 @@ int delay(long *the_delay) {
     int derr;
     snd_pcm_state_t dac_state = snd_pcm_state(alsa_handle);
     if (dac_state == SND_PCM_STATE_RUNNING) {
-      *the_delay = 0; // just to see what happens
-      uint64_t time_before = get_absolute_time_in_fp();
+
       reply = snd_pcm_delay(alsa_handle, the_delay);
-      uint64_t response_time = get_absolute_time_in_fp() - time_before;
 
       if (reply != 0) {
         debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", reply,
@@ -1019,15 +1006,6 @@ int delay(long *the_delay) {
           frame_index = 0; // we'll be starting over...
           measurement_data_is_valid = 0;
         }
-      }
-      uint64_t maximum_permitted_response_time =
-          (uint64_t)(config.alsa_maximum_interface_response_time * 1000000); // microseconds
-      maximum_permitted_response_time = (maximum_permitted_response_time << 32) / 1000000;
-      if (response_time > maximum_permitted_response_time) {
-        debug(3, "Maximum response time of %8.2f us exceeded reading delay. Response time was "
-                 "%12.2f us.",
-              (1000000.0 * maximum_permitted_response_time) / (uint64_t)0x100000000,
-              (1000000.0 * response_time) / (uint64_t)0x100000000);
       }
     } else {
       reply = -EIO;    // shomething is wrong
@@ -1060,23 +1038,12 @@ int delay(long *the_delay) {
     //	reply = -EIO; // pretend something bad has happened
     pthread_setcancelstate(oldState, NULL);
   }
-  debug(3, "Total playing time to get delay of %d frames: %8.2f us.", *the_delay,
-        (1000000.0 * (get_absolute_time_in_fp() - overall_time_before) / (uint64_t)0x100000000));
-
   if ((reply == 0) && (*the_delay != 0)) {
     uint64_t stall_monitor_time_now = get_absolute_time_in_fp();
     if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == *the_delay)) {
       // hasn't outputted anything since the last call to delay()
-      int64_t time_stalled = stall_monitor_time_now - stall_monitor_start_time;
-      int64_t stall_monitor_error_threshold = 200000; // microseconds;
-      stall_monitor_error_threshold =
-          (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
+      uint64_t time_stalled = stall_monitor_time_now - stall_monitor_start_time;
       if (time_stalled > stall_monitor_error_threshold) {
-        if (stall_monitor_error_notified == 0) {
-          debug(1, "alsa output device stalled -- no output in %8.2f us.",
-                (1000000.0 * stall_monitor_error_threshold) / (uint64_t)0x100000000);
-          stall_monitor_error_notified = 1;
-        }
         reply = sps_extra_errno_output_stalled;
       }
     } else {
@@ -1106,7 +1073,6 @@ int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
 }
 
 static int play(void *buf, int samples) {
-  uint64_t overall_time_before = get_absolute_time_in_fp();
   // debug(3,"audio_alsa play called.");
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1114,10 +1080,7 @@ static int play(void *buf, int samples) {
   if (alsa_handle == NULL) {
 
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
-    overall_time_before = get_absolute_time_in_fp();
     ret = actual_open_alsa_device();
-    debug(3, "Opening time: %8.2f us.",
-          (1000000.0 * (get_absolute_time_in_fp() - overall_time_before) / (uint64_t)0x100000000));
     if (ret == 0) {
       if (audio_alsa.volume)
         do_volume(set_volume);
@@ -1151,12 +1114,8 @@ static int play(void *buf, int samples) {
       if ((samples != 0) && (buf != NULL)) {
         // debug(3, "write %d frames.", samples);
 
-        uint64_t maximum_permitted_writing_time = (config.alsa_maximum_write_time * 1000000000);
-        maximum_permitted_writing_time = (maximum_permitted_writing_time << 32) / 1000000000;
-
-        overall_time_before = get_absolute_time_in_fp();
         err = alsa_pcm_write(alsa_handle, buf, samples);
-        uint64_t writing_time = get_absolute_time_in_fp() - overall_time_before;
+
         stall_monitor_frame_count += samples;
 
         if (err < 0) {
@@ -1169,13 +1128,6 @@ static int play(void *buf, int samples) {
             warn("Error %d -- could not clear an error after attempting to write %d samples in "
                  "play():  \"%s\".",
                  err, samples, snd_strerror(err));
-        }
-
-        if (writing_time > maximum_permitted_writing_time) {
-          debug(3, "Taking too long to write %d samples. Playing time: %8.2f us, writing time: "
-                   "%8.2f us.",
-                samples, (1000000.0 * maximum_permitted_writing_time) / (uint64_t)0x100000000,
-                (1000000.0 * writing_time) / (uint64_t)0x100000000);
         }
 
         if (frame_index == 0) {
@@ -1234,14 +1186,10 @@ static int play(void *buf, int samples) {
     pthread_cleanup_pop(0); // release the mutex
   }
   pthread_setcancelstate(oldState, NULL);
-  debug(3, "Total playing time to write %d samples: %8.2f us.", samples,
-        (1000000.0 * (get_absolute_time_in_fp() - overall_time_before) / (uint64_t)0x100000000));
-
   return ret;
 }
 
 static void flush(void) {
-  uint64_t overall_time_before = get_absolute_time_in_fp();
   // debug(2,"audio_alsa flush called.");
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1267,8 +1215,6 @@ static void flush(void) {
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
   pthread_setcancelstate(oldState, NULL);
-  debug(3, "Total playing time to flush: %8.2f us.",
-        (1000000.0 * (get_absolute_time_in_fp() - overall_time_before) / (uint64_t)0x100000000));
 }
 
 static void stop(void) {

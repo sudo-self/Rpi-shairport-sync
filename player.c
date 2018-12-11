@@ -1079,16 +1079,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                         (conn->unfixable_error_reported == 0)) {
                       conn->unfixable_error_reported = 1;
                       if (config.cmd_unfixable) {
-                        warn("Connection %d: An unfixable error has been detected -- output device "
-                             "is stalled. Executing the "
-                             "\"run_this_if_an_unfixable_error_is_detected\" command.",
-                             conn->connection_number);
                         command_execute(config.cmd_unfixable, "output_device_stalled");
                       } else {
-                        warn("Connection %d: An unfixable error has been detected -- output device "
-                             "is stalled. \"No "
-                             "run_this_if_an_unfixable_error_is_detected\" command provided -- "
-                             "nothing done.",
+                        warn("An unfixable error, \"output_device_stalled\", has been detected.",
                              conn->connection_number);
                       }
                     }
