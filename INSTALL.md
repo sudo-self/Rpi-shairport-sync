@@ -35,7 +35,7 @@ Remove it as follows:
 ```
 Do this until no more copies of `shairport-sync` are found.
 
-You should also remove the initialisation script files `/etc/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed in necessary.
+You should also remove the initialisation script files `/etc/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed if necessary.
 
 ### Build and Install
 Okay, now let's get the tools and sources for building and installing Shairport Sync.
