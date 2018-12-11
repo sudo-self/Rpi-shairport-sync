@@ -1,9 +1,9 @@
 Version 3.3d36 to Version 3.3d22
 ====
 
-**Enhancements and Bug Fixes**
-
 These updates are about stability.
+
+**Enhancements and Bug Fixes**
 
 With great help from [gibman](https://github.com/gibman) — see [#772](https://github.com/mikebrady/shairport-sync/issues/772) for the gory details — myriad issues have been identified and fixed. In particular, [gibman](https://github.com/gibman) shared an automated way of stress-testing Shairport Sync, and this has resulted in the detection of many bugs.
 
