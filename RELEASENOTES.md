@@ -7,7 +7,7 @@ These updates are about stability.
 
 With great help from [gibman](https://github.com/gibman) — see [#772](https://github.com/mikebrady/shairport-sync/issues/772) for the gory details — myriad issues have been identified and fixed. In particular, [gibman](https://github.com/gibman) shared an automated way of stress-testing Shairport Sync, and this has resulted in the detection of many bugs.
 
-And so, with apologies to Shakespeare, we have taken up arms against a sea of troubles, and by opposing we have ended them. It is hoped that the result is considerably more stable and can better withstand the, uh, slings and arrows of outrageous fortune and other hard-to-reproduce scenarios.
+And so, with apologies to Shakespeare, we have taken up arms against a sea of troubles, and by opposing we have ended them. It is hoped that the result is considerably more stable and can better withstand the, uh, slings and arrows of outrageous fortune.
 
 Here is a flavour of some of the issues addressed:
 * Replace the existing watchdog, which only offered partial coverage, with a much more robust thread-based watchdog.
