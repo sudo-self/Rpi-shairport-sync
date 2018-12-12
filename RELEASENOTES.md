@@ -7,7 +7,7 @@ These updates are about stability.
 
 With great help from [gibman](https://github.com/gibman) — see [#772](https://github.com/mikebrady/shairport-sync/issues/772) for the gory details — myriad issues have been identified and fixed. In particular, [gibman](https://github.com/gibman) shared an automated way of stress-testing Shairport Sync, and this has resulted in the detection of many bugs.
 
-An so, with due apologies to Shakespeare, we have taken up arms against a sea of troubles, and by opposing we have ended them. It is hoped that the result is considerably more stable and can better withstand the, uh, slings and arrows of outrageous fortune and other hard-to-reproduce scenarios.
+And so, with apologies to Shakespeare, we have taken up arms against a sea of troubles, and by opposing we have ended them. It is hoped that the result is considerably more stable and can better withstand the, uh, slings and arrows of outrageous fortune and other hard-to-reproduce scenarios.
 
 Here is a flavour of some of the issues addressed:
 * Replace the existing watchdog, which only offered partial coverage, with a much more robust thread-based watchdog.
@@ -22,6 +22,7 @@ Here is a flavour of some of the issues addressed:
 * Impose timeouts on both reading and writing to the supervisory RTSP connection governing a session.
 * When closing the RTSP connection due to an error, close it immediately, without waiting for a full TCP handshake, because, if the other end has erred, the handshake may never come.
 * Fix a parameter initialisation error in a situation where there is no hardware mixer.
+* Fix an MQTT-related crash by ignoring unrecognised commands.
 
 **New Feature**
 * A new `run_this_if_an_unfixable_error_is_detected` (in the `sessioncontrol` group of settings) program hook is provided. At the moment, two conditions can cause this to be activated. The first is if the watchdog is unable to terminate a play session. The second is if the output device stalls for a long period. Both conditions can be caused by malfunctioning DACs. The external program could, for example, reboot the device.
