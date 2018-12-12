@@ -90,7 +90,7 @@ static volatile int requested_connection_state_to_output = 1;
 
 shairport_cfg config;
 
-volatile int debuglev = 0;
+static volatile int debuglev = 0;
 
 sigset_t pselect_sigset;
 

@@ -40,7 +40,7 @@ void convolver_init(const char* filename, int max_length)
     float buffer_l[size];
     float buffer_r[size];
     
-    int i;
+    unsigned int i;
     for (i=0; i<size; ++i)
     {
       buffer_l[i] = buffer[2*i+0];

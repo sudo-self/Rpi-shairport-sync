@@ -259,7 +259,7 @@ int64_t ranarray64i();
 void resetFreeUDPPort();
 uint16_t nextFreeUDPPort();
 
-volatile int debuglev;
+static volatile int debuglev;
 void die(const char *format, ...);
 void warn(const char *format, ...);
 void inform(const char *format, ...);
