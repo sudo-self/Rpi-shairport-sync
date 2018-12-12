@@ -1,4 +1,4 @@
-Version 3.3d36 to Version 3.3d22
+Version 3.3d37 to Version 3.3d22
 ====
 
 These updates are about stability.
@@ -23,6 +23,7 @@ Here is a flavour of some of the issues addressed:
 * When closing the RTSP connection due to an error, close it immediately, without waiting for a full TCP handshake, because, if the other end has erred, the handshake may never come.
 * Fix a parameter initialisation error in a situation where there is no hardware mixer.
 * Fix an MQTT-related crash by ignoring unrecognised commands.
+* Fix a compilation error and a warning when using the `--with-convolution` configuration option.
 
 **New Feature**
 * A new `run_this_if_an_unfixable_error_is_detected` (in the `sessioncontrol` group of settings) program hook is provided. At the moment, two conditions can cause this to be activated. The first is if the watchdog is unable to terminate a play session. The second is if the output device stalls for a long period. Both conditions can be caused by malfunctioning DACs. The external program could, for example, reboot the device.
