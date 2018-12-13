@@ -2137,7 +2137,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   debug(3, "Connection %d: Checking play lock.", conn->connection_number);
   debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
   if (playing_conn == conn) {                       // if it's ours
-    debug(2, "Connection %d: Unlocking play lock.", conn->connection_number);
+    debug(1, "Connection %d: Unlocking play lock -- end of play session.", conn->connection_number);
     playing_conn = NULL; // let it go
   }
   debug_mutex_unlock(&playing_conn_lock, 3);

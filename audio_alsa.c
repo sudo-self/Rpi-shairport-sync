@@ -47,6 +47,7 @@ static void flush(void);
 int delay(long *the_delay);
 void do_mute(int request);
 int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
+void *alsa_buffer_monitor_thread_code(void *arg);
 
 static void volume(double vol);
 void do_volume(double vol);
@@ -74,6 +75,8 @@ audio_output audio_alsa = {
 
 static pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+pthread_t alsa_buffer_monitor_thread;
+
 // for tracking how long the output device has stalled
 uint64_t stall_monitor_start_time;      // zero if not initialised / not started / zeroed by flush
 long stall_monitor_frame_count;         // set to delay at start of time, incremented by any writes
@@ -82,6 +85,7 @@ uint64_t stall_monitor_error_threshold; // if the time is longer than this, it's
 static snd_output_t *output = NULL;
 static unsigned int desired_sample_rate;
 static enum sps_format_t sample_format;
+int frame_size; // in bytes for interleaved stereo
 
 static snd_pcm_t *alsa_handle = NULL;
 static snd_pcm_hw_params_t *alsa_params = NULL;
@@ -100,6 +104,7 @@ static char *alsa_mix_ctrl = "Master";
 static int alsa_mix_index = 0;
 static int hardware_mixer = 0;
 static int has_softvol = 0;
+int keep_dac_busy = 0; // true if the dac must be kept busy with samples
 
 static int volume_set_request = 0;       // set when an external request is made to set the volume.
 int mute_request_pending = 0;            //  set when an external request is made to mute or unmute.
@@ -390,6 +395,10 @@ static int init(int argc, char **argv) {
         config.alsa_maximum_stall_time = dvalue;
       }
     }
+
+    // Get the optional "Keep DAC Busy setting"
+    config_set_lookup_bool(config.cfg, "alsa.disable_standby_mode", &keep_dac_busy);
+    debug(1, "alsa: disable_standby_mode is set to \"%s\".", keep_dac_busy ? "yes" : "no");
   }
 
   optind = 1; // optind=0 is equivalent to optind=1 plus special behaviour
@@ -519,19 +528,39 @@ static int init(int argc, char **argv) {
       close_mixer();
     }
     debug_mutex_unlock(&alsa_mutex, 3); // release the mutex
+
     pthread_cleanup_pop(0);
     pthread_setcancelstate(oldState, NULL);
   } else {
     debug(1, "alsa: no hardware mixer selected.");
   }
-
   alsa_mix_handle = NULL;
+
+  // so, now, if the option to keep the DAC running has been selected, start a thread to monitor the
+  // length of the queue
+  // if the queue gets too short, stuff it with silence
+
+  desired_sample_rate = config.output_rate;
+  sample_format = config.output_format;
+
+  if (keep_dac_busy)
+    pthread_create(&alsa_buffer_monitor_thread, NULL, &alsa_buffer_monitor_thread_code, NULL);
+
   return response;
 }
 
 static void deinit(void) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   // debug(2,"audio_alsa deinit called.");
   stop();
+  if (keep_dac_busy) {
+    debug(1, "Cancel buffer monitor thread.");
+    pthread_cancel(alsa_buffer_monitor_thread);
+    debug(1, "Join buffer monitor thread.");
+    pthread_join(alsa_buffer_monitor_thread, NULL);
+  }
+  pthread_setcancelstate(oldState, NULL);
 }
 
 // assuming pthread cancellation is disabled
@@ -605,27 +634,35 @@ int actual_open_alsa_device(void) {
   switch (sample_format) {
   case SPS_FORMAT_S8:
     sf = SND_PCM_FORMAT_S8;
+    frame_size = 2;
     break;
   case SPS_FORMAT_U8:
     sf = SND_PCM_FORMAT_U8;
+    frame_size = 2;
     break;
   case SPS_FORMAT_S16:
     sf = SND_PCM_FORMAT_S16;
+    frame_size = 4;
     break;
   case SPS_FORMAT_S24:
     sf = SND_PCM_FORMAT_S24;
+    frame_size = 8;
     break;
   case SPS_FORMAT_S24_3LE:
     sf = SND_PCM_FORMAT_S24_3LE;
+    frame_size = 6;
     break;
   case SPS_FORMAT_S24_3BE:
     sf = SND_PCM_FORMAT_S24_3BE;
+    frame_size = 6;
     break;
   case SPS_FORMAT_S32:
     sf = SND_PCM_FORMAT_S32;
+    frame_size = 8;
     break;
   default:
     sf = SND_PCM_FORMAT_S16; // this is just to quieten a compiler warning
+    frame_size = 4;
     debug(1, "Unsupported output format at audio_alsa.c");
     return -1;
   }
@@ -1095,7 +1132,9 @@ static int play(void *buf, int samples) {
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
     //    snd_pcm_sframes_t current_delay = 0;
     int err, err2;
-    if (snd_pcm_state(alsa_handle) == SND_PCM_STATE_XRUN) {
+    if ((snd_pcm_state(alsa_handle) == SND_PCM_STATE_XRUN) ||
+        (snd_pcm_state(alsa_handle) == SND_PCM_STATE_OPEN) ||
+        (snd_pcm_state(alsa_handle) == SND_PCM_STATE_SETUP)) {
       if ((err = snd_pcm_prepare(alsa_handle))) {
         debug(1, "Error preparing after underrun: \"%s\".", snd_strerror(err));
         err = snd_pcm_recover(alsa_handle, err, 1);
@@ -1201,16 +1240,17 @@ static void flush(void) {
     stall_monitor_start_time = 0;
     if ((derr = snd_pcm_drop(alsa_handle)))
       debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
+    if (keep_dac_busy == 0) {
+      if ((derr = snd_pcm_hw_free(alsa_handle)))
+        debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
 
-    if ((derr = snd_pcm_hw_free(alsa_handle)))
-      debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
-
-    // flush also closes the device
-    if ((derr = snd_pcm_close(alsa_handle)))
-      debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
+      // flush also closes the device
+      if ((derr = snd_pcm_close(alsa_handle)))
+        debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
+      alsa_handle = NULL;
+    }
     frame_index = 0;
     measurement_data_is_valid = 0;
-    alsa_handle = NULL;
   }
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
@@ -1351,4 +1391,59 @@ void do_mute(int mute_state_requested) {
   }
   mute_request_pending = 0;
   pthread_setcancelstate(oldState, NULL);
+}
+
+void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void *arg) {
+  debug(1, "alsa: alsa_buffer_monitor_thread_cleanup_function called.");
+}
+
+void *alsa_buffer_monitor_thread_code(void *arg) {
+  // debug(1,"alsa: alsa_buffer_monitor_thread_code called.");
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+  int ret = 0;
+  if (alsa_handle == NULL) {
+
+    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
+    ret = actual_open_alsa_device();
+    if (ret == 0) {
+      if (audio_alsa.volume)
+        do_volume(set_volume);
+      if (audio_alsa.mute)
+        do_mute(0);
+    }
+
+    debug_mutex_unlock(&alsa_mutex, 3);
+    pthread_cleanup_pop(0); // release the mutex
+  }
+  pthread_cleanup_push(alsa_buffer_monitor_thread_cleanup_function, arg);
+  pthread_setcancelstate(oldState, NULL);
+
+  int sleep_time_ms = 60;
+  int frames_of_silence = desired_sample_rate * sleep_time_ms / 1000;
+  size_t size_of_silence_buffer = frames_of_silence * frame_size;
+  // debug(1,"Silence buffer length: %u bytes.",size_of_silence_buffer);
+  void *silence = malloc(size_of_silence_buffer);
+  if (silence == NULL) {
+    debug(1, "Failed to allocate memory for a silent frame  buffer.");
+  } else {
+  }
+
+  long buffer_size;
+  int reply;
+  while (1) {
+    usleep((sleep_time_ms * 1000) / 2);
+    reply = delay(&buffer_size);
+    if (reply != 0)
+      debug(1, "error %d during buffer monitoring of delay", reply);
+    if (buffer_size < (((int)desired_sample_rate * sleep_time_ms) / (1000))) {
+      // debug(1,"Writing %d frames of silence because only %lu frames remain in the
+      // buffer.",frames_of_silence,buffer_size);
+      memset(silence, 0, size_of_silence_buffer);
+      play(silence, frames_of_silence);
+    }
+    pthread_testcancel();
+  }
+  pthread_cleanup_pop(0);
+  pthread_exit(NULL);
 }
