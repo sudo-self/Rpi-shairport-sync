@@ -1238,9 +1238,9 @@ static void flush(void) {
 
   if (alsa_handle) {
     stall_monitor_start_time = 0;
-    if ((derr = snd_pcm_drop(alsa_handle)))
-      debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
     if (keep_dac_busy == 0) {
+			if ((derr = snd_pcm_drop(alsa_handle)))
+				debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
       if ((derr = snd_pcm_hw_free(alsa_handle)))
         debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
 
@@ -1273,9 +1273,9 @@ static void parameters(audio_parameters *info) {
 }
 
 void do_volume(double vol) { // caller is assumed to have the alsa_mutex when using this function
+  debug(3, "Setting volume db to %f.", vol);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
-  debug(3, "Setting volume db to %f.", vol);
   set_volume = vol;
   if (volume_set_request && (open_mixer() == 1)) {
     if (has_softvol) {
@@ -1346,7 +1346,7 @@ static void mute(int mute_state_requested) {
 }
 
 void do_mute(int mute_state_requested) {
-
+	debug(3,"Setting mute to %d.",mute_state_requested);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
 
@@ -1419,7 +1419,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
   pthread_cleanup_push(alsa_buffer_monitor_thread_cleanup_function, arg);
   pthread_setcancelstate(oldState, NULL);
 
-  int sleep_time_ms = 60;
+  int sleep_time_ms = 80;
   int frames_of_silence = desired_sample_rate * sleep_time_ms / 1000;
   size_t size_of_silence_buffer = frames_of_silence * frame_size;
   // debug(1,"Silence buffer length: %u bytes.",size_of_silence_buffer);
