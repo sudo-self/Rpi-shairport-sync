@@ -1058,7 +1058,7 @@ uint64_t r64u() { return (ranval(&rx)); }
 int64_t r64i() { return (ranval(&rx) >> 1); }
 
 /* generate an array of 64-bit random numbers */
-const int ranarraylength = 1009; // these will be 8-byte numbers.
+const int ranarraylength = 1009 * 203; // these will be 8-byte numbers.
 
 int ranarraynext;
 
@@ -1083,9 +1083,11 @@ uint64_t ranarrayval() {
 
 void r64arrayinit() { ranarrayinit(); }
 
-uint64_t ranarray64u() { return (ranarrayval()); }
+// uint64_t ranarray64u() { return (ranarrayval()); }
+uint64_t ranarray64u() { return (ranval(&rx)); }
 
-int64_t ranarray64i() { return (ranarrayval() >> 1); }
+// int64_t ranarray64i() { return (ranarrayval() >> 1); }
+int64_t ranarray64i() { return (ranval(&rx) >> 1); }
 
 uint32_t nctohl(const uint8_t *p) { // read 4 characters from *p and do ntohl on them
   // this is to avoid possible aliasing violations
@@ -1324,4 +1326,122 @@ char *get_version_string() {
     strcat(version_string, SYSCONFDIR);
   }
   return version_string;
+}
+
+int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_format_t format,
+                             int with_dither, int64_t random_number_in) {
+  // return the last random number used
+  // assuming the buffer has been assigned
+
+  int64_t previous_random_number = random_number_in;
+  char *p = outp;
+  size_t sample_number;
+  for (sample_number = 0; sample_number < number_of_frames * 2; sample_number++) {
+
+    int64_t hyper_sample = 0;
+    // add a TPDF dither -- see
+    // http://www.users.qwest.net/%7Evolt42/cadenzarecording/DitherExplained.pdf
+    // and the discussion around https://www.hydrogenaud.io/forums/index.php?showtopic=16963&st=25
+
+    // I think, for a 32 --> 16 bits, the range of
+    // random numbers needs to be from -2^16 to 2^16, i.e. from -65536 to 65536 inclusive, not from
+    // -32768 to +32767
+
+    // See the original paper at
+    // http://www.ece.rochester.edu/courses/ECE472/resources/Papers/Lipshitz_1992.pdf
+    // by Lipshitz, Wannamaker and Vanderkooy, 1992.
+
+    int64_t dither_mask = 0;
+    switch (format) {
+    case SPS_FORMAT_S32:
+      dither_mask = (int64_t)1 << (64 + 1 - 32);
+      break;
+    case SPS_FORMAT_S24:
+    case SPS_FORMAT_S24_3LE:
+    case SPS_FORMAT_S24_3BE:
+      dither_mask = (int64_t)1 << (64 + 1 - 24);
+      break;
+    case SPS_FORMAT_S16:
+      dither_mask = (int64_t)1 << (64 + 1 - 16);
+      break;
+    case SPS_FORMAT_S8:
+    case SPS_FORMAT_U8:
+      dither_mask = (int64_t)1 << (64 + 1 - 8);
+      break;
+    case SPS_FORMAT_UNKNOWN:
+      die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
+    }
+    dither_mask -= 1;
+    // int64_t r = r64i();
+    int64_t r = ranarray64i();
+
+    int64_t tpdf = (r & dither_mask) - (previous_random_number & dither_mask);
+
+    // add dither if permitted -- no need to check for clipping, as the sample is, uh, zero
+
+    if (with_dither != 0)
+      hyper_sample += tpdf;
+
+    // move the result to the desired position in the int64_t
+    char *op = p;
+    int result; // this is the length of the sample
+
+    uint8_t byt;
+    switch (format) {
+    case SPS_FORMAT_S32:
+      hyper_sample >>= (64 - 32);
+      *(int32_t *)op = hyper_sample;
+      result = 4;
+      break;
+    case SPS_FORMAT_S24_3LE:
+      hyper_sample >>= (64 - 24);
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      result = 3;
+      break;
+    case SPS_FORMAT_S24_3BE:
+      hyper_sample >>= (64 - 24);
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      result = 3;
+      break;
+    case SPS_FORMAT_S24:
+      hyper_sample >>= (64 - 24);
+      *(int32_t *)op = hyper_sample;
+      result = 4;
+      break;
+    case SPS_FORMAT_S16:
+      hyper_sample >>= (64 - 16);
+      *(int16_t *)op = (int16_t)hyper_sample;
+      result = 2;
+      break;
+    case SPS_FORMAT_S8:
+      hyper_sample >>= (int8_t)(64 - 8);
+      *op = hyper_sample;
+      result = 1;
+      break;
+    case SPS_FORMAT_U8:
+      hyper_sample >>= (uint8_t)(64 - 8);
+      hyper_sample += 128;
+      *op = hyper_sample;
+      result = 1;
+      break;
+    default:
+      result = 0; // stop a compiler warning
+      die("Unexpected SPS_FORMAT_UNKNOWN while outputting samples");
+    }
+    p += result;
+    previous_random_number = r;
+  }
+  // hack
+  // memset(outp,0,number_of_frames * 4);
+  return previous_random_number;
 }

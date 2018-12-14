@@ -1032,7 +1032,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                         // this could happen if the dac delay mysteriously grows between samples,
                         // which could happen in a transition between having no interpolation and
                         // having interpolated buffer numbers.
-                        debug(2,
+
+                        // this will happen benignly if standby is being prevented, because a
+                        // thread in the alsa back end will be stuffing frames of silence in there
+                        // to keep it busy
+
+                        debug(3,
                               "frame size (fs) < 0 with max_dac_delay of %lld and dac_delay of %ld",
                               max_dac_delay, dac_delay);
                         fs = 0;
@@ -1062,7 +1067,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                         if (silence == NULL)
                           debug(1, "Failed to allocate %d byte silence buffer.", fs);
                         else {
-                          memset(silence, 0, conn->output_bytes_per_frame * fs);
+
+                          conn->previous_random_number = generate_zero_frames(
+                              silence, fs, config.output_format, conn->enable_dither,
+                              conn->previous_random_number);
+
                           // debug(1,"Frames to start: %llu, DAC delay %d, buffer: %d
                           // packets.",exact_frame_gap,dac_delay,seq_diff(conn->ab_read,
                           // conn->ab_write, conn->ab_read));
@@ -1106,7 +1115,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                         debug(1, "Failed to allocate %d frame silence buffer.", fs);
                       else {
                         // debug(1, "No delay function -- outputting %d frames of silence.", fs);
-                        memset(silence, 0, conn->output_bytes_per_frame * fs);
+                        conn->previous_random_number =
+                            generate_zero_frames(silence, fs, config.output_format,
+                                                 conn->enable_dither, conn->previous_random_number);
                         config.output->play(silence, fs);
                         free(silence);
                       }
@@ -1427,22 +1438,22 @@ void player_thread_cleanup_handler(void *arg) {
   mdns_dacp_monitor_set_id(NULL); // say we're not interested in following that DACP id any more
 #endif
 
-  debug(2, "Cancelling timing, control and audio threads...");
-  debug(2, "Cancel timing thread.");
+  debug(3, "Cancelling timing, control and audio threads...");
+  debug(3, "Cancel timing thread.");
   pthread_cancel(conn->rtp_timing_thread);
-  debug(2, "Join timing thread.");
+  debug(3, "Join timing thread.");
   pthread_join(conn->rtp_timing_thread, NULL);
-  debug(2, "Timing thread terminated.");
-  debug(2, "Cancel control thread.");
+  debug(3, "Timing thread terminated.");
+  debug(3, "Cancel control thread.");
   pthread_cancel(conn->rtp_control_thread);
-  debug(2, "Join control thread.");
+  debug(3, "Join control thread.");
   pthread_join(conn->rtp_control_thread, NULL);
-  debug(2, "Control thread terminated.");
-  debug(2, "Cancel audio thread.");
+  debug(3, "Control thread terminated.");
+  debug(3, "Cancel audio thread.");
   pthread_cancel(conn->rtp_audio_thread);
-  debug(2, "Join audio thread.");
+  debug(3, "Join audio thread.");
   pthread_join(conn->rtp_audio_thread, NULL);
-  debug(2, "Audio thread terminated.");
+  debug(3, "Audio thread terminated.");
 
   if (conn->outbuf) {
     free(conn->outbuf);
@@ -1485,8 +1496,6 @@ void *player_thread_func(void *arg) {
              "as a default.");
     conn->latency = 88200;
   }
-
-  config.output->start(config.output_rate, config.output_format); // will need a corresponding stop
 
   init_decoder((int32_t *)&conn->stream.fmtp,
                conn); // this sets up incoming rate, bit depth, channels.
@@ -1625,9 +1634,15 @@ void *player_thread_func(void *arg) {
     debug(3, "Dithering will be enabled because the input bit depth is greater than the output bit "
              "depth");
   }
-  if (conn->fix_volume != 0x10000) {
+  if (config.output->parameters == NULL) {
     debug(3, "Dithering will be enabled because the output volume is being altered in software");
   }
+
+  if ((config.output->parameters == NULL) || (conn->input_bit_depth > output_bit_depth) ||
+      (config.playback_mode == ST_mono))
+    conn->enable_dither = 1;
+
+  config.output->start(config.output_rate, config.output_format); // will need a corresponding stop
 
   // we need an intermediate "transition" buffer
 
@@ -1766,8 +1781,9 @@ void *player_thread_func(void *arg) {
           } else {
             // the player may change the contents of the buffer, so it has to be zeroed each time;
             // might as well malloc and freee it locally
-            memset(silence, 0, conn->output_bytes_per_frame * conn->max_frames_per_packet *
-                                   conn->output_sample_ratio);
+            conn->previous_random_number = generate_zero_frames(
+                silence, conn->max_frames_per_packet * conn->output_sample_ratio,
+                config.output_format, conn->enable_dither, conn->previous_random_number);
             config.output->play(silence, conn->max_frames_per_packet * conn->output_sample_ratio);
             free(silence);
           }
@@ -1787,16 +1803,19 @@ void *player_thread_func(void *arg) {
           } else {
             // the player may change the contents of the buffer, so it has to be zeroed each time;
             // might as well malloc and freee it locally
-            memset(silence, 0, conn->output_bytes_per_frame * conn->max_frames_per_packet *
-                                   conn->output_sample_ratio);
+            conn->previous_random_number = generate_zero_frames(
+                silence, conn->max_frames_per_packet * conn->output_sample_ratio,
+                config.output_format, conn->enable_dither, conn->previous_random_number);
             config.output->play(silence, conn->max_frames_per_packet * conn->output_sample_ratio);
             free(silence);
           }
         } else {
-          int enable_dither = 0;
-          if ((conn->fix_volume != 0x10000) || (conn->input_bit_depth > output_bit_depth) ||
+
+          if ((config.output->parameters == NULL) || (conn->input_bit_depth > output_bit_depth) ||
               (config.playback_mode == ST_mono))
-            enable_dither = 1;
+            conn->enable_dither = 1;
+          else
+            conn->enable_dither = 0;
 
           // here, let's transform the frame of data, if necessary
 
@@ -2069,7 +2088,11 @@ void *player_thread_func(void *arg) {
                 size_t silence_length_sized = silence_length;
                 char *long_silence = malloc(conn->output_bytes_per_frame * silence_length_sized);
                 if (long_silence) {
-                  memset(long_silence, 0, conn->output_bytes_per_frame * silence_length_sized);
+
+                  conn->previous_random_number =
+                      generate_zero_frames(long_silence, silence_length_sized, config.output_format,
+                                           conn->enable_dither, conn->previous_random_number);
+
                   debug(2, "Play a silence of %d frames.", silence_length_sized);
                   config.output->play(long_silence, silence_length_sized);
                   free(long_silence);
@@ -2193,14 +2216,14 @@ void *player_thread_func(void *arg) {
                   (config.packet_stuffing == ST_basic)) {
                 play_samples =
                     stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
-                                          conn->outbuf, amount_to_stuff, enable_dither, conn);
+                                          conn->outbuf, amount_to_stuff, conn->enable_dither, conn);
               }
 #ifdef CONFIG_SOXR
               else if (config.packet_stuffing == ST_soxr) {
                 //                if (amount_to_stuff) debug(1,"Soxr stuff...");
                 play_samples = stuff_buffer_soxr_32((int32_t *)conn->tbuf, (int32_t *)conn->sbuf,
                                                     inbuflength, config.output_format, conn->outbuf,
-                                                    amount_to_stuff, enable_dither, conn);
+                                                    amount_to_stuff, conn->enable_dither, conn);
               }
 #endif
 
@@ -2256,7 +2279,7 @@ void *player_thread_func(void *arg) {
             // synchronising
             play_samples =
                 stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
-                                      conn->outbuf, 0, enable_dither, conn);
+                                      conn->outbuf, 0, conn->enable_dither, conn);
             if (conn->outbuf == NULL)
               debug(1, "NULL outbuf to play -- skipping it.");
             else
@@ -2780,16 +2803,16 @@ int player_stop(rtsp_conn_info *conn) {
   // debuglev = 3;
   debug(3, "player_stop");
   if (conn->player_thread) {
-    debug(2, "player_thread cancel...");
+    debug(3, "player_thread cancel...");
     pthread_cancel(*conn->player_thread);
-    debug(2, "player_thread join...");
+    debug(3, "player_thread join...");
     if (pthread_join(*conn->player_thread, NULL) == -1) {
       char errorstring[1024];
       strerror_r(errno, (char *)errorstring, sizeof(errorstring));
       debug(1, "Connection %d: error %d joining player thread: \"%s\".", conn->connection_number,
             errno, (char *)errorstring);
     } else {
-      debug(2, "player_thread joined.");
+      debug(3, "player_thread joined.");
     }
     free(conn->player_thread);
     conn->player_thread = NULL;
