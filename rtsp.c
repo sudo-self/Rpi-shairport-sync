@@ -265,7 +265,7 @@ int have_player(rtsp_conn_info *conn) {
 
 void player_watchdog_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(2, "Connection %d: Watchdog Exit.", conn->connection_number);
+  debug(3, "Connection %d: Watchdog Exit.", conn->connection_number);
 }
 
 void *player_watchdog_thread_code(void *arg) {
@@ -2127,22 +2127,22 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   if (rc)
     debug(1, "Connection %d: error %d destroying flush_mutex.", conn->connection_number, rc);
 
-  debug(2, "Cancel watchdog thread.");
+  debug(3, "Cancel watchdog thread.");
   pthread_cancel(conn->player_watchdog_thread);
-  debug(2, "Join watchdog thread.");
+  debug(3, "Join watchdog thread.");
   pthread_join(conn->player_watchdog_thread, NULL);
-  debug(2, "Delete watchdog mutex.");
+  debug(3, "Delete watchdog mutex.");
   pthread_mutex_destroy(&conn->watchdog_mutex);
 
   debug(3, "Connection %d: Checking play lock.", conn->connection_number);
   debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
   if (playing_conn == conn) {                       // if it's ours
-    debug(1, "Connection %d: Unlocking play lock -- end of play session.", conn->connection_number);
+    debug(3, "Connection %d: Unlocking play lock.", conn->connection_number);
     playing_conn = NULL; // let it go
   }
   debug_mutex_unlock(&playing_conn_lock, 3);
 
-  debug(2, "Connection %d: RTSP thread terminated.", conn->connection_number);
+  debug(2, "Connection %d: terminated.", conn->connection_number);
   conn->running = 0;
   pthread_setcancelstate(oldState, NULL);
 }
