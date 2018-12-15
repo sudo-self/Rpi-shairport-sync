@@ -186,8 +186,8 @@ typedef struct {
   int loudness;
   float loudness_reference_volume_db;
   int alsa_use_hardware_mute;
-
   double alsa_maximum_stall_time;
+  volatile int keep_dac_busy;
 
 #if defined(CONFIG_DBUS_INTERFACE)
   enum dbus_session_type dbus_service_bus_type;

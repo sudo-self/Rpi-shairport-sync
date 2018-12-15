@@ -105,7 +105,6 @@ static int alsa_mix_index = 0;
 static int hardware_mixer = 0;
 static int has_softvol = 0;
 
-int keep_dac_busy = 0; // true if the dac must be kept busy with samples
 int64_t dither_random_number_store = 0;
 
 static int volume_set_request = 0;       // set when an external request is made to set the volume.
@@ -799,8 +798,11 @@ static int init(int argc, char **argv) {
     }
 
     // Get the optional "Keep DAC Busy setting"
-    config_set_lookup_bool(config.cfg, "alsa.disable_standby_mode", &keep_dac_busy);
-    debug(1, "alsa: disable_standby_mode is %s.", keep_dac_busy ? "on" : "off");
+    int kdb;
+    if (config_set_lookup_bool(config.cfg, "alsa.disable_standby_mode", &kdb)) {
+    	config.keep_dac_busy = kdb;
+    }
+    debug(1, "alsa: disable_standby_mode is %s.", config.keep_dac_busy ? "on" : "off");
   }
 
   optind = 1; // optind=0 is equivalent to optind=1 plus special behaviour
@@ -954,8 +956,7 @@ static int init(int argc, char **argv) {
       die("Could not open the alsa device with the settings given.");
   }
 
-  if (keep_dac_busy)
-    pthread_create(&alsa_buffer_monitor_thread, NULL, &alsa_buffer_monitor_thread_code, NULL);
+  pthread_create(&alsa_buffer_monitor_thread, NULL, &alsa_buffer_monitor_thread_code, NULL);
 
   return response;
 }
@@ -965,12 +966,10 @@ static void deinit(void) {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   // debug(2,"audio_alsa deinit called.");
   stop();
-  if (keep_dac_busy) {
-    debug(1, "Cancel buffer monitor thread.");
-    pthread_cancel(alsa_buffer_monitor_thread);
-    debug(1, "Join buffer monitor thread.");
-    pthread_join(alsa_buffer_monitor_thread, NULL);
-  }
+	debug(1, "Cancel buffer monitor thread.");
+	pthread_cancel(alsa_buffer_monitor_thread);
+	debug(1, "Join buffer monitor thread.");
+	pthread_join(alsa_buffer_monitor_thread, NULL);
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -1262,7 +1261,7 @@ static void flush(void) {
 
   if (alsa_handle) {
     stall_monitor_start_time = 0;
-    if (keep_dac_busy == 0) {
+    if (config.keep_dac_busy == 0) {
       if ((derr = snd_pcm_drop(alsa_handle)))
         debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
       if ((derr = snd_pcm_hw_free(alsa_handle)))
@@ -1447,9 +1446,12 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
   // (if no source transformation is happening), Shairport Sync
   // will deliver fill-in silences and the audio material without adding dither.
   // So don't insert dither into the silences sent to keep the DAC busy.
+  
+  // Also, if the ignore_volume_setting is set, the audio is sent through unaltered,
+  // so, in that circumstance, don't add dither either.
 
   int use_dither = 0;
-  if (hardware_mixer == 0)
+  if ((hardware_mixer == 0) && (config.ignore_volume_control != 0))
     use_dither = 1;
 
   debug(1, "alsa: dither will %sbe added to inter-session silence.", use_dither ? "" : "not ");
@@ -1466,16 +1468,20 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
     long buffer_size;
     int reply;
     while (1) {
-      if (buffer_size < (((int)desired_sample_rate * sleep_time_ms) / (1000))) {
-        dither_random_number_store = generate_zero_frames(
-            silence, frames_of_silence, config.output_format, use_dither, // i.e. with dither
-            dither_random_number_store);
-        play(silence, frames_of_silence);
-      }
-      usleep((sleep_time_ms * 1000) / 2);
-      reply = delay(&buffer_size);
-      if (reply != 0)
-        debug(1, "error %d during buffer monitoring of delay", reply);
+    	if (config.keep_dac_busy != 0) {
+				if (buffer_size < (((int)desired_sample_rate * sleep_time_ms) / (1000))) {
+					dither_random_number_store = generate_zero_frames(
+							silence, frames_of_silence, config.output_format, use_dither, // i.e. with dither
+							dither_random_number_store);
+					play(silence, frames_of_silence);
+				}
+      	usleep((sleep_time_ms * 1000) / 2);
+      	reply = delay(&buffer_size);
+      	if (reply != 0)
+        	debug(1, "error %d during buffer monitoring of delay", reply);
+      } else {
+      	usleep(sleep_time_ms * 1000);      
+      }      
       pthread_testcancel();
     }
   }
