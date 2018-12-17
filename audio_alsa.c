@@ -133,6 +133,8 @@ static uint64_t frames_played_at_measurement_start_time;
 static uint64_t measurement_time;
 static uint64_t frames_played_at_measurement_time;
 
+static uint64_t most_recent_write_time;
+
 static uint64_t frames_sent_for_playing;
 static uint64_t frame_index;
 static int measurement_data_is_valid;
@@ -956,6 +958,7 @@ static int init(int argc, char **argv) {
       die("Could not open the alsa device with the settings given.");
   }
 
+	most_recent_write_time = 0; // could be used by the alsa_buffer_monitor_thread_code
   pthread_create(&alsa_buffer_monitor_thread, NULL, &alsa_buffer_monitor_thread_code, NULL);
 
   return response;
@@ -1079,7 +1082,7 @@ int delay(long *the_delay) {
           debug(2, "delay not available -- state is SND_PCM_STATE_XRUN");
         } else {
 
-          debug(2, "Error -- ALSA delay(): bad state: %d.", dac_state);
+          debug(1, "Error -- ALSA delay(): bad state: %d.", dac_state);
         }
         if ((derr = snd_pcm_prepare(alsa_handle))) {
           debug(1, "Error preparing after delay error: \"%s\".", snd_strerror(derr));
@@ -1175,7 +1178,7 @@ static int play(void *buf, int samples) {
         debug(1, "empty buffer being passed to pcm_writei -- skipping it");
       if ((samples != 0) && (buf != NULL)) {
         // debug(3, "write %d frames.", samples);
-
+				most_recent_write_time = get_absolute_time_in_fp();
         err = alsa_pcm_write(alsa_handle, buf, samples);
 
         stall_monitor_frame_count += samples;
@@ -1457,6 +1460,10 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
   debug(1, "alsa: dither will %sbe added to inter-session silence.", use_dither ? "" : "not ");
 
   int sleep_time_ms = 80;
+  uint64_t sleep_time_in_fp = sleep_time_ms;
+  sleep_time_in_fp = sleep_time_in_fp << 32;
+  sleep_time_in_fp = sleep_time_in_fp / 1000;
+  debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp form.",sleep_time_ms,sleep_time_in_fp);
   int frames_of_silence = desired_sample_rate * sleep_time_ms / 1000;
   size_t size_of_silence_buffer = frames_of_silence * frame_size;
   // debug(1,"Silence buffer length: %u bytes.",size_of_silence_buffer);
@@ -1469,24 +1476,25 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
     int reply;
     while (1) {
     	if (config.keep_dac_busy != 0) {
-				if (buffer_size < (((int)desired_sample_rate * sleep_time_ms) / (1000))) {
-					if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) && (config.airplay_volume != 0.0))
-						use_dither = 1;
-					else
-						use_dither = 0;
-					dither_random_number_store = generate_zero_frames(
-							silence, frames_of_silence, config.output_format, use_dither, // i.e. with dither
-							dither_random_number_store);
-					play(silence, frames_of_silence);
+    		uint64_t present_time = get_absolute_time_in_fp();
+    		if ((most_recent_write_time == 0) || ((present_time - most_recent_write_time) > sleep_time_in_fp)) {
+					reply = delay(&buffer_size);
+					if (reply != 0)
+						buffer_size = 0;
+					if (buffer_size < (((int)desired_sample_rate * sleep_time_ms) / (1000))) {
+						if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) && (config.airplay_volume != 0.0))
+							use_dither = 1;
+						else
+							use_dither = 0;
+						dither_random_number_store = generate_zero_frames(
+								silence, frames_of_silence, config.output_format, use_dither, // i.e. with dither
+								dither_random_number_store);
+						play(silence, frames_of_silence);
+					}
 				}
-      	usleep((sleep_time_ms * 1000) / 2);
-      	reply = delay(&buffer_size);
-      	if (reply != 0)
-        	debug(1, "error %d during buffer monitoring of delay", reply);
-      } else {
-      	usleep(sleep_time_ms * 1000);      
-      }      
-      pthread_testcancel();
+      }   
+      usleep((sleep_time_ms * 1000) / 2); // has a cancellation point in it
+//      pthread_testcancel();
     }
   }
   pthread_cleanup_pop(1);
