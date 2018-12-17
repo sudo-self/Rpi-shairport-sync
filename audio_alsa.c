@@ -1451,7 +1451,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
   // so, in that circumstance, don't add dither either.
 
   int use_dither = 0;
-  if ((hardware_mixer == 0) && (config.ignore_volume_control == 0))
+  if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) && (config.airplay_volume != 0.0))
     use_dither = 1;
 
   debug(1, "alsa: dither will %sbe added to inter-session silence.", use_dither ? "" : "not ");
@@ -1470,6 +1470,10 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
     while (1) {
     	if (config.keep_dac_busy != 0) {
 				if (buffer_size < (((int)desired_sample_rate * sleep_time_ms) / (1000))) {
+					if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) && (config.airplay_volume != 0.0))
+						use_dither = 1;
+					else
+						use_dither = 0;
 					dither_random_number_store = generate_zero_frames(
 							silence, frames_of_silence, config.output_format, use_dither, // i.e. with dither
 							dither_random_number_store);
