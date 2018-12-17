@@ -1482,7 +1482,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
     while (1) {
     	if (config.keep_dac_busy != 0) {
     		uint64_t present_time = get_absolute_time_in_fp();
-    		if ((most_recent_write_time == 0) || ((present_time - most_recent_write_time) > sleep_time_in_fp)) {
+    		if ((most_recent_write_time == 0) || ((present_time - most_recent_write_time) > (sleep_time_in_fp/2))) {
 					reply = delay(&buffer_size);
 					if (reply != 0)
 						buffer_size = 0;
