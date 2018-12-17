@@ -133,7 +133,7 @@ static uint64_t frames_played_at_measurement_start_time;
 static uint64_t measurement_time;
 static uint64_t frames_played_at_measurement_time;
 
-static uint64_t most_recent_write_time;
+volatile uint64_t most_recent_write_time;
 
 static uint64_t frames_sent_for_playing;
 static uint64_t frame_index;
@@ -1135,7 +1135,8 @@ int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
   return response;
 }
 
-static int play(void *buf, int samples) {
+int untimed_play(void *buf, int samples) {
+	
   // debug(3,"audio_alsa play called.");
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1178,7 +1179,6 @@ static int play(void *buf, int samples) {
         debug(1, "empty buffer being passed to pcm_writei -- skipping it");
       if ((samples != 0) && (buf != NULL)) {
         // debug(3, "write %d frames.", samples);
-				most_recent_write_time = get_absolute_time_in_fp();
         err = alsa_pcm_write(alsa_handle, buf, samples);
 
         stall_monitor_frame_count += samples;
@@ -1281,6 +1281,11 @@ static void flush(void) {
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
   pthread_setcancelstate(oldState, NULL);
+}
+
+static int play(void *buf, int samples) {
+	most_recent_write_time = get_absolute_time_in_fp(); // this is to regulate access by the silence filler threrad
+	return untimed_play(buf,samples);
 }
 
 static void stop(void) {
