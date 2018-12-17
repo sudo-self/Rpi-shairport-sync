@@ -1451,7 +1451,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
   // so, in that circumstance, don't add dither either.
 
   int use_dither = 0;
-  if ((hardware_mixer == 0) && (config.ignore_volume_control != 0))
+  if ((hardware_mixer == 0) && (config.ignore_volume_control == 0))
     use_dither = 1;
 
   debug(1, "alsa: dither will %sbe added to inter-session silence.", use_dither ? "" : "not ");
