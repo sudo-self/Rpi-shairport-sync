@@ -1464,12 +1464,12 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
 
   debug(1, "alsa: dither will %sbe added to inter-session silence.", use_dither ? "" : "not ");
 
-  int sleep_time_ms = 80;
+  int sleep_time_ms = 30;
   uint64_t sleep_time_in_fp = sleep_time_ms;
   sleep_time_in_fp = sleep_time_in_fp << 32;
   sleep_time_in_fp = sleep_time_in_fp / 1000;
   debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp form.",sleep_time_ms,sleep_time_in_fp);
-  int frames_of_silence = desired_sample_rate * sleep_time_ms / 1000;
+  int frames_of_silence = (desired_sample_rate * sleep_time_ms * 2) / 1000;
   size_t size_of_silence_buffer = frames_of_silence * frame_size;
   // debug(1,"Silence buffer length: %u bytes.",size_of_silence_buffer);
   void *silence = malloc(size_of_silence_buffer);
@@ -1482,11 +1482,11 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
     while (1) {
     	if (config.keep_dac_busy != 0) {
     		uint64_t present_time = get_absolute_time_in_fp();
-    		if ((most_recent_write_time == 0) || ((present_time - most_recent_write_time) > (sleep_time_in_fp/2))) {
+    		if ((most_recent_write_time == 0) || ((present_time - most_recent_write_time) > (sleep_time_in_fp))) {
 					reply = delay(&buffer_size);
 					if (reply != 0)
 						buffer_size = 0;
-					if (buffer_size < (((int)desired_sample_rate * sleep_time_ms) / (1000))) {
+					if (buffer_size < frames_of_silence) {
 						if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) && (config.airplay_volume != 0.0))
 							use_dither = 1;
 						else
@@ -1498,7 +1498,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
 					}
 				}
       }   
-      usleep((sleep_time_ms * 1000) / 2); // has a cancellation point in it
+      usleep(sleep_time_ms * 1000); // has a cancellation point in it
 //      pthread_testcancel();
     }
   }
