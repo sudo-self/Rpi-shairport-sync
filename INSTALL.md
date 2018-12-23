@@ -24,9 +24,9 @@ WiFi Power Management will put the WiFi system in low-power mode when the WiFi s
 Reboot the Pi.
 
 ### Remove Old Copies and Old Startup Scripts
-Before you begin building Shairport Sync, it's best to search for and remove any existing copies of the application, called `shairport-sync`. Use the command `$ which shairport-sync` to find them. For example, if `shairport-sync` has been installed previously, this might happen:
+Before you begin building Shairport Sync, it's best to search for and remove any existing copies of the application, called `shairport-sync`. Use the command `$ which -a shairport-sync` to find them. For example, if `shairport-sync` has been installed previously, this might happen:
 ```
-$ which shairport-sync
+$ which -a shairport-sync
 /usr/local/bin/shairport-sync
 ```
 Remove it as follows:
