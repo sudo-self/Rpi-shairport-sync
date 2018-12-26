@@ -133,8 +133,8 @@ void mutex_lock_cleanup(void *arg) {
 }
 
 void connect_cleanup(void *arg) {
-  // debug(1, "connect cleanup called.");
   int *fd = (int *)arg;
+  debug(2, "dacp_send_command: close socket %d.",*fd);
   close(*fd);
 }
 
@@ -209,21 +209,23 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
         // debug(1, "DACP socket could not be created -- error %d: \"%s\".",errno,strerror(errno));
         response.code = 497; // Can't establish a socket to the DACP server
       } else {
+        pthread_cleanup_push(connect_cleanup, (void *)&sockfd);
+        debug(2, "dacp_send_command: open socket %d.",sockfd);
+        
         struct timeval tv;
         tv.tv_sec = 2;
         tv.tv_usec = 0;
         if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
-          debug(1, "Error %d setting receive timeout for DACP service.", errno);
+          debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
         if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
-          debug(1, "Error %d setting send timeout for DACP service.", errno);
+          debug(1, "dacp_send_command: error %d setting send timeout.", errno);
 
         // connect!
         // debug(1, "DACP socket created.");
         if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
-          debug(3, "DACP connect failed with errno %d.", errno);
+          debug(2, "dacp_send_command: connect failed with errno %d.", errno);
           response.code = 496; // Can't connect to the DACP server
         } else {
-          pthread_cleanup_push(connect_cleanup, (void *)&sockfd);
           // debug(1,"DACP connect succeeded.");
 
           snprintf(message, sizeof(message),
@@ -231,11 +233,9 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
                    command, dacp_server.ip_string, dacp_server.port, dacp_server.active_remote_id);
 
           // Send command
-          // debug(1,"DACP connect message: \"%s\".",message);
-          if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
-            debug(1, "Error %d setting send timeout for DACP service.", errno);
+          debug(2,"dacp_send_command: connect message: \"%s\".",message);
           if (send(sockfd, message, strlen(message), 0) != (ssize_t)strlen(message)) {
-            // debug(1, "Send failed");
+            debug(1, "dacp_send_command: send failed.");
             response.code = 493; // Client failed to send a message
 
           } else {
@@ -255,7 +255,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
             while (needmore && !looperror) {
               const char *data = buffer;
               if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
-                debug(1, "Error %d setting receive timeout for DACP service.", errno);
+                debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
               int ndata = recv(sockfd, buffer, sizeof(buffer), 0);
               // debug(3, "Received %d bytes: \"%s\".", ndata, buffer);
               if (ndata <= 0) {
@@ -278,7 +278,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
             }
 
             if (http_iserror(&rt)) {
-              debug(3, "Error parsing data.");
+              debug(3, "dacp_send_command: error parsing data.");
               free(response.body);
               response.body = NULL;
               response.malloced_size = 0;
@@ -290,17 +290,17 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
             pthread_cleanup_pop(
                 0); // this should *not* free the malloced buffer -- just pop the malloc cleanup
           }
-          pthread_cleanup_pop(1); // this should close the socket
-                                  // close(sockfd);
-                                  // debug(1,"DACP socket closed.");
         }
+        pthread_cleanup_pop(1); // this should close the socket
+                                // close(sockfd);
+                                // debug(1,"DACP socket closed.");
       }
       pthread_cleanup_pop(1); // this should unlock the dacp_conversation_lock);
       // pthread_mutex_unlock(&dacp_conversation_lock);
       // debug(1,"Sent command\"%s\" with a response body of size %d.",command,response.size);
       // debug(1,"dacp_conversation_lock released.");
     } else {
-      debug(3, "Could not acquire a lock on the dacp transmit/receive section when attempting to "
+      debug(3, "dacp_send_command: could not acquire a lock on the dacp transmit/receive section when attempting to "
                "send the command \"%s\". Possible timeout?",
             command);
       response.code = 494; // This client is already busy
