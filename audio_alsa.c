@@ -254,7 +254,7 @@ int actual_open_alsa_device(void) {
 
   ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK, 0);
   if (ret < 0)
-    return (-10);
+    return ret;
 
   snd_pcm_hw_params_alloca(&alsa_params);
   snd_pcm_sw_params_alloca(&alsa_swparams);
@@ -264,7 +264,7 @@ int actual_open_alsa_device(void) {
     warn("audio_alsa: Broken configuration for device \"%s\": no configurations "
          "available",
          alsa_out_dev);
-    return -11;
+    return ret;
   }
 
   if ((config.no_mmap == 0) &&
@@ -289,7 +289,7 @@ int actual_open_alsa_device(void) {
   if (ret < 0) {
     warn("audio_alsa: Access type not available for device \"%s\": %s", alsa_out_dev,
          snd_strerror(ret));
-    return -12;
+    return ret;
   }
   snd_pcm_format_t sf;
   switch (sample_format) {
@@ -325,27 +325,27 @@ int actual_open_alsa_device(void) {
     sf = SND_PCM_FORMAT_S16; // this is just to quieten a compiler warning
     frame_size = 4;
     debug(1, "Unsupported output format at audio_alsa.c");
-    return -1;
+    return -EINVAL;
   }
   ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
   if (ret < 0) {
     warn("audio_alsa: Sample format %d not available for device \"%s\": %s", sample_format,
          alsa_out_dev, snd_strerror(ret));
-    return -2;
+    return ret;
   }
 
   ret = snd_pcm_hw_params_set_channels(alsa_handle, alsa_params, 2);
   if (ret < 0) {
     warn("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
          snd_strerror(ret));
-    return -3;
+    return ret;
   }
 
   ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &my_sample_rate, &dir);
   if (ret < 0) {
     warn("audio_alsa: Rate %iHz not available for playback: %s", desired_sample_rate,
          snd_strerror(ret));
-    return -4;
+    return ret;
   }
 
   if (set_period_size_request != 0) {
@@ -355,7 +355,7 @@ int actual_open_alsa_device(void) {
     if (ret < 0) {
       warn("audio_alsa: cannot set period size of %lu: %s", period_size_requested,
            snd_strerror(ret));
-      return -5;
+      return ret;
     } else {
       snd_pcm_uframes_t actual_period_size;
       snd_pcm_hw_params_get_period_size(alsa_params, &actual_period_size, &dir);
@@ -372,7 +372,7 @@ int actual_open_alsa_device(void) {
     if (ret < 0) {
       warn("audio_alsa: cannot set buffer size of %lu: %s", buffer_size_requested,
            snd_strerror(ret));
-      return -6;
+      return ret;
     } else {
       snd_pcm_uframes_t actual_buffer_size;
       snd_pcm_hw_params_get_buffer_size(alsa_params, &actual_buffer_size);
@@ -387,7 +387,7 @@ int actual_open_alsa_device(void) {
   if (ret < 0) {
     warn("audio_alsa: Unable to set hw parameters for device \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
-    return -7;
+    return ret;
   }
 
   // check parameters after attempting to set them…
@@ -412,28 +412,28 @@ int actual_open_alsa_device(void) {
 
   if (my_sample_rate != desired_sample_rate) {
     warn("Can't set the D/A converter to %d.", desired_sample_rate);
-    return -8;
+    return -EINVAL;
   }
 
   ret = snd_pcm_hw_params_get_buffer_size(alsa_params, &actual_buffer_length);
   if (ret < 0) {
     warn("audio_alsa: Unable to get hw buffer length for device \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
-    return -9;
+    return ret;
   }
 
   ret = snd_pcm_sw_params_current(alsa_handle, alsa_swparams);
   if (ret < 0) {
     warn("audio_alsa: Unable to get current sw parameters for device \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
-    return -10;
+    return ret;
   }
 
   ret = snd_pcm_sw_params_set_tstamp_mode(alsa_handle, alsa_swparams, SND_PCM_TSTAMP_ENABLE);
   if (ret < 0) {
     warn("audio_alsa: Can't enable timestamp mode of device: \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
-    return -11;
+    return ret;
   }
 
   /* write the sw parameters */
@@ -441,7 +441,7 @@ int actual_open_alsa_device(void) {
   if (ret < 0) {
     warn("audio_alsa: Unable to set software parameters of device: \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
-    return -12;
+    return ret;
   }
 
   if (actual_buffer_length < config.audio_backend_buffer_desired_length + minimal_buffer_headroom) {
@@ -955,7 +955,7 @@ static int init(int argc, char **argv) {
     if (ret == 0)
       actual_close_alsa_device();
     else
-      die("Could not open the alsa device with the settings given.");
+      die("audio_alsa error %d opening the alsa device. Incorrect settings or device already busy?",ret);
   }
 
 	most_recent_write_time = 0; // could be used by the alsa_buffer_monitor_thread_code
