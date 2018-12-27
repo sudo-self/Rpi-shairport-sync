@@ -475,7 +475,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
 
     if ((bad_result_count == config.scan_max_bad_response_count) ||
         (idle_scan_count == config.scan_max_inactive_count)) {
-      debug(1, "DACP server status scanning stopped.");
+      debug(2, "DACP server status scanning stopped.");
       dacp_server.scan_enable = 0;
     }
     pthread_cleanup_pop(1);

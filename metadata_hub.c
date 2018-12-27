@@ -170,7 +170,7 @@ void metadata_hub_modify_epilog(int modified) {
 
   if ((metadata_store.dacp_server_active == 0) &&
       (metadata_store.dacp_server_has_been_active != 0)) {
-    debug(1, "dacp_scanner going inactive -- release track metadata and artwork");
+    debug(2, "dacp_scanner going inactive -- release track metadata and artwork");
     if (metadata_store.track_metadata) {
       m = 1;
       metadata_hub_release_track_metadata(metadata_store.track_metadata);
