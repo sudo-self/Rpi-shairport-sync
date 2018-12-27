@@ -134,7 +134,7 @@ void mutex_lock_cleanup(void *arg) {
 
 void connect_cleanup(void *arg) {
   int *fd = (int *)arg;
-  debug(2, "dacp_send_command: close socket %d.",*fd);
+  // debug(2, "dacp_send_command: close socket %d.",*fd);
   close(*fd);
 }
 
@@ -210,7 +210,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
         response.code = 497; // Can't establish a socket to the DACP server
       } else {
         pthread_cleanup_push(connect_cleanup, (void *)&sockfd);
-        debug(2, "dacp_send_command: open socket %d.",sockfd);
+        // debug(2, "dacp_send_command: open socket %d.",sockfd);
         
         struct timeval tv;
         tv.tv_sec = 2;
@@ -223,7 +223,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
         // connect!
         // debug(1, "DACP socket created.");
         if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
-          debug(2, "dacp_send_command: connect failed with errno %d.", errno);
+          // debug(2, "dacp_send_command: connect failed with errno %d.", errno);
           response.code = 496; // Can't connect to the DACP server
         } else {
           // debug(1,"DACP connect succeeded.");
@@ -233,7 +233,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
                    command, dacp_server.ip_string, dacp_server.port, dacp_server.active_remote_id);
 
           // Send command
-          debug(2,"dacp_send_command: connect message: \"%s\".",message);
+          // debug(3,"dacp_send_command: connect message: \"%s\".",message);
           if (send(sockfd, message, strlen(message), 0) != (ssize_t)strlen(message)) {
             debug(1, "dacp_send_command: send failed.");
             response.code = 493; // Client failed to send a message
@@ -259,8 +259,8 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
               int ndata = recv(sockfd, buffer, sizeof(buffer), 0);
               // debug(3, "Received %d bytes: \"%s\".", ndata, buffer);
               if (ndata <= 0) {
-                debug(1, "dacp_send_command -- error receiving response for command \"%s\".",
-                      command);
+                //debug(1, "dacp_send_command -- error receiving response for command \"%s\".",
+                //      command);
                 free(response.body);
                 response.body = NULL;
                 response.malloced_size = 0;
@@ -907,10 +907,14 @@ int dacp_get_client_volume(int32_t *result) {
       debug(1, "Too short a response from getproperty?properties=dmcp.volume");
     }
     // debug(1, "Overall Volume is %d.", overall_volume);
+  }
+  
+  if (server_reply) {
+    // debug(1, "Freeing response memory.");
     free(server_reply);
-  } /* else {
-    debug(1, "Unexpected response %d to dacp volume control request", response);
-  } */
+    server_reply = NULL;
+  }
+
   if (result) {
     *result = overall_volume;
     // debug(1,"dacp_get_client_volume returns: %" PRId32 ".",overall_volume);
@@ -1048,7 +1052,12 @@ int dacp_get_speaker_list(dacp_spkr_stuff *speaker_info, int max_size_of_array,
     free(server_reply);
     server_reply = NULL;
   } else {
-    debug(1, "Unexpected response %d to dacp speakers request", response);
+    // debug(1, "Unexpected response %d to dacp speakers request", response);
+    if (server_reply) {
+      debug(1, "Freeing response memory.");
+      free(server_reply);
+      server_reply = NULL;
+    }
   }
   if (actual_speaker_count)
     *actual_speaker_count = speaker_count;
