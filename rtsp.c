@@ -558,7 +558,7 @@ fail:
 enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_message **the_packet) {
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
-  char *buf = malloc(buflen + 1);
+  char *buf = malloc(buflen + 1); //add a NUL at the end
 
   rtsp_message *msg = NULL;
 
@@ -622,7 +622,7 @@ do {
   }
 
   if (msg_size > buflen) {
-    buf = realloc(buf, msg_size);
+    buf = realloc(buf, msg_size+1);
     if (!buf) {
       warn("too much content");
       reply = rtsp_read_request_response_error;
@@ -692,6 +692,8 @@ do {
 
   msg->contentlength = inbuf;
   msg->content = buf;
+  char *jp = inbuf+buf;
+  *jp = '\0';
   *the_packet = msg;
   return reply;
 
@@ -1000,22 +1002,38 @@ static void handle_ignore(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
 */
 
 void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
-                                    __attribute__((unused)) rtsp_message *resp) {
+                                    __attribute__((unused)) rtsp_message *resp) {                                  
+                                    
   char *cp = req->content;
   int cp_left = req->contentlength;
+  /*
+  int k = cp_left;
+  if (k>max_bytes)
+    k = max_bytes;
+  for (i = 0; i < k; i++)
+    snprintf((char *)buf + 2 * i, 3, "%02x", cp[i]);
+  debug(1, "handle_set_parameter_parameter: \"%s\".",buf);
+  */
+  
   char *next;
   while (cp_left && cp) {
     next = nextline(cp, cp_left);
-    cp_left -= next - cp;
+    // note: "next" will return NULL if there is no \r or \n or \r\n at the end of this
+    // but we are always guaranteed that if cp is not null, it will be pointing to something NUL-terminated
 
-    if (!strncmp(cp, "volume: ", 8)) {
-      float volume = atof(cp + 8);
+    if (next)
+      cp_left -= (next - cp);
+    else
+      cp_left = 0;
+
+    if (!strncmp(cp, "volume: ", strlen("volume: "))) {
+      float volume = atof(cp + strlen("volume: "));
       // debug(2, "AirPlay request to set volume to: %f.", volume);
       player_volume(volume, conn);
     } else
 #ifdef CONFIG_METADATA
-        if (!strncmp(cp, "progress: ", 10)) {
-      char *progress = cp + 10;
+    if (!strncmp(cp, "progress: ", strlen("progress: "))) {
+      char *progress = cp + strlen("volume: ");
       // debug(2, "progress: \"%s\"\n",progress); // rtpstampstart/rtpstampnow/rtpstampend 44100 per
       // second
       send_ssnc_metadata('prgr', strdup(progress), strlen(progress), 1);
