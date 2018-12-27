@@ -952,12 +952,12 @@ static int init(int argc, char **argv) {
   if (response == 0) {
     // try opening the device.
     int ret = actual_open_alsa_device();
+
     if (ret == 0)
       actual_close_alsa_device();
     else
       die("audio_alsa error %d opening the alsa device. Incorrect settings or device already busy?",ret);
   }
-
 	most_recent_write_time = 0; // could be used by the alsa_buffer_monitor_thread_code
   pthread_create(&alsa_buffer_monitor_thread, NULL, &alsa_buffer_monitor_thread_code, NULL);
 
@@ -1284,7 +1284,10 @@ static void flush(void) {
 }
 
 static int play(void *buf, int samples) {
-	most_recent_write_time = get_absolute_time_in_fp(); // this is to regulate access by the silence filler threrad
+  uint64_t time_now = get_absolute_time_in_fp(); // this is to regulate access by the silence filler thread
+  uint64_t sample_duration = ((uint64_t)samples) << 32;
+  sample_duration = sample_duration / desired_sample_rate;
+	most_recent_write_time = time_now + sample_duration;
 	return untimed_play(buf,samples);
 }
 
@@ -1468,7 +1471,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
   uint64_t sleep_time_in_fp = sleep_time_ms;
   sleep_time_in_fp = sleep_time_in_fp << 32;
   sleep_time_in_fp = sleep_time_in_fp / 1000;
-  debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp form.",sleep_time_ms,sleep_time_in_fp);
+  // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp form.",sleep_time_ms,sleep_time_in_fp);
   int frames_of_silence = (desired_sample_rate * sleep_time_ms * 2) / 1000;
   size_t size_of_silence_buffer = frames_of_silence * frame_size;
   // debug(1,"Silence buffer length: %u bytes.",size_of_silence_buffer);
@@ -1482,7 +1485,8 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
     while (1) {
     	if (config.keep_dac_busy != 0) {
     		uint64_t present_time = get_absolute_time_in_fp();
-    		if ((most_recent_write_time == 0) || ((present_time - most_recent_write_time) > (sleep_time_in_fp))) {
+  
+    		if ((most_recent_write_time == 0) || ((present_time > most_recent_write_time) && ((present_time - most_recent_write_time) > (sleep_time_in_fp)))) {
 					reply = delay(&buffer_size);
 					if (reply != 0)
 						buffer_size = 0;
@@ -1494,7 +1498,8 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
 						dither_random_number_store = generate_zero_frames(
 								silence, frames_of_silence, config.output_format, use_dither, // i.e. with dither
 								dither_random_number_store);
-						play(silence, frames_of_silence);
+						//debug(1,"Play %d frames of silence with most_recent_write_time of %" PRIx64 ".", frames_of_silence,most_recent_write_time);
+						untimed_play(silence, frames_of_silence);
 					}
 				}
       }   
