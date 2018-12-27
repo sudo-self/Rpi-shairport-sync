@@ -802,7 +802,7 @@ static int init(int argc, char **argv) {
     // Get the optional "Keep DAC Busy setting"
     int kdb;
     if (config_set_lookup_bool(config.cfg, "alsa.disable_standby_mode", &kdb)) {
-    	config.keep_dac_busy = kdb;
+      config.keep_dac_busy = kdb;
     }
     debug(1, "alsa: disable_standby_mode is %s.", config.keep_dac_busy ? "on" : "off");
   }
@@ -956,9 +956,10 @@ static int init(int argc, char **argv) {
     if (ret == 0)
       actual_close_alsa_device();
     else
-      die("audio_alsa error %d opening the alsa device. Incorrect settings or device already busy?",ret);
+      die("audio_alsa error %d opening the alsa device. Incorrect settings or device already busy?",
+          ret);
   }
-	most_recent_write_time = 0; // could be used by the alsa_buffer_monitor_thread_code
+  most_recent_write_time = 0; // could be used by the alsa_buffer_monitor_thread_code
   pthread_create(&alsa_buffer_monitor_thread, NULL, &alsa_buffer_monitor_thread_code, NULL);
 
   return response;
@@ -969,10 +970,10 @@ static void deinit(void) {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   // debug(2,"audio_alsa deinit called.");
   stop();
-	debug(1, "Cancel buffer monitor thread.");
-	pthread_cancel(alsa_buffer_monitor_thread);
-	debug(1, "Join buffer monitor thread.");
-	pthread_join(alsa_buffer_monitor_thread, NULL);
+  debug(1, "Cancel buffer monitor thread.");
+  pthread_cancel(alsa_buffer_monitor_thread);
+  debug(1, "Join buffer monitor thread.");
+  pthread_join(alsa_buffer_monitor_thread, NULL);
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -1136,7 +1137,7 @@ int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
 }
 
 int untimed_play(void *buf, int samples) {
-	
+
   // debug(3,"audio_alsa play called.");
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1284,11 +1285,12 @@ static void flush(void) {
 }
 
 static int play(void *buf, int samples) {
-  uint64_t time_now = get_absolute_time_in_fp(); // this is to regulate access by the silence filler thread
+  uint64_t time_now =
+      get_absolute_time_in_fp(); // this is to regulate access by the silence filler thread
   uint64_t sample_duration = ((uint64_t)samples) << 32;
   sample_duration = sample_duration / desired_sample_rate;
-	most_recent_write_time = time_now + sample_duration;
-	return untimed_play(buf,samples);
+  most_recent_write_time = time_now + sample_duration;
+  return untimed_play(buf, samples);
 }
 
 static void stop(void) {
@@ -1457,12 +1459,13 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
   // (if no source transformation is happening), Shairport Sync
   // will deliver fill-in silences and the audio material without adding dither.
   // So don't insert dither into the silences sent to keep the DAC busy.
-  
+
   // Also, if the ignore_volume_setting is set, the audio is sent through unaltered,
   // so, in that circumstance, don't add dither either.
 
   int use_dither = 0;
-  if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) && (config.airplay_volume != 0.0))
+  if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
+      (config.airplay_volume != 0.0))
     use_dither = 1;
 
   debug(1, "alsa: dither will %sbe added to inter-session silence.", use_dither ? "" : "not ");
@@ -1483,28 +1486,32 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
     long buffer_size;
     int reply;
     while (1) {
-    	if (config.keep_dac_busy != 0) {
-    		uint64_t present_time = get_absolute_time_in_fp();
-  
-    		if ((most_recent_write_time == 0) || ((present_time > most_recent_write_time) && ((present_time - most_recent_write_time) > (sleep_time_in_fp)))) {
-					reply = delay(&buffer_size);
-					if (reply != 0)
-						buffer_size = 0;
-					if (buffer_size < frames_of_silence) {
-						if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) && (config.airplay_volume != 0.0))
-							use_dither = 1;
-						else
-							use_dither = 0;
-						dither_random_number_store = generate_zero_frames(
-								silence, frames_of_silence, config.output_format, use_dither, // i.e. with dither
-								dither_random_number_store);
-						//debug(1,"Play %d frames of silence with most_recent_write_time of %" PRIx64 ".", frames_of_silence,most_recent_write_time);
-						untimed_play(silence, frames_of_silence);
-					}
-				}
-      }   
+      if (config.keep_dac_busy != 0) {
+        uint64_t present_time = get_absolute_time_in_fp();
+
+        if ((most_recent_write_time == 0) ||
+            ((present_time > most_recent_write_time) &&
+             ((present_time - most_recent_write_time) > (sleep_time_in_fp)))) {
+          reply = delay(&buffer_size);
+          if (reply != 0)
+            buffer_size = 0;
+          if (buffer_size < frames_of_silence) {
+            if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
+                (config.airplay_volume != 0.0))
+              use_dither = 1;
+            else
+              use_dither = 0;
+            dither_random_number_store = generate_zero_frames(
+                silence, frames_of_silence, config.output_format, use_dither, // i.e. with dither
+                dither_random_number_store);
+            // debug(1,"Play %d frames of silence with most_recent_write_time of %" PRIx64 ".",
+            // frames_of_silence,most_recent_write_time);
+            untimed_play(silence, frames_of_silence);
+          }
+        }
+      }
       usleep(sleep_time_ms * 1000); // has a cancellation point in it
-//      pthread_testcancel();
+                                    //      pthread_testcancel();
     }
   }
   pthread_cleanup_pop(1);

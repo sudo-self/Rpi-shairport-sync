@@ -211,7 +211,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
       } else {
         pthread_cleanup_push(connect_cleanup, (void *)&sockfd);
         // debug(2, "dacp_send_command: open socket %d.",sockfd);
-        
+
         struct timeval tv;
         tv.tv_sec = 2;
         tv.tv_usec = 0;
@@ -259,7 +259,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
               int ndata = recv(sockfd, buffer, sizeof(buffer), 0);
               // debug(3, "Received %d bytes: \"%s\".", ndata, buffer);
               if (ndata <= 0) {
-                //debug(1, "dacp_send_command -- error receiving response for command \"%s\".",
+                // debug(1, "dacp_send_command -- error receiving response for command \"%s\".",
                 //      command);
                 free(response.body);
                 response.body = NULL;
@@ -300,7 +300,8 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
       // debug(1,"Sent command\"%s\" with a response body of size %d.",command,response.size);
       // debug(1,"dacp_conversation_lock released.");
     } else {
-      debug(3, "dacp_send_command: could not acquire a lock on the dacp transmit/receive section when attempting to "
+      debug(3, "dacp_send_command: could not acquire a lock on the dacp transmit/receive section "
+               "when attempting to "
                "send the command \"%s\". Possible timeout?",
             command);
       response.code = 494; // This client is already busy
@@ -908,7 +909,7 @@ int dacp_get_client_volume(int32_t *result) {
     }
     // debug(1, "Overall Volume is %d.", overall_volume);
   }
-  
+
   if (server_reply) {
     // debug(1, "Freeing response memory.");
     free(server_reply);
