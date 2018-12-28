@@ -1017,8 +1017,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                       // this might happen if a big clock adjustment was made at just the wrong
                       // time.
 
-                      debug(1, "Run a bit past the exact start time by %" PRId64 " frames.",
-                            -exact_frame_gap);
+                      debug(1, "Run a bit past the exact start time by %" PRId64 " frames with a DAC delay of %ld frames.",
+                            -exact_frame_gap, dac_delay);
                       if (config.output->flush)
                         config.output->flush();
                       ab_resync(conn);

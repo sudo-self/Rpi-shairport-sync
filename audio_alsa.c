@@ -1493,8 +1493,13 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
             ((present_time > most_recent_write_time) &&
              ((present_time - most_recent_write_time) > (sleep_time_in_fp)))) {
           reply = delay(&buffer_size);
-          if (reply != 0)
-            buffer_size = 0;
+          if (reply != 0) {
+            buffer_size = 0;            
+            char errorstring[1024];
+            strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
+            debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".",
+                  reply, (char *)errorstring);
+          }
           if (buffer_size < frames_of_silence) {
             if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
                 (config.airplay_volume != 0.0))
