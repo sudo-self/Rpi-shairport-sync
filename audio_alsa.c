@@ -467,8 +467,9 @@ int actual_open_alsa_device(void) {
           buffer_size);
     }
     */
-    debug(1, "The alsa buffer is smaller (%lu bytes) than the desired backend buffer "
-             "length (%ld) you have chosen.",
+    debug(1,
+          "The alsa buffer is smaller (%lu bytes) than the desired backend buffer "
+          "length (%ld) you have chosen.",
           actual_buffer_length, config.audio_backend_buffer_desired_length);
   }
 
@@ -1001,7 +1002,10 @@ static void start(int i_sample_rate, int i_sample_format) {
 }
 
 // assuming pthread cancellation is disabled
-int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp) {
+int my_snd_pcm_state_and_delay(snd_pcm_t *pcm, snd_pcm_state_t *state, snd_pcm_sframes_t *delayp) {
+  *state = SND_PCM_STATE_LAST + 1; // unknown
+  *delayp = 0;
+
   int ret;
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
@@ -1011,29 +1015,27 @@ int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp) {
 
   ret = snd_pcm_status(pcm, alsa_snd_pcm_status);
   if (ret) {
-    *delayp = 0;
     return ret;
   }
 
-  snd_pcm_state_t state = snd_pcm_status_get_state(alsa_snd_pcm_status);
-  if (state != SND_PCM_STATE_RUNNING) {
-    *delayp = 0;
-    return -EIO; // might be a better code than this...
+  *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
+
+  if (*state == SND_PCM_STATE_RUNNING) {
+
+    clock_gettime(CLOCK_MONOTONIC, &tn);
+    snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
+
+    uint64_t t1 = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
+    uint64_t t2 = update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
+    uint64_t delta = t1 - t2;
+
+    uint64_t frames_played_since_last_interrupt =
+        ((uint64_t)desired_sample_rate * delta) / 1000000000;
+    snd_pcm_sframes_t frames_played_since_last_interrupt_sized = frames_played_since_last_interrupt;
+
+    *delayp =
+        snd_pcm_status_get_delay(alsa_snd_pcm_status) - frames_played_since_last_interrupt_sized;
   }
-
-  clock_gettime(CLOCK_MONOTONIC, &tn);
-  snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
-
-  uint64_t t1 = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
-  uint64_t t2 = update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
-  uint64_t delta = t1 - t2;
-
-  uint64_t frames_played_since_last_interrupt =
-      ((uint64_t)desired_sample_rate * delta) / 1000000000;
-  snd_pcm_sframes_t frames_played_since_last_interrupt_sized = frames_played_since_last_interrupt;
-
-  *delayp =
-      snd_pcm_status_get_delay(alsa_snd_pcm_status) - frames_played_since_last_interrupt_sized;
   return 0;
 }
 
@@ -1494,11 +1496,11 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
              ((present_time - most_recent_write_time) > (sleep_time_in_fp)))) {
           reply = delay(&buffer_size);
           if (reply != 0) {
-            buffer_size = 0;            
+            buffer_size = 0;
             char errorstring[1024];
             strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
-            debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".",
-                  reply, (char *)errorstring);
+            debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
+                  (char *)errorstring);
           }
           if (buffer_size < frames_of_silence) {
             if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
