@@ -81,6 +81,7 @@ pthread_t alsa_buffer_monitor_thread;
 uint64_t stall_monitor_start_time;      // zero if not initialised / not started / zeroed by flush
 long stall_monitor_frame_count;         // set to delay at start of time, incremented by any writes
 uint64_t stall_monitor_error_threshold; // if the time is longer than this, it's an error
+int stalled;
 
 static snd_output_t *output = NULL;
 static unsigned int desired_sample_rate;
@@ -993,6 +994,7 @@ static void start(int i_sample_rate, int i_sample_format) {
   frame_index = 0;
   measurement_data_is_valid = 0;
 
+  stalled = 0;
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
 
@@ -1110,15 +1112,18 @@ int delay(long *the_delay) {
       // hasn't outputted anything since the last call to delay()
       uint64_t time_stalled = stall_monitor_time_now - stall_monitor_start_time;
       if (time_stalled > stall_monitor_error_threshold) {
+        stalled = 1;
         reply = sps_extra_errno_output_stalled;
       }
     } else {
       // is outputting stuff, so restart the monitoring here
+      stalled = 0;
       stall_monitor_start_time = stall_monitor_time_now;
       stall_monitor_frame_count = *the_delay;
     }
   } else {
     // if there is an error or the delay is zero (from which it is assumed there is no output)
+    stalled = 0;
     stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
     stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
   }
@@ -1180,7 +1185,7 @@ int untimed_play(void *buf, int samples) {
         debug(1, "NULL buffer passed to pcm_writei -- skipping it");
       if (samples == 0)
         debug(1, "empty buffer being passed to pcm_writei -- skipping it");
-      if ((samples != 0) && (buf != NULL)) {
+      if ((samples != 0) && (buf != NULL) && (stalled == 0)) {
         // debug(3, "write %d frames.", samples);
         err = alsa_pcm_write(alsa_handle, buf, samples);
 
@@ -1499,8 +1504,8 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
             buffer_size = 0;
             char errorstring[1024];
             strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
-            debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
-                  (char *)errorstring);
+            //debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
+            //      (char *)errorstring);
           }
           if (buffer_size < frames_of_silence) {
             if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
