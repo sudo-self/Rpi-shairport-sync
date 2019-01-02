@@ -30,7 +30,8 @@ enum dbus_session_type {
 } dbt_type;
 #endif
 
-#define sps_extra_errno_output_stalled 32768
+#define sps_extra_code_output_stalled 32768
+#define sps_extra_code_output_state_cannot_make_ready 32769
 
 enum endian_type {
   SS_LITTLE_ENDIAN = 0,

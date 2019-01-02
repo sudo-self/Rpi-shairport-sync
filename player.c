@@ -473,7 +473,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       abuf_t *abuf = 0;
 
       if (!conn->ab_synced) {
-        // if this is the first packetÉ
+        // if this is the first packet...
         debug(3, "syncing to seqno %u.", seqno);
         conn->ab_write = seqno;
         conn->ab_read = seqno;
@@ -495,7 +495,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       }
 
       if (conn->ab_write ==
-          seqno) { // if this is the expected packet (which could be the first packetÉ)
+          seqno) { // if this is the expected packet (which could be the first packet...)
         uint64_t reception_time = get_absolute_time_in_fp();
         if (conn->input_frame_rate_starting_point_is_valid == 0) {
           if ((conn->packet_count_since_flush >= 500) && (conn->packet_count_since_flush <= 510)) {
@@ -1017,7 +1017,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                       // this might happen if a big clock adjustment was made at just the wrong
                       // time.
 
-                      debug(1, "Run a bit past the exact start time by %" PRId64 " frames with a DAC delay of %ld frames.",
+                      debug(1, "Run a bit past the exact start time by %" PRId64
+                               " frames with a DAC delay of %ld frames.",
                             -exact_frame_gap, dac_delay);
                       if (config.output->flush)
                         config.output->flush();
@@ -1084,7 +1085,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                           1; // even if we haven't sent silence because it's zero frames long...
                     }
                   } else {
-                    if ((resp == sps_extra_errno_output_stalled) &&
+                    if ((resp == sps_extra_code_output_stalled) &&
                         (conn->unfixable_error_reported == 0)) {
                       conn->unfixable_error_reported = 1;
                       if (config.cmd_unfixable) {
@@ -1973,8 +1974,8 @@ void *player_thread_func(void *arg) {
           if (config.output->delay) {
             long l_delay;
             resp = config.output->delay(&l_delay);
-            current_delay = l_delay;
             if (resp == 0) { // no error
+              current_delay = l_delay;
               if (current_delay < 0) {
                 debug(2, "Underrun of %lld frames reported, but ignored.", current_delay);
                 current_delay =
@@ -1984,7 +1985,8 @@ void *player_thread_func(void *arg) {
                 minimum_dac_queue_size = current_delay; // update for display later
               }
             } else {
-              if ((resp == sps_extra_errno_output_stalled) &&
+              current_delay = 0;
+              if ((resp == sps_extra_code_output_stalled) &&
                   (conn->unfixable_error_reported == 0)) {
                 conn->unfixable_error_reported = 1;
                 if (config.cmd_unfixable) {
@@ -2005,7 +2007,7 @@ void *player_thread_func(void *arg) {
             }
           }
 
-          if (resp >= 0) {
+          if (resp == 0) {
 
             uint32_t should_be_frame_32;
             local_time_to_frame(local_time_now, &should_be_frame_32, conn);
@@ -2829,3 +2831,4 @@ int player_stop(rtsp_conn_info *conn) {
     return -1;
   }
 }
+

@@ -44,6 +44,7 @@ static void start(int i_sample_rate, int i_sample_format);
 static int play(void *buf, int samples);
 static void stop(void);
 static void flush(void);
+// int delay(long *the_delay);
 int delay(long *the_delay);
 void do_mute(int request);
 int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
@@ -468,9 +469,8 @@ int actual_open_alsa_device(void) {
           buffer_size);
     }
     */
-    debug(1,
-          "The alsa buffer is smaller (%lu bytes) than the desired backend buffer "
-          "length (%ld) you have chosen.",
+    debug(1, "The alsa buffer is smaller (%lu bytes) than the desired backend buffer "
+             "length (%ld) you have chosen.",
           actual_buffer_length, config.audio_backend_buffer_desired_length);
   }
 
@@ -601,6 +601,14 @@ int actual_open_alsa_device(void) {
       break;
     }
   }
+
+  // now open the device
+  ret = snd_pcm_prepare(alsa_handle);
+  if (ret) {
+    warn("alsa: can't prepare device.");
+    return ret;
+  }
+
   return 0;
 }
 
@@ -1042,6 +1050,113 @@ int my_snd_pcm_state_and_delay(snd_pcm_t *pcm, snd_pcm_state_t *state, snd_pcm_s
 }
 
 int delay(long *the_delay) {
+  // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or SND_PCM_STATE_PREPARED
+  // and returns the actual delay if running or 0 if prepared in *the_delay
+
+  // otherwise return an error code
+  // the error code could be a Unix errno code or a snderror code, or
+  // the sps_extra_code_output_stalled or the sps_extra_code_output_state_cannot_make_ready codes
+  int ret = 0;
+  *the_delay = 0;
+  if (alsa_handle == NULL)
+    ret = ENODEV;
+  else {
+    int oldState;
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
+
+    snd_pcm_state_t state;
+    snd_pcm_sframes_t delay;
+
+    snd_pcm_status_t *alsa_snd_pcm_status;
+    snd_pcm_status_alloca(&alsa_snd_pcm_status);
+
+    struct timespec tn;                // time now
+    snd_htimestamp_t update_timestamp; // actually a struct timespec
+
+    ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
+    if (ret == 0) {
+      state = snd_pcm_status_get_state(alsa_snd_pcm_status);
+
+      if ((state == SND_PCM_STATE_SUSPENDED) || (state == SND_PCM_STATE_XRUN)) {
+        debug(1, "alsa: recovering from suspended or xrun in delay.");
+        ret = snd_pcm_recover(alsa_handle, ret, 1);
+        if (ret == 0) {
+          ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
+          if (ret == 0)
+            state = snd_pcm_status_get_state(alsa_snd_pcm_status);
+        }
+      }
+
+      // here, the device must be either SND_PCM_STATE_RUNNING
+      // or SND_PCM_STATE_PREPARED or SND_PCM_STATE_DRAINING
+
+      if (ret == 0) {
+
+        if ((state == SND_PCM_STATE_RUNNING) || (state == SND_PCM_STATE_DRAINING)) {
+
+          snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
+          delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);
+
+          if (state == SND_PCM_STATE_DRAINING)
+            debug(1, "alsa: draining with a delay of %d.", delay);
+
+          clock_gettime(CLOCK_MONOTONIC, &tn);
+          uint64_t time_now_ns = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
+          uint64_t update_timestamp_ns =
+              update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
+
+          // see if it's stalled
+
+          if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == delay)) {
+            // hasn't outputted anything since the last call to delay()
+
+            if (((update_timestamp_ns - stall_monitor_start_time) >
+                 stall_monitor_error_threshold) ||
+                ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
+              stalled = 1;
+              ret = sps_extra_code_output_stalled;
+            }
+          } else {
+            stalled = 0;
+            stall_monitor_start_time = update_timestamp_ns;
+            stall_monitor_frame_count = delay;
+          }
+
+          if (ret == 0) {
+            uint64_t delta = time_now_ns - update_timestamp_ns;
+
+            uint64_t frames_played_since_last_interrupt =
+                ((uint64_t)desired_sample_rate * delta) / 1000000000;
+            snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
+                frames_played_since_last_interrupt;
+
+            *the_delay = delay - frames_played_since_last_interrupt_sized;
+           }
+        } else { // not running, thus no delay information, thus can't check for stall
+          stalled = 0;
+          stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
+          stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
+
+          // not running, thus no delay information, thus can't check for frame rates
+          frame_index = 0; // we'll be starting over...
+          measurement_data_is_valid = 0;
+
+          if ((state != SND_PCM_STATE_PREPARED)) {            
+            debug(1, "alsa: can't get device into valid state in delay. State is %d.",state);
+            ret = sps_extra_code_output_state_cannot_make_ready;
+          }
+        }
+      }
+    }
+    debug_mutex_unlock(&alsa_mutex, 0);
+    pthread_cleanup_pop(0);
+    pthread_setcancelstate(oldState, NULL);
+  }
+  return ret;
+}
+
+int old_delay(long *the_delay) {
   *the_delay = 0;
   // snd_pcm_sframes_t is a signed long -- hence the return of a "long"
   int reply = 0;
@@ -1113,7 +1228,7 @@ int delay(long *the_delay) {
       uint64_t time_stalled = stall_monitor_time_now - stall_monitor_start_time;
       if (time_stalled > stall_monitor_error_threshold) {
         stalled = 1;
-        reply = sps_extra_errno_output_stalled;
+        reply = sps_extra_code_output_stalled;
       }
     } else {
       // is outputting stuff, so restart the monitoring here
@@ -1504,7 +1619,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
             buffer_size = 0;
             char errorstring[1024];
             strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
-            //debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
+            // debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
             //      (char *)errorstring);
           }
           if (buffer_size < frames_of_silence) {
