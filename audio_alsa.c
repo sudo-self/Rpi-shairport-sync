@@ -1,7 +1,7 @@
 /*
  * libalsa output driver. This file is part of Shairport.
  * Copyright (c) Muffinman, Skaman 2013
- * Copyright (c) Mike Brady 2014 -- 2018
+ * Copyright (c) Mike Brady 2014 -- 2019
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -44,7 +44,6 @@ static void start(int i_sample_rate, int i_sample_format);
 static int play(void *buf, int samples);
 static void stop(void);
 static void flush(void);
-// int delay(long *the_delay);
 int delay(long *the_delay);
 void do_mute(int request);
 int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
@@ -82,7 +81,6 @@ pthread_t alsa_buffer_monitor_thread;
 uint64_t stall_monitor_start_time;      // zero if not initialised / not started / zeroed by flush
 long stall_monitor_frame_count;         // set to delay at start of time, incremented by any writes
 uint64_t stall_monitor_error_threshold; // if the time is longer than this, it's an error
-int stalled;
 
 static snd_output_t *output = NULL;
 static unsigned int desired_sample_rate;
@@ -1003,88 +1001,12 @@ static void start(int i_sample_rate, int i_sample_format) {
   frame_index = 0;
   measurement_data_is_valid = 0;
 
-  stalled = 0;
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
 
   stall_monitor_error_threshold =
       (uint64_t)1000000 * config.alsa_maximum_stall_time; // stall time max to microseconds;
   stall_monitor_error_threshold = (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
-}
-
-// assuming pthread cancellation is disabled
-int my_snd_pcm_state_and_delay(snd_pcm_t *pcm, snd_pcm_state_t *state, snd_pcm_sframes_t *delayp) {
-  *state = SND_PCM_STATE_LAST + 1; // unknown
-  *delayp = 0;
-
-  int ret;
-  snd_pcm_status_t *alsa_snd_pcm_status;
-  snd_pcm_status_alloca(&alsa_snd_pcm_status);
-
-  struct timespec tn;                // time now
-  snd_htimestamp_t update_timestamp; // actually a struct timespec
-
-  ret = snd_pcm_status(pcm, alsa_snd_pcm_status);
-  if (ret) {
-    return ret;
-  }
-
-  *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
-
-  if (*state == SND_PCM_STATE_RUNNING) {
-
-    clock_gettime(CLOCK_MONOTONIC, &tn);
-    snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
-
-    uint64_t t1 = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
-    uint64_t t2 = update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
-    uint64_t delta = t1 - t2;
-
-    uint64_t frames_played_since_last_interrupt =
-        ((uint64_t)desired_sample_rate * delta) / 1000000000;
-    snd_pcm_sframes_t frames_played_since_last_interrupt_sized = frames_played_since_last_interrupt;
-
-    *delayp =
-        snd_pcm_status_get_delay(alsa_snd_pcm_status) - frames_played_since_last_interrupt_sized;
-  }
-  return 0;
-}
-
-// assuming pthread cancellation is disabled
-int my_snd_pcm_delay(snd_pcm_t *pcm, snd_pcm_sframes_t *delayp) {
-  int ret;
-  snd_pcm_status_t *alsa_snd_pcm_status;
-  snd_pcm_status_alloca(&alsa_snd_pcm_status);
-
-  struct timespec tn;                // time now
-  snd_htimestamp_t update_timestamp; // actually a struct timespec
-
-  ret = snd_pcm_status(pcm, alsa_snd_pcm_status);
-  if (ret) {
-    *delayp = 0;
-    return ret;
-  }
-
-  snd_pcm_state_t state = snd_pcm_status_get_state(alsa_snd_pcm_status);
-  if (state != SND_PCM_STATE_RUNNING) {
-    *delayp = 0;
-    return -EIO; // might be a better code than this...
-  }
-
-  clock_gettime(CLOCK_MONOTONIC, &tn);
-  snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
-
-  uint64_t t1 = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
-  uint64_t t2 = update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
-  uint64_t delta = t1 - t2;
-
-  uint64_t frames_played_since_last_interrupt =
-      ((uint64_t)desired_sample_rate * delta) / 1000000000;
-  snd_pcm_sframes_t frames_played_since_last_interrupt_sized = frames_played_since_last_interrupt;
-
-  *delayp =
-      snd_pcm_status_get_delay(alsa_snd_pcm_status) - frames_played_since_last_interrupt_sized;
-  return 0;
 }
 
 int delay_prep_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
@@ -1133,11 +1055,9 @@ int delay_prep_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
 
           if (((update_timestamp_ns - stall_monitor_start_time) > stall_monitor_error_threshold) ||
               ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
-            stalled = 1;
             ret = sps_extra_code_output_stalled;
           }
         } else {
-          stalled = 0;
           stall_monitor_start_time = update_timestamp_ns;
           stall_monitor_frame_count = *delay;
         }
@@ -1153,7 +1073,6 @@ int delay_prep_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
           *delay = *delay - frames_played_since_last_interrupt_sized;
         }
       } else { // not running, thus no delay information, thus can't check for stall
-        stalled = 0;
         stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
         stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
 
@@ -1207,95 +1126,6 @@ int delay(long *the_delay) {
     *the_delay = my_delay; // note: snd_pcm_sframes_t is a long
   }
   return ret;
-}
-
-int old_delay(long *the_delay) {
-  *the_delay = 0;
-  // snd_pcm_sframes_t is a signed long -- hence the return of a "long"
-  int reply = 0;
-  // debug(3,"audio_alsa delay called.");
-  if (alsa_handle == NULL) {
-    reply = -ENODEV;
-  } else {
-    int oldState;
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
-    int derr;
-    snd_pcm_state_t dac_state = snd_pcm_state(alsa_handle);
-    if (dac_state == SND_PCM_STATE_RUNNING) {
-
-      reply = my_snd_pcm_delay(alsa_handle, the_delay);
-
-      if (reply != 0) {
-        debug(1, "Error %d in delay(): \"%s\". Delay reported is %d frames.", reply,
-              snd_strerror(reply), *the_delay);
-        derr = snd_pcm_recover(alsa_handle, reply, 1);
-        if (derr < 0)
-          warn("Error %d -- could not clear an error after attempting delay():  \"%s\".", derr,
-               snd_strerror(derr));
-
-        frame_index = 0;
-        measurement_data_is_valid = 0;
-      } else {
-        if (*the_delay == 0) {
-          // there's nothing in the pipeline, so we can't measure frame rate.
-          frame_index = 0; // we'll be starting over...
-          measurement_data_is_valid = 0;
-        }
-      }
-    } else {
-      reply = -EIO;    // shomething is wrong
-      frame_index = 0; // we'll be starting over...
-      measurement_data_is_valid = 0;
-
-      if (dac_state == SND_PCM_STATE_PREPARED) {
-        debug(2, "delay not available -- state is SND_PCM_STATE_PREPARED");
-      } else {
-        if (dac_state == SND_PCM_STATE_XRUN) {
-          debug(2, "delay not available -- state is SND_PCM_STATE_XRUN");
-        } else {
-
-          debug(1, "Error -- ALSA delay(): bad state: %d.", dac_state);
-        }
-        if ((derr = snd_pcm_prepare(alsa_handle))) {
-          debug(1, "Error preparing after delay error: \"%s\".", snd_strerror(derr));
-          derr = snd_pcm_recover(alsa_handle, derr, 1);
-          if (derr < 0)
-            warn("Error %d -- could not clear an error after attempting to recover following a "
-                 "delay():  \"%s\".",
-                 derr, snd_strerror(derr));
-        }
-      }
-    }
-    debug_mutex_unlock(&alsa_mutex, 0);
-    pthread_cleanup_pop(0);
-    // here, occasionally pretend there's a problem with pcm_get_delay()
-    // if ((random() % 100000) < 3) // keep it pretty rare
-    //	reply = -EIO; // pretend something bad has happened
-    pthread_setcancelstate(oldState, NULL);
-  }
-  if ((reply == 0) && (*the_delay != 0)) {
-    uint64_t stall_monitor_time_now = get_absolute_time_in_fp();
-    if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == *the_delay)) {
-      // hasn't outputted anything since the last call to delay()
-      uint64_t time_stalled = stall_monitor_time_now - stall_monitor_start_time;
-      if (time_stalled > stall_monitor_error_threshold) {
-        stalled = 1;
-        reply = sps_extra_code_output_stalled;
-      }
-    } else {
-      // is outputting stuff, so restart the monitoring here
-      stalled = 0;
-      stall_monitor_start_time = stall_monitor_time_now;
-      stall_monitor_frame_count = *the_delay;
-    }
-  } else {
-    // if there is an error or the delay is zero (from which it is assumed there is no output)
-    stalled = 0;
-    stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
-    stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
-  }
-  return reply;
 }
 
 int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
@@ -1381,125 +1211,6 @@ int untimed_play(void *buf, int samples) {
         frame_index = 0;
         measurement_data_is_valid = 0;
       }
-    }
-    debug_mutex_unlock(&alsa_mutex, 0);
-    pthread_cleanup_pop(0); // release the mutex
-  }
-  pthread_setcancelstate(oldState, NULL);
-  return ret;
-}
-
-int old_untimed_play(void *buf, int samples) {
-
-  // debug(3,"audio_alsa play called.");
-  int oldState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
-  int ret = 0;
-  if (alsa_handle == NULL) {
-
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
-    ret = actual_open_alsa_device();
-    if (ret == 0) {
-      if (audio_alsa.volume)
-        do_volume(set_volume);
-      if (audio_alsa.mute)
-        do_mute(0);
-    }
-
-    debug_mutex_unlock(&alsa_mutex, 3);
-    pthread_cleanup_pop(0); // release the mutex
-  }
-  if (ret == 0) {
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
-    //    snd_pcm_sframes_t current_delay = 0;
-    int err, err2;
-    if ((snd_pcm_state(alsa_handle) == SND_PCM_STATE_XRUN) ||
-        (snd_pcm_state(alsa_handle) == SND_PCM_STATE_OPEN) ||
-        (snd_pcm_state(alsa_handle) == SND_PCM_STATE_SETUP)) {
-      if ((err = snd_pcm_prepare(alsa_handle))) {
-        debug(1, "Error preparing after underrun: \"%s\".", snd_strerror(err));
-        err = snd_pcm_recover(alsa_handle, err, 1);
-        if (err < 0)
-          warn("Error %d -- could not clear an error after detecting underrun in play():  \"%s\".",
-               err, snd_strerror(err));
-      }
-      frame_index = 0; // we'll be starting over
-      measurement_data_is_valid = 0;
-    } else if ((snd_pcm_state(alsa_handle) == SND_PCM_STATE_PREPARED) ||
-               (snd_pcm_state(alsa_handle) == SND_PCM_STATE_RUNNING)) {
-      if (buf == NULL)
-        debug(1, "NULL buffer passed to pcm_writei -- skipping it");
-      if (samples == 0)
-        debug(1, "empty buffer being passed to pcm_writei -- skipping it");
-      if ((samples != 0) && (buf != NULL) && (stalled == 0)) {
-        // debug(3, "write %d frames.", samples);
-        err = alsa_pcm_write(alsa_handle, buf, samples);
-
-        stall_monitor_frame_count += samples;
-
-        if (err < 0) {
-          frame_index = 0;
-          measurement_data_is_valid = 0;
-          debug(1, "Error %d writing %d samples in play(): \"%s\".", err, samples,
-                snd_strerror(err));
-          err = snd_pcm_recover(alsa_handle, err, 1);
-          if (err < 0)
-            warn("Error %d -- could not clear an error after attempting to write %d samples in "
-                 "play():  \"%s\".",
-                 err, samples, snd_strerror(err));
-        }
-
-        if (frame_index == 0) {
-          frames_sent_for_playing = samples;
-        } else {
-          frames_sent_for_playing += samples;
-        }
-        const uint64_t start_measurement_from_this_frame =
-            (2 * 44100) / 352; // two seconds of frames…
-        frame_index++;
-        if ((frame_index == start_measurement_from_this_frame) || (frame_index % 32 == 0)) {
-          long fl = 0;
-          err2 = snd_pcm_delay(alsa_handle, &fl);
-          if (err2 != 0) {
-            debug(1, "Error %d in delay in play(): \"%s\". Delay reported is %d frames.", err2,
-                  snd_strerror(err2), fl);
-            err2 = snd_pcm_recover(alsa_handle, err2, 1);
-            if (err2 < 0)
-              warn("Error %d -- could not clear an error after checking delay in play():  \"%s\".",
-                   err2, snd_strerror(err2));
-            frame_index = 0;
-            measurement_data_is_valid = 0;
-          } else {
-            if (fl == 0) {
-              // there's nothing in the pipeline, so we can't measure frame rate.
-              frame_index = 0; // we'll be starting over...
-              measurement_data_is_valid = 0;
-            }
-          }
-
-          measurement_time = get_absolute_time_in_fp();
-          frames_played_at_measurement_time = frames_sent_for_playing - fl;
-          if (frame_index == start_measurement_from_this_frame) {
-            // debug(1, "Start frame counting");
-            frames_played_at_measurement_start_time = frames_played_at_measurement_time;
-            measurement_start_time = measurement_time;
-            measurement_data_is_valid = 1;
-          }
-        }
-      }
-    } else {
-      debug(1, "Error -- ALSA device in incorrect state (%d) for play.",
-            snd_pcm_state(alsa_handle));
-      if ((err = snd_pcm_prepare(alsa_handle))) {
-        debug(1, "Error preparing after play error: \"%s\".", snd_strerror(err));
-        err2 = snd_pcm_recover(alsa_handle, err, 1);
-        if (err2 < 0)
-          warn("Error %d -- could not clear an error after reporting ALSA device in incorrect "
-               "state for play:  \"%s\".",
-               err2, snd_strerror(err2));
-      }
-      frame_index = 0;
-      measurement_data_is_valid = 0;
     }
     debug_mutex_unlock(&alsa_mutex, 0);
     pthread_cleanup_pop(0); // release the mutex
