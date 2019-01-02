@@ -1081,7 +1081,7 @@ int delay_prep_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
         measurement_data_is_valid = 0;
 
         if ((*state != SND_PCM_STATE_PREPARED)) {
-          debug(1, "alsa: can't get device into valid state in delay. State is %d.", state);
+          debug(1, "alsa: can't get device into valid state in delay. State is %d.", *state);
           ret = sps_extra_code_output_state_cannot_make_ready;
         }
       }
