@@ -489,27 +489,15 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       track_metadata = (struct track_metadata_bundle *)malloc(sizeof(struct track_metadata_bundle));
       if (track_metadata == NULL)
         die("Could not allocate memory for track metadata.");
-      memset(track_metadata, 0, sizeof(struct track_metadata_bundle)); // now we have a valid track
-                                                                       // metadata space, but the
-                                                                       // metadata itself
-      // might turin out to be invalid. Specifically, YouTube on iOS can generate a sequence of
-      // track metadata that is invalid.
-      // it is distinguished by having an item_id of zero.
+      memset(track_metadata, 0, sizeof(struct track_metadata_bundle));
       break;
     case 'mden':
       if (track_metadata) {
-        if ((track_metadata->item_id_received == 0) || (track_metadata->item_id != 0)) {
-          // i.e. it's only invalid if it has definitely been given an item_id of zero
-          metadata_hub_modify_prolog();
-          metadata_hub_release_track_metadata(metadata_store.track_metadata);
-          metadata_store.track_metadata = track_metadata;
-          track_metadata = NULL;
-          metadata_hub_modify_epilog(1);
-        } else {
-          debug(1, "The track information received is invalid -- dropping it");
-          metadata_hub_release_track_metadata(track_metadata);
-          track_metadata = NULL;
-        }
+        metadata_hub_modify_prolog();
+        metadata_hub_release_track_metadata(metadata_store.track_metadata);
+        metadata_store.track_metadata = track_metadata;
+        track_metadata = NULL;
+        metadata_hub_modify_epilog(1);
       }
       debug(2, "MH Metadata stream processing end.");
       break;
