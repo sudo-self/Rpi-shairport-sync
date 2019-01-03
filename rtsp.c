@@ -1034,8 +1034,8 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
     } else
 #ifdef CONFIG_METADATA
         if (!strncmp(cp, "progress: ", strlen("progress: "))) {
-      char *progress = cp + strlen("volume: ");
-      // debug(2, "progress: \"%s\"\n",progress); // rtpstampstart/rtpstampnow/rtpstampend 44100 per
+      char *progress = cp + strlen("progress: ");
+      // debug(2, "progress: \"%s\"",progress); // rtpstampstart/rtpstampnow/rtpstampend 44100 per
       // second
       send_ssnc_metadata('prgr', strdup(progress), strlen(progress), 1);
 
