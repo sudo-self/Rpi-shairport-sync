@@ -637,7 +637,8 @@ static int init(int argc, char **argv) {
 
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.15;
-  config.audio_backend_buffer_interpolation_threshold_in_seconds = 0.050; // below this, basic interpolation will be used to save time.
+  config.audio_backend_buffer_interpolation_threshold_in_seconds =
+      0.050; // below this, basic interpolation will be used to save time.
   config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
 
   // get settings from settings file first, allow them to be overridden by
@@ -1145,11 +1146,12 @@ int untimed_play(void *buf, int samples) {
     if (ret == 0) { // will be non-zero if an error or a stall
 
       if ((samples != 0) && (buf != NULL)) {
-      
+
         // jut check the state of the DAC
-        
-        if ((state != SND_PCM_STATE_PREPARED) && (state != SND_PCM_STATE_RUNNING) && (state != SND_PCM_STATE_XRUN)) {
-          debug(1,"alsa: DAC in odd SND_PCM_STATE_* %d prior to writing.",state);
+
+        if ((state != SND_PCM_STATE_PREPARED) && (state != SND_PCM_STATE_RUNNING) &&
+            (state != SND_PCM_STATE_XRUN)) {
+          debug(1, "alsa: DAC in odd SND_PCM_STATE_* %d prior to writing.", state);
         }
 
         // debug(3, "write %d frames.", samples);
@@ -1188,7 +1190,8 @@ int untimed_play(void *buf, int samples) {
           if (ret == -EPIPE) { /* underrun */
             ret = snd_pcm_recover(alsa_handle, ret, debuglev > 0 ? 1 : 0);
             if (ret < 0) {
-              debug(1, "alsa: failed to recover from SND_PCM_STATE_XRUN with snd_pcm_recover(); trying snd_pcm_prepare().");
+              debug(1, "alsa: failed to recover from SND_PCM_STATE_XRUN with snd_pcm_recover(); "
+                       "trying snd_pcm_prepare().");
               ret = snd_pcm_prepare(alsa_handle);
               if (ret < 0)
                 warn("alsa: can't recover from SND_PCM_STATE_XRUN, snd_pcm_recover() and "
@@ -1196,8 +1199,8 @@ int untimed_play(void *buf, int samples) {
                      snd_strerror(ret));
             }
           } else if (ret == -ESTRPIPE) { /* suspended */
-              while ((ret = snd_pcm_resume(alsa_handle)) == -EAGAIN) {
-                sleep(1); /* wait until the suspend flag is released */
+            while ((ret = snd_pcm_resume(alsa_handle)) == -EAGAIN) {
+              sleep(1); /* wait until the suspend flag is released */
               if (ret < 0) {
                 ret = snd_pcm_prepare(alsa_handle);
                 if (ret < 0)
@@ -1209,7 +1212,7 @@ int untimed_play(void *buf, int samples) {
           }
         }
       }
-    }  else {
+    } else {
       debug(1, "alsa: device status %d faulty for play.", state);
       frame_index = 0;
       measurement_data_is_valid = 0;

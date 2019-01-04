@@ -1491,7 +1491,7 @@ void *player_thread_func(void *arg) {
   conn->first_packet_timestamp = 0;
   conn->flush_requested = 0;
   conn->fix_volume = 0x10000;
-  
+
   if (conn->latency == 0) {
     debug(3, "No latency has (yet) been specified. Setting 88,200 (2 seconds) frames "
              "as a default.");
@@ -1551,9 +1551,10 @@ void *player_thread_func(void *arg) {
 
   debug(3, "Output frame bytes is %d.", conn->output_bytes_per_frame);
 
-  conn->dac_buffer_queue_minimum_length = (int64_t)(config.audio_backend_buffer_interpolation_threshold_in_seconds *
-                                           config.output_rate);
-  debug(1,"dac_buffer_queue_minimum_length is %" PRId64 " frames.", conn->dac_buffer_queue_minimum_length);
+  conn->dac_buffer_queue_minimum_length = (int64_t)(
+      config.audio_backend_buffer_interpolation_threshold_in_seconds * config.output_rate);
+  debug(1, "dac_buffer_queue_minimum_length is %" PRId64 " frames.",
+        conn->dac_buffer_queue_minimum_length);
 
   conn->session_corrections = 0;
   // conn->play_segment_reference_frame = 0; // zero signals that we are not in a play segment
@@ -2835,4 +2836,3 @@ int player_stop(rtsp_conn_info *conn) {
     return -1;
   }
 }
-

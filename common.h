@@ -168,7 +168,9 @@ typedef struct {
   int interface_index; // only valid if the interface string is non-NULL
   double audio_backend_buffer_desired_length; // this will be the length in seconds of the
                                               // audio backend buffer -- the DAC buffer for ALSA
-  double audio_backend_buffer_interpolation_threshold_in_seconds; // below this, soxr interpolation will not occur -- it'll be basic interpolation instead.
+  double audio_backend_buffer_interpolation_threshold_in_seconds; // below this, soxr interpolation
+                                                                  // will not occur -- it'll be
+                                                                  // basic interpolation instead.
   double audio_backend_latency_offset; // this will be the offset in seconds to compensate for any
                                        // fixed latency there might be in the audio path
   double audio_backend_silent_lead_in_time; // the length of the silence that should precede a play.

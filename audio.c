@@ -152,15 +152,17 @@ void parse_general_audio_options(void) {
         config.audio_backend_buffer_desired_length = dvalue;
       }
     }
-    
+
     /* Get the minumum buffer size for fancy interpolation setting in seconds. */
-    if (config_lookup_float(config.cfg, "general.audio_backend_buffer_interpolation_threshold_in_seconds",
+    if (config_lookup_float(config.cfg,
+                            "general.audio_backend_buffer_interpolation_threshold_in_seconds",
                             &dvalue)) {
       if ((dvalue < 0) || (dvalue > config.audio_backend_buffer_desired_length)) {
         die("Invalid audio_backend_buffer_interpolation_threshold_in_seconds value: \"%f\". It "
             "should be between 0 and "
             "audio_backend_buffer_desired_length_in_seconds of %.3f, default is %.3f seconds",
-            dvalue, config.audio_backend_buffer_desired_length,config.audio_backend_buffer_interpolation_threshold_in_seconds);
+            dvalue, config.audio_backend_buffer_desired_length,
+            config.audio_backend_buffer_interpolation_threshold_in_seconds);
       } else {
         config.audio_backend_buffer_interpolation_threshold_in_seconds = dvalue;
       }
