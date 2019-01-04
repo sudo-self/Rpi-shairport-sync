@@ -1028,7 +1028,13 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
 
     if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
 
+// must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
+#if SND_LIB_MINOR==0
+      snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
+#else
       snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &update_timestamp);
+#endif
+
       *delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);
 
       if (*state == SND_PCM_STATE_DRAINING)
