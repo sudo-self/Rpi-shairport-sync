@@ -637,7 +637,7 @@ static int init(int argc, char **argv) {
 
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.15;
-
+  config.audio_backend_buffer_interpolation_threshold_in_seconds = 0.050; // below this, basic interpolation will be used to save time.
   config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
 
   // get settings from settings file first, allow them to be overridden by
@@ -1009,7 +1009,7 @@ static void start(int i_sample_rate, int i_sample_format) {
   stall_monitor_error_threshold = (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
 }
 
-int delay_prep_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
+int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
 
@@ -1091,7 +1091,7 @@ int delay(long *the_delay) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
 
-    ret = delay_prep_and_status(&state, &my_delay);
+    ret = delay_and_status(&state, &my_delay);
 
     ret = 0;
 
@@ -1146,11 +1146,17 @@ int untimed_play(void *buf, int samples) {
 
     snd_pcm_state_t state;
     snd_pcm_sframes_t my_delay;
-    ret = delay_prep_and_status(&state, &my_delay);
+    ret = delay_and_status(&state, &my_delay);
 
     if (ret == 0) { // will be non-zero if an error or a stall
 
       if ((samples != 0) && (buf != NULL)) {
+      
+        // jut check the state of the DAC
+        
+        if ((state != SND_PCM_STATE_PREPARED) && (state != SND_PCM_STATE_RUNNING) && (state != SND_PCM_STATE_XRUN)) {
+          debug(1,"alsa: DAC in odd SND_PCM_STATE_* %d prior to writing.",state);
+        }
 
         // debug(3, "write %d frames.", samples);
         ret = alsa_pcm_write(alsa_handle, buf, samples);
@@ -1164,7 +1170,7 @@ int untimed_play(void *buf, int samples) {
           }
 
           const uint64_t start_measurement_from_this_frame =
-              (2 * 44100) / 352; // two seconds of frames…
+              (2 * config.output_rate) / 352; // two seconds of frames…
 
           frame_index++;
 
@@ -1183,16 +1189,20 @@ int untimed_play(void *buf, int samples) {
           }
         } else {
           debug(1, "alsa: error %d writing %d samples to alsa device.", ret, samples);
+          frame_index = 0;
+          measurement_data_is_valid = 0;
           if (ret == -EPIPE) { /* underrun */
             ret = snd_pcm_recover(alsa_handle, ret, debuglev > 0 ? 1 : 0);
             if (ret < 0) {
+              debug(1, "alsa: failed to recover from SND_PCM_STATE_XRUN with snd_pcm_recover(); trying snd_pcm_prepare().");
               ret = snd_pcm_prepare(alsa_handle);
               if (ret < 0)
                 warn("alsa: can't recover from SND_PCM_STATE_XRUN, snd_pcm_recover() and "
                      "snd_pcm_prepare() failed: %s.",
                      snd_strerror(ret));
-            } else if (ret == -ESTRPIPE) { /* suspended */
-              while ((ret = snd_pcm_resume(alsa_handle)) == -EAGAIN)
+            }
+          } else if (ret == -ESTRPIPE) { /* suspended */
+              while ((ret = snd_pcm_resume(alsa_handle)) == -EAGAIN) {
                 sleep(1); /* wait until the suspend flag is released */
               if (ret < 0) {
                 ret = snd_pcm_prepare(alsa_handle);
@@ -1204,12 +1214,13 @@ int untimed_play(void *buf, int samples) {
             }
           }
         }
-      } else {
-        debug(1, "alsa: device in incorrect state (%d) for play.", state);
-        frame_index = 0;
-        measurement_data_is_valid = 0;
       }
+    }  else {
+      debug(1, "alsa: device status %d faulty for play.", state);
+      frame_index = 0;
+      measurement_data_is_valid = 0;
     }
+
     debug_mutex_unlock(&alsa_mutex, 0);
     pthread_cleanup_pop(0); // release the mutex
   }
