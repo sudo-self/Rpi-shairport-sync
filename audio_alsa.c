@@ -1093,12 +1093,6 @@ int delay(long *the_delay) {
 
     ret = delay_and_status(&state, &my_delay);
 
-    ret = 0;
-
-    if ((ret == 0) && (state != SND_PCM_STATE_RUNNING) && (state != SND_PCM_STATE_DRAINING) &&
-        (state != SND_PCM_STATE_PREPARED))
-      ret = sps_extra_code_output_state_cannot_make_ready;
-
     debug_mutex_unlock(&alsa_mutex, 0);
     pthread_cleanup_pop(0);
     pthread_setcancelstate(oldState, NULL);
