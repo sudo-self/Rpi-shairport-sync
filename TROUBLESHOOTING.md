@@ -25,12 +25,12 @@ Shairport Sync is installed and running, but sometimes it disappears from the ne
 This can be caused by lots of things, but one of them is that the WiFi adapter may be set to run in a low-power or power-saving mode. If it's not busy, then after a while it goes into a low-power mode. This is bad as the device needs to be always connected to the network to provide the AirPlay service. You need to turn off power-saving mode. How you do this varies with platform and with WiFi adapter – internet search is your friend. Here, for instance, is the command for the C.H.I.P. from Next Thing Co, which has built in WiFi and Linux and has the `iw` command installed:
 
 ```
-iw dev wlan0 set power_save off
+# iw dev wlan0 set power_save off
 ```
 Here is the command sequence for a Raspberry Pi 3, which has built-in WiFi:
 
 ```
-sudo iwconfig wlan0 power off
+# iwconfig wlan0 power off
 ```
 Alternatively, (also for the Raspberry Pi), add the following line:
 ```
@@ -41,7 +41,7 @@ to the file `/etc/network/interfaces`.
 Here is another option, suggested by [davidhq](https://github.com/davidhq) in [#653](https://github.com/mikebrady/shairport-sync/issues/653#issuecomment-391100620):
 
 ```
-$ sudo nano /etc/network/if-up.d/off-power-manager
+# nano /etc/network/if-up.d/off-power-manager
 ```
 
 Type:
@@ -51,7 +51,7 @@ Type:
 ```
 Then:
 ```
-sudo chmod +x /etc/network/if-up.d/off-power-manager
+# chmod +x /etc/network/if-up.d/off-power-manager
 ```
 
 There are some more details in some the closed issues on this repository.
