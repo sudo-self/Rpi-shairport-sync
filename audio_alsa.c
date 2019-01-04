@@ -1028,7 +1028,7 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
 
     if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
 
-      snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
+      snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &update_timestamp);
       *delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);
 
       if (*state == SND_PCM_STATE_DRAINING)
@@ -1061,7 +1061,7 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
             ((uint64_t)desired_sample_rate * delta) / 1000000000;
         snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
             frames_played_since_last_interrupt;
-
+            
         *delay = *delay - frames_played_since_last_interrupt_sized;
       }
     } else { // not running, thus no delay information, thus can't check for stall
@@ -1079,7 +1079,7 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
   return ret;
 }
 
-int delay(long *the_delay) {
+int untimed_delay(long *the_delay) {
   // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or SND_PCM_STATE_PREPARED
   // or SND_PCM_STATE_DRAINING
   // and returns the actual delay if running or 0 if prepared in *the_delay
@@ -1270,6 +1270,14 @@ static int play(void *buf, int samples) {
   most_recent_write_time = time_now + sample_duration;
   return untimed_play(buf, samples);
 }
+
+int delay(long *the_delay) {
+  uint64_t time_now =
+      get_absolute_time_in_fp(); // this is to regulate access by the silence filler thread
+  most_recent_write_time = time_now;
+  return untimed_delay(the_delay);
+}
+
 
 static void stop(void) {
   // debug(2,"audio_alsa stop called.");
@@ -1470,7 +1478,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
         if ((most_recent_write_time == 0) ||
             ((present_time > most_recent_write_time) &&
              ((present_time - most_recent_write_time) > (sleep_time_in_fp)))) {
-          reply = delay(&buffer_size);
+          reply = untimed_delay(&buffer_size);
           if (reply != 0) {
             buffer_size = 0;
             char errorstring[1024];
@@ -1491,7 +1499,9 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
             // frames_of_silence,most_recent_write_time);
             untimed_play(silence, frames_of_silence);
           }
-        }
+        } else {
+          // debug(2,"Skipping sending silence");
+         }
       }
       usleep(sleep_time_ms * 1000); // has a cancellation point in it
                                     //      pthread_testcancel();
