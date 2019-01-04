@@ -95,7 +95,7 @@
 #define MAX_PACKET 2048
 
 // DAC buffer occupancy stuff
-#define DAC_BUFFER_QUEUE_MINIMUM_LENGTH 600
+#define DAC_BUFFER_QUEUE_MINIMUM_LENGTH 2500
 
 // static abuf_t audio_buffer[BUFFER_FRAMES];
 #define BUFIDX(seqno) ((seq_t)(seqno) % BUFFER_FRAMES)
@@ -2214,7 +2214,7 @@ void *player_thread_func(void *arg) {
                 }
               }
 
-              if ((current_delay < DAC_BUFFER_QUEUE_MINIMUM_LENGTH) ||
+              if ((current_delay < (DAC_BUFFER_QUEUE_MINIMUM_LENGTH * conn->output_sample_ratio)) ||
                   (config.packet_stuffing == ST_basic)) {
                 play_samples =
                     stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
