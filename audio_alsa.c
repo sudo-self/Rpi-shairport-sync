@@ -640,6 +640,15 @@ static int init(int argc, char **argv) {
   config.audio_backend_buffer_interpolation_threshold_in_seconds =
       0.050; // below this, basic interpolation will be used to save time.
   config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
+  
+  
+  stall_monitor_error_threshold =
+      (uint64_t)1000000 * config.alsa_maximum_stall_time; // stall time max to microseconds;
+  stall_monitor_error_threshold = (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
+  debug(1,"stall_monitor_error_threshold is %" PRIX64 ", with alsa_maximum_stall_time of %f sec.", stall_monitor_error_threshold, config.alsa_maximum_stall_time);
+
+  stall_monitor_start_time = 0;
+  stall_monitor_frame_count = 0;
 
   // get settings from settings file first, allow them to be overridden by
   // command line options
@@ -1004,10 +1013,6 @@ static void start(int i_sample_rate, int i_sample_format) {
 
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
-
-  stall_monitor_error_threshold =
-      (uint64_t)1000000 * config.alsa_maximum_stall_time; // stall time max to microseconds;
-  stall_monitor_error_threshold = (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
 }
 
 int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
@@ -1041,6 +1046,7 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
 
         if (((update_timestamp_ns - stall_monitor_start_time) > stall_monitor_error_threshold) ||
             ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
+          debug(2, "DAC seems to have stalled with time_now_ns: %" PRIX64 ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64 ", stall_monitor_error_threshold %" PRIX64 ".", time_now_ns, update_timestamp_ns, stall_monitor_start_time, stall_monitor_error_threshold);
           ret = sps_extra_code_output_stalled;
         }
       } else {
@@ -1067,6 +1073,8 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
       frame_index = 0; // we'll be starting over...
       measurement_data_is_valid = 0;
     }
+  } else {
+    debug(1,"alsa: can't get device's status.");
   }
   return ret;
 }
@@ -1213,7 +1221,7 @@ int untimed_play(void *buf, int samples) {
         }
       }
     } else {
-      debug(1, "alsa: device status %d faulty for play.", state);
+      debug(1, "alsa: device status returns fault status %d and SND_PCM_STATE_* %d  for play.", ret, state);
       frame_index = 0;
       measurement_data_is_valid = 0;
     }
