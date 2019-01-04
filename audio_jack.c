@@ -301,6 +301,7 @@ void *open_client_if_necessary_thread_function(void *arg) {
 int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.500;
+  config.audio_backend_buffer_interpolation_threshold_in_seconds = 0.25; // below this, soxr interpolation will not occur -- it'll be basic interpolation instead.
   config.jack_auto_client_open_interval = 1; // check every second
 
   // get settings from settings file first, allow them to be overridden by
