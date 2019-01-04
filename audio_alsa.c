@@ -1021,14 +1021,23 @@ int delay_prep_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
     *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
 
     if ((*state == SND_PCM_STATE_SUSPENDED) || (*state == SND_PCM_STATE_XRUN)) {
-      debug(1, "alsa: recovering from SND_PCM_STATE_* %d in delay_prep_and_status.", *state);
-      ret = snd_pcm_prepare(alsa_handle);
-      if (ret == 0)
-        ret = snd_pcm_recover(alsa_handle, ret, 1);
+      debug(1, "alsa: recovering from SND_PCM_STATE_* %d in delay_prep_and_status.", *state); 
+      ret = snd_pcm_recover(alsa_handle, ret, 1);
       if (ret == 0) {
         ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
         if (ret == 0)
           *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
+        if (*state != SND_PCM_STATE_PREPARED) {
+         debug(1, "alsa: snd_pcm_recover failed -- have to use snd_pcm_prepare.");     
+          ret = snd_pcm_prepare(alsa_handle);
+          if (ret == 0)
+            ret = snd_pcm_recover(alsa_handle, ret, 1);
+          if (ret == 0) {
+            ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
+            if (ret == 0)
+              *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
+          }
+        }
       }
     }
 
