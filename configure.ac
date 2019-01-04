@@ -175,14 +175,15 @@ AC_ARG_WITH(soxr, [  --with-soxr = choose libsoxr for high-quality interpolation
     AC_DEFINE([CONFIG_SOXR], 1, [Include support for using the SoX Resampler library for interpolation])
     PKG_CHECK_MODULES(
         [SOXR], [soxr],
-        [LIBS="${SOXR_LIBS} ${LIBS}"])
+        [LIBS="${SOXR_LIBS} ${LIBS}"],
+        [AC_MSG_ERROR(soxr support requires the libsoxr library -- libsoxr-dev suggested!)])
   else
     AC_CHECK_LIB([avutil],[av_get_cpu_flags])
     if  test "x${ac_cv_lib_avutil_av_get_cpu_flags}" = xyes ; then
       # soxr may link against libavutil, depending on the architecture, but for the sake of simplicity link with it if it is found
-      AC_CHECK_LIB([soxr],[soxr_create], , AC_MSG_ERROR(soxr support requested but libsoxr not found!), [-lavutil])
+      AC_CHECK_LIB([soxr],[soxr_create], , AC_MSG_ERROR(soxr support requires the libsoxr library -- libsoxr-dev suggested!), [-lavutil])
     else
-      AC_CHECK_LIB([soxr],[soxr_create], , AC_MSG_ERROR(soxr support requested but libsoxr not found!))
+      AC_CHECK_LIB([soxr],[soxr_create], , AC_MSG_ERROR(soxr support requires the libsoxr library -- libsoxr-dev suggested!))
     fi
   fi
 ], )
