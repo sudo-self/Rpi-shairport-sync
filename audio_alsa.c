@@ -600,14 +600,6 @@ int actual_open_alsa_device(void) {
       break;
     }
   }
-
-  // now open the device
-  ret = snd_pcm_prepare(alsa_handle);
-  if (ret) {
-    warn("alsa: can't prepare device.");
-    return ret;
-  }
-
   return 0;
 }
 
@@ -638,14 +630,14 @@ static int init(int argc, char **argv) {
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.15;
   config.audio_backend_buffer_interpolation_threshold_in_seconds =
-      0.050; // below this, basic interpolation will be used to save time.
+      0.100; // below this, basic interpolation will be used to save time.
   config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
-  
-  
+
   stall_monitor_error_threshold =
       (uint64_t)1000000 * config.alsa_maximum_stall_time; // stall time max to microseconds;
   stall_monitor_error_threshold = (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
-  debug(1,"stall_monitor_error_threshold is %" PRIX64 ", with alsa_maximum_stall_time of %f sec.", stall_monitor_error_threshold, config.alsa_maximum_stall_time);
+  debug(1, "stall_monitor_error_threshold is %" PRIX64 ", with alsa_maximum_stall_time of %f sec.",
+        stall_monitor_error_threshold, config.alsa_maximum_stall_time);
 
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
@@ -1029,7 +1021,7 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
     if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
 
 // must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
-#if SND_LIB_MINOR==0
+#if SND_LIB_MINOR == 0
       snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
 #else
       snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &update_timestamp);
@@ -1052,7 +1044,11 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
 
         if (((update_timestamp_ns - stall_monitor_start_time) > stall_monitor_error_threshold) ||
             ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
-          debug(2, "DAC seems to have stalled with time_now_ns: %" PRIX64 ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64 ", stall_monitor_error_threshold %" PRIX64 ".", time_now_ns, update_timestamp_ns, stall_monitor_start_time, stall_monitor_error_threshold);
+          debug(2, "DAC seems to have stalled with time_now_ns: %" PRIX64
+                   ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
+                   ", stall_monitor_error_threshold %" PRIX64 ".",
+                time_now_ns, update_timestamp_ns, stall_monitor_start_time,
+                stall_monitor_error_threshold);
           ret = sps_extra_code_output_stalled;
         }
       } else {
@@ -1067,7 +1063,7 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
             ((uint64_t)desired_sample_rate * delta) / 1000000000;
         snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
             frames_played_since_last_interrupt;
-            
+
         *delay = *delay - frames_played_since_last_interrupt_sized;
       }
     } else { // not running, thus no delay information, thus can't check for stall
@@ -1080,7 +1076,7 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
       measurement_data_is_valid = 0;
     }
   } else {
-    debug(1,"alsa: can't get device's status.");
+    debug(1, "alsa: can't get device's status.");
   }
   return ret;
 }
@@ -1198,36 +1194,30 @@ int untimed_play(void *buf, int samples) {
             }
           }
         } else {
+
           debug(1, "alsa: error %d writing %d samples to alsa device.", ret, samples);
           frame_index = 0;
           measurement_data_is_valid = 0;
           if (ret == -EPIPE) { /* underrun */
             ret = snd_pcm_recover(alsa_handle, ret, debuglev > 0 ? 1 : 0);
             if (ret < 0) {
-              debug(1, "alsa: failed to recover from SND_PCM_STATE_XRUN with snd_pcm_recover(); "
-                       "trying snd_pcm_prepare().");
-              ret = snd_pcm_prepare(alsa_handle);
-              if (ret < 0)
-                warn("alsa: can't recover from SND_PCM_STATE_XRUN, snd_pcm_recover() and "
-                     "snd_pcm_prepare() failed: %s.",
-                     snd_strerror(ret));
+              warn("alsa: can't recover from SND_PCM_STATE_XRUN: %s.", snd_strerror(ret));
             }
           } else if (ret == -ESTRPIPE) { /* suspended */
             while ((ret = snd_pcm_resume(alsa_handle)) == -EAGAIN) {
               sleep(1); /* wait until the suspend flag is released */
               if (ret < 0) {
-                ret = snd_pcm_prepare(alsa_handle);
-                if (ret < 0)
-                  warn("alsa: can't recover from SND_PCM_STATE_SUSPENDED state, snd_pcm_prepare() "
-                       "failed: %s.",
-                       snd_strerror(ret));
+                warn("alsa: can't recover from SND_PCM_STATE_SUSPENDED state, snd_pcm_prepare() "
+                     "failed: %s.",
+                     snd_strerror(ret));
               }
             }
           }
         }
       }
     } else {
-      debug(1, "alsa: device status returns fault status %d and SND_PCM_STATE_* %d  for play.", ret, state);
+      debug(1, "alsa: device status returns fault status %d and SND_PCM_STATE_* %d  for play.", ret,
+            state);
       frame_index = 0;
       measurement_data_is_valid = 0;
     }
@@ -1283,7 +1273,6 @@ int delay(long *the_delay) {
   most_recent_write_time = time_now;
   return untimed_delay(the_delay);
 }
-
 
 static void stop(void) {
   // debug(2,"audio_alsa stop called.");
@@ -1507,7 +1496,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
           }
         } else {
           // debug(2,"Skipping sending silence");
-         }
+        }
       }
       usleep(sleep_time_ms * 1000); // has a cancellation point in it
                                     //      pthread_testcancel();
