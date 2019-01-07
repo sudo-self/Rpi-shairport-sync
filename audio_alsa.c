@@ -42,6 +42,7 @@ static int init(int argc, char **argv);
 static void deinit(void);
 static void start(int i_sample_rate, int i_sample_format);
 static int play(void *buf, int samples);
+int preflight(void *buf, int samples);
 static void stop(void);
 static void flush(void);
 int delay(long *the_delay);
@@ -632,6 +633,8 @@ static int init(int argc, char **argv) {
   config.audio_backend_buffer_interpolation_threshold_in_seconds =
       0.100; // below this, basic interpolation will be used to save time.
   config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
+  config.audio_backend_silence_threshold = 0.050; //start sending silent frames if the delay goes below this time
+  config.audio_backend_silence_scan_interval = 0.005; //check silence threshold this often
 
   stall_monitor_error_threshold =
       (uint64_t)1000000 * config.alsa_maximum_stall_time; // stall time max to microseconds;
@@ -1081,7 +1084,7 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
   return ret;
 }
 
-int untimed_delay(long *the_delay) {
+int delay(long *the_delay) {
   // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or SND_PCM_STATE_PREPARED
   // or SND_PCM_STATE_DRAINING
   // and returns the actual delay if running or 0 if prepared in *the_delay
@@ -1126,7 +1129,7 @@ int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
   return response;
 }
 
-int untimed_play(void *buf, int samples) {
+int play(void *buf, int samples) {
 
   // debug(3,"audio_alsa play called.");
   int oldState;
@@ -1258,6 +1261,16 @@ static void flush(void) {
   pthread_setcancelstate(oldState, NULL);
 }
 
+int preflight(__attribute__((unused)) void *buf, __attribute__((unused)) int samples) {
+  uint64_t time_now =
+      get_absolute_time_in_fp(); // this is to regulate access by the silence filler thread
+  uint64_t standoff_time = 100; // milliseconds
+  standoff_time = (standoff_time << 32)/1000;
+  most_recent_write_time = time_now + standoff_time;
+  return 0;
+}
+
+/*
 static int play(void *buf, int samples) {
   uint64_t time_now =
       get_absolute_time_in_fp(); // this is to regulate access by the silence filler thread
@@ -1273,6 +1286,7 @@ int delay(long *the_delay) {
   most_recent_write_time = time_now;
   return untimed_delay(the_delay);
 }
+*/
 
 static void stop(void) {
   // debug(2,"audio_alsa stop called.");
@@ -1451,12 +1465,14 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
 
   debug(1, "alsa: dither will %sbe added to inter-session silence.", use_dither ? "" : "not ");
 
-  int sleep_time_ms = 30;
+  int sleep_time_ms = (int)(config.audio_backend_silence_scan_interval * 1000);
+  long buffer_size_threshold = (long)(config.audio_backend_silence_threshold * desired_sample_rate);
+  
   uint64_t sleep_time_in_fp = sleep_time_ms;
   sleep_time_in_fp = sleep_time_in_fp << 32;
   sleep_time_in_fp = sleep_time_in_fp / 1000;
   // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp form.",sleep_time_ms,sleep_time_in_fp);
-  int frames_of_silence = (desired_sample_rate * sleep_time_ms * 2) / 1000;
+  int frames_of_silence = (desired_sample_rate * sleep_time_ms * 4) / 1000;
   size_t size_of_silence_buffer = frames_of_silence * frame_size;
   // debug(1,"Silence buffer length: %u bytes.",size_of_silence_buffer);
   void *silence = malloc(size_of_silence_buffer);
@@ -1470,10 +1486,11 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
       if (config.keep_dac_busy != 0) {
         uint64_t present_time = get_absolute_time_in_fp();
 
-        if ((most_recent_write_time == 0) ||
-            ((present_time > most_recent_write_time) &&
-             ((present_time - most_recent_write_time) > (sleep_time_in_fp)))) {
-          reply = untimed_delay(&buffer_size);
+        if ((most_recent_write_time == 0) || (present_time > most_recent_write_time)) {
+
+//            ((present_time > most_recent_write_time) &&
+//             ((present_time - most_recent_write_time) > (sleep_time_in_fp)))) {
+          reply = delay(&buffer_size);
           if (reply != 0) {
             buffer_size = 0;
             char errorstring[1024];
@@ -1481,7 +1498,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
             debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
                   (char *)errorstring);
           }
-          if (buffer_size < frames_of_silence) {
+          if (buffer_size < buffer_size_threshold) {
             if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
                 (config.airplay_volume != 0.0))
               use_dither = 1;
@@ -1492,7 +1509,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
                 dither_random_number_store);
             // debug(1,"Play %d frames of silence with most_recent_write_time of %" PRIx64 ".",
             // frames_of_silence,most_recent_write_time);
-            untimed_play(silence, frames_of_silence);
+            play(silence, frames_of_silence);
           }
         } else {
           // debug(2,"Skipping sending silence");

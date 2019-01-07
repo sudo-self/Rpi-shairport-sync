@@ -139,6 +139,7 @@ audio_output audio_pipe = {.name = "pipe",
                            .flush = NULL,
                            .delay = NULL,
                            .play = &play,
+                           .preflight = NULL,
                            .volume = NULL,
                            .parameters = NULL,
                            .mute = NULL};

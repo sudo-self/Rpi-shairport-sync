@@ -221,6 +221,7 @@ audio_output audio_soundio = {.name = "soundio",
                               .flush = &flush,
                               .delay = NULL,
                               .play = &play,
+                              .preflight = NULL,
                               .volume = NULL,
                               .parameters = &parameters,
                               .mute = NULL};

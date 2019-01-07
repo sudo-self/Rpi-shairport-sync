@@ -22,6 +22,7 @@ typedef struct {
   void (*start)(int sample_rate, int sample_format);
 
   // block of samples
+  int (*preflight)(void *buf, int samples); // say you are about to send these samples (before interpolation)
   int (*play)(void *buf, int samples);
   void (*stop)(void);
 

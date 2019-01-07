@@ -171,6 +171,9 @@ typedef struct {
   double audio_backend_buffer_interpolation_threshold_in_seconds; // below this, soxr interpolation
                                                                   // will not occur -- it'll be
                                                                   // basic interpolation instead.
+  double audio_backend_silence_threshold;  // below this, silence will be added to the output buffer
+  double audio_backend_silence_scan_interval; // check the threshold this often
+                                         
   double audio_backend_latency_offset; // this will be the offset in seconds to compensate for any
                                        // fixed latency there might be in the audio path
   double audio_backend_silent_lead_in_time; // the length of the silence that should precede a play.
