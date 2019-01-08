@@ -1418,6 +1418,9 @@ void player_thread_cleanup_handler(void *arg) {
   debug(3, "Connection %d: player thread main loop exit via player_thread_cleanup_handler.",
         conn->connection_number);
 
+  if (config.output->stop)
+    config.output->stop();
+
   if (config.statistics_requested) {
     int rawSeconds = (int)difftime(time(NULL), conn->playstart);
     int elapsedHours = rawSeconds / 3600;
@@ -1470,8 +1473,6 @@ void player_thread_cleanup_handler(void *arg) {
   }
   free_audio_buffers(conn);
   terminate_decoders(conn);
-  if (config.output->stop)
-    config.output->stop();
 
   clear_reference_timestamp(conn);
   conn->rtp_running = 0;
@@ -2219,7 +2220,10 @@ void *player_thread_func(void *arg) {
                 }
               }
 
-              if ((current_delay < conn->dac_buffer_queue_minimum_length) ||
+						 if (config.output->preflight)
+						 	config.output->preflight(conn->outbuf,play_samples);
+
+             if ((current_delay < conn->dac_buffer_queue_minimum_length) ||
                   (config.packet_stuffing == ST_basic)) {
                 play_samples =
                     stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
