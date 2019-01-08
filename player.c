@@ -4,7 +4,7 @@
  * All rights reserved.
  *
  * Modifications for audio synchronisation
- * and related work, copyright (c) Mike Brady 2014 -- 2018
+ * and related work, copyright (c) Mike Brady 2014 -- 2019
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -624,6 +624,16 @@ int32_t rand_in_range(int32_t exclusive_range_limit) {
 
 static inline void process_sample(int32_t sample, char **outp, enum sps_format_t format, int volume,
                                   int dither, rtsp_conn_info *conn) {
+  /*
+  {                                
+		static int old_volume = 0;
+		if (volume != old_volume) {
+			debug(1,"Volume is now %d.",volume);
+			old_volume = volume;
+		}
+  }
+  */
+  
   int64_t hyper_sample = sample;
   int result = 0;
 
@@ -1554,7 +1564,7 @@ void *player_thread_func(void *arg) {
 
   conn->dac_buffer_queue_minimum_length = (int64_t)(
       config.audio_backend_buffer_interpolation_threshold_in_seconds * config.output_rate);
-  debug(1, "dac_buffer_queue_minimum_length is %" PRId64 " frames.",
+  debug(3, "dac_buffer_queue_minimum_length is %" PRId64 " frames.",
         conn->dac_buffer_queue_minimum_length);
 
   conn->session_corrections = 0;
@@ -2219,9 +2229,6 @@ void *player_thread_func(void *arg) {
                   tbuf32[2 * i + 1] = fbuf_r[i];
                 }
               }
-
-						 if (config.output->preflight)
-						 	config.output->preflight(conn->outbuf,play_samples);
 
              if ((current_delay < conn->dac_buffer_queue_minimum_length) ||
                   (config.packet_stuffing == ST_basic)) {

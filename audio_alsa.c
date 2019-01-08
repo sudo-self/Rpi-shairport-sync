@@ -629,12 +629,12 @@ static int init(int argc, char **argv) {
   config.alsa_use_hardware_mute = 0; // don't use it by default
 
   config.audio_backend_latency_offset = 0;
-  config.audio_backend_buffer_desired_length = 0.15;
+  config.audio_backend_buffer_desired_length = 0.25;
   config.audio_backend_buffer_interpolation_threshold_in_seconds =
-      0.100; // below this, basic interpolation will be used to save time.
+      0.175; // below this, basic interpolation will be used to save time.
   config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
-  config.audio_backend_silence_threshold = 0.040; //start sending silent frames if the delay goes below this time
-  config.audio_backend_silence_scan_interval = 0.003; //check silence threshold this often
+  config.audio_backend_silence_threshold = 0.60; //start sending silent frames if the delay goes below this time
+  config.audio_backend_silence_scan_interval = 0.004; //check silence threshold this often
 
   stall_monitor_error_threshold =
       (uint64_t)1000000 * config.alsa_maximum_stall_time; // stall time max to microseconds;
@@ -1472,7 +1472,8 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
   sleep_time_in_fp = sleep_time_in_fp << 32;
   sleep_time_in_fp = sleep_time_in_fp / 1000;
   // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp form.",sleep_time_ms,sleep_time_in_fp);
-  int frames_of_silence = (desired_sample_rate * sleep_time_ms * 2) / 1000;
+  // int frames_of_silence = (desired_sample_rate * sleep_time_ms * 2) / 1000;
+  int frames_of_silence = 1024;
   size_t size_of_silence_buffer = frames_of_silence * frame_size;
   // debug(1,"Silence buffer length: %u bytes.",size_of_silence_buffer);
   void *silence = malloc(size_of_silence_buffer);
