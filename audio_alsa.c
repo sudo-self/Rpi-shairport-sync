@@ -633,8 +633,8 @@ static int init(int argc, char **argv) {
   config.audio_backend_buffer_interpolation_threshold_in_seconds =
       0.100; // below this, basic interpolation will be used to save time.
   config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
-  config.audio_backend_silence_threshold = 0.050; //start sending silent frames if the delay goes below this time
-  config.audio_backend_silence_scan_interval = 0.005; //check silence threshold this often
+  config.audio_backend_silence_threshold = 0.040; //start sending silent frames if the delay goes below this time
+  config.audio_backend_silence_scan_interval = 0.003; //check silence threshold this often
 
   stall_monitor_error_threshold =
       (uint64_t)1000000 * config.alsa_maximum_stall_time; // stall time max to microseconds;
@@ -1264,7 +1264,7 @@ static void flush(void) {
 int preflight(__attribute__((unused)) void *buf, __attribute__((unused)) int samples) {
   uint64_t time_now =
       get_absolute_time_in_fp(); // this is to regulate access by the silence filler thread
-  uint64_t standoff_time = 100; // milliseconds
+  uint64_t standoff_time = 60; // milliseconds
   standoff_time = (standoff_time << 32)/1000;
   most_recent_write_time = time_now + standoff_time;
   return 0;
@@ -1472,7 +1472,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
   sleep_time_in_fp = sleep_time_in_fp << 32;
   sleep_time_in_fp = sleep_time_in_fp / 1000;
   // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp form.",sleep_time_ms,sleep_time_in_fp);
-  int frames_of_silence = (desired_sample_rate * sleep_time_ms * 4) / 1000;
+  int frames_of_silence = (desired_sample_rate * sleep_time_ms * 2) / 1000;
   size_t size_of_silence_buffer = frames_of_silence * frame_size;
   // debug(1,"Silence buffer length: %u bytes.",size_of_silence_buffer);
   void *silence = malloc(size_of_silence_buffer);
