@@ -674,7 +674,7 @@ do {
     size_t read_chunk = msg_size - inbuf;
     if (read_chunk > max_read_chunk)
       read_chunk = max_read_chunk;
-    usleep(40000); // wait about 40 milliseconds between reads of up to about 64 kB
+    usleep(80000); // wait about 80 milliseconds between reads of up to about 64 kB
     nread = read(conn->fd, buf + inbuf, read_chunk);
     if (!nread) {
       reply = rtsp_read_request_response_error;
