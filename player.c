@@ -856,8 +856,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           curframe = NULL; // this will be returned and will cause the loop to go around again
           conn->initial_reference_time = 0;
           conn->initial_reference_timestamp = 0;
-        }
-        if ((conn->flush_rtp_timestamp != 0) &&
+        } else if ((conn->flush_rtp_timestamp != 0) &&
             (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) >
              conn->input_rate / 5) &&
             (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) <
@@ -2093,8 +2092,12 @@ void *player_thread_func(void *arg) {
                 debug(2, "Large positive sync error: %" PRId64 ".", sync_error);
                 int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
                 uint32_t frames_to_drop_sized = local_frames_to_drop;
-                do_flush(inframe->given_timestamp + frames_to_drop_sized,
-                         conn); // this will reset_input_flow_metrics anyway
+                
+                debug_mutex_lock(&conn->flush_mutex, 1000, 1);
+                conn->flush_rtp_timestamp = inframe->given_timestamp + frames_to_drop_sized; // flush all packets up to (and including?) this
+                reset_input_flow_metrics(conn);
+                debug_mutex_unlock(&conn->flush_mutex, 3);
+
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
                 debug(2,
                       "Large negative sync error: %" PRId64 " with should_be_frame_32 of %" PRIu32
