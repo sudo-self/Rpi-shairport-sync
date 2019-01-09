@@ -633,7 +633,7 @@ static int init(int argc, char **argv) {
   config.audio_backend_buffer_interpolation_threshold_in_seconds =
       0.175; // below this, basic interpolation will be used to save time.
   config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
-  config.audio_backend_silence_threshold = 0.60; //start sending silent frames if the delay goes below this time
+  config.audio_backend_silence_threshold = 0.060; //start sending silent frames if the delay goes below this time
   config.audio_backend_silence_scan_interval = 0.004; //check silence threshold this often
 
   stall_monitor_error_threshold =
