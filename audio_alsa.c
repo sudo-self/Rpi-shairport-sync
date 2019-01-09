@@ -629,17 +629,17 @@ static int init(int argc, char **argv) {
   config.alsa_use_hardware_mute = 0; // don't use it by default
 
   config.audio_backend_latency_offset = 0;
-  config.audio_backend_buffer_desired_length = 0.25;
+  config.audio_backend_buffer_desired_length = 0.200;
   config.audio_backend_buffer_interpolation_threshold_in_seconds =
-      0.175; // below this, basic interpolation will be used to save time.
+      0.120; // below this, basic interpolation will be used to save time.
   config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
-  config.audio_backend_silence_threshold = 0.060; //start sending silent frames if the delay goes below this time
+  config.audio_backend_silence_threshold = 0.040; //start sending silent frames if the delay goes below this time
   config.audio_backend_silence_scan_interval = 0.004; //check silence threshold this often
 
   stall_monitor_error_threshold =
       (uint64_t)1000000 * config.alsa_maximum_stall_time; // stall time max to microseconds;
   stall_monitor_error_threshold = (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
-  debug(1, "stall_monitor_error_threshold is %" PRIX64 ", with alsa_maximum_stall_time of %f sec.",
+  debug(1, "stall_monitor_error_threshold is 0x%" PRIx64 ", with alsa_maximum_stall_time of %f sec.",
         stall_monitor_error_threshold, config.alsa_maximum_stall_time);
 
   stall_monitor_start_time = 0;
