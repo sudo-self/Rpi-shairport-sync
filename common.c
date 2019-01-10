@@ -1160,16 +1160,16 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 
   timeoutTime.tv_sec = time_then;
   timeoutTime.tv_nsec = time_then_nsec;
-	int64_t start_time = get_absolute_time_in_fp();
+  int64_t start_time = get_absolute_time_in_fp();
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
   int64_t et = get_absolute_time_in_fp() - start_time;
 
   if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
-  	et = (et * 1000000) >> 32; // microseconds
+    et = (et * 1000000) >> 32; // microseconds
     char errstr[1000];
     if (r == ETIMEDOUT)
-      debug(debuglevel,
-            "timed out waiting for a mutex, having waiting %f seconds, with a maximum waiting time of %d microseconds. \"%s\".",
+      debug(debuglevel, "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
+                        "waiting time of %d microseconds. \"%s\".",
             (1.0 * et) / 1000000, dally_time, debugmessage);
     else
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,

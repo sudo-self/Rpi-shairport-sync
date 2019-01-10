@@ -129,7 +129,7 @@ void addrinfo_cleanup(void *arg) {
 void mutex_lock_cleanup(void *arg) {
   pthread_mutex_t *m = (pthread_mutex_t *)arg;
   if (pthread_mutex_unlock(m))
-  	debug(1,"Error releasing mutex.");
+    debug(1, "Error releasing mutex.");
 }
 
 void connect_cleanup(void *arg) {
@@ -233,25 +233,24 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
                    command, dacp_server.ip_string, dacp_server.port, dacp_server.active_remote_id);
 
           // Send command
-          debug(3,"dacp_send_command: \"%s\".",command);
+          debug(3, "dacp_send_command: \"%s\".", command);
           ssize_t wresp = send(sockfd, message, strlen(message), 0);
           if (wresp == -1) {
-						char errorstring[1024];
-						strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-						debug(2, "dacp_send_command: write error %d: \"%s\".", errno, (char *)errorstring);
-						struct linger so_linger;
-						so_linger.l_onoff = 1; // "true"
-						so_linger.l_linger = 0;
-						int err = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
-						if (err)
-							debug(1, "Could not set the dacp socket to abort due to a write error on closing.");
-					}         
+            char errorstring[1024];
+            strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+            debug(2, "dacp_send_command: write error %d: \"%s\".", errno, (char *)errorstring);
+            struct linger so_linger;
+            so_linger.l_onoff = 1; // "true"
+            so_linger.l_linger = 0;
+            int err = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
+            if (err)
+              debug(1, "Could not set the dacp socket to abort due to a write error on closing.");
+          }
           if (wresp != (ssize_t)strlen(message)) {
             // debug(1, "dacp_send_command: send failed.");
             response.code = 493; // Client failed to send a message
 
           } else {
-
 
             response.body = malloc(2048); // it can resize this if necessary
             response.malloced_size = 2048;
@@ -272,18 +271,20 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
               ssize_t ndata = recv(sockfd, buffer, sizeof(buffer), 0);
               // debug(3, "Received %d bytes: \"%s\".", ndata, buffer);
               if (ndata <= 0) {
-              	if (ndata == -1) {
-									char errorstring[1024];
-									strerror_r(errno, (char *)errorstring, sizeof(errorstring));              		
-              		debug(2, "dacp_send_command: receiving error %d: \"%s\".", errno,(char *)errorstring);
-									struct linger so_linger;
-									so_linger.l_onoff = 1; // "true"
-									so_linger.l_linger = 0;
-									int err = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
-									if (err)
-										debug(1, "Could not set the dacp socket to abort due to a read error on closing.");
-              	}
-              
+                if (ndata == -1) {
+                  char errorstring[1024];
+                  strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+                  debug(2, "dacp_send_command: receiving error %d: \"%s\".", errno,
+                        (char *)errorstring);
+                  struct linger so_linger;
+                  so_linger.l_onoff = 1; // "true"
+                  so_linger.l_linger = 0;
+                  int err = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
+                  if (err)
+                    debug(1,
+                          "Could not set the dacp socket to abort due to a read error on closing.");
+                }
+
                 free(response.body);
                 response.body = NULL;
                 response.malloced_size = 0;
@@ -331,9 +332,10 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
     }
     pthread_cleanup_pop(1); // this should free the addrinfo
     // freeaddrinfo(res);
-		uint64_t et = get_absolute_time_in_fp() - start_time;
-		et = (et * 1000000) >> 32; // microseconds
-		debug(2,"dacp_send_command: %f seconds, response code %d, command \"%s\".",(1.0 * et) / 1000000, response.code, command);
+    uint64_t et = get_absolute_time_in_fp() - start_time;
+    et = (et * 1000000) >> 32; // microseconds
+    debug(2, "dacp_send_command: %f seconds, response code %d, command \"%s\".",
+          (1.0 * et) / 1000000, response.code, command);
   }
   *body = response.body;
   *bodysize = response.size;
@@ -856,7 +858,7 @@ void dacp_monitor_start() {
   if (rc)
     debug(1, "Error creating the DACP Conversation Lock Mutex Init");
   else
-  	debug(1, "DACP Conversation Lock Mutex Init");
+    debug(1, "DACP Conversation Lock Mutex Init");
 
   rc = pthread_mutexattr_destroy(&mta);
   if (rc)
