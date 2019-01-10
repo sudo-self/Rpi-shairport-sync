@@ -625,15 +625,15 @@ int32_t rand_in_range(int32_t exclusive_range_limit) {
 static inline void process_sample(int32_t sample, char **outp, enum sps_format_t format, int volume,
                                   int dither, rtsp_conn_info *conn) {
   /*
-  {                                
-		static int old_volume = 0;
-		if (volume != old_volume) {
-			debug(1,"Volume is now %d.",volume);
-			old_volume = volume;
-		}
+  {
+                static int old_volume = 0;
+                if (volume != old_volume) {
+                        debug(1,"Volume is now %d.",volume);
+                        old_volume = volume;
+                }
   }
   */
-  
+
   int64_t hyper_sample = sample;
   int result = 0;
 
@@ -857,10 +857,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           conn->initial_reference_time = 0;
           conn->initial_reference_timestamp = 0;
         } else if ((conn->flush_rtp_timestamp != 0) &&
-            (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) >
-             conn->input_rate / 5) &&
-            (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) <
-             conn->input_rate * 10)) {
+                   (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) >
+                    conn->input_rate / 5) &&
+                   (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) <
+                    conn->input_rate * 10)) {
           debug(3, "Dropping flush request in buffer_get_frame");
           conn->flush_rtp_timestamp = 0;
         }
@@ -1827,8 +1827,9 @@ void *player_thread_func(void *arg) {
           }
         } else {
 
-          if ((config.output->parameters == NULL) || (conn->input_bit_depth > output_bit_depth) ||
-              (config.playback_mode == ST_mono))
+          if (((config.output->parameters == NULL) && (config.ignore_volume_control == 0) &&
+               (config.airplay_volume != 0.0)) ||
+              (conn->input_bit_depth > output_bit_depth) || (config.playback_mode == ST_mono))
             conn->enable_dither = 1;
           else
             conn->enable_dither = 0;
@@ -2092,9 +2093,11 @@ void *player_thread_func(void *arg) {
                 debug(2, "Large positive sync error: %" PRId64 ".", sync_error);
                 int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
                 uint32_t frames_to_drop_sized = local_frames_to_drop;
-                
+
                 debug_mutex_lock(&conn->flush_mutex, 1000, 1);
-                conn->flush_rtp_timestamp = inframe->given_timestamp + frames_to_drop_sized; // flush all packets up to (and including?) this
+                conn->flush_rtp_timestamp =
+                    inframe->given_timestamp +
+                    frames_to_drop_sized; // flush all packets up to (and including?) this
                 reset_input_flow_metrics(conn);
                 debug_mutex_unlock(&conn->flush_mutex, 3);
 
@@ -2233,7 +2236,7 @@ void *player_thread_func(void *arg) {
                 }
               }
 
-             if ((current_delay < conn->dac_buffer_queue_minimum_length) ||
+              if ((current_delay < conn->dac_buffer_queue_minimum_length) ||
                   (config.packet_stuffing == ST_basic)) {
                 play_samples =
                     stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
