@@ -1500,8 +1500,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
                   (char *)errorstring);
           }
           if (buffer_size < buffer_size_threshold) {
-            if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
-                (config.airplay_volume != 0.0))
+            if ((hardware_mixer == 0) && (config.ignore_volume_control == 0))
               use_dither = 1;
             else
               use_dither = 0;
