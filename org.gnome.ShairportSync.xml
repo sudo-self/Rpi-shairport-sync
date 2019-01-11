@@ -2,6 +2,7 @@
 <node name="/" xmlns:doc="http://www.freedesktop.org/dbus/1.0/doc.dtd">
   <interface name="org.gnome.ShairportSync">
     <method name="Quit"/>
+    <property name="DisableStandby" type="b" access="readwrite" />
     <property name="LoudnessFilterActive" type="b" access="readwrite" />
     <property name="LoudnessThreshold" type="d" access="readwrite" />
     <property name="DriftTolerance" type="d" access="readwrite" />
