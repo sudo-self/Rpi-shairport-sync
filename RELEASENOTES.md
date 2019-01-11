@@ -15,7 +15,7 @@ A downside to this feature is that the output device totally dedicated to Shairp
 
 Note -- this setting is likely to change. It will probably be necessary to modify it somehow to enable it to be used in integrated systems. Your feedback would be welcome.
 
-**Enhanccements and Bug Fixes**
+**Enhancements and Bug Fixes**
 
 At present, Shairport Sync adds dither to the audio if (a) the built-in software-based volume control is used, (b) if the audio is mixed to mono or (3) if there is a change in sample size, say from 16- to 24-bit. The code for generating dither has been much improved. Due to a poor pseudo-random number arrangement, the dither noise didn't sound like white noise -- now it does.
 
