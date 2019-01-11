@@ -114,7 +114,7 @@ uint16_t nextFreeUDPPort() {
   if (UDPPortIndex == 0)
     UDPPortIndex = config.udp_port_base;
   else if (UDPPortIndex == (config.udp_port_base + config.udp_port_range - 1))
-    UDPPortIndex = config.udp_port_base;
+    UDPPortIndex = config.udp_port_base + 3; // avoid wrapping back to the first three, as they can be assigned by resetFreeUDPPort without checking
   else
     UDPPortIndex++;
   return UDPPortIndex;
