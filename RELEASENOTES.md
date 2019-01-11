@@ -19,7 +19,7 @@ Note -- this setting is likely to change. It will probably be necessary to modif
 
 At present, Shairport Sync adds dither to the audio if (a) the built-in software-based volume control is used, (b) if the audio is mixed to mono or (3) if there is a change in sample size, say from 16- to 24-bit. The code for generating dither has been much improved. Due to a poor pseudo-random number arrangement, the dither noise didn't sound like white noise -- now it does.
 
-In addition, if dither is to be added, it is also added to the silence inserted just prior to the start of play, and is also added tthe silent frames used to prevent the output device from going into standby mode, if selected.
+In addition, if dither is to be added, it is also added to the silence inserted just prior to the start of play, and is also added to the silent frames used to prevent the output device from going into standby mode, if selected.
 
 Version 3.3d37 to Version 3.3d22
 ====
