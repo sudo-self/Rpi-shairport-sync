@@ -1478,10 +1478,13 @@ int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rts
     msg_retain(carrier);
   pack.carrier = carrier;
   int rc = pc_queue_add_item(&metadata_queue, &pack, block);
-  if ((rc == EBUSY) && (carrier))
-    msg_free(carrier);
-  if (rc == EBUSY)
-    warn("Metadata queue is busy, dropping message of type 0x%08X, code 0x%08X.", type, code);
+  if (rc == EBUSY) {
+    if (carrier)
+      msg_free(carrier);
+    else if (data)
+      free(data);
+    warn("Metadata queue is busy, discarding message of type 0x%08X, code 0x%08X.", type, code);
+  }
   return rc;
 }
 
