@@ -334,7 +334,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
     // freeaddrinfo(res);
     uint64_t et = get_absolute_time_in_fp() - start_time;
     et = (et * 1000000) >> 32; // microseconds
-    debug(2, "dacp_send_command: %f seconds, response code %d, command \"%s\".",
+    debug(3, "dacp_send_command: %f seconds, response code %d, command \"%s\".",
           (1.0 * et) / 1000000, response.code, command);
   }
   *body = response.body;
