@@ -3,7 +3,7 @@
  * Copyright (c) James Laird 2013
 
  * Modifications associated with audio synchronization, mutithreading and
- * metadata handling copyright (c) Mike Brady 2014-2018
+ * metadata handling copyright (c) Mike Brady 2014-2019
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -409,12 +409,12 @@ void msg_retain(rtsp_message *msg) {
       debug(1, "Error %d locking reference counter lock");
     if (msg > (rtsp_message *) 0x00010000) { 
     msg->referenceCount++;
-    debug(1,"msg_retain -- item %d reference count %d.", msg->index_number, msg->referenceCount);
+    // debug(1,"msg_retain -- item %d reference count %d.", msg->index_number, msg->referenceCount);
     rc = pthread_mutex_unlock(&reference_counter_lock);
     if (rc)
       debug(1, "Error %d unlocking reference counter lock");
   } else {
-    debug(1, "invalid rtsp_message pointer %d passed to retain", (int) msg);
+    debug(1, "invalid rtsp_message pointer 0x%x passed to retain", (uintptr_t) msg);
   }
 }
 
@@ -427,7 +427,7 @@ rtsp_message *msg_init(void) {
   } else {
     die("msg_init -- can not allocate memory for rtsp_message %d.", msg_indexes);
   }
-  debug(1,"msg_init -- create item %d.", msg->index_number);
+  // debug(1,"msg_init -- create item %d.", msg->index_number);
   return msg;
 }
 
@@ -495,48 +495,20 @@ void msg_free(rtsp_message **msgh) {
       }
       if (msg->content)
         free(msg->content);
-      debug(1,"msg_free item %d -- free.",msg->index_number);
-      *msgh = (rtsp_message *)(msg->index_number & 0xFFFF); // put the index number of the freed message in here
+      // debug(1,"msg_free item %d -- free.",msg->index_number);
+      uintptr_t index = (msg->index_number) & 0xFFFF;
+      if (index == 0)
+        index = 0x10000; // ensure it doesn't fold to zero.
+      *msgh = (rtsp_message *)(index); // put a version of the index number of the freed message in here
       free(msg);
     } else {
-      debug(1,"msg_free item %d -- decrement reference to %d.",msg->index_number,msg->referenceCount);
+      // debug(1,"msg_free item %d -- decrement reference to %d.",msg->index_number,msg->referenceCount);
     }
-    
-    // else {
-      // debug(1,"rtsp_message reference count non-zero:
-      // %d!",msg->referenceCount);
-      //}
   } else if (*msgh != NULL) {
-    debug(1, "msg_free: error attempting to free an allocated but already-freed rtsp_message %d.",(int)*msgh);
+    debug(1, "msg_free: error attempting to free an allocated but already-freed rtsp_message, number %d.",(uintptr_t)*msgh);
   }
   debug_mutex_unlock(&reference_counter_lock, 0);
 }
-
-/*
-void msg_free(rtsp_message *msg) {
-
-  if (msg) {
-    debug_mutex_lock(&reference_counter_lock, 1000, 0);
-    msg->referenceCount--;
-    debug_mutex_unlock(&reference_counter_lock, 0);
-    if (msg->referenceCount == 0) {
-      unsigned int i;
-      for (i = 0; i < msg->nheaders; i++) {
-        free(msg->name[i]);
-        free(msg->value[i]);
-      }
-      if (msg->content)
-        free(msg->content);
-      free(msg);
-    } // else {
-      // debug(1,"rtsp_message reference count non-zero:
-      // %d!",msg->referenceCount);
-      //}
-  } else {
-    debug(1, "null rtsp_message pointer passed to msg_free()");
-  }
-}
-*/
 
 int msg_handle_line(rtsp_message **pmsg, char *line) {
   rtsp_message *msg = *pmsg;
