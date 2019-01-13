@@ -2590,8 +2590,12 @@ void rtsp_listen_loop(void) {
 
       ret = pthread_create(&conn->thread, NULL, rtsp_conversation_thread_func,
                            conn); // also acts as a memory barrier
-      if (ret)
-        die("Failed to create RTSP receiver thread %d!", conn->connection_number);
+      if (ret) {
+        char errorstring[1024];
+        strerror_r(ret, (char *)errorstring, sizeof(errorstring));
+        die("Connection %d: cannot create an RTSP conversation thread. Error %d: \"%s\".",
+              conn->connection_number, ret, (char *)errorstring);
+      }
       debug(3, "Successfully created RTSP receiver thread %d.", conn->connection_number);
       conn->running = 1; // this must happen before the thread is tracked
       track_thread(conn);
