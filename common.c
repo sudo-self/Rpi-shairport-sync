@@ -739,7 +739,7 @@ void command_start(void) {
     }
   }
 }
-void command_execute(const char *command, const char *extra_argument) {
+void command_execute(const char *command, const char *extra_argument, const int block) {
   // this has a cancellation point if waiting is enabled
   if (command) {
     char new_command_buffer[1024];
@@ -767,7 +767,7 @@ void command_execute(const char *command, const char *extra_argument) {
         exit(127); /* only if execv fails */
       }
     } else {
-      if (config.cmd_blocking) { /* pid!=0 means parent process and if blocking is true, wait for
+      if (block) { /* pid!=0 means parent process and if blocking is true, wait for
                                     process to finish */
         pid_t rc = waitpid(pid, 0, 0); /* wait for child to exit */
         if (rc != pid) {

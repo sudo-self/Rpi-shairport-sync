@@ -309,7 +309,7 @@ int config_set_lookup_bool(config_t *cfg, char *where, int *dst);
 
 void command_start(void);
 void command_stop(void);
-void command_execute(const char *command, const char *extra_argument);
+void command_execute(const char *command, const char *extra_argument, const int block);
 void command_set_volume(double volume);
 
 int mkpath(const char *path, mode_t mode);
