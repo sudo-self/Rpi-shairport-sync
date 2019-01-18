@@ -857,8 +857,8 @@ void dacp_monitor_start() {
   rc = pthread_mutex_init(&dacp_conversation_lock, &mta);
   if (rc)
     debug(1, "Error creating the DACP Conversation Lock Mutex Init");
-  else
-    debug(1, "DACP Conversation Lock Mutex Init");
+  // else
+  //  debug(1, "DACP Conversation Lock Mutex Init");
 
   rc = pthread_mutexattr_destroy(&mta);
   if (rc)
