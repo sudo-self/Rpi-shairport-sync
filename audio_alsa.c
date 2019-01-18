@@ -1100,7 +1100,7 @@ int delay(long *the_delay) {
     int oldState;
 
     snd_pcm_state_t state;
-    snd_pcm_sframes_t my_delay;
+    snd_pcm_sframes_t my_delay = 0; // this initialisation is to silence a clang warning
 
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
