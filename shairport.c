@@ -1577,10 +1577,14 @@ int main(int argc, char **argv) {
   uint8_t ap_md5[16];
 
 #ifdef CONFIG_OPENSSL
+	// can't imagine this is necessary, but here it is anyway
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   MD5_CTX ctx;
   MD5_Init(&ctx);
   MD5_Update(&ctx, config.service_name, strlen(config.service_name));
   MD5_Final(ap_md5, &ctx);
+  pthread_setcancelstate(oldState, NULL);
 #endif
 
 #ifdef CONFIG_MBEDTLS

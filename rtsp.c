@@ -2007,9 +2007,12 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
 
   uint8_t digest_urp[16], digest_mu[16], digest_total[16];
 
+
 #ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
 
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   MD5_Init(&ctx);
   MD5_Update(&ctx, username, strlen(username));
   MD5_Update(&ctx, ":", 1);
@@ -2022,6 +2025,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
   MD5_Update(&ctx, ":", 1);
   MD5_Update(&ctx, uri, strlen(uri));
   MD5_Final(digest_mu, &ctx);
+  pthread_setcancelstate(oldState, NULL);
 #endif
 
 #ifdef CONFIG_MBEDTLS
@@ -2062,6 +2066,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
     snprintf((char *)buf + 2 * i, 3, "%02x", digest_urp[i]);
 
 #ifdef CONFIG_OPENSSL
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   MD5_Init(&ctx);
   MD5_Update(&ctx, buf, 32);
   MD5_Update(&ctx, ":", 1);
@@ -2071,6 +2076,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
     snprintf((char *)buf + 2 * i, 3, "%02x", digest_mu[i]);
   MD5_Update(&ctx, buf, 32);
   MD5_Final(digest_total, &ctx);
+  pthread_setcancelstate(oldState, NULL);
 #endif
 
 #ifdef CONFIG_MBEDTLS
