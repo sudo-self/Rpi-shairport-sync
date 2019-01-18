@@ -394,6 +394,8 @@ uint8_t *base64_dec(char *input, int *outlen) {
 
 #ifdef CONFIG_OPENSSL
 char *base64_enc(uint8_t *input, int length) {
+ 	int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   BIO *bmem, *b64;
   BUF_MEM *bptr;
   b64 = BIO_new(BIO_f_base64());
@@ -414,10 +416,13 @@ char *base64_enc(uint8_t *input, int length) {
 
   BIO_free_all(bmem);
 
+  pthread_setcancelstate(oldState, NULL);
   return buf;
 }
 
 uint8_t *base64_dec(char *input, int *outlen) {
+ 	int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   BIO *bmem, *b64;
   int inlen = strlen(input);
 
@@ -442,6 +447,7 @@ uint8_t *base64_dec(char *input, int *outlen) {
   BIO_free_all(b64);
 
   *outlen = nread;
+  pthread_setcancelstate(oldState, NULL);
   return buf;
 }
 #endif
@@ -473,6 +479,8 @@ static char super_secret_key[] =
 
 #ifdef CONFIG_OPENSSL
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
+ 	int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   RSA *rsa = NULL;
   if (!rsa) {
     BIO *bmem = BIO_new_mem_buf(super_secret_key, -1);
@@ -491,6 +499,7 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
   default:
     die("bad rsa mode");
   }
+  pthread_setcancelstate(oldState, NULL);
   return out;
 }
 #endif
