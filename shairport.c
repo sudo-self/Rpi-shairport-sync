@@ -63,6 +63,7 @@
 #include "mdns.h"
 #include "rtp.h"
 #include "rtsp.h"
+#include "activity_monitor.h"
 
 #if defined(CONFIG_DACP_CLIENT)
 #include "dacp.h"
@@ -1160,6 +1161,9 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
 #ifdef CONFIG_METADATA
   metadata_stop(); // close down the metadata pipe
 #endif
+
+  activity_monitor_stop(0);
+  
   if (config.output->deinit) {
     debug(1, "Deinitialise the audio backend.");
     config.output->deinit();
@@ -1632,6 +1636,8 @@ int main(int argc, char **argv) {
     initialise_mqtt();
   }
 #endif
+
+  activity_monitor_start();
 
   // daemon_log(LOG_INFO, "Successful Startup");
   rtsp_listen_loop();

@@ -89,6 +89,8 @@
 
 #include "loudness.h"
 
+#include "activity_monitor.h"
+
 // default buffer size
 // needs to be a power of 2 because of the way BUFIDX(seqno) works
 //#define BUFFER_FRAMES 512
@@ -1486,9 +1488,11 @@ void player_thread_cleanup_handler(void *arg) {
   clear_reference_timestamp(conn);
   conn->rtp_running = 0;
   pthread_setcancelstate(oldState, NULL);
+  activity_monitor_signify_activity(0); // inactive
 }
 
 void *player_thread_func(void *arg) {
+    activity_monitor_signify_activity(1); // active
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   // pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
   conn->packet_count = 0;
