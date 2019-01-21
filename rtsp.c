@@ -974,7 +974,7 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
             msg_add_header(resp, "Session", "1");
 
             resp->respcode = 200; // it all worked out okay
-            debug(1, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.",
+            debug(2, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.",
                   conn->connection_number, conn->local_control_port, conn->local_timing_port,
                   conn->local_audio_port);
 
@@ -1087,6 +1087,8 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 //    'PICT' -- the payload is a picture, either a JPEG or a PNG. Check the
 //    first few bytes to see
 //    which.
+//    'abeg' -- active mode entered. No arguments
+//    'aend' -- active mode exited. No arguments
 //    'pbeg' -- play stream begin. No arguments
 //    'pend' -- play stream end. No arguments
 //    'pfls' -- play stream flush. No arguments

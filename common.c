@@ -725,7 +725,8 @@ void command_start(void) {
                                     and if blocking is true, wait for
                                     process to finish */
         pid_t rc = waitpid(pid, 0, 0);                              /* wait for child to exit */
-        if (rc != pid) {
+        if ((rc != pid) && (errno != ECHILD)) {
+          // In this context, ECHILD means that the child process has already completed, I think!
           warn("Execution of on-start command returned an error.");
           debug(1, "on-start command %s finished with error %d", config.cmd_start, errno);
         }
@@ -779,7 +780,8 @@ void command_execute(const char *command, const char *extra_argument, const int 
       if (block) { /* pid!=0 means parent process and if blocking is true, wait for
                                     process to finish */
         pid_t rc = waitpid(pid, 0, 0); /* wait for child to exit */
-        if (rc != pid) {
+        if ((rc != pid) && (errno != ECHILD)) {
+          // In this context, ECHILD means that the child process has already completed, I think!
           warn("Execution of command \"%s\" returned an error.", full_command);
           debug(1, "Command \"%s\" finished with error %d", full_command, errno);
         }
@@ -791,36 +793,8 @@ void command_execute(const char *command, const char *extra_argument, const int 
 
 void command_stop(void) {
   // this has a cancellation point if waiting is enabled
-  if (config.cmd_stop) {
-    /*Spawn a child to run the program.*/
-    pid_t pid = fork();
-    if (pid == 0) { /* child process */
-      int argC;
-      char **argV;
-      // debug(1,"on-stop command found.");
-      if (poptParseArgvString(config.cmd_stop, &argC, (const char ***)&argV) !=
-          0) // note that argV should be free()'d after use, but we expect this fork to exit
-             // eventually.
-        debug(1, "Can't decipher on-stop command arguments");
-      else {
-        // debug(1,"Executing on-stop command %s",config.cmd_stop);
-        execv(argV[0], argV);
-        warn("Execution of on-stop command failed to start");
-        debug(1, "Error executing on-stop command %s", config.cmd_stop);
-        exit(127); /* only if execv fails */
-      }
-    } else {
-      if (config.cmd_blocking) { /* pid!=0 means parent process and if blocking is true, wait for
-                                    process to finish */
-        pid_t rc = waitpid(pid, 0, 0); /* wait for child to exit */
-        if (rc != pid) {
-          warn("Execution of on-stop command returned an error.");
-          debug(1, "Stop command %s finished with error %d", config.cmd_stop, errno);
-        }
-      }
-      // debug(1,"Continue after on-stop command");
-    }
-  }
+  if (config.cmd_stop)
+    command_execute(config.cmd_stop,"",config.cmd_blocking);
 }
 
 // this is for reading an unsigned 32 bit number, such as an RTP timestamp

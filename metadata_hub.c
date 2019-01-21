@@ -535,6 +535,18 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       break;
     // these could tell us about play / pause etc. but will only occur if metadata is enabled, so
     // we'll just ignore them
+    case 'abeg': {
+      metadata_hub_modify_prolog();
+      int changed = (metadata_store.active_state != AM_ACTIVE);
+      metadata_store.active_state = AM_ACTIVE;
+      metadata_hub_modify_epilog(changed);
+    } break;
+    case 'aend': {
+      metadata_hub_modify_prolog();
+      int changed = (metadata_store.active_state != AM_INACTIVE);
+      metadata_store.active_state = AM_INACTIVE;
+      metadata_hub_modify_epilog(changed);
+    } break;
     case 'pbeg': {
       metadata_hub_modify_prolog();
       int changed = (metadata_store.player_state != PS_PLAYING);

@@ -39,6 +39,7 @@
 #include "config.h"
 
 #include "common.h"
+#include "rtsp.h"
 #include "activity_monitor.h"
 
 enum am_state {am_inactive, am_active, am_timing_out} state;
@@ -49,15 +50,23 @@ pthread_mutex_t activity_monitor_mutex;
 pthread_cond_t activity_monitor_cv;
 
 void going_active(int block) {
-  debug(1, "activity_monitor: state transitioning to \"active\" with%s blocking", block ? "" : "out");
+  // debug(1, "activity_monitor: state transitioning to \"active\" with%s blocking", block ? "" : "out");
   if (config.cmd_active_start)
     command_execute(config.cmd_active_start, "", block);
+#ifdef CONFIG_METADATA
+    debug(2, "abeg"); // active mode begin
+    send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
+#endif
 }
 
 void going_inactive(int block) {
-   debug(1, "activity_monitor: state transitioning to \"inactive\" with%s blocking", block ? "" : "out");
+   // debug(1, "activity_monitor: state transitioning to \"inactive\" with%s blocking", block ? "" : "out");
   if (config.cmd_active_stop)
     command_execute(config.cmd_active_stop, "", block);
+#ifdef CONFIG_METADATA
+    debug(2, "aend"); // active mode end
+    send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
+#endif
 }
 
 void activity_monitor_signify_activity(int active) {
@@ -127,14 +136,14 @@ void *activity_monitor_thread_code(void *arg) {
   do {
     switch (state) {
       case am_inactive:
-       debug(1,"am_state: am_inactive");
+       // debug(1,"am_state: am_inactive");
        while (player_state != ps_active)
           pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);               
         state = am_active;
         // going_active(); // this is done in activity_monitor_signify_activity         
       break;
       case am_active:
-       debug(1,"am_state: am_active");
+       // debug(1,"am_state: am_active");
         while (player_state != ps_inactive)
           pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);
         if (config.active_mode_timeout == 0.0) {
@@ -163,7 +172,7 @@ void *activity_monitor_thread_code(void *arg) {
         }      
       break;
       case am_timing_out:
-       debug(1,"am_state: am_timing_out");
+       // debug(1,"am_state: am_timing_out");
         rc = 0;
         while ((player_state != ps_active) && (rc != ETIMEDOUT)) {
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
@@ -197,7 +206,7 @@ void *activity_monitor_thread_code(void *arg) {
 }
 
 void activity_monitor_start() {
-  debug(1,"activity_monitor_start");
+  // debug(1,"activity_monitor_start");
   pthread_create(&activity_monitor_thread, NULL, activity_monitor_thread_code, NULL);
 }
 
