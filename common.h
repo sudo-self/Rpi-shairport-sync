@@ -172,15 +172,16 @@ typedef struct {
   double audio_backend_buffer_interpolation_threshold_in_seconds; // below this, soxr interpolation
                                                                   // will not occur -- it'll be
                                                                   // basic interpolation instead.
-  double audio_backend_silence_threshold;  // below this, silence will be added to the output buffer
+  double audio_backend_silence_threshold; // below this, silence will be added to the output buffer
   double audio_backend_silence_scan_interval; // check the threshold this often
-                                         
+
   double audio_backend_latency_offset; // this will be the offset in seconds to compensate for any
                                        // fixed latency there might be in the audio path
   double audio_backend_silent_lead_in_time; // the length of the silence that should precede a play.
-  double active_mode_timeout; // the amount of time from when play ends to when the system leaves into the "active" mode.
-  uint32_t volume_range_db; // the range, in dB, from max dB to min dB. Zero means use the mixer's
-                            // native range.
+  double active_mode_timeout; // the amount of time from when play ends to when the system leaves
+                              // into the "active" mode.
+  uint32_t volume_range_db;   // the range, in dB, from max dB to min dB. Zero means use the mixer's
+                              // native range.
   enum sps_format_t output_format;
   enum volume_control_profile_type volume_control_profile;
   int output_rate;

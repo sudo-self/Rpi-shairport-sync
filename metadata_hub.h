@@ -82,8 +82,7 @@ typedef struct metadata_bundle {
 
   enum play_status_type
       player_state; // this is the state of the actual player itself, which can be a bit noisy.
-  enum active_mode_type
-      active_state;
+  enum active_mode_type active_state;
 
   int speaker_volume; // this is the actual speaker volume, allowing for the main volume and the
                       // speaker volume control

@@ -114,7 +114,8 @@ uint16_t nextFreeUDPPort() {
   if (UDPPortIndex == 0)
     UDPPortIndex = config.udp_port_base;
   else if (UDPPortIndex == (config.udp_port_base + config.udp_port_range - 1))
-    UDPPortIndex = config.udp_port_base + 3; // avoid wrapping back to the first three, as they can be assigned by resetFreeUDPPort without checking
+    UDPPortIndex = config.udp_port_base + 3; // avoid wrapping back to the first three, as they can
+                                             // be assigned by resetFreeUDPPort without checking
   else
     UDPPortIndex++;
   return UDPPortIndex;
@@ -394,7 +395,7 @@ uint8_t *base64_dec(char *input, int *outlen) {
 
 #ifdef CONFIG_OPENSSL
 char *base64_enc(uint8_t *input, int length) {
- 	int oldState;
+  int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   BIO *bmem, *b64;
   BUF_MEM *bptr;
@@ -421,7 +422,7 @@ char *base64_enc(uint8_t *input, int length) {
 }
 
 uint8_t *base64_dec(char *input, int *outlen) {
- 	int oldState;
+  int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   BIO *bmem, *b64;
   int inlen = strlen(input);
@@ -479,7 +480,7 @@ static char super_secret_key[] =
 
 #ifdef CONFIG_OPENSSL
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
- 	int oldState;
+  int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   RSA *rsa = NULL;
   if (!rsa) {
@@ -794,7 +795,7 @@ void command_execute(const char *command, const char *extra_argument, const int 
 void command_stop(void) {
   // this has a cancellation point if waiting is enabled
   if (config.cmd_stop)
-    command_execute(config.cmd_stop,"",config.cmd_blocking);
+    command_execute(config.cmd_stop, "", config.cmd_blocking);
 }
 
 // this is for reading an unsigned 32 bit number, such as an RTP timestamp
@@ -829,17 +830,17 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
 
 double vol2attn(double vol, long max_db, long min_db) {
 
-// We use a little coordinate geometry to build a transfer function from the volume passed in to
-// the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
-// "volume in" which will be from -30 to 0. The y axis will be the "volume out" which will be from
-// the bottom of the range to the top. We build the transfer function from one or more lines. We
-// characterise each line with two numbers: the first is where on x the line starts when y=0 (x
-// can be from 0 to -30); the second is where on y the line stops when when x is -30. thus, if the
-// line was characterised as {0,-30}, it would be an identity transfer. Assuming, for example, a
-// dynamic range of lv=-60 to hv=0 Typically we'll use three lines -- a three order transfer
-// function First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
-// Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
-// Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
+  // We use a little coordinate geometry to build a transfer function from the volume passed in to
+  // the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
+  // "volume in" which will be from -30 to 0. The y axis will be the "volume out" which will be from
+  // the bottom of the range to the top. We build the transfer function from one or more lines. We
+  // characterise each line with two numbers: the first is where on x the line starts when y=0 (x
+  // can be from 0 to -30); the second is where on y the line stops when when x is -30. thus, if the
+  // line was characterised as {0,-30}, it would be an identity transfer. Assuming, for example, a
+  // dynamic range of lv=-60 to hv=0 Typically we'll use three lines -- a three order transfer
+  // function First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
+  // Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
+  // Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
 
 #define order 3
 
@@ -1151,8 +1152,9 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
     et = (et * 1000000) >> 32; // microseconds
     char errstr[1000];
     if (r == ETIMEDOUT)
-      debug(debuglevel, "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
-                        "waiting time of %d microseconds. \"%s\".",
+      debug(debuglevel,
+            "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
+            "waiting time of %d microseconds. \"%s\".",
             (1.0 * et) / 1000000, dally_time, debugmessage);
     else
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,

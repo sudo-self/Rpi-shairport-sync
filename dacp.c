@@ -111,7 +111,10 @@ static void response_code(void *opaque, int code) {
 }
 
 static const struct http_funcs responseFuncs = {
-    response_realloc, response_body, response_header, response_code,
+    response_realloc,
+    response_body,
+    response_header,
+    response_code,
 };
 
 // static pthread_mutex_t dacp_conversation_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -324,9 +327,10 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
       // debug(1,"Sent command\"%s\" with a response body of size %d.",command,response.size);
       // debug(1,"dacp_conversation_lock released.");
     } else {
-      debug(3, "dacp_send_command: could not acquire a lock on the dacp transmit/receive section "
-               "when attempting to "
-               "send the command \"%s\". Possible timeout?",
+      debug(3,
+            "dacp_send_command: could not acquire a lock on the dacp transmit/receive section "
+            "when attempting to "
+            "send the command \"%s\". Possible timeout?",
             command);
       response.code = 494; // This client is already busy
     }
@@ -423,8 +427,9 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
 
 void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
   debug_mutex_lock(&dacp_server_information_lock, 500000, 2);
-  debug(3, "dacp_monitor_port_update_callback with Remote ID \"%s\", target ID \"%s\" and port "
-           "number %d.",
+  debug(3,
+        "dacp_monitor_port_update_callback with Remote ID \"%s\", target ID \"%s\" and port "
+        "number %d.",
         dacp_id, dacp_server.dacp_id, port);
   if (strcmp(dacp_id, dacp_server.dacp_id) == 0) {
     dacp_server.port = port;
@@ -472,8 +477,9 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
                (metadata_store.advanced_dacp_server_active != 0);
       metadata_store.dacp_server_active = 0;
       metadata_store.advanced_dacp_server_active = 0;
-      debug(2, "setting dacp_server_active and advanced_dacp_server_active to 0 with an update "
-               "flag value of %d",
+      debug(2,
+            "setting dacp_server_active and advanced_dacp_server_active to 0 with an update "
+            "flag value of %d",
             ch);
       metadata_hub_modify_epilog(ch);
       while (dacp_server.scan_enable == 0) {

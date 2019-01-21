@@ -59,11 +59,11 @@
 #include <glib.h>
 #endif
 
+#include "activity_monitor.h"
 #include "common.h"
 #include "mdns.h"
 #include "rtp.h"
 #include "rtsp.h"
-#include "activity_monitor.h"
 
 #if defined(CONFIG_DACP_CLIENT)
 #include "dacp.h"
@@ -723,24 +723,26 @@ int parse_options(int argc, char **argv) {
         config.cmd_stop = (char *)str;
       }
 
-      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_before_entering_active_mode", &str)) {
+      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_before_entering_active_mode",
+                               &str)) {
         config.cmd_active_start = (char *)str;
       }
 
-      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_after_exiting_active_mode", &str)) {
+      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_after_exiting_active_mode",
+                               &str)) {
         config.cmd_active_stop = (char *)str;
       }
 
       if (config_lookup_float(config.cfg, "sessioncontrol.active_mode_timeout", &dvalue)) {
         if (dvalue < 0.0)
-          warn("Invalid value \"%f\" for sessioncontrol.active_mode_timeout. It must be positive. The default of %f will be used instead.",
-              dvalue, config.active_mode_timeout);
+          warn("Invalid value \"%f\" for sessioncontrol.active_mode_timeout. It must be positive. "
+               "The default of %f will be used instead.",
+               dvalue, config.active_mode_timeout);
         else
           config.active_mode_timeout = dvalue;
       }
 
-
-    if (config_lookup_string(config.cfg,
+      if (config_lookup_string(config.cfg,
                                "sessioncontrol.run_this_if_an_unfixable_error_is_detected", &str)) {
         config.cmd_unfixable = (char *)str;
       }
@@ -1181,7 +1183,7 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
 #endif
 
   activity_monitor_stop(0);
-  
+
   if (config.output->deinit) {
     debug(1, "Deinitialise the audio backend.");
     config.output->deinit();
@@ -1519,8 +1521,9 @@ int main(int argc, char **argv) {
   /* Print out options */
   debug(1, "log verbosity is %d.", debuglev);
   debug(1, "disable resend requests is %s.", config.disable_resend_requests ? "on" : "off");
-  debug(1, "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
-           "deliberately.",
+  debug(1,
+        "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
+        "deliberately.",
         config.diagnostic_drop_packet_fraction);
   debug(1, "statistics_requester status is %d.", config.statistics_requested);
   debug(1, "daemon status is %d.", config.daemonise);
@@ -1599,7 +1602,7 @@ int main(int argc, char **argv) {
   uint8_t ap_md5[16];
 
 #ifdef CONFIG_OPENSSL
-	// can't imagine this is necessary, but here it is anyway
+  // can't imagine this is necessary, but here it is anyway
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   MD5_CTX ctx;

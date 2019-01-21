@@ -379,7 +379,7 @@ gboolean notify_verbosity_callback(ShairportSyncDiagnostics *skeleton,
 }
 
 gboolean notify_disable_standby_callback(ShairportSync *skeleton,
-                                                __attribute__((unused)) gpointer user_data) {
+                                         __attribute__((unused)) gpointer user_data) {
   // debug(1, "\"notify_disable_standby_callback\" called.");
   if (shairport_sync_get_disable_standby(skeleton)) {
     debug(1, ">> activating disable standby");
@@ -624,9 +624,9 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(notify_alacdecoder_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::volume-control-profile",
                    G_CALLBACK(notify_volume_control_profile_callback), NULL);
-    g_signal_connect(shairportSyncSkeleton, "notify::disable-standby",
+  g_signal_connect(shairportSyncSkeleton, "notify::disable-standby",
                    G_CALLBACK(notify_disable_standby_callback), NULL);
-g_signal_connect(shairportSyncSkeleton, "notify::loudness-filter-active",
+  g_signal_connect(shairportSyncSkeleton, "notify::loudness-filter-active",
                    G_CALLBACK(notify_loudness_filter_active_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::loudness-threshold",
                    G_CALLBACK(notify_loudness_threshold_callback), NULL);

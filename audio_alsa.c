@@ -469,8 +469,9 @@ int actual_open_alsa_device(void) {
           buffer_size);
     }
     */
-    debug(1, "The alsa buffer is smaller (%lu bytes) than the desired backend buffer "
-             "length (%ld) you have chosen.",
+    debug(1,
+          "The alsa buffer is smaller (%lu bytes) than the desired backend buffer "
+          "length (%ld) you have chosen.",
           actual_buffer_length, config.audio_backend_buffer_desired_length);
   }
 
@@ -633,13 +634,15 @@ static int init(int argc, char **argv) {
   config.audio_backend_buffer_interpolation_threshold_in_seconds =
       0.120; // below this, basic interpolation will be used to save time.
   config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
-  config.audio_backend_silence_threshold = 0.040; //start sending silent frames if the delay goes below this time
-  config.audio_backend_silence_scan_interval = 0.004; //check silence threshold this often
+  config.audio_backend_silence_threshold =
+      0.040; // start sending silent frames if the delay goes below this time
+  config.audio_backend_silence_scan_interval = 0.004; // check silence threshold this often
 
   stall_monitor_error_threshold =
       (uint64_t)1000000 * config.alsa_maximum_stall_time; // stall time max to microseconds;
   stall_monitor_error_threshold = (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
-  debug(1, "stall_monitor_error_threshold is 0x%" PRIx64 ", with alsa_maximum_stall_time of %f sec.",
+  debug(1,
+        "stall_monitor_error_threshold is 0x%" PRIx64 ", with alsa_maximum_stall_time of %f sec.",
         stall_monitor_error_threshold, config.alsa_maximum_stall_time);
 
   stall_monitor_start_time = 0;
@@ -1047,9 +1050,10 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
 
         if (((update_timestamp_ns - stall_monitor_start_time) > stall_monitor_error_threshold) ||
             ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
-          debug(2, "DAC seems to have stalled with time_now_ns: %" PRIX64
-                   ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
-                   ", stall_monitor_error_threshold %" PRIX64 ".",
+          debug(2,
+                "DAC seems to have stalled with time_now_ns: %" PRIX64
+                ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
+                ", stall_monitor_error_threshold %" PRIX64 ".",
                 time_now_ns, update_timestamp_ns, stall_monitor_start_time,
                 stall_monitor_error_threshold);
           ret = sps_extra_code_output_stalled;
@@ -1264,8 +1268,8 @@ static void flush(void) {
 int preflight(__attribute__((unused)) void *buf, __attribute__((unused)) int samples) {
   uint64_t time_now =
       get_absolute_time_in_fp(); // this is to regulate access by the silence filler thread
-  uint64_t standoff_time = 60; // milliseconds
-  standoff_time = (standoff_time << 32)/1000;
+  uint64_t standoff_time = 60;   // milliseconds
+  standoff_time = (standoff_time << 32) / 1000;
   most_recent_write_time = time_now + standoff_time;
   return 0;
 }
@@ -1467,7 +1471,7 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
 
   int sleep_time_ms = (int)(config.audio_backend_silence_scan_interval * 1000);
   long buffer_size_threshold = (long)(config.audio_backend_silence_threshold * desired_sample_rate);
-  
+
   uint64_t sleep_time_in_fp = sleep_time_ms;
   sleep_time_in_fp = sleep_time_in_fp << 32;
   sleep_time_in_fp = sleep_time_in_fp / 1000;
@@ -1489,8 +1493,8 @@ void *alsa_buffer_monitor_thread_code(void *arg) {
 
         if ((most_recent_write_time == 0) || (present_time > most_recent_write_time)) {
 
-//            ((present_time > most_recent_write_time) &&
-//             ((present_time - most_recent_write_time) > (sleep_time_in_fp)))) {
+          //            ((present_time > most_recent_write_time) &&
+          //             ((present_time - most_recent_write_time) > (sleep_time_in_fp)))) {
           reply = delay(&buffer_size);
           if (reply != 0) {
             buffer_size = 0;

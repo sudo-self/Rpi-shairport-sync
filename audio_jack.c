@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <jack/jack.h>
@@ -336,8 +335,9 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
      * we should try. */
     if (config_lookup_int(config.cfg, "jack.auto_client_open_interval", &value)) {
       if ((value < 0) || (value > 300))
-        debug(1, "Invalid jack auto_client_open_interval \"%sd\". It should be between 0 and 300, "
-                 "default is %d.",
+        debug(1,
+              "Invalid jack auto_client_open_interval \"%sd\". It should be between 0 and 300, "
+              "default is %d.",
               value, config.jack_auto_client_open_interval);
       else
         config.jack_auto_client_open_interval = value;

@@ -205,7 +205,7 @@ char *metadata_write_image_file(const char *buf, int len) {
   char *path = NULL; // this will be what is returned
 
   uint8_t img_md5[16];
-// uint8_t ap_md5[16];
+  // uint8_t ap_md5[16];
 
 #ifdef CONFIG_SSL
   MD5_CTX ctx;

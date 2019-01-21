@@ -288,15 +288,16 @@ void *player_watchdog_thread_code(void *arg) {
         if (time_since_last_bark >= ct) {
           conn->watchdog_barks++;
           if (conn->watchdog_barks == 1) {
-            debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
-                     "of the heart\".",
+            debug(1,
+                  "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
+                  "of the heart\".",
                   conn->connection_number);
             conn->stop = 1;
             pthread_cancel(conn->thread);
           } else if (conn->watchdog_barks == 3) {
             if ((config.cmd_unfixable) && (conn->unfixable_error_reported == 0)) {
               conn->unfixable_error_reported = 1;
-              command_execute(config.cmd_unfixable, "unable_to_cancel_play_session",1);
+              command_execute(config.cmd_unfixable, "unable_to_cancel_play_session", 1);
             } else {
               warn("an unrecoverable error, \"unable_to_cancel_play_session\", has been detected.",
                    conn->connection_number);
@@ -404,17 +405,17 @@ static char *nextline(char *in, int inbuf) {
 }
 
 void msg_retain(rtsp_message *msg) {
-    int rc = pthread_mutex_lock(&reference_counter_lock);
-    if (rc)
-      debug(1, "Error %d locking reference counter lock");
-    if (msg > (rtsp_message *) 0x00010000) { 
+  int rc = pthread_mutex_lock(&reference_counter_lock);
+  if (rc)
+    debug(1, "Error %d locking reference counter lock");
+  if (msg > (rtsp_message *)0x00010000) {
     msg->referenceCount++;
     // debug(1,"msg_retain -- item %d reference count %d.", msg->index_number, msg->referenceCount);
     rc = pthread_mutex_unlock(&reference_counter_lock);
     if (rc)
       debug(1, "Error %d unlocking reference counter lock");
   } else {
-    debug(1, "invalid rtsp_message pointer 0x%x passed to retain", (uintptr_t) msg);
+    debug(1, "invalid rtsp_message pointer 0x%x passed to retain", (uintptr_t)msg);
   }
 }
 
@@ -499,13 +500,18 @@ void msg_free(rtsp_message **msgh) {
       uintptr_t index = (msg->index_number) & 0xFFFF;
       if (index == 0)
         index = 0x10000; // ensure it doesn't fold to zero.
-      *msgh = (rtsp_message *)(index); // put a version of the index number of the freed message in here
+      *msgh =
+          (rtsp_message *)(index); // put a version of the index number of the freed message in here
       free(msg);
     } else {
-      // debug(1,"msg_free item %d -- decrement reference to %d.",msg->index_number,msg->referenceCount);
+      // debug(1,"msg_free item %d -- decrement reference to
+      // %d.",msg->index_number,msg->referenceCount);
     }
   } else if (*msgh != NULL) {
-    debug(1, "msg_free: error attempting to free an allocated but already-freed rtsp_message, number %d.",(uintptr_t)*msgh);
+    debug(1,
+          "msg_free: error attempting to free an allocated but already-freed rtsp_message, number "
+          "%d.",
+          (uintptr_t)*msgh);
   }
   debug_mutex_unlock(&reference_counter_lock, 0);
 }
@@ -831,9 +837,10 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
                     rtsp_message *resp) {
   debug(3, "Connection %d: OPTIONS", conn->connection_number);
   resp->respcode = 200;
-  msg_add_header(resp, "Public", "ANNOUNCE, SETUP, RECORD, "
-                                 "PAUSE, FLUSH, TEARDOWN, "
-                                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
+  msg_add_header(resp, "Public",
+                 "ANNOUNCE, SETUP, RECORD, "
+                 "PAUSE, FLUSH, TEARDOWN, "
+                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
 }
 
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
@@ -1564,7 +1571,7 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
   char *ct = msg_get_header(req, "Content-Type");
 
   if (ct) {
-// debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
+    // debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
 
 #ifdef CONFIG_METADATA
     // It seems that the rtptime of the message is used as a kind of an ID that
@@ -2009,7 +2016,6 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
 
   uint8_t digest_urp[16], digest_mu[16], digest_total[16];
 
-
 #ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
 
@@ -2244,8 +2250,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (strcmp(req->method, "OPTIONS") !=
           0) // the options message is very common, so don't log it until level 3
         debug_level = 2;
-      debug(debug_level, "Connection %d: Received an RTSP Packet of type \"%s\":",
-            conn->connection_number, req->method),
+      debug(debug_level,
+            "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
+            req->method),
           debug_print_msg_headers(debug_level, req);
 
       apple_challenge(conn->fd, req, resp);
@@ -2304,8 +2311,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
-          debug(1, "Connection %d: Unable to write an RTSP message response. Terminating the "
-                   "connection.",
+          debug(1,
+                "Connection %d: Unable to write an RTSP message response. Terminating the "
+                "connection.",
                 conn->connection_number);
           struct linger so_linger;
           so_linger.l_onoff = 1; // "true"
@@ -2602,7 +2610,7 @@ void rtsp_listen_loop(void) {
         char errorstring[1024];
         strerror_r(ret, (char *)errorstring, sizeof(errorstring));
         die("Connection %d: cannot create an RTSP conversation thread. Error %d: \"%s\".",
-              conn->connection_number, ret, (char *)errorstring);
+            conn->connection_number, ret, (char *)errorstring);
       }
       debug(3, "Successfully created RTSP receiver thread %d.", conn->connection_number);
       conn->running = 1; // this must happen before the thread is tracked
