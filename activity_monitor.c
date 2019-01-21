@@ -48,23 +48,44 @@ pthread_t activity_monitor_thread;
 pthread_mutex_t activity_monitor_mutex;
 pthread_cond_t activity_monitor_cv;
 
+void going_active(int block) {
+  debug(1, "activity_monitor: state transitioning to \"active\" with%s blocking", block ? "" : "out");
+  if (config.cmd_active_start)
+    command_execute(config.cmd_active_start, "", block);
+}
+
+void going_inactive(int block) {
+   debug(1, "activity_monitor: state transitioning to \"inactive\" with%s blocking", block ? "" : "out");
+  if (config.cmd_active_stop)
+    command_execute(config.cmd_active_stop, "", block);
+}
+
 void activity_monitor_signify_activity(int active) {
   pthread_mutex_lock(&activity_monitor_mutex);
   player_state = active == 0 ? ps_inactive : ps_active;
-  pthread_cond_signal(&activity_monitor_cv);
+  // Now, although we could simply let the state machine in the activity monitor thread
+  // look after eveything, we will change state here in two situations:
+  // 1. If the state machine is am_inactive and the player is ps_active
+  // we will change the state to am_active and execute the going_active() function.
+  // 2. If the state machine is am_active and the player is ps_inactive and
+  // the activity_idle_timeout is 0, then we will change the state to am_inactive and
+  // execute the going_inactive() function.
+  //
+  // The reason for all this is that we might want to perform the attached scripts
+  // and wait for them to complete before continuing. If they were perfomed in the
+  // activity monitor thread, then we coldn't wait for them to complete.
+  
+  // Thus, the only time the thread will execute a going_... function is when a non-zero
+  // timeout actually matures.
+  
+  if ((state == am_inactive) && (player_state == ps_active)) {
+    going_active(config.cmd_blocking); // note -- will be executed with the mutex locked, but that's okay
+  } else if ((state == am_active) && (player_state == ps_inactive) && (config.active_mode_timeout == 0.0)) {
+    going_inactive(config.cmd_blocking); // note -- will be executed with the mutex locked, but that's okay
+  }
+  
+  pthread_cond_signal(&activity_monitor_cv); 
   pthread_mutex_unlock(&activity_monitor_mutex);
-}
-
-void going_active() {
-  pthread_mutex_unlock(&activity_monitor_mutex);  
-  debug(1, "activity_monitor: state transitioning to \"active\"");
-  pthread_mutex_lock(&activity_monitor_mutex);
-}
-
-void going_inactive() {
-  pthread_mutex_unlock(&activity_monitor_mutex);  
-  debug(1, "activity_monitor: state transitioning to \"inactive\"");
-  pthread_mutex_lock(&activity_monitor_mutex);
 }
 
 void activity_thread_cleanup_handler(__attribute__((unused)) void *arg) {
@@ -110,19 +131,19 @@ void *activity_monitor_thread_code(void *arg) {
        while (player_state != ps_active)
           pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);               
         state = am_active;
-        going_active();                
+        // going_active(); // this is done in activity_monitor_signify_activity         
       break;
       case am_active:
        debug(1,"am_state: am_active");
         while (player_state != ps_inactive)
           pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);
-        if (config.active_timeout == 0.0) {
+        if (config.active_mode_timeout == 0.0) {
           state = am_inactive;
-          going_inactive();
+          // going_inactive(); // this is done in activity_monitor_signify_activity
         } else {
           state = am_timing_out;
 
-          uint64_t time_to_wait_for_wakeup_fp = (uint64_t)(config.active_timeout *1000000); // resolution of microseconds
+          uint64_t time_to_wait_for_wakeup_fp = (uint64_t)(config.active_mode_timeout *1000000); // resolution of microseconds
           time_to_wait_for_wakeup_fp = time_to_wait_for_wakeup_fp << 32;
           time_to_wait_for_wakeup_fp = time_to_wait_for_wakeup_fp / 1000000;
           
@@ -156,7 +177,9 @@ void *activity_monitor_thread_code(void *arg) {
           state = am_active; // player has gone active -- do nothing, because it's still active
         else if (rc == ETIMEDOUT) {
             state = am_inactive;
-            going_inactive();        
+            pthread_mutex_unlock(&activity_monitor_mutex);
+            going_inactive(0); // don't wait for completion -- it makes no sense   
+            pthread_mutex_lock(&activity_monitor_mutex);
         }  else {
             // activity monitor was woken up in the state am_timing_out, but not by a timeout and player is not in ps_active state
             debug(1, "activity monitor was woken up in the state am_timing_out, but didn't change state");
@@ -175,7 +198,6 @@ void *activity_monitor_thread_code(void *arg) {
 
 void activity_monitor_start() {
   debug(1,"activity_monitor_start");
-  config.active_timeout = 5.5; // hack
   pthread_create(&activity_monitor_thread, NULL, activity_monitor_thread_code, NULL);
 }
 

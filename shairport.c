@@ -331,6 +331,7 @@ int parse_options(int argc, char **argv) {
                                  // nothing else comes in first.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
+  config.active_mode_timeout = 10.0;
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
@@ -722,7 +723,24 @@ int parse_options(int argc, char **argv) {
         config.cmd_stop = (char *)str;
       }
 
-      if (config_lookup_string(config.cfg,
+      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_before_entering_active_mode", &str)) {
+        config.cmd_active_start = (char *)str;
+      }
+
+      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_after_exiting_active_mode", &str)) {
+        config.cmd_active_stop = (char *)str;
+      }
+
+      if (config_lookup_float(config.cfg, "sessioncontrol.active_mode_timeout", &dvalue)) {
+        if (dvalue < 0.0)
+          warn("Invalid value \"%f\" for sessioncontrol.active_mode_timeout. It must be positive. The default of %f will be used instead.",
+              dvalue, config.active_mode_timeout);
+        else
+          config.active_mode_timeout = dvalue;
+      }
+
+
+    if (config_lookup_string(config.cfg,
                                "sessioncontrol.run_this_if_an_unfixable_error_is_detected", &str)) {
         config.cmd_unfixable = (char *)str;
       }

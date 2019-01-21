@@ -1488,12 +1488,10 @@ void player_thread_cleanup_handler(void *arg) {
   clear_reference_timestamp(conn);
   conn->rtp_running = 0;
   pthread_setcancelstate(oldState, NULL);
-  activity_monitor_signify_activity(0); // inactive
 }
 
 void *player_thread_func(void *arg) {
-    activity_monitor_signify_activity(1); // active
-  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   // pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
   conn->packet_count = 0;
   conn->packet_count_since_flush = 0;
@@ -2802,6 +2800,7 @@ int player_play(rtsp_conn_info *conn) {
   if (config.buffer_start_fill > BUFFER_FRAMES)
     die("specified buffer starting fill %d > buffer size %d", config.buffer_start_fill,
         BUFFER_FRAMES);
+  activity_monitor_signify_activity(1); // active, and should be before play's command hook, command_start()
   command_start();
   pthread_t *pt = malloc(sizeof(pthread_t));
   if (pt == NULL)
@@ -2850,6 +2849,7 @@ int player_stop(rtsp_conn_info *conn) {
 #endif
     // debuglev = dl;
     command_stop();
+    activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
     return 0;
   } else {
     debug(3, "Connection %d: player thread already deleted.", conn->connection_number);
