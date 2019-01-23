@@ -147,11 +147,6 @@ void http_cleanup(void *arg) {
   http_free(rt);
 }
 
-void malloc_cleanup(void *arg) {
-  // debug(1, "malloc cleanup called.");
-  free(arg);
-}
-
 int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
 
   // will malloc space for the body or set it to NULL -- the caller should free it.
