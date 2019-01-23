@@ -1243,6 +1243,11 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const cha
   return r;
 }
 
+void malloc_cleanup(void *arg) {
+  // debug(1, "malloc cleanup called.");
+  free(arg);
+}
+
 void pthread_cleanup_debug_mutex_unlock(void *arg) { pthread_mutex_unlock((pthread_mutex_t *)arg); }
 
 char *get_version_string() {
