@@ -94,7 +94,7 @@ static unsigned int desired_sample_rate;
 static enum sps_format_t sample_format;
 int frame_size; // in bytes for interleaved stereo
 
-static snd_pcm_t *alsa_handle = NULL;
+snd_pcm_t *alsa_handle = NULL;
 static snd_pcm_hw_params_t *alsa_params = NULL;
 static snd_pcm_sw_params_t *alsa_swparams = NULL;
 static snd_ctl_t *ctl = NULL;
@@ -219,6 +219,7 @@ void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double v
 }
 
 void actual_close_alsa_device() {
+  debug(1, "actual close");
   if (alsa_handle) {
     int derr;
     if ((derr = snd_pcm_hw_free(alsa_handle)))
@@ -1247,6 +1248,7 @@ int do_close() {
       debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
 
     // flush also closes the device
+    debug(1, "closing alsa handle");
     if ((derr = snd_pcm_close(alsa_handle)))
       debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
     alsa_handle = NULL;
@@ -1300,7 +1302,7 @@ static void flush(void) {
       debug(1, "alsa: flush() -- alsa_backend_state => abm_disconnected.");
     }
   } else
-    debug(1, "alac: flush() -- called on a disconnected alsa backend");
+    debug(1, "alsa: flush() -- called on a disconnected alsa backend");
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
 }
@@ -1452,91 +1454,77 @@ void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void *a
 */
 
 void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
-
-  int sleep_time_ms = (int)(config.audio_backend_silence_scan_interval * 1000);
-  long buffer_size_threshold = (long)(config.audio_backend_silence_threshold * desired_sample_rate);
-
-  uint64_t sleep_time_in_fp = sleep_time_ms;
-  sleep_time_in_fp = sleep_time_in_fp << 32;
-  sleep_time_in_fp = sleep_time_in_fp / 1000;
-  // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp form.",sleep_time_ms,sleep_time_in_fp);
-  // int frames_of_silence = (desired_sample_rate * sleep_time_ms * 2) / 1000;
-  int frames_of_silence = 1024;
-  size_t size_of_silence_buffer = frames_of_silence * frame_size;
-  // debug(1,"Silence buffer length: %u bytes.",size_of_silence_buffer);
-  void *silence = malloc(size_of_silence_buffer);
-  if (silence == NULL) {
-    debug(1, "alsa: failed to allocate memory for a silent frame  buffer, thus "
-             "disable_standby_mode is \"off\".");
-  } else {
-    pthread_cleanup_push(malloc_cleanup, silence);
-
-    while (1) {
-      pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
-
-      // check possible state transitions here
-      if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
-        // open the dac and move to abm_connected mode
-        debug(1, "alsa: alsa_buffer_monitor_thread_code -- opening the output device");
-        do_open();
+  while (1) {
+    int sleep_time_ms = (int)(config.audio_backend_silence_scan_interval * 1000);
+    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
+    // check possible state transitions here
+    if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
+      // open the dac and move to abm_connected mode
+      debug(1, "alsa: alsa_buffer_monitor_thread_code -- opening the output device");
+      if (do_open() == 0)
         debug(1, "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state => abm_connected");
-      } else if ((alsa_backend_state == abm_connected) && (config.keep_dac_busy == 0)) {
-        stall_monitor_start_time = 0;
-        frame_index = 0;
-        measurement_data_is_valid = 0;
-        debug(1, "alsa: alsa_buffer_monitor_thread_code() -- closing the output device");
-        do_close();
-        debug(1,
-              "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state => abm_disconnected");
-      }
-      // now, if the backend is not in the abm_disconnected state
-      // and config.keep_dac_busy is true (at the present, this has to be the case to be in the
-      // abm_connected state in the first place...) then do the silence-filling thing, if needed
-      if ((alsa_backend_state != abm_disconnected) && (config.keep_dac_busy != 0)) {
-        int use_dither = 0;
-        if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
-            (config.airplay_volume != 0.0))
-          use_dither = 1;
-
-        long buffer_size = 0;
-        int reply;
-
-        uint64_t present_time = get_absolute_time_in_fp();
-
-        if ((most_recent_write_time == 0) || (present_time > most_recent_write_time)) {
-
-          //            ((present_time > most_recent_write_time) &&
-          //             ((present_time - most_recent_write_time) > (sleep_time_in_fp)))) {
-
-          snd_pcm_state_t state;
-
-          reply = delay_and_status(&state, &buffer_size);
-
-          if (reply != 0) {
-            buffer_size = 0;
-            char errorstring[1024];
-            strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
-            debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
-                  (char *)errorstring);
-          }
-          if (buffer_size < buffer_size_threshold) {
+    } else if ((alsa_backend_state == abm_connected) && (config.keep_dac_busy == 0)) {
+      stall_monitor_start_time = 0;
+      frame_index = 0;
+      measurement_data_is_valid = 0;
+      debug(1, "alsa: alsa_buffer_monitor_thread_code() -- closing the output device");
+      do_close();
+      debug(1, "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state => abm_disconnected");
+    }
+    // now, if the backend is not in the abm_disconnected state
+    // and config.keep_dac_busy is true (at the present, this has to be the case to be in the
+    // abm_connected state in the first place...) then do the silence-filling thing, if needed
+    if ((alsa_backend_state != abm_disconnected) && (config.keep_dac_busy != 0)) {
+      int reply;
+      long buffer_size = 0;
+      snd_pcm_state_t state;
+      uint64_t present_time = get_absolute_time_in_fp();
+      if ((most_recent_write_time == 0) || (present_time > most_recent_write_time)) {
+        reply = delay_and_status(&state, &buffer_size);
+        if (reply != 0) {
+          buffer_size = 0;
+          char errorstring[1024];
+          strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
+          debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
+                (char *)errorstring);
+        }
+        long buffer_size_threshold =
+            (long)(config.audio_backend_silence_threshold * desired_sample_rate);
+        if (buffer_size < buffer_size_threshold) {
+          uint64_t sleep_time_in_fp = sleep_time_ms;
+          sleep_time_in_fp = sleep_time_in_fp << 32;
+          sleep_time_in_fp = sleep_time_in_fp / 1000;
+          // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp
+          // form.",sleep_time_ms,sleep_time_in_fp); int frames_of_silence = (desired_sample_rate *
+          // sleep_time_ms * 2) / 1000;
+          int frames_of_silence = 1024;
+          size_t size_of_silence_buffer = frames_of_silence * frame_size;
+          // debug(1, "alsa: alsa_buffer_monitor_thread_code -- silence buffer length: %u bytes.",
+          //      size_of_silence_buffer);
+          void *silence = malloc(size_of_silence_buffer);
+          if (silence == NULL) {
+            debug(1, "alsa: alsa_buffer_monitor_thread_code -- failed to allocate memory for a "
+                     "silent frame buffer.");
+          } else {
+            pthread_cleanup_push(malloc_cleanup, silence);
+            int use_dither = 0;
+            if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
+                (config.airplay_volume != 0.0))
+              use_dither = 1;
             dither_random_number_store = generate_zero_frames(
                 silence, frames_of_silence, config.output_format, use_dither, // i.e. with dither
                 dither_random_number_store);
             // debug(1,"Play %d frames of silence with most_recent_write_time of %" PRIx64 ".",
-            // frames_of_silence,most_recent_write_time);
+            //    frames_of_silence,most_recent_write_time);
             do_play(silence, frames_of_silence);
+            pthread_cleanup_pop(1);
           }
-        } else {
-          // debug(2,"Skipping sending silence");
         }
       }
-      debug_mutex_unlock(&alsa_mutex, 3);
-      pthread_cleanup_pop(0);       // release the mutex
-      usleep(sleep_time_ms * 1000); // has a cancellation point in it
-                                    //      pthread_testcancel();
     }
-    pthread_cleanup_pop(1); // should never happen
+    debug_mutex_unlock(&alsa_mutex, 3);
+    pthread_cleanup_pop(0);       // release the mutex
+    usleep(sleep_time_ms * 1000); // has a cancellation point in it
   }
   pthread_exit(NULL);
 }
