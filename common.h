@@ -351,4 +351,6 @@ void sps_nanosleep(const time_t sec,
 int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_format_t format,
                              int with_dither, int64_t random_number_in);
 
+void malloc_cleanup(void *arg);
+
 #endif // _COMMON_H
