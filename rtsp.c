@@ -981,7 +981,7 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
             msg_add_header(resp, "Session", "1");
 
             resp->respcode = 200; // it all worked out okay
-            debug(2, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.",
+            debug(1, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.",
                   conn->connection_number, conn->local_control_port, conn->local_timing_port,
                   conn->local_audio_port);
 
