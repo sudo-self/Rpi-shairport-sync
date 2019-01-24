@@ -1228,8 +1228,8 @@ int do_open() {
         do_volume(set_volume);
       if (audio_alsa.mute)
         do_mute(0);
+      alsa_backend_state = abm_connected; // only do this if it really opened it.
     }
-    alsa_backend_state = abm_connected; // only do this if it really opened it.
   } else {
     debug(1, "alsa: do_open() -- output device already open.");
   }
@@ -1271,9 +1271,10 @@ int play(void *buf, int samples) {
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
 
   if (alsa_backend_state == abm_disconnected) {
-    debug(1, "alsa: play() -- opening output device");
     ret = do_open();
-  }
+    if (ret == 0)
+      debug(1, "alsa: play() -- opened output device");
+ }
 
   if (ret == 0) {
     if (alsa_backend_state != abm_playing) {
@@ -1460,9 +1461,8 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
     // check possible state transitions here
     if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
       // open the dac and move to abm_connected mode
-      debug(1, "alsa: alsa_buffer_monitor_thread_code -- opening the output device");
       if (do_open() == 0)
-        debug(1, "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state => abm_connected");
+        debug(1, "alsa: alsa_buffer_monitor_thread_code() -- output device opened; alsa_backend_state => abm_connected");
     } else if ((alsa_backend_state == abm_connected) && (config.keep_dac_busy == 0)) {
       stall_monitor_start_time = 0;
       frame_index = 0;
