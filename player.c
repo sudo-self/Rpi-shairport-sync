@@ -2024,7 +2024,7 @@ void *player_thread_func(void *arg) {
                        conn->connection_number);
                 }
               } else
-                debug(2, "Delay error %d when checking running latency.", resp);
+                debug(3, "Delay error %d when checking running latency.", resp);
             }
           }
 
