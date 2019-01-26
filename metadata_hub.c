@@ -45,6 +45,18 @@
 #include "dacp.h"
 #include "metadata_hub.h"
 
+#ifdef CONFIG_MBEDTLS
+#include <mbedtls/md5.h>
+#endif
+
+#ifdef CONFIG_POLARSSL
+#include <polarssl/md5.h>
+#endif
+
+#ifdef CONFIG_OPENSSL
+#include <openssl/md5.h>
+#endif
+
 pthread_rwlock_t metadata_hub_re_lock = PTHREAD_RWLOCK_INITIALIZER;
 struct track_metadata_bundle *track_metadata; // used for a temporary track metadata store
 
