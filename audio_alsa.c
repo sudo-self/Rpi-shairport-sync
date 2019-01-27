@@ -48,7 +48,6 @@ static int init(int argc, char **argv);
 static void deinit(void);
 static void start(int i_sample_rate, int i_sample_format);
 static int play(void *buf, int samples);
-int preflight(void *buf, int samples);
 static void stop(void);
 static void flush(void);
 int delay(long *the_delay);
@@ -1306,15 +1305,6 @@ static void flush(void) {
     debug(3, "alsa: flush() -- called on a disconnected alsa backend");
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
-}
-
-int preflight(__attribute__((unused)) void *buf, __attribute__((unused)) int samples) {
-  uint64_t time_now =
-      get_absolute_time_in_fp(); // this is to regulate access by the silence filler thread
-  uint64_t standoff_time = 60;   // milliseconds
-  standoff_time = (standoff_time << 32) / 1000;
-  most_recent_write_time = time_now + standoff_time;
-  return 0;
 }
 
 static void stop(void) {

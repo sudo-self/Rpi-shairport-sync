@@ -86,7 +86,6 @@ audio_output audio_stdout = {.name = "stdout",
                              .flush = NULL,
                              .delay = NULL,
                              .play = &play,
-                             .preflight = NULL,
                              .volume = NULL,
                              .parameters = NULL,
                              .mute = NULL};

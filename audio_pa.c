@@ -312,7 +312,6 @@ audio_output audio_pa = {.name = "pa",
                          .flush = &flush,
                          .delay = &pa_delay,
                          .play = &play,
-                         .preflight = NULL,
                          .volume = NULL,
                          .parameters = NULL,
                          .mute = NULL};

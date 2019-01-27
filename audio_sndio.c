@@ -49,7 +49,6 @@ audio_output audio_sndio = {.name = "sndio",
                             .flush = &flush,
                             .delay = &delay,
                             .play = &play,
-                            .preflight = NULL,
                             .volume = NULL,
                             .parameters = NULL,
                             .mute = NULL};
