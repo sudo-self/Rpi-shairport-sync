@@ -2,7 +2,7 @@
  * Utility routines. This file is part of Shairport.
  * Copyright (c) James Laird 2013
  * The volume to attenuation function vol2attn copyright (c) Mike Brady 2014
- * Further changes (c) Mike Brady 2014 -- 2018
+ * Further changes and additions (c) Mike Brady 2014 -- 2019
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -415,7 +415,7 @@ char *base64_enc(uint8_t *input, int length) {
     buf[bptr->length - 1] = 0;
   }
 
-  BIO_free_all(bmem);
+  BIO_free_all(b64);
 
   pthread_setcancelstate(oldState, NULL);
   return buf;
@@ -444,7 +444,6 @@ uint8_t *base64_dec(char *input, int *outlen) {
 
   nread = BIO_read(b64, buf, bufsize);
 
-  // BIO_free_all(bmem);
   BIO_free_all(b64);
 
   *outlen = nread;
@@ -500,6 +499,7 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
   default:
     die("bad rsa mode");
   }
+  RSA_free(rsa);
   pthread_setcancelstate(oldState, NULL);
   return out;
 }
