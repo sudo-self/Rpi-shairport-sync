@@ -634,7 +634,7 @@ static int init(int argc, char **argv) {
   // set up default values first
 
   alsa_backend_state = abm_disconnected; // startup state
-  debug(1, "alsa: init() -- alsa_backend_state => abm_disconnected.");
+  debug(2, "alsa: init() -- alsa_backend_state => abm_disconnected.");
   set_period_size_request = 0;
   set_buffer_size_request = 0;
   config.alsa_use_hardware_mute = 0; // don't use it by default
@@ -1166,7 +1166,7 @@ int do_play(void *buf, int samples) {
         }
 
         const uint64_t start_measurement_from_this_frame =
-            (2 * config.output_rate) / 352; // two seconds of framesÉ
+            (2 * config.output_rate) / 352; // two seconds of frames
 
         frame_index++;
 
@@ -1462,14 +1462,14 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
     if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
       // open the dac and move to abm_connected mode
       if (do_open() == 0)
-        debug(1, "alsa: alsa_buffer_monitor_thread_code() -- output device opened; alsa_backend_state => abm_connected");
+        debug(2, "alsa: alsa_buffer_monitor_thread_code() -- output device opened; alsa_backend_state => abm_connected");
     } else if ((alsa_backend_state == abm_connected) && (config.keep_dac_busy == 0)) {
       stall_monitor_start_time = 0;
       frame_index = 0;
       measurement_data_is_valid = 0;
-      debug(1, "alsa: alsa_buffer_monitor_thread_code() -- closing the output device");
+      debug(2, "alsa: alsa_buffer_monitor_thread_code() -- closing the output device");
       do_close();
-      debug(1, "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state => abm_disconnected");
+      debug(2, "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state => abm_disconnected");
     }
     // now, if the backend is not in the abm_disconnected state
     // and config.keep_dac_busy is true (at the present, this has to be the case to be in the

@@ -11,3 +11,4 @@ Shairport Sync runs on Linux and FreeBSD. It does not support AirPlay video or p
 This is the very unstable "transit" branch. It is used to move unfinished or untested code between development sites.
 
 To access the stable version, where changes are made after due time, please switch to the "master" branch.
+
