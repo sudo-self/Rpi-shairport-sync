@@ -219,7 +219,7 @@ char *metadata_write_image_file(const char *buf, int len) {
   uint8_t img_md5[16];
   // uint8_t ap_md5[16];
 
-#ifdef CONFIG_SSL
+#ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
   MD5_Init(&ctx);
   MD5_Update(&ctx, buf, len);
