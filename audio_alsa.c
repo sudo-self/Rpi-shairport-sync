@@ -1248,7 +1248,7 @@ int do_close() {
       debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
 
     // flush also closes the device
-    debug(2, "closing alsa handle");
+    debug(2, "alsa: do_close() -- closing alsa handle");
     if ((derr = snd_pcm_close(alsa_handle)))
       debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
     alsa_handle = NULL;
