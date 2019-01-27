@@ -634,7 +634,7 @@ static int init(int argc, char **argv) {
   // set up default values first
 
   alsa_backend_state = abm_disconnected; // startup state
-  debug(1, "alsa: init() -- alsa_backend_state => abm_disconnected.");
+  debug(2, "alsa: init() -- alsa_backend_state => abm_disconnected.");
   set_period_size_request = 0;
   set_buffer_size_request = 0;
   config.alsa_use_hardware_mute = 0; // don't use it by default
@@ -1166,7 +1166,7 @@ int do_play(void *buf, int samples) {
         }
 
         const uint64_t start_measurement_from_this_frame =
-            (2 * config.output_rate) / 352; // two seconds of framesÉ
+            (2 * config.output_rate) / 352; // two seconds of frames
 
         frame_index++;
 
@@ -1248,7 +1248,7 @@ int do_close() {
       debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
 
     // flush also closes the device
-    debug(1, "closing alsa handle");
+    debug(2, "closing alsa handle");
     if ((derr = snd_pcm_close(alsa_handle)))
       debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
     alsa_handle = NULL;
@@ -1273,12 +1273,12 @@ int play(void *buf, int samples) {
   if (alsa_backend_state == abm_disconnected) {
     ret = do_open();
     if (ret == 0)
-      debug(1, "alsa: play() -- opened output device");
+      debug(2, "alsa: play() -- opened output device");
  }
 
   if (ret == 0) {
     if (alsa_backend_state != abm_playing) {
-      debug(1, "alsa: play() -- alsa_backend_state => abm_playing");
+      debug(2, "alsa: play() -- alsa_backend_state => abm_playing");
       alsa_backend_state = abm_playing;
     }
     ret = do_play(buf, samples);
@@ -1295,15 +1295,15 @@ static void flush(void) {
   do_mute(1);
   if (alsa_backend_state != abm_disconnected) { // must be playing or connected...
     if (config.keep_dac_busy != 0) {
-      debug(1, "alsa: flush() -- alsa_backend_state => abm_connected.");
+      debug(2, "alsa: flush() -- alsa_backend_state => abm_connected.");
       alsa_backend_state = abm_connected;
     } else {
-      debug(1, "alsa: flush() -- closing the output device");
+      debug(2, "alsa: flush() -- closing the output device");
       do_close(); // will change the state to disconnected
-      debug(1, "alsa: flush() -- alsa_backend_state => abm_disconnected.");
+      debug(2, "alsa: flush() -- alsa_backend_state => abm_disconnected.");
     }
   } else
-    debug(1, "alsa: flush() -- called on a disconnected alsa backend");
+    debug(3, "alsa: flush() -- called on a disconnected alsa backend");
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
 }
@@ -1462,14 +1462,14 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
     if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
       // open the dac and move to abm_connected mode
       if (do_open() == 0)
-        debug(1, "alsa: alsa_buffer_monitor_thread_code() -- output device opened; alsa_backend_state => abm_connected");
+        debug(2, "alsa: alsa_buffer_monitor_thread_code() -- output device opened; alsa_backend_state => abm_connected");
     } else if ((alsa_backend_state == abm_connected) && (config.keep_dac_busy == 0)) {
       stall_monitor_start_time = 0;
       frame_index = 0;
       measurement_data_is_valid = 0;
-      debug(1, "alsa: alsa_buffer_monitor_thread_code() -- closing the output device");
+      debug(2, "alsa: alsa_buffer_monitor_thread_code() -- closing the output device");
       do_close();
-      debug(1, "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state => abm_disconnected");
+      debug(2, "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state => abm_disconnected");
     }
     // now, if the backend is not in the abm_disconnected state
     // and config.keep_dac_busy is true (at the present, this has to be the case to be in the
