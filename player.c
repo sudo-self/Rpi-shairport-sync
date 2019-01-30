@@ -2692,10 +2692,12 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
       }
       
       
-      if (((volume_mode == vol_hw_only) || (volume_mode == vol_both)) && (config.output->volume))
+      if (((volume_mode == vol_hw_only) || (volume_mode == vol_both)) && (config.output->volume)) {
         config.output->volume(hardware_attenuation); // otherwise set the output to the lowest value
         // debug(1,"Hardware attenuation set to %f for airplay volume of
         // %f.",hardware_attenuation,airplay_volume);
+        conn->fix_volume = 0x10000;
+      }
     
       if ((volume_mode == vol_sw_only) || (volume_mode == vol_both)) {
         double temp_fix_volume = 65536.0 * pow(10, software_attenuation / 2000);

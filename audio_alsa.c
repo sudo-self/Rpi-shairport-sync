@@ -977,10 +977,8 @@ static int init(int argc, char **argv) {
   }
 
   debug(1, "alsa: output device name is \"%s\".", alsa_out_dev);
-  
-  do_alsa_device_init_if_needed();
-  
-  alsa_mix_handle = NULL;
+    
+  alsa_mix_handle = NULL; // indicates alsa handle isn't open
 
   // so, now, if the option to keep the DAC running has been selected, start a thread to monitor the
   // length of the queue
@@ -1297,6 +1295,7 @@ int play(void *buf, int samples) {
     if (alsa_backend_state != abm_playing) {
       debug(2, "alsa: play() -- alsa_backend_state => abm_playing");
       alsa_backend_state = abm_playing;
+      do_mute(0);
     }
     ret = do_play(buf, samples);
   }
@@ -1399,6 +1398,7 @@ static void linear_volume(double vol) {
 */
 
 int mute(int mute_state_requested) {
+  debug(1,"alsa: mute(%d)",mute_state_requested);
   int response = 0;
   if (config.alsa_use_hardware_mute == 1)
     response = 1; // return true if actually using the mute facility
@@ -1413,7 +1413,7 @@ int mute(int mute_state_requested) {
 }
 
 void do_mute(int mute_state_requested) {
-  debug(3, "Setting mute to %d.", mute_state_requested);
+  debug(1, "alsa: do_mute(%d).", mute_state_requested);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
 
@@ -1468,13 +1468,13 @@ void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void *a
 
 void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
   while (1) {
-    int sleep_time_ms = (int)(config.audio_backend_silence_scan_interval * 1000);
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 20000, 1);
-    // check possible state transitions here
     if ((config.keep_dac_busy != 0) && (alsa_device_initialised == 0)) {
       debug(1,"alsa: alsa_buffer_monitor_thread_code() calling do_alsa_device_init_if_needed.");
       do_alsa_device_init_if_needed();
     }
+    int sleep_time_ms = (int)(config.audio_backend_silence_scan_interval * 1000);
+    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 20000, 1);
+    // check possible state transitions here
     if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
       // open the dac and move to abm_connected mode
       if (do_open() == 0)
