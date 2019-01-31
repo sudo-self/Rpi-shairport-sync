@@ -51,7 +51,6 @@ static int play(void *buf, int samples);
 static void stop(void);
 static void flush(void);
 int delay(long *the_delay);
-void do_mute(int request);
 int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
 void *alsa_buffer_monitor_thread_code(void *arg);
 
@@ -61,7 +60,7 @@ void do_volume(double vol);
 static void parameters(audio_parameters *info);
 int mute(int do_mute); // returns true if it actually is allowed to use the mute
 static double set_volume;
-static int output_method_signalled = 0;
+static int output_method_signalled = 0; // for reporting whether it's using mmap or not
 
 audio_output audio_alsa = {
     .name = "alsa",
@@ -75,25 +74,40 @@ audio_output audio_alsa = {
     .delay = &delay,
     .play = &play,
     .rate_info = &get_rate_information,
-    .mute = NULL,   // a function will be provided if it can, and is allowed to, do hardware mute
-    .volume = NULL, // a function will be provided if it can do hardware volume
+    .mute = NULL,        // a function will be provided if it can, and is allowed to,
+                         // do hardware mute
+    .volume = NULL,      // a function will be provided if it can do hardware volume
     .parameters = NULL}; // a function will be provided if it can do hardware volume
 
 static pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t alsa_buffer_monitor_thread;
 
+// for deciding when to activate mute
+// there are two sources of requests to mute -- the backend itself, e.g. when it
+// is flushing
+// and the player, e.g. when volume goes down to -144, i.e. mute.
+
+// we may not be allowed to use hardware mute, so we must reflect that too.
+
+int mute_requested_externally = 0;
+int mute_requested_internally = 0;
+
 // for tracking how long the output device has stalled
-uint64_t stall_monitor_start_time;      // zero if not initialised / not started / zeroed by flush
-long stall_monitor_frame_count;         // set to delay at start of time, incremented by any writes
-uint64_t stall_monitor_error_threshold; // if the time is longer than this, it's an error
+uint64_t stall_monitor_start_time;      // zero if not initialised / not started /
+                                        // zeroed by flush
+long stall_monitor_frame_count;         // set to delay at start of time, incremented by
+                                        // any writes
+uint64_t stall_monitor_error_threshold; // if the time is longer than this, it's
+                                        // an error
 
 static snd_output_t *output = NULL;
 static unsigned int desired_sample_rate;
 static enum sps_format_t sample_format;
 int frame_size; // in bytes for interleaved stereo
 
-int alsa_device_initialised; // boolean to ensure the initialisation is only done once
+int alsa_device_initialised; // boolean to ensure the initialisation is only
+                             // done once
 snd_pcm_t *alsa_handle = NULL;
 static snd_pcm_hw_params_t *alsa_params = NULL;
 static snd_pcm_sw_params_t *alsa_swparams = NULL;
@@ -114,13 +128,13 @@ static int has_softvol = 0;
 
 int64_t dither_random_number_store = 0;
 
-static int volume_set_request = 0;       // set when an external request is made to set the volume.
-int mute_request_pending = 0;            //  set when an external request is made to mute or unmute.
-int overriding_mute_state_requested = 0; // 1 = mute; 0 = unmute requested
-int mixer_volume_setting_gives_mute =
-    0;              // set when it is discovered that particular mixer volume setting causes a mute.
-long alsa_mix_mute; // setting the volume to this value mutes output, if
-                    // mixer_volume_setting_gives_mute is true
+static int volume_set_request = 0; // set when an external request is made to set the volume.
+
+int mixer_volume_setting_gives_mute = 0; // set when it is discovered that
+                                         // particular mixer volume setting
+                                         // causes a mute.
+long alsa_mix_mute;                      // setting the volume to this value mutes output, if
+                                         // mixer_volume_setting_gives_mute is true
 int volume_based_mute_is_active =
     0; // set when muting is being done by a setting the volume to a magic value
 
@@ -223,8 +237,9 @@ void actual_close_alsa_device() {
   if (alsa_handle) {
     int derr;
     if ((derr = snd_pcm_hw_free(alsa_handle)))
-      debug(1, "Error %d (\"%s\") freeing the output device hardware while closing it.", derr,
-            snd_strerror(derr));
+      debug(1, "Error %d (\"%s\") freeing the output device hardware while "
+               "closing it.",
+            derr, snd_strerror(derr));
 
     if ((derr = snd_pcm_close(alsa_handle)))
       debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
@@ -241,7 +256,8 @@ int actual_open_alsa_device(void) {
                /*
                  const snd_pcm_uframes_t requested_buffer_headroom =
                      minimal_buffer_headroom + 2048; // we ask for this much headroom in the
-                                                     // hardware buffer, but we'll accept less
+                                                     // hardware buffer, but we'll accept
+                 less
                */
 
   int ret, dir = 0;
@@ -250,17 +266,20 @@ int actual_open_alsa_device(void) {
   snd_pcm_uframes_t actual_buffer_length;
   snd_pcm_access_t access;
 
-  // ensure no calls are made to the alsa device enquiring about the buffer length if
+  // ensure no calls are made to the alsa device enquiring about the buffer
+  // length if
   // synchronisation is disabled.
   if (config.no_sync != 0)
     audio_alsa.delay = NULL;
 
-  // ensure no calls are made to the alsa device enquiring about the buffer length if
+  // ensure no calls are made to the alsa device enquiring about the buffer
+  // length if
   // synchronisation is disabled.
   if (config.no_sync != 0)
     audio_alsa.delay = NULL;
 
-  // ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK);
+  // ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK,
+  // SND_PCM_NONBLOCK);
   ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK, 0);
   if (ret < 0)
     return ret;
@@ -369,7 +388,8 @@ int actual_open_alsa_device(void) {
       snd_pcm_uframes_t actual_period_size;
       snd_pcm_hw_params_get_period_size(alsa_params, &actual_period_size, &dir);
       if (actual_period_size != period_size_requested)
-        inform("Actual period size set to a different value than requested. Requested: %lu, actual "
+        inform("Actual period size set to a different value than requested. "
+               "Requested: %lu, actual "
                "setting: %lu",
                period_size_requested, actual_period_size);
     }
@@ -386,7 +406,8 @@ int actual_open_alsa_device(void) {
       snd_pcm_uframes_t actual_buffer_size;
       snd_pcm_hw_params_get_buffer_size(alsa_params, &actual_buffer_size);
       if (actual_buffer_size != buffer_size_requested)
-        inform("Actual period size set to a different value than requested. Requested: %lu, actual "
+        inform("Actual period size set to a different value than requested. "
+               "Requested: %lu, actual "
                "setting: %lu",
                buffer_size_requested, actual_buffer_size);
     }
@@ -405,7 +426,8 @@ int actual_open_alsa_device(void) {
     snd_pcm_uframes_t actual_period_size;
     snd_pcm_hw_params_get_period_size(alsa_params, &actual_period_size, &dir);
     if (actual_period_size != period_size_requested)
-      inform("Actual period size set to a different value than requested. Requested: %lu, actual "
+      inform("Actual period size set to a different value than requested. "
+             "Requested: %lu, actual "
              "setting: %lu",
              period_size_requested, actual_period_size);
   }
@@ -414,7 +436,8 @@ int actual_open_alsa_device(void) {
     snd_pcm_uframes_t actual_buffer_size;
     snd_pcm_hw_params_get_buffer_size(alsa_params, &actual_buffer_size);
     if (actual_buffer_size != buffer_size_requested)
-      inform("Actual period size set to a different value than requested. Requested: %lu, actual "
+      inform("Actual period size set to a different value than requested. "
+             "Requested: %lu, actual "
              "setting: %lu",
              buffer_size_requested, actual_buffer_size);
   }
@@ -433,8 +456,9 @@ int actual_open_alsa_device(void) {
 
   ret = snd_pcm_sw_params_current(alsa_handle, alsa_swparams);
   if (ret < 0) {
-    warn("audio_alsa: Unable to get current sw parameters for device \"%s\": %s.", alsa_out_dev,
-         snd_strerror(ret));
+    warn("audio_alsa: Unable to get current sw parameters for device \"%s\": "
+         "%s.",
+         alsa_out_dev, snd_strerror(ret));
     return ret;
   }
 
@@ -476,9 +500,9 @@ int actual_open_alsa_device(void) {
           buffer_size);
     }
     */
-    debug(1,
-          "The alsa buffer is smaller (%lu bytes) than the desired backend buffer "
-          "length (%ld) you have chosen.",
+    debug(1, "The alsa buffer is smaller (%lu bytes) than the desired backend "
+             "buffer "
+             "length (%ld) you have chosen.",
           actual_buffer_length, config.audio_backend_buffer_desired_length);
   }
 
@@ -499,7 +523,10 @@ int actual_open_alsa_device(void) {
 
     //			ret = snd_pcm_hw_params_any(alsa_handle, alsa_params);
     //			if (ret < 0) {
-    //				die("audio_alsa: Cannpot get configuration for device \"%s\": no
+    //				die("audio_alsa: Cannpot get configuration for
+    // device
+    //\"%s\":
+    // no
     // configurations
     //"
     //						"available",
@@ -622,105 +649,116 @@ int open_alsa_device(void) {
 }
 
 int do_alsa_device_init_if_needed() {
-  debug(1,"do_alsa_device_init_if_needed()");
+  debug(1, "do_alsa_device_init_if_needed()");
   int response = 0;
   // do any alsa device initialisation (general case) if needed
   // at present, this is only needed if a hardware mixer is being used
   // if there's a hardware mixer, it needs to be initialised before first use
   if (alsa_device_initialised == 0) {
-  alsa_device_initialised = 1;
-  if (hardware_mixer) {
-    int oldState;
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+    alsa_device_initialised = 1;
+    if (hardware_mixer) {
+      int oldState;
+      pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
 
-    if (alsa_mix_dev == NULL)
-      alsa_mix_dev = alsa_out_dev;
+      if (alsa_mix_dev == NULL)
+        alsa_mix_dev = alsa_out_dev;
 
-    // Now, start trying to initialise the alsa device with the settings obtained
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 1000, 1);
-    if (open_mixer() == 1) {
-      if (snd_mixer_selem_get_playback_volume_range(alsa_mix_elem, &alsa_mix_minv, &alsa_mix_maxv) <
-          0)
-        debug(1, "Can't read mixer's [linear] min and max volumes.");
-      else {
-        if (snd_mixer_selem_get_playback_dB_range(alsa_mix_elem, &alsa_mix_mindb,
-                                                  &alsa_mix_maxdb) == 0) {
+      // Now, start trying to initialise the alsa device with the settings
+      // obtained
+      pthread_cleanup_debug_mutex_lock(&alsa_mutex, 1000, 1);
+      if (open_mixer() == 1) {
+        if (snd_mixer_selem_get_playback_volume_range(alsa_mix_elem, &alsa_mix_minv,
+                                                      &alsa_mix_maxv) < 0)
+          debug(1, "Can't read mixer's [linear] min and max volumes.");
+        else {
+          if (snd_mixer_selem_get_playback_dB_range(alsa_mix_elem, &alsa_mix_mindb,
+                                                    &alsa_mix_maxdb) == 0) {
 
-          audio_alsa.volume = &volume; // insert the volume function now we know it can do dB stuff
-          audio_alsa.parameters = &parameters; // likewise the parameters stuff
-          if (alsa_mix_mindb == SND_CTL_TLV_DB_GAIN_MUTE) {
-            // For instance, the Raspberry Pi does this
-            debug(1, "Lowest dB value is a mute");
-            mixer_volume_setting_gives_mute = 1;
-            alsa_mix_mute = SND_CTL_TLV_DB_GAIN_MUTE; // this may not be necessary -- it's always
-            // going to be SND_CTL_TLV_DB_GAIN_MUTE, right?
-            // debug(1, "Try minimum volume + 1 as lowest true attenuation value");
-            if (snd_mixer_selem_ask_playback_vol_dB(alsa_mix_elem, alsa_mix_minv + 1,
-                                                    &alsa_mix_mindb) != 0)
-              debug(1, "Can't get dB value corresponding to a minimum volume + 1.");
-          }
-          debug(1, "Hardware mixer has dB volume from %f to %f.", (1.0 * alsa_mix_mindb) / 100.0,
-                (1.0 * alsa_mix_maxdb) / 100.0);
-        } else {
-          // use the linear scale and do the db conversion ourselves
-          warn("The hardware mixer specified -- \"%s\" -- does not have "
-               "a dB volume scale.",
-               alsa_mix_ctrl);
-
-          if (snd_ctl_open(&ctl, alsa_mix_dev, 0) < 0) {
-            warn("Cannot open control \"%s\"", alsa_mix_dev);
-            response = -1;
-          }
-          if (snd_ctl_elem_id_malloc(&elem_id) < 0) {
-            debug(1, "Cannot allocate memory for control \"%s\"", alsa_mix_dev);
-            elem_id = NULL;
-            response = -2;
-          } else {
-            snd_ctl_elem_id_set_interface(elem_id, SND_CTL_ELEM_IFACE_MIXER);
-            snd_ctl_elem_id_set_name(elem_id, alsa_mix_ctrl);
-
-            if (snd_ctl_get_dB_range(ctl, elem_id, &alsa_mix_mindb, &alsa_mix_maxdb) == 0) {
-              debug(1, "alsa: hardware mixer \"%s\" selected, with dB volume from %f to %f.",
-                    alsa_mix_ctrl, (1.0 * alsa_mix_mindb) / 100.0, (1.0 * alsa_mix_maxdb) / 100.0);
-              has_softvol = 1;
-              audio_alsa.volume =
-                  &volume; // insert the volume function now we know it can do dB stuff
-              audio_alsa.parameters = &parameters; // likewise the parameters stuff
-            } else {
-              debug(1, "Cannot get the dB range from the volume control \"%s\"", alsa_mix_ctrl);
+            audio_alsa.volume = &volume;         // insert the volume function now we
+                                                 // know it can do dB stuff
+            audio_alsa.parameters = &parameters; // likewise the parameters stuff
+            if (alsa_mix_mindb == SND_CTL_TLV_DB_GAIN_MUTE) {
+              // For instance, the Raspberry Pi does this
+              debug(1, "Lowest dB value is a mute");
+              mixer_volume_setting_gives_mute = 1;
+              alsa_mix_mute = SND_CTL_TLV_DB_GAIN_MUTE; // this may not be
+                                                        // necessary -- it's
+                                                        // always
+              // going to be SND_CTL_TLV_DB_GAIN_MUTE, right?
+              // debug(1, "Try minimum volume + 1 as lowest true attenuation
+              // value");
+              if (snd_mixer_selem_ask_playback_vol_dB(alsa_mix_elem, alsa_mix_minv + 1,
+                                                      &alsa_mix_mindb) != 0)
+                debug(1, "Can't get dB value corresponding to a minimum volume "
+                         "+ 1.");
             }
-          }
-          /*
-          debug(1, "Min and max volumes are %d and
-          %d.",alsa_mix_minv,alsa_mix_maxv);
-          alsa_mix_maxdb = 0;
-          if ((alsa_mix_maxv!=0) && (alsa_mix_minv!=0))
-            alsa_mix_mindb =
-          -20*100*(log10(alsa_mix_maxv*1.0)-log10(alsa_mix_minv*1.0));
-          else if (alsa_mix_maxv!=0)
-            alsa_mix_mindb = -20*100*log10(alsa_mix_maxv*1.0);
-          audio_alsa.volume = &linear_volume; // insert the linear volume function
-          audio_alsa.parameters = &parameters; // likewise the parameters stuff
-          debug(1,"Max and min dB calculated are %d and
-          %d.",alsa_mix_maxdb,alsa_mix_mindb);
-          */
-        }
-      }
-      if (((config.alsa_use_hardware_mute == 1) &&
-           (snd_mixer_selem_has_playback_switch(alsa_mix_elem))) ||
-          mixer_volume_setting_gives_mute) {
-        audio_alsa.mute = &mute; // insert the mute function now we know it can do muting stuff
-        // debug(1, "Has mixer and mute ability we will use.");
-      } else {
-        // debug(1, "Has mixer but not using hardware mute.");
-      }
-      close_mixer();
-    }
-    debug_mutex_unlock(&alsa_mutex, 3); // release the mutex
+            debug(1, "Hardware mixer has dB volume from %f to %f.", (1.0 * alsa_mix_mindb) / 100.0,
+                  (1.0 * alsa_mix_maxdb) / 100.0);
+          } else {
+            // use the linear scale and do the db conversion ourselves
+            warn("The hardware mixer specified -- \"%s\" -- does not have "
+                 "a dB volume scale.",
+                 alsa_mix_ctrl);
 
-    pthread_cleanup_pop(0);
-    pthread_setcancelstate(oldState, NULL);
-  }
+            if (snd_ctl_open(&ctl, alsa_mix_dev, 0) < 0) {
+              warn("Cannot open control \"%s\"", alsa_mix_dev);
+              response = -1;
+            }
+            if (snd_ctl_elem_id_malloc(&elem_id) < 0) {
+              debug(1, "Cannot allocate memory for control \"%s\"", alsa_mix_dev);
+              elem_id = NULL;
+              response = -2;
+            } else {
+              snd_ctl_elem_id_set_interface(elem_id, SND_CTL_ELEM_IFACE_MIXER);
+              snd_ctl_elem_id_set_name(elem_id, alsa_mix_ctrl);
+
+              if (snd_ctl_get_dB_range(ctl, elem_id, &alsa_mix_mindb, &alsa_mix_maxdb) == 0) {
+                debug(1, "alsa: hardware mixer \"%s\" selected, with dB volume "
+                         "from %f to %f.",
+                      alsa_mix_ctrl, (1.0 * alsa_mix_mindb) / 100.0,
+                      (1.0 * alsa_mix_maxdb) / 100.0);
+                has_softvol = 1;
+                audio_alsa.volume = &volume;         // insert the volume function now
+                                                     // we know it can do dB stuff
+                audio_alsa.parameters = &parameters; // likewise the parameters stuff
+              } else {
+                debug(1, "Cannot get the dB range from the volume control \"%s\"", alsa_mix_ctrl);
+              }
+            }
+            /*
+            debug(1, "Min and max volumes are %d and
+            %d.",alsa_mix_minv,alsa_mix_maxv);
+            alsa_mix_maxdb = 0;
+            if ((alsa_mix_maxv!=0) && (alsa_mix_minv!=0))
+              alsa_mix_mindb =
+            -20*100*(log10(alsa_mix_maxv*1.0)-log10(alsa_mix_minv*1.0));
+            else if (alsa_mix_maxv!=0)
+              alsa_mix_mindb = -20*100*log10(alsa_mix_maxv*1.0);
+            audio_alsa.volume = &linear_volume; // insert the linear volume
+            function
+            audio_alsa.parameters = &parameters; // likewise the parameters
+            stuff
+            debug(1,"Max and min dB calculated are %d and
+            %d.",alsa_mix_maxdb,alsa_mix_mindb);
+            */
+          }
+        }
+        if (((config.alsa_use_hardware_mute == 1) &&
+             (snd_mixer_selem_has_playback_switch(alsa_mix_elem))) ||
+            mixer_volume_setting_gives_mute) {
+          audio_alsa.mute = &mute; // insert the mute function now we know it
+                                   // can do muting stuff
+          // debug(1, "Has mixer and mute ability we will use.");
+        } else {
+          // debug(1, "Has mixer but not using hardware mute.");
+        }
+        close_mixer();
+      }
+      debug_mutex_unlock(&alsa_mutex, 3); // release the mutex
+
+      pthread_cleanup_pop(0);
+      pthread_setcancelstate(oldState, NULL);
+    }
   }
   return response;
 }
@@ -766,7 +804,8 @@ static int init(int argc, char **argv) {
   // get settings from settings file first, allow them to be overridden by
   // command line options
 
-  // do the "general" audio  options. Note, these options are in the "general" stanza!
+  // do the "general" audio  options. Note, these options are in the "general"
+  // stanza!
   parse_general_audio_options();
 
   if (config.cfg != NULL) {
@@ -803,7 +842,8 @@ static int init(int argc, char **argv) {
       else if (strcasecmp(str, "yes") == 0)
         config.no_sync = 1;
       else {
-        warn("Invalid disable_synchronization option choice \"%s\". It should be \"yes\" or "
+        warn("Invalid disable_synchronization option choice \"%s\". It should "
+             "be \"yes\" or "
              "\"no\". It is set to \"no\".");
         config.no_sync = 0;
       }
@@ -818,7 +858,8 @@ static int init(int argc, char **argv) {
       else if (strcasecmp(str, "yes") == 0)
         config.alsa_use_hardware_mute = 1;
       else {
-        warn("Invalid mute_using_playback_switch option choice \"%s\". It should be \"yes\" or "
+        warn("Invalid mute_using_playback_switch option choice \"%s\". It "
+             "should be \"yes\" or "
              "\"no\". It is set to \"no\".");
         config.alsa_use_hardware_mute = 0;
       }
@@ -831,7 +872,8 @@ static int init(int argc, char **argv) {
       else if (strcasecmp(str, "yes") == 0)
         config.alsa_use_hardware_mute = 1;
       else {
-        warn("Invalid use_hardware_mute_if_available option choice \"%s\". It should be \"yes\" or "
+        warn("Invalid use_hardware_mute_if_available option choice \"%s\". It "
+             "should be \"yes\" or "
              "\"no\". It is set to \"no\".");
         config.alsa_use_hardware_mute = 0;
       }
@@ -854,7 +896,8 @@ static int init(int argc, char **argv) {
       else if (strcasecmp(str, "S8") == 0)
         config.output_format = SPS_FORMAT_S8;
       else {
-        warn("Invalid output format \"%s\". It should be \"U8\", \"S8\", \"S16\", \"S24\", "
+        warn("Invalid output format \"%s\". It should be \"U8\", \"S8\", "
+             "\"S16\", \"S24\", "
              "\"S24_3LE\", \"S24_3BE\" or "
              "\"S32\". It is set to \"S16\".",
              str);
@@ -873,7 +916,8 @@ static int init(int argc, char **argv) {
         config.output_rate = value;
         break;
       default:
-        warn("Invalid output rate \"%d\". It should be a multiple of 44,100 up to 352,800. It is "
+        warn("Invalid output rate \"%d\". It should be a multiple of 44,100 up "
+             "to 352,800. It is "
              "set to 44,100",
              value);
         config.output_rate = 44100;
@@ -887,7 +931,8 @@ static int init(int argc, char **argv) {
       else if (strcasecmp(str, "yes") == 0)
         config.no_mmap = 0;
       else {
-        warn("Invalid use_mmap_if_available option choice \"%s\". It should be \"yes\" or \"no\". "
+        warn("Invalid use_mmap_if_available option choice \"%s\". It should be "
+             "\"yes\" or \"no\". "
              "It is set to \"yes\".");
         config.no_mmap = 0;
       }
@@ -977,10 +1022,11 @@ static int init(int argc, char **argv) {
   }
 
   debug(1, "alsa: output device name is \"%s\".", alsa_out_dev);
-    
+
   alsa_mix_handle = NULL; // indicates alsa handle isn't open
 
-  // so, now, if the option to keep the DAC running has been selected, start a thread to monitor the
+  // so, now, if the option to keep the DAC running has been selected, start a
+  // thread to monitor the
   // length of the queue
   // if the queue gets too short, stuff it with silence
 
@@ -1005,8 +1051,39 @@ static void deinit(void) {
   pthread_setcancelstate(oldState, NULL);
 }
 
+int set_mute_state() {
+  debug(1, "set_mute_state");
+  int response = 1; // some problem expected, e.g. no mixer or not allowed to use it
+  if (config.alsa_use_hardware_mute == 1) {
+    int mute = 0;
+    if ((mute_requested_externally != 0) || (mute_requested_internally != 0))
+      mute = 1;
+    if (open_mixer() == 1) {
+      response = 0; // okay if actually using the mute facility
+      if (mute == 1) {
+        debug(1, "Hardware mute switched on");
+        if (snd_mixer_selem_has_playback_switch(alsa_mix_elem))
+          snd_mixer_selem_set_playback_switch_all(alsa_mix_elem, 0);
+        else {
+          volume_based_mute_is_active = 1;
+          do_snd_mixer_selem_set_playback_dB_all(alsa_mix_elem, alsa_mix_mute);
+        }
+      } else {
+        debug(1, "Hardware mute switched off");
+        if (snd_mixer_selem_has_playback_switch(alsa_mix_elem))
+          snd_mixer_selem_set_playback_switch_all(alsa_mix_elem, 1);
+        else {
+          volume_based_mute_is_active = 0;
+          do_snd_mixer_selem_set_playback_dB_all(alsa_mix_elem, set_volume);
+        }
+      }
+      close_mixer();
+    }
+  }
+  return response;
+}
 static void start(int i_sample_rate, int i_sample_format) {
-  debug(1,"audio_alsa start called.");
+  debug(1, "audio_alsa start called.");
   if (i_sample_rate == 0)
     desired_sample_rate = 44100; // default
   else
@@ -1023,7 +1100,7 @@ static void start(int i_sample_rate, int i_sample_format) {
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
   if (alsa_device_initialised == 0) {
-    debug(1,"alsa: start() calling do_alsa_device_init_if_needed.");
+    debug(1, "alsa: start() calling do_alsa_device_init_if_needed.");
     do_alsa_device_init_if_needed();
   }
 }
@@ -1065,10 +1142,9 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
 
         if (((update_timestamp_ns - stall_monitor_start_time) > stall_monitor_error_threshold) ||
             ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
-          debug(2,
-                "DAC seems to have stalled with time_now_ns: %" PRIX64
-                ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
-                ", stall_monitor_error_threshold %" PRIX64 ".",
+          debug(2, "DAC seems to have stalled with time_now_ns: %" PRIX64
+                   ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
+                   ", stall_monitor_error_threshold %" PRIX64 ".",
                 time_now_ns, update_timestamp_ns, stall_monitor_start_time,
                 stall_monitor_error_threshold);
           ret = sps_extra_code_output_stalled;
@@ -1088,12 +1164,14 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
 
         *delay = *delay - frames_played_since_last_interrupt_sized;
       }
-    } else { // not running, thus no delay information, thus can't check for stall
+    } else { // not running, thus no delay information, thus can't check for
+             // stall
       *delay = 0;
       stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
       stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
 
-      // not running, thus no delay information, thus can't check for frame rates
+      // not running, thus no delay information, thus can't check for frame
+      // rates
       frame_index = 0; // we'll be starting over...
       measurement_data_is_valid = 0;
     }
@@ -1104,13 +1182,15 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
 }
 
 int delay(long *the_delay) {
-  // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or SND_PCM_STATE_PREPARED
+  // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or
+  // SND_PCM_STATE_PREPARED
   // or SND_PCM_STATE_DRAINING
   // and returns the actual delay if running or 0 if prepared in *the_delay
 
   // otherwise return an error code
   // the error code could be a Unix errno code or a snderror code, or
-  // the sps_extra_code_output_stalled or the sps_extra_code_output_state_cannot_make_ready codes
+  // the sps_extra_code_output_stalled or the
+  // sps_extra_code_output_state_cannot_make_ready codes
   int ret = 0;
   *the_delay = 0;
   if (alsa_handle == NULL)
@@ -1212,7 +1292,8 @@ int do_play(void *buf, int samples) {
           while ((ret = snd_pcm_resume(alsa_handle)) == -EAGAIN) {
             sleep(1); /* wait until the suspend flag is released */
             if (ret < 0) {
-              warn("alsa: can't recover from SND_PCM_STATE_SUSPENDED state, snd_pcm_prepare() "
+              warn("alsa: can't recover from SND_PCM_STATE_SUSPENDED state, "
+                   "snd_pcm_prepare() "
                    "failed: %s.",
                    snd_strerror(ret));
             }
@@ -1221,8 +1302,9 @@ int do_play(void *buf, int samples) {
       }
     }
   } else {
-    debug(1, "alsa: device status returns fault status %d and SND_PCM_STATE_* %d  for play.", ret,
-          state);
+    debug(1, "alsa: device status returns fault status %d and SND_PCM_STATE_* "
+             "%d  for play.",
+          ret, state);
     frame_index = 0;
     measurement_data_is_valid = 0;
   }
@@ -1234,15 +1316,21 @@ int do_play(void *buf, int samples) {
 int do_open() {
   int ret = 0;
   if (alsa_backend_state != abm_disconnected)
-    debug(1, "alsa: do_open() -- opening the output device when it is already connected");
+    debug(1, "alsa: do_open() -- opening the output device when it is already "
+             "connected");
   if (alsa_handle == NULL) {
     // debug(1,"alsa: do_open() -- opening the output device");
     ret = open_alsa_device();
     if (ret == 0) {
+      mute_requested_internally = 0;
       if (audio_alsa.volume)
         do_volume(set_volume);
-      if (audio_alsa.mute)
-        do_mute(0);
+      if (audio_alsa.mute) {
+        debug(1, "do_open() set_mute_state");
+        set_mute_state(); // the mute_requested_externally flag will have been
+                          // set accordingly
+        // do_mute(0); // complete unmute
+      }
       alsa_backend_state = abm_connected; // only do this if it really opened it.
     }
   } else {
@@ -1253,7 +1341,8 @@ int do_open() {
 
 int do_close() {
   if (alsa_backend_state == abm_disconnected)
-    debug(1, "alsa: do_close() -- closing the output device when it is already disconnected");
+    debug(1, "alsa: do_close() -- closing the output device when it is already "
+             "disconnected");
   int derr = 0;
   if (alsa_handle) {
     // debug(1,"alsa: do_close() -- closing the output device");
@@ -1277,7 +1366,8 @@ int do_close() {
 int play(void *buf, int samples) {
 
   // play() will change the state of the alsa_backend_mode to abm_playing
-  // also, if the present alsa_backend_state is abm_disconnected, then first the DAC must be
+  // also, if the present alsa_backend_state is abm_disconnected, then first the
+  // DAC must be
   // connected
 
   // debug(3,"audio_alsa play called.");
@@ -1289,13 +1379,17 @@ int play(void *buf, int samples) {
     ret = do_open();
     if (ret == 0)
       debug(2, "alsa: play() -- opened output device");
- }
+  }
 
   if (ret == 0) {
     if (alsa_backend_state != abm_playing) {
       debug(2, "alsa: play() -- alsa_backend_state => abm_playing");
       alsa_backend_state = abm_playing;
-      do_mute(0);
+      mute_requested_internally = 0; // stop requesting a mute for backend's own
+                                     // reasons, which might have been a flush
+      debug(1, "play() set_mute_state");
+      set_mute_state(); // try to action the request and return a status
+      // do_mute(0); // unmute for backend's reason
     }
     ret = do_play(buf, samples);
   }
@@ -1308,7 +1402,10 @@ int play(void *buf, int samples) {
 static void flush(void) {
   // debug(2,"audio_alsa flush called.");
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
-  do_mute(1);
+  mute_requested_internally = 1; // request a mute for backend's reasons
+  debug(1, "flush() set_mute_state");
+  set_mute_state();
+  // do_mute(1); // mute for backend's own reasons
   if (alsa_backend_state != abm_disconnected) { // must be playing or connected...
     if (config.keep_dac_busy != 0) {
       debug(2, "alsa: flush() -- alsa_backend_state => abm_connected.");
@@ -1334,7 +1431,8 @@ static void parameters(audio_parameters *info) {
   info->maximum_volume_dB = alsa_mix_maxdb;
 }
 
-void do_volume(double vol) { // caller is assumed to have the alsa_mutex when using this function
+void do_volume(double vol) { // caller is assumed to have the alsa_mutex when
+                             // using this function
   debug(3, "Setting volume db to %f.", vol);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1386,7 +1484,8 @@ static void linear_volume(double vol) {
   if (hardware_mixer && alsa_mix_handle) {
     double linear_volume = pow(10, vol);
     // debug(1,"Linear volume is %f.",linear_volume);
-    long int_vol = alsa_mix_minv + (alsa_mix_maxv - alsa_mix_minv) * linear_volume;
+    long int_vol = alsa_mix_minv + (alsa_mix_maxv - alsa_mix_minv) *
+linear_volume;
     // debug(1,"Setting volume to %ld, for volume input of %f.",int_vol,vol);
     if (alsa_mix_handle) {
       if (snd_mixer_selem_set_playback_volume_all(alsa_mix_elem, int_vol) != 0)
@@ -1397,71 +1496,17 @@ static void linear_volume(double vol) {
 }
 */
 
-int mute(int mute_state_requested) {
-  debug(1,"alsa: mute(%d)",mute_state_requested);
-  int response = 0;
-  if (config.alsa_use_hardware_mute == 1)
-    response = 1; // return true if actually using the mute facility
-  // debug(1,"External Mute Request: %d",mute_state_requested);
-  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
-  mute_request_pending = 1;
-  overriding_mute_state_requested = mute_state_requested;
-  do_mute(mute_state_requested);
-  debug_mutex_unlock(&alsa_mutex, 3);
-  pthread_cleanup_pop(0); // release the mutex
-  return response;
+int mute(int mute_state_requested) { // these would be for external reasons, not
+                                     // because of the
+                                     // state of the backend.
+  debug(1, "alsa: mute(%d)", mute_state_requested);
+  mute_requested_externally = mute_state_requested; // request a mute for external reasons
+  debug(1, "mute(%d) set_mute_state", mute_state_requested);
+  return set_mute_state();
 }
-
-void do_mute(int mute_state_requested) {
-  debug(1, "alsa: do_mute(%d).", mute_state_requested);
-  int oldState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
-
-  // if a mute is requested now, then
-  // 	if an external mute request is in place, leave everything muted
-  //  otherwise, if an external mute request is pending, action it
-  //  otherwise, action the do_mute request
-
-  int local_mute_state_requested =
-      overriding_mute_state_requested; // go with whatever was asked by the external "mute" call
-
-  // The mute state requested will be actioned unless mute_request_pending is set
-  // If it is set, then that the pending request will be actioned.
-  // If the hardware isn't there, or we are not allowed to use it, nothing will be done
-  // The caller must have the alsa mutex
-
-  if (config.alsa_use_hardware_mute == 1) {
-    if (mute_request_pending == 0)
-      local_mute_state_requested = mute_state_requested;
-    if (open_mixer() == 1) {
-      if (local_mute_state_requested) {
-        // debug(1,"Playback Switch mute actually done");
-        if (snd_mixer_selem_has_playback_switch(alsa_mix_elem))
-          snd_mixer_selem_set_playback_switch_all(alsa_mix_elem, 0);
-        else {
-          // debug(1,"Activating volume-based mute.");
-          volume_based_mute_is_active = 1;
-          do_snd_mixer_selem_set_playback_dB_all(alsa_mix_elem, alsa_mix_mute);
-        }
-      } else if (overriding_mute_state_requested == 0) {
-        // debug(1,"Playback Switch unmute actually done");
-        if (snd_mixer_selem_has_playback_switch(alsa_mix_elem))
-          snd_mixer_selem_set_playback_switch_all(alsa_mix_elem, 1);
-        else {
-          // debug(1,"Deactivating volume-based mute.");
-          volume_based_mute_is_active = 0;
-          do_snd_mixer_selem_set_playback_dB_all(alsa_mix_elem, set_volume);
-        }
-      }
-      close_mixer();
-    }
-  }
-  mute_request_pending = 0;
-  pthread_setcancelstate(oldState, NULL);
-}
-
 /*
-void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void *arg) {
+void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
+*arg) {
   debug(1, "alsa: alsa_buffer_monitor_thread_cleanup_function called.");
 }
 */
@@ -1469,7 +1514,8 @@ void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void *a
 void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
   while (1) {
     if ((config.keep_dac_busy != 0) && (alsa_device_initialised == 0)) {
-      debug(1,"alsa: alsa_buffer_monitor_thread_code() calling do_alsa_device_init_if_needed.");
+      debug(1, "alsa: alsa_buffer_monitor_thread_code() calling "
+               "do_alsa_device_init_if_needed.");
       do_alsa_device_init_if_needed();
     }
     int sleep_time_ms = (int)(config.audio_backend_silence_scan_interval * 1000);
@@ -1478,18 +1524,23 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
     if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
       // open the dac and move to abm_connected mode
       if (do_open() == 0)
-        debug(2, "alsa: alsa_buffer_monitor_thread_code() -- output device opened; alsa_backend_state => abm_connected");
+        debug(2, "alsa: alsa_buffer_monitor_thread_code() -- output device opened; "
+                 "alsa_backend_state => abm_connected");
     } else if ((alsa_backend_state == abm_connected) && (config.keep_dac_busy == 0)) {
       stall_monitor_start_time = 0;
       frame_index = 0;
       measurement_data_is_valid = 0;
-      debug(2, "alsa: alsa_buffer_monitor_thread_code() -- closing the output device");
+      debug(2, "alsa: alsa_buffer_monitor_thread_code() -- closing the output "
+               "device");
       do_close();
-      debug(2, "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state => abm_disconnected");
+      debug(2, "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state "
+               "=> abm_disconnected");
     }
     // now, if the backend is not in the abm_disconnected state
-    // and config.keep_dac_busy is true (at the present, this has to be the case to be in the
-    // abm_connected state in the first place...) then do the silence-filling thing, if needed
+    // and config.keep_dac_busy is true (at the present, this has to be the case
+    // to be in the
+    // abm_connected state in the first place...) then do the silence-filling
+    // thing, if needed
     if ((alsa_backend_state != abm_disconnected) && (config.keep_dac_busy != 0)) {
       int reply;
       long buffer_size = 0;
@@ -1511,15 +1562,18 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
           sleep_time_in_fp = sleep_time_in_fp << 32;
           sleep_time_in_fp = sleep_time_in_fp / 1000;
           // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp
-          // form.",sleep_time_ms,sleep_time_in_fp); int frames_of_silence = (desired_sample_rate *
+          // form.",sleep_time_ms,sleep_time_in_fp); int frames_of_silence =
+          // (desired_sample_rate *
           // sleep_time_ms * 2) / 1000;
           int frames_of_silence = 1024;
           size_t size_of_silence_buffer = frames_of_silence * frame_size;
-          // debug(1, "alsa: alsa_buffer_monitor_thread_code -- silence buffer length: %u bytes.",
+          // debug(1, "alsa: alsa_buffer_monitor_thread_code -- silence buffer
+          // length: %u bytes.",
           //      size_of_silence_buffer);
           void *silence = malloc(size_of_silence_buffer);
           if (silence == NULL) {
-            debug(1, "alsa: alsa_buffer_monitor_thread_code -- failed to allocate memory for a "
+            debug(1, "alsa: alsa_buffer_monitor_thread_code -- failed to "
+                     "allocate memory for a "
                      "silent frame buffer.");
           } else {
             pthread_cleanup_push(malloc_cleanup, silence);
@@ -1527,10 +1581,12 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
             if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
                 (config.airplay_volume != 0.0))
               use_dither = 1;
-            dither_random_number_store = generate_zero_frames(
-                silence, frames_of_silence, config.output_format, use_dither, // i.e. with dither
-                dither_random_number_store);
-            // debug(1,"Play %d frames of silence with most_recent_write_time of %" PRIx64 ".",
+            dither_random_number_store =
+                generate_zero_frames(silence, frames_of_silence, config.output_format,
+                                     use_dither, // i.e. with dither
+                                     dither_random_number_store);
+            // debug(1,"Play %d frames of silence with most_recent_write_time of
+            // %" PRIx64 ".",
             //    frames_of_silence,most_recent_write_time);
             do_play(silence, frames_of_silence);
             pthread_cleanup_pop(1);

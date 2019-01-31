@@ -285,18 +285,16 @@ static int alac_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_co
   }
 
   if (outsize > toutsize) {
-    debug(2,
-          "Output from alac_decode larger (%d bytes, not frames) than expected (%d bytes) -- "
-          "truncated, but buffer overflow possible! Encrypted = %d.",
+    debug(2, "Output from alac_decode larger (%d bytes, not frames) than expected (%d bytes) -- "
+             "truncated, but buffer overflow possible! Encrypted = %d.",
           outsize, toutsize, conn->stream.encrypted);
     reply = -1; // output packet is the wrong size
   }
 
   *destlen = outsize / conn->input_bytes_per_frame;
   if ((outsize % conn->input_bytes_per_frame) != 0)
-    debug(1,
-          "Number of audio frames (%d) does not correspond exactly to the number of bytes (%d) "
-          "and the audio frame size (%d).",
+    debug(1, "Number of audio frames (%d) does not correspond exactly to the number of bytes (%d) "
+             "and the audio frame size (%d).",
           *destlen, outsize, conn->input_bytes_per_frame);
   return reply;
 }
@@ -456,10 +454,9 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
     if ((conn->flush_rtp_timestamp != 0) && (actual_timestamp != conn->flush_rtp_timestamp) &&
         (modulo_32_offset(actual_timestamp, conn->flush_rtp_timestamp) <
          conn->input_rate * 10)) { // if it's less than 10 seconds
-      debug(3,
-            "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRIu32
-            ", flushing to "
-            "timestamp: %" PRIu32 ".",
+      debug(3, "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRIu32
+               ", flushing to "
+               "timestamp: %" PRIu32 ".",
             seqno, actual_timestamp, conn->flush_rtp_timestamp);
       conn->initial_reference_time = 0;
       conn->initial_reference_timestamp = 0;
@@ -852,10 +849,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
             (modulo_32_offset(curframe->given_timestamp, conn->flush_rtp_timestamp) <
              conn->input_rate * 10)) { // if it's less than ten seconds
-          debug(3,
-                "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
-                ", flushing to "
-                "timestamp: %" PRIu32 ".",
+          debug(3, "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
+                   ", flushing to "
+                   "timestamp: %" PRIu32 ".",
                 curframe->sequence_number, curframe->given_timestamp, conn->flush_rtp_timestamp);
           curframe->ready = 0;
           curframe->resend_level = 0;
@@ -938,7 +934,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               frame_to_local_time(conn->first_packet_timestamp + conn->latency +
                                       (uint32_t)(config.audio_backend_latency_offset *
                                                  conn->input_rate), // this will go modulo 2^32
-                                  &should_be_time, conn);
+                                  &should_be_time,
+                                  conn);
 
               conn->first_packet_time_to_play = should_be_time;
 
@@ -959,7 +956,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             frame_to_local_time(conn->first_packet_timestamp + conn->latency +
                                     (uint32_t)(config.audio_backend_latency_offset *
                                                conn->input_rate), // this should go modulo 2^32
-                                &should_be_time, conn);
+                                &should_be_time,
+                                conn);
 
             conn->first_packet_time_to_play = should_be_time;
 
@@ -1030,9 +1028,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                       // this might happen if a big clock adjustment was made at just the wrong
                       // time.
 
-                      debug(1,
-                            "Run a bit past the exact start time by %" PRId64
-                            " frames with a DAC delay of %ld frames.",
+                      debug(1, "Run a bit past the exact start time by %" PRId64
+                               " frames with a DAC delay of %ld frames.",
                             -exact_frame_gap, dac_delay);
                       if (config.output->flush)
                         config.output->flush();
@@ -1190,7 +1187,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                                 (uint32_t)(config.audio_backend_latency_offset * conn->input_rate) -
                                 (uint32_t)(config.audio_backend_buffer_desired_length *
                                            conn->input_rate), // this will go modulo 2^32
-                            &time_to_play, conn);
+                            &time_to_play,
+                            conn);
 
         if (local_time_now >= time_to_play) {
           do_wait = 0;
@@ -1670,17 +1668,17 @@ void *player_thread_func(void *arg) {
   // if ((input_rate!=config.output_rate) || (input_bit_depth!=output_bit_depth)) {
   // debug(1,"Define tbuf of length
   // %d.",output_bytes_per_frame*(max_frames_per_packet*output_sample_ratio+max_frame_size_change));
-  conn->tbuf = malloc(
-      sizeof(int32_t) * 2 *
-      (conn->max_frames_per_packet * conn->output_sample_ratio + conn->max_frame_size_change));
+  conn->tbuf =
+      malloc(sizeof(int32_t) * 2 * (conn->max_frames_per_packet * conn->output_sample_ratio +
+                                    conn->max_frame_size_change));
   if (conn->tbuf == NULL)
     die("Failed to allocate memory for the transition buffer.");
 
   // initialise this, because soxr stuffing might be chosen later
 
-  conn->sbuf = malloc(
-      sizeof(int32_t) * 2 *
-      (conn->max_frames_per_packet * conn->output_sample_ratio + conn->max_frame_size_change));
+  conn->sbuf =
+      malloc(sizeof(int32_t) * 2 * (conn->max_frames_per_packet * conn->output_sample_ratio +
+                                    conn->max_frame_size_change));
   if (conn->sbuf == NULL)
     die("Failed to allocate memory for the sbuf buffer.");
 
@@ -1968,9 +1966,8 @@ void *player_thread_func(void *arg) {
                 SUCCESSOR(conn->last_seqno_read); // int32_t from seq_t, i.e. uint16_t, so okay.
             if (inframe->sequence_number !=
                 conn->last_seqno_read) { // seq_t, ei.e. uint16_t and int32_t, so okay
-              debug(2,
-                    "Player: packets out of sequence: expected: %u, got: %u, with ab_read: %u "
-                    "and ab_write: %u.",
+              debug(2, "Player: packets out of sequence: expected: %u, got: %u, with ab_read: %u "
+                       "and ab_write: %u.",
                     conn->last_seqno_read, inframe->sequence_number, conn->ab_read, conn->ab_write);
               conn->last_seqno_read = inframe->sequence_number; // reset warning...
             }
@@ -2195,7 +2192,7 @@ void *player_thread_func(void *arg) {
 #ifdef CONFIG_CONVOLUTION
                   || config.convolution
 #endif
-              ) {
+                  ) {
                 int32_t *tbuf32 = (int32_t *)conn->tbuf;
                 float fbuf_l[inbuflength];
                 float fbuf_r[inbuflength];
@@ -2279,9 +2276,8 @@ void *player_thread_func(void *arg) {
                   debug(1, "play_samples==0 skipping it (1).");
                 else {
                   if (conn->software_mute_enabled) {
-                    generate_zero_frames(
-                      conn->outbuf, play_samples,
-                      config.output_format, conn->enable_dither, conn->previous_random_number);
+                    generate_zero_frames(conn->outbuf, play_samples, config.output_format,
+                                         conn->enable_dither, conn->previous_random_number);
                   }
                   config.output->play(conn->outbuf, play_samples);
                 }
@@ -2320,9 +2316,8 @@ void *player_thread_func(void *arg) {
               debug(1, "NULL outbuf to play -- skipping it.");
             else {
               if (conn->software_mute_enabled) {
-                generate_zero_frames(
-                  conn->outbuf, play_samples,
-                  config.output_format, conn->enable_dither, conn->previous_random_number);
+                generate_zero_frames(conn->outbuf, play_samples, config.output_format,
+                                     conn->enable_dither, conn->previous_random_number);
               }
               config.output->play(conn->outbuf, play_samples); // remove the (short*)!
             }
@@ -2445,41 +2440,42 @@ void *player_thread_func(void *arg) {
 
               if ((config.output->delay)) {
                 if (config.no_sync == 0) {
-                  inform(
-                      "%*.2f,"        /* Sync error in milliseconds */
-                      "%*.1f,"        /* net correction in ppm */
-                      "%*.1f,"        /* corrections in ppm */
-                      "%*d,"          /* total packets */
-                      "%*" PRIu64 "," /* missing packets */
-                      "%*" PRIu64 "," /* late packets */
-                      "%*" PRIu64 "," /* too late packets */
-                      "%*" PRIu64 "," /* resend requests */
-                      "%*" PRId64 "," /* min DAC queue size */
-                      "%*" PRId32 "," /* min buffer occupancy */
-                      "%*" PRId32 "," /* max buffer occupancy */
-                      "%*.2f,"        /* source nominal frame rate */
-                      "%*.2f,"        /* source actual (average) frame rate */
-                      "%*.2f,"        /* output frame rate */
-                      "%*.2f,"        /* source clock drift */
-                      "%*d,"          /* source clock drift sample count */
-                      "%*.2f",        /* rough calculated correction in ppm */
-                      10, 1000 * moving_average_sync_error / config.output_rate, 10,
-                      moving_average_correction * 1000000 / (352 * conn->output_sample_ratio), 10,
-                      moving_average_insertions_plus_deletions * 1000000 /
-                          (352 * conn->output_sample_ratio),
-                      12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
-                      conn->too_late_packets, 7, conn->resend_requests, 7, minimum_dac_queue_size,
-                      5, minimum_buffer_occupancy, 5, maximum_buffer_occupancy, 11,
-                      conn->remote_frame_rate, 11, conn->input_frame_rate, 11, conn->frame_rate, 10,
-                      (conn->local_to_remote_time_gradient - 1.0) * 1000000, 6,
-                      conn->local_to_remote_time_gradient_sample_count, 10,
-                      (conn->frame_rate > 0.0)
-                          ? ((conn->frame_rate - conn->remote_frame_rate *
-                                                     conn->output_sample_ratio *
-                                                     conn->local_to_remote_time_gradient) *
-                             1000000) /
-                                conn->frame_rate
-                          : 0.0);
+                  inform("%*.2f,"        /* Sync error in milliseconds */
+                         "%*.1f,"        /* net correction in ppm */
+                         "%*.1f,"        /* corrections in ppm */
+                         "%*d,"          /* total packets */
+                         "%*" PRIu64 "," /* missing packets */
+                         "%*" PRIu64 "," /* late packets */
+                         "%*" PRIu64 "," /* too late packets */
+                         "%*" PRIu64 "," /* resend requests */
+                         "%*" PRId64 "," /* min DAC queue size */
+                         "%*" PRId32 "," /* min buffer occupancy */
+                         "%*" PRId32 "," /* max buffer occupancy */
+                         "%*.2f,"        /* source nominal frame rate */
+                         "%*.2f,"        /* source actual (average) frame rate */
+                         "%*.2f,"        /* output frame rate */
+                         "%*.2f,"        /* source clock drift */
+                         "%*d,"          /* source clock drift sample count */
+                         "%*.2f",        /* rough calculated correction in ppm */
+                         10,
+                         1000 * moving_average_sync_error / config.output_rate, 10,
+                         moving_average_correction * 1000000 / (352 * conn->output_sample_ratio),
+                         10, moving_average_insertions_plus_deletions * 1000000 /
+                                 (352 * conn->output_sample_ratio),
+                         12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
+                         conn->too_late_packets, 7, conn->resend_requests, 7,
+                         minimum_dac_queue_size, 5, minimum_buffer_occupancy, 5,
+                         maximum_buffer_occupancy, 11, conn->remote_frame_rate, 11,
+                         conn->input_frame_rate, 11, conn->frame_rate, 10,
+                         (conn->local_to_remote_time_gradient - 1.0) * 1000000, 6,
+                         conn->local_to_remote_time_gradient_sample_count, 10,
+                         (conn->frame_rate > 0.0)
+                             ? ((conn->frame_rate -
+                                 conn->remote_frame_rate * conn->output_sample_ratio *
+                                     conn->local_to_remote_time_gradient) *
+                                1000000) /
+                                   conn->frame_rate
+                             : 0.0);
                 } else {
                   inform("%*.2f,"        /* Sync error in milliseconds */
                          "%*d,"          /* total packets */
@@ -2494,9 +2490,10 @@ void *player_thread_func(void *arg) {
                          "%*.2f,"        /* source actual (average) frame rate */
                          "%*.2f,"        /* source clock drift */
                          "%*d",          /* source clock drift sample count */
-                         10, 1000 * moving_average_sync_error / config.output_rate, 12, play_number,
-                         7, conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets,
-                         7, conn->resend_requests, 7, minimum_dac_queue_size, 5,
+                         10,
+                         1000 * moving_average_sync_error / config.output_rate, 12, play_number, 7,
+                         conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets, 7,
+                         conn->resend_requests, 7, minimum_dac_queue_size, 5,
                          minimum_buffer_occupancy, 5, maximum_buffer_occupancy, 11,
                          conn->remote_frame_rate, 11, conn->input_frame_rate, 10,
                          (conn->local_to_remote_time_gradient - 1.0) * 1000000, 6,
@@ -2515,9 +2512,10 @@ void *player_thread_func(void *arg) {
                        "%*.2f,"        /* source actual (average) frame rate */
                        "%*.2f,"        /* source clock drift */
                        "%*d",          /* source clock drift sample count */
-                       10, 1000 * moving_average_sync_error / config.output_rate, 12, play_number,
-                       7, conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets,
-                       7, conn->resend_requests, 5, minimum_buffer_occupancy, 5,
+                       10,
+                       1000 * moving_average_sync_error / config.output_rate, 12, play_number, 7,
+                       conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets, 7,
+                       conn->resend_requests, 5, minimum_buffer_occupancy, 5,
                        maximum_buffer_occupancy, 11, conn->remote_frame_rate, 11,
                        conn->input_frame_rate, 10,
                        (conn->local_to_remote_time_gradient - 1.0) * 1000000, 6,
@@ -2544,14 +2542,16 @@ void *player_thread_func(void *arg) {
 }
 
 void player_volume_without_notification(double airplay_volume, rtsp_conn_info *conn) {
-  debug(1,"player_volume_without_notification %f",airplay_volume);
-//first, see if we are hw only, sw only, both with hw attenuation on the top or both with sw attenuation on top
+  debug(1, "player_volume_without_notification %f", airplay_volume);
+  // first, see if we are hw only, sw only, both with hw attenuation on the top or both with sw
+  // attenuation on top
 
-  enum volume_mode_type {vol_sw_only, vol_hw_only, vol_both} volume_mode;
-  
-  // take account of whether there is a hardware mixer, if a max volume has been specified and if a range has been specified
+  enum volume_mode_type { vol_sw_only, vol_hw_only, vol_both } volume_mode;
+
+  // take account of whether there is a hardware mixer, if a max volume has been specified and if a
+  // range has been specified
   // the range might imply that both hw and software mixers are needed, so calculate this
-  
+
   int32_t hw_max_db, hw_min_db;
   int32_t sw_max_db = 0, sw_min_db = -9630;
   if (config.output->parameters) {
@@ -2569,9 +2569,9 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         sw_max_db = (config.volume_max_db * 100) - hw_min_db;
       } else {
         warn("The maximum output level is outside the range of the hardware mixer -- ignored");
-      }    
+      }
     }
-    
+
     // here, we have set limits on the hw_max_db and the sw_max_db
     // but we haven't actually decided whether we need both hw and software attenuation
     // only if a range is specified could we need both
@@ -2583,9 +2583,9 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         int32_t desired_sw_range = desired_range_db - (hw_max_db - hw_min_db);
         if ((sw_max_db - desired_sw_range) < sw_min_db)
           warn("The range requested is too large to accommodate -- ignored.");
-        else 
+        else
           sw_min_db = (sw_max_db - desired_sw_range);
-      }    
+      }
     }
   } else {
     // debug(1,"has no hardware mixer");
@@ -2593,112 +2593,116 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
     if (config.volume_max_db_set) {
       if (((config.volume_max_db * 100) <= sw_max_db) &&
           ((config.volume_max_db * 100) >= sw_min_db))
-        sw_max_db = (int32_t)config.volume_max_db * 100; 
+        sw_max_db = (int32_t)config.volume_max_db * 100;
     }
     if (config.volume_range_db) {
-    // see if the range requested exceeds the software range available
-    int32_t desired_range_db = (int32_t)trunc(config.volume_range_db * 100);
-    if ((desired_range_db) > (sw_max_db - sw_min_db))
-      warn("The range requested is too large to accommodate -- ignored.");
-    else 
-      sw_min_db = (sw_max_db - desired_range_db);
-    }    
+      // see if the range requested exceeds the software range available
+      int32_t desired_range_db = (int32_t)trunc(config.volume_range_db * 100);
+      if ((desired_range_db) > (sw_max_db - sw_min_db))
+        warn("The range requested is too large to accommodate -- ignored.");
+      else
+        sw_min_db = (sw_max_db - desired_range_db);
+    }
   }
-  
-  // here, we know whether it's hw volume control only, sw only or both, and we have the hw and sw limits.
+
+  // here, we know whether it's hw volume control only, sw only or both, and we have the hw and sw
+  // limits.
   // if it's both, we haven't decided whether hw or sw should be on top
   // we have to consider the settings ignore_volume_control and mute.
-  
+
   if (config.ignore_volume_control == 0) {
     if (airplay_volume == -144.0) {
-            
-      if ((config.output->mute) && (config.output->mute(1) != 0))
-        debug(1,"hardware mute is enabled.");
+
+      if ((config.output->mute) && (config.output->mute(1) == 0))
+        debug(1, "player: hardware mute is enabled.");
       else {
         conn->software_mute_enabled = 1;
-        debug(1,"software mute is enabled.");
-        
+        debug(1, "player: software mute is enabled.");
       }
 
     } else {
-      int32_t max_db,min_db;
+      int32_t max_db, min_db;
       switch (volume_mode) {
-        case vol_hw_only:
-          max_db = hw_max_db;
-          min_db = hw_min_db;
-          break;
-        case vol_sw_only:
-          max_db = sw_max_db;
-          min_db = sw_min_db;
-          break;
-        case vol_both:
-          debug(1,"dB range passed is hw: %d, sw: %d, total: %d", hw_max_db - hw_min_db, sw_max_db - sw_min_db, (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db));
-          max_db = (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db); // this should be the range requested
-          min_db = 0;
-          break;
-        default:
-          debug(1,"error in pv -- not in a volume mode");
-          break;
+      case vol_hw_only:
+        max_db = hw_max_db;
+        min_db = hw_min_db;
+        break;
+      case vol_sw_only:
+        max_db = sw_max_db;
+        min_db = sw_min_db;
+        break;
+      case vol_both:
+        debug(1, "dB range passed is hw: %d, sw: %d, total: %d", hw_max_db - hw_min_db,
+              sw_max_db - sw_min_db, (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db));
+        max_db =
+            (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db); // this should be the range requested
+        min_db = 0;
+        break;
+      default:
+        debug(1, "error in pv -- not in a volume mode");
+        break;
       }
       double scaled_attenuation = 0.0;
       if (config.volume_control_profile == VCP_standard)
         scaled_attenuation = vol2attn(airplay_volume, max_db, min_db); // no cancellation points
       else if (config.volume_control_profile == VCP_flat)
-        scaled_attenuation = flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
+        scaled_attenuation =
+            flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
       else
         debug(1, "Unrecognised volume control profile");
-      
+
       // so here we have the scaled attenuation. If it's for hw or sw only, it's straightforward.
       double hardware_attenuation = 0.0;
       double software_attenuation = 0.0;
 
       switch (volume_mode) {
-        case vol_hw_only:
-          hardware_attenuation = scaled_attenuation;
-          break;
-        case vol_sw_only:
-          software_attenuation = scaled_attenuation;
-          break;
-        case vol_both:
-          // here, we now the attenuation required, so we have to apportion it to the sw and hw mixers
-          // if we give the hw priority, that means when lowering the volume, set the hw volume to its lowest
-          // before using the sw attenuation.
-          // similarly, if we give the sw priority, that means when lowering the volume, set the sw volume to its lowest
-          // before using the hw attenuation.
-          // one imagines that hw priority is likely to be much better
-          if (config.volume_range_hw_priority) {
-            // hw priority
-            if ((sw_max_db - sw_min_db) > scaled_attenuation) {
-              software_attenuation = sw_min_db + scaled_attenuation;
-              hardware_attenuation = hw_min_db;
-            } else {
-              software_attenuation = sw_max_db;
-              hardware_attenuation = hw_min_db + scaled_attenuation - (sw_max_db - sw_min_db);
-            }
-           } else {
-            // sw priority
-            if ((hw_max_db - hw_min_db) > scaled_attenuation) {
-              hardware_attenuation = hw_min_db + scaled_attenuation;
-              software_attenuation = sw_min_db;
-            } else {
-              hardware_attenuation = hw_max_db;
-              software_attenuation = sw_min_db + scaled_attenuation - (hw_max_db - hw_min_db);
-            }
+      case vol_hw_only:
+        hardware_attenuation = scaled_attenuation;
+        break;
+      case vol_sw_only:
+        software_attenuation = scaled_attenuation;
+        break;
+      case vol_both:
+        // here, we now the attenuation required, so we have to apportion it to the sw and hw mixers
+        // if we give the hw priority, that means when lowering the volume, set the hw volume to its
+        // lowest
+        // before using the sw attenuation.
+        // similarly, if we give the sw priority, that means when lowering the volume, set the sw
+        // volume to its lowest
+        // before using the hw attenuation.
+        // one imagines that hw priority is likely to be much better
+        if (config.volume_range_hw_priority) {
+          // hw priority
+          if ((sw_max_db - sw_min_db) > scaled_attenuation) {
+            software_attenuation = sw_min_db + scaled_attenuation;
+            hardware_attenuation = hw_min_db;
+          } else {
+            software_attenuation = sw_max_db;
+            hardware_attenuation = hw_min_db + scaled_attenuation - (sw_max_db - sw_min_db);
           }
-          break;
-        default:
-          debug(1,"error in pv -- not in a volume mode");
-          break;
+        } else {
+          // sw priority
+          if ((hw_max_db - hw_min_db) > scaled_attenuation) {
+            hardware_attenuation = hw_min_db + scaled_attenuation;
+            software_attenuation = sw_min_db;
+          } else {
+            hardware_attenuation = hw_max_db;
+            software_attenuation = sw_min_db + scaled_attenuation - (hw_max_db - hw_min_db);
+          }
+        }
+        break;
+      default:
+        debug(1, "error in pv -- not in a volume mode");
+        break;
       }
-      
-      
+
       if (((volume_mode == vol_hw_only) || (volume_mode == vol_both)) && (config.output->volume)) {
         config.output->volume(hardware_attenuation); // otherwise set the output to the lowest value
         // debug(1,"Hardware attenuation set to %f for airplay volume of
         // %f.",hardware_attenuation,airplay_volume);
         conn->fix_volume = 0x10000;
       }
-    
+
       if ((volume_mode == vol_sw_only) || (volume_mode == vol_both)) {
         double temp_fix_volume = 65536.0 * pow(10, software_attenuation / 2000);
         // debug(1,"Software attenuation set to %f, i.e %f out of 65,536, for airplay volume of
@@ -2710,7 +2714,6 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         if (config.loudness)
           loudness_set_volume(software_attenuation / 100);
       }
-
 
       if (config.logOutputLevel) {
         inform("Output Level set to: %.2f dB.", scaled_attenuation / 100.0);
@@ -2733,8 +2736,10 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
       if (config.output->mute)
         config.output->mute(0);
       conn->software_mute_enabled = 0;
-      
-      debug(1,"pv: volume mode is %d, software_attenuation: %f, hardware_attenuation: %f, muting is disabled.", volume_mode, software_attenuation, hardware_attenuation);
+
+      debug(1, "pv: volume mode is %d, software_attenuation: %f, hardware_attenuation: %f, muting "
+               "is disabled.",
+            volume_mode, software_attenuation, hardware_attenuation);
     }
   }
   config.airplay_volume = airplay_volume;
