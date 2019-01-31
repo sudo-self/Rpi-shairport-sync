@@ -2542,7 +2542,7 @@ void *player_thread_func(void *arg) {
 }
 
 void player_volume_without_notification(double airplay_volume, rtsp_conn_info *conn) {
-  debug(1, "player_volume_without_notification %f", airplay_volume);
+  debug(2, "player_volume_without_notification %f", airplay_volume);
   // first, see if we are hw only, sw only, both with hw attenuation on the top or both with sw
   // attenuation on top
 
@@ -2614,10 +2614,10 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
     if (airplay_volume == -144.0) {
 
       if ((config.output->mute) && (config.output->mute(1) == 0))
-        debug(1, "player: hardware mute is enabled.");
+        debug(2, "player_volume_without_notification: volume mode is %d, airplay_volume is %f, hardware mute is enabled.", volume_mode, airplay_volume);
       else {
         conn->software_mute_enabled = 1;
-        debug(1, "player: software mute is enabled.");
+        debug(2, "player_volume_without_notification: volume mode is %d, airplay_volume is %f, software mute is enabled.", volume_mode, airplay_volume);
       }
 
     } else {
@@ -2639,7 +2639,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         min_db = 0;
         break;
       default:
-        debug(1, "error in pv -- not in a volume mode");
+        debug(1, "player_volume_without_notification: error: not in a volume mode");
         break;
       }
       double scaled_attenuation = 0.0;
@@ -2649,7 +2649,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         scaled_attenuation =
             flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
       else
-        debug(1, "Unrecognised volume control profile");
+        debug(1, "player_volume_without_notification: unrecognised volume control profile");
 
       // so here we have the scaled attenuation. If it's for hw or sw only, it's straightforward.
       double hardware_attenuation = 0.0;
@@ -2692,7 +2692,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         }
         break;
       default:
-        debug(1, "error in pv -- not in a volume mode");
+        debug(1, "player_volume_without_notification: error: not in a volume mode");
         break;
       }
 
@@ -2737,9 +2737,9 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         config.output->mute(0);
       conn->software_mute_enabled = 0;
 
-      debug(1, "pv: volume mode is %d, software_attenuation: %f, hardware_attenuation: %f, muting "
+      debug(2, "player_volume_without_notification: volume mode is %d, airplay volume is %f, software_attenuation: %f, hardware_attenuation: %f, muting "
                "is disabled.",
-            volume_mode, software_attenuation, hardware_attenuation);
+            volume_mode, airplay_volume, software_attenuation, hardware_attenuation);
     }
   }
   config.airplay_volume = airplay_volume;

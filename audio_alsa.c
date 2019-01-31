@@ -521,17 +521,17 @@ int actual_open_alsa_device(void) {
 
     debug(log_level, "PCM handle name = '%s'", snd_pcm_name(alsa_handle));
 
-    //			ret = snd_pcm_hw_params_any(alsa_handle, alsa_params);
-    //			if (ret < 0) {
-    //				die("audio_alsa: Cannpot get configuration for
+    //      ret = snd_pcm_hw_params_any(alsa_handle, alsa_params);
+    //      if (ret < 0) {
+    //        die("audio_alsa: Cannpot get configuration for
     // device
     //\"%s\":
     // no
     // configurations
     //"
-    //						"available",
-    //						alsa_out_dev);
-    //			}
+    //            "available",
+    //            alsa_out_dev);
+    //      }
 
     debug(log_level, "alsa device parameters:");
 
@@ -649,7 +649,6 @@ int open_alsa_device(void) {
 }
 
 int do_alsa_device_init_if_needed() {
-  debug(1, "do_alsa_device_init_if_needed()");
   int response = 0;
   // do any alsa device initialisation (general case) if needed
   // at present, this is only needed if a hardware mixer is being used
@@ -657,6 +656,7 @@ int do_alsa_device_init_if_needed() {
   if (alsa_device_initialised == 0) {
     alsa_device_initialised = 1;
     if (hardware_mixer) {
+      debug(2, "alsa: hardware mixer init");
       int oldState;
       pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
 
@@ -1052,38 +1052,37 @@ static void deinit(void) {
 }
 
 int set_mute_state() {
-  debug(1, "set_mute_state");
-  int response = 1; // some problem expected, e.g. no mixer or not allowed to use it
-  if (config.alsa_use_hardware_mute == 1) {
+  int response = 1; // some problem expected, e.g. no mixer or not allowed to use it or disconnected
+  if ((alsa_backend_state != abm_disconnected) && (config.alsa_use_hardware_mute == 1) && (open_mixer() == 1)) {
+    response = 0; // okay if actually using the mute facility
+    debug(1, "set_mute_state");
     int mute = 0;
     if ((mute_requested_externally != 0) || (mute_requested_internally != 0))
-      mute = 1;
-    if (open_mixer() == 1) {
-      response = 0; // okay if actually using the mute facility
-      if (mute == 1) {
-        debug(1, "Hardware mute switched on");
-        if (snd_mixer_selem_has_playback_switch(alsa_mix_elem))
-          snd_mixer_selem_set_playback_switch_all(alsa_mix_elem, 0);
-        else {
-          volume_based_mute_is_active = 1;
-          do_snd_mixer_selem_set_playback_dB_all(alsa_mix_elem, alsa_mix_mute);
-        }
-      } else {
-        debug(1, "Hardware mute switched off");
-        if (snd_mixer_selem_has_playback_switch(alsa_mix_elem))
-          snd_mixer_selem_set_playback_switch_all(alsa_mix_elem, 1);
-        else {
-          volume_based_mute_is_active = 0;
-          do_snd_mixer_selem_set_playback_dB_all(alsa_mix_elem, set_volume);
-        }
+    mute = 1;
+    if (mute == 1) {
+      debug(1, "Hardware mute switched on");
+      if (snd_mixer_selem_has_playback_switch(alsa_mix_elem))
+        snd_mixer_selem_set_playback_switch_all(alsa_mix_elem, 0);
+      else {
+        volume_based_mute_is_active = 1;
+        do_snd_mixer_selem_set_playback_dB_all(alsa_mix_elem, alsa_mix_mute);
       }
-      close_mixer();
+    } else {
+      debug(1, "Hardware mute switched off");
+      if (snd_mixer_selem_has_playback_switch(alsa_mix_elem))
+        snd_mixer_selem_set_playback_switch_all(alsa_mix_elem, 1);
+      else {
+        volume_based_mute_is_active = 0;
+        do_snd_mixer_selem_set_playback_dB_all(alsa_mix_elem, set_volume);
+      }
     }
+    close_mixer();
   }
   return response;
 }
+
 static void start(int i_sample_rate, int i_sample_format) {
-  debug(1, "audio_alsa start called.");
+  debug(3, "audio_alsa start called.");
   if (i_sample_rate == 0)
     desired_sample_rate = 44100; // default
   else
@@ -1100,7 +1099,7 @@ static void start(int i_sample_rate, int i_sample_format) {
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
   if (alsa_device_initialised == 0) {
-    debug(1, "alsa: start() calling do_alsa_device_init_if_needed.");
+    debug(2, "alsa: start() calling do_alsa_device_init_if_needed.");
     do_alsa_device_init_if_needed();
   }
 }
@@ -1326,7 +1325,7 @@ int do_open() {
       if (audio_alsa.volume)
         do_volume(set_volume);
       if (audio_alsa.mute) {
-        debug(1, "do_open() set_mute_state");
+        debug(2, "do_open() set_mute_state");
         set_mute_state(); // the mute_requested_externally flag will have been
                           // set accordingly
         // do_mute(0); // complete unmute
@@ -1387,7 +1386,7 @@ int play(void *buf, int samples) {
       alsa_backend_state = abm_playing;
       mute_requested_internally = 0; // stop requesting a mute for backend's own
                                      // reasons, which might have been a flush
-      debug(1, "play() set_mute_state");
+      debug(2, "play() set_mute_state");
       set_mute_state(); // try to action the request and return a status
       // do_mute(0); // unmute for backend's reason
     }
@@ -1403,7 +1402,7 @@ static void flush(void) {
   // debug(2,"audio_alsa flush called.");
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
   mute_requested_internally = 1; // request a mute for backend's reasons
-  debug(1, "flush() set_mute_state");
+  debug(2, "flush() set_mute_state");
   set_mute_state();
   // do_mute(1); // mute for backend's own reasons
   if (alsa_backend_state != abm_disconnected) { // must be playing or connected...
@@ -1499,9 +1498,8 @@ linear_volume;
 int mute(int mute_state_requested) { // these would be for external reasons, not
                                      // because of the
                                      // state of the backend.
-  debug(1, "alsa: mute(%d)", mute_state_requested);
   mute_requested_externally = mute_state_requested; // request a mute for external reasons
-  debug(1, "mute(%d) set_mute_state", mute_state_requested);
+  debug(2, "mute(%d) set_mute_state", mute_state_requested);
   return set_mute_state();
 }
 /*
@@ -1514,7 +1512,7 @@ void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
 void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
   while (1) {
     if ((config.keep_dac_busy != 0) && (alsa_device_initialised == 0)) {
-      debug(1, "alsa: alsa_buffer_monitor_thread_code() calling "
+      debug(2, "alsa: alsa_buffer_monitor_thread_code() calling "
                "do_alsa_device_init_if_needed.");
       do_alsa_device_init_if_needed();
     }
