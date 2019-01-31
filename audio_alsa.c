@@ -1053,12 +1053,13 @@ static void deinit(void) {
 
 int set_mute_state() {
   int response = 1; // some problem expected, e.g. no mixer or not allowed to use it or disconnected
-  if ((alsa_backend_state != abm_disconnected) && (config.alsa_use_hardware_mute == 1) && (open_mixer() == 1)) {
+  if ((alsa_backend_state != abm_disconnected) && (config.alsa_use_hardware_mute == 1) &&
+      (open_mixer() == 1)) {
     response = 0; // okay if actually using the mute facility
     debug(1, "set_mute_state");
     int mute = 0;
     if ((mute_requested_externally != 0) || (mute_requested_internally != 0))
-    mute = 1;
+      mute = 1;
     if (mute == 1) {
       debug(1, "Hardware mute switched on");
       if (snd_mixer_selem_has_playback_switch(alsa_mix_elem))
@@ -1401,9 +1402,9 @@ int play(void *buf, int samples) {
 static void flush(void) {
   // debug(2,"audio_alsa flush called.");
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
-  mute_requested_internally = 1; // request a mute for backend's reasons
-  debug(2, "flush() set_mute_state");
-  set_mute_state();
+  // mute_requested_internally = 1; // request a mute for backend's reasons
+  // debug(2, "flush() set_mute_state");
+  // set_mute_state();
   // do_mute(1); // mute for backend's own reasons
   if (alsa_backend_state != abm_disconnected) { // must be playing or connected...
     if (config.keep_dac_busy != 0) {
@@ -1495,9 +1496,9 @@ linear_volume;
 }
 */
 
-int mute(int mute_state_requested) { // these would be for external reasons, not
-                                     // because of the
-                                     // state of the backend.
+int mute(int mute_state_requested) {                // these would be for external reasons, not
+                                                    // because of the
+                                                    // state of the backend.
   mute_requested_externally = mute_state_requested; // request a mute for external reasons
   debug(2, "mute(%d) set_mute_state", mute_state_requested);
   return set_mute_state();
