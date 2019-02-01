@@ -1051,16 +1051,18 @@ static void deinit(void) {
 
 int set_mute_state() {
   int response = 1; // some problem expected, e.g. no mixer or not allowed to use it or disconnected
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   pthread_cleanup_debug_mutex_lock(&alsa_mixer_mutex, 10000, 0);
   if ((alsa_backend_state != abm_disconnected) && (config.alsa_use_hardware_mute == 1) &&
       (open_mixer() == 1)) {
     response = 0; // okay if actually using the mute facility
-    debug(1, "set_mute_state");
+    debug(2, "alsa: actually set_mute_state");
     int mute = 0;
     if ((mute_requested_externally != 0) || (mute_requested_internally != 0))
       mute = 1;
     if (mute == 1) {
-      debug(1, "Hardware mute switched on");
+      debug(2, "alsa: hardware mute switched on");
       if (snd_mixer_selem_has_playback_switch(alsa_mix_elem))
         snd_mixer_selem_set_playback_switch_all(alsa_mix_elem, 0);
       else {
@@ -1068,7 +1070,7 @@ int set_mute_state() {
         do_snd_mixer_selem_set_playback_dB_all(alsa_mix_elem, alsa_mix_mute);
       }
     } else {
-      debug(1, "Hardware mute switched off");
+      debug(2, "alsa: hardware mute switched off");
       if (snd_mixer_selem_has_playback_switch(alsa_mix_elem))
         snd_mixer_selem_set_playback_switch_all(alsa_mix_elem, 1);
       else {
@@ -1080,6 +1082,7 @@ int set_mute_state() {
   }
   debug_mutex_unlock(&alsa_mixer_mutex, 3); // release the mutex
   pthread_cleanup_pop(0); // release the mutex  
+  pthread_setcancelstate(oldState, NULL);
   return response;
 }
 
@@ -1374,7 +1377,7 @@ int play(void *buf, int samples) {
   // debug(3,"audio_alsa play called.");
   int ret = 0;
 
-  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
+  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 50000, 1);
 
   if (alsa_backend_state == abm_disconnected) {
     ret = do_open();
@@ -1520,7 +1523,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
       do_alsa_device_init_if_needed();
     }
     int sleep_time_ms = (int)(config.audio_backend_silence_scan_interval * 1000);
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 20000, 1);
+    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 200000, 1);
     // check possible state transitions here
     if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
       // open the dac and move to abm_connected mode
