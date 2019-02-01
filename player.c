@@ -2542,6 +2542,7 @@ void *player_thread_func(void *arg) {
 }
 
 void player_volume_without_notification(double airplay_volume, rtsp_conn_info *conn) {
+  debug_mutex_lock(&conn->volume_control_mutex, 5000, 1);
   debug(2, "player_volume_without_notification %f", airplay_volume);
   // first, see if we are hw only, sw only, both with hw attenuation on the top or both with sw
   // attenuation on top
@@ -2632,8 +2633,8 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         min_db = sw_min_db;
         break;
       case vol_both:
-        debug(1, "dB range passed is hw: %d, sw: %d, total: %d", hw_max_db - hw_min_db,
-              sw_max_db - sw_min_db, (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db));
+        //debug(1, "dB range passed is hw: %d, sw: %d, total: %d", hw_max_db - hw_min_db,
+        //      sw_max_db - sw_min_db, (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db));
         max_db =
             (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db); // this should be the range requested
         min_db = 0;
@@ -2671,7 +2672,8 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         // volume to its lowest
         // before using the hw attenuation.
         // one imagines that hw priority is likely to be much better
-        if (config.volume_range_hw_priority) {
+        // if (config.volume_range_hw_priority) {
+        if (1) {
           // hw priority
           if ((sw_max_db - sw_min_db) > scaled_attenuation) {
             software_attenuation = sw_min_db + scaled_attenuation;
@@ -2700,7 +2702,8 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         config.output->volume(hardware_attenuation); // otherwise set the output to the lowest value
         // debug(1,"Hardware attenuation set to %f for airplay volume of
         // %f.",hardware_attenuation,airplay_volume);
-        conn->fix_volume = 0x10000;
+        if (volume_mode == vol_hw_only)
+          conn->fix_volume = 0x10000;
       }
 
       if ((volume_mode == vol_sw_only) || (volume_mode == vol_both)) {
@@ -2709,7 +2712,6 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         // %f",software_attenuation,temp_fix_volume,airplay_volume);
 
         conn->fix_volume = temp_fix_volume;
-        memory_barrier(); // no cancellation points
 
         if (config.loudness)
           loudness_set_volume(software_attenuation / 100);
@@ -2743,6 +2745,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
     }
   }
   config.airplay_volume = airplay_volume;
+  debug_mutex_unlock(&conn->volume_control_mutex, 3);
 }
 
 void player_volume(double airplay_volume, rtsp_conn_info *conn) {
