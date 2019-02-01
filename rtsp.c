@@ -2164,7 +2164,10 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   }
 
   // remove flow control and mutexes
-  int rc = pthread_cond_destroy(&conn->flowcontrol);
+  int rc = pthread_mutex_destroy(&conn->volume_control_mutex);
+  if (rc)
+    debug(1, "Connection %d: error %d destroying volume_control_mutex.", conn->connection_number, rc);
+  rc = pthread_cond_destroy(&conn->flowcontrol);
   if (rc)
     debug(1, "Connection %d: error %d destroying flow control condition variable.",
           conn->connection_number, rc);
@@ -2227,6 +2230,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   if (rc)
     die("Connection %d: error %d initialising flow control condition variable.",
         conn->connection_number, rc);
+  rc = pthread_mutex_init(&conn->volume_control_mutex, NULL);
+  if (rc)
+    die("Connection %d: error %d initialising volume_control_mutex.", conn->connection_number, rc);
 
   // nothing before this is cancellable
   pthread_cleanup_push(rtsp_conversation_thread_cleanup_function, (void *)conn);
