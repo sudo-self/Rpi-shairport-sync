@@ -80,6 +80,7 @@ audio_output audio_alsa = {
     .parameters = NULL}; // a function will be provided if it can do hardware volume
 
 static pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t alsa_mixer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t alsa_buffer_monitor_thread;
 
@@ -665,7 +666,7 @@ int do_alsa_device_init_if_needed() {
 
       // Now, start trying to initialise the alsa device with the settings
       // obtained
-      pthread_cleanup_debug_mutex_lock(&alsa_mutex, 1000, 1);
+      pthread_cleanup_debug_mutex_lock(&alsa_mixer_mutex, 1000, 1);
       if (open_mixer() == 1) {
         if (snd_mixer_selem_get_playback_volume_range(alsa_mix_elem, &alsa_mix_minv,
                                                       &alsa_mix_maxv) < 0)
@@ -754,8 +755,7 @@ int do_alsa_device_init_if_needed() {
         }
         close_mixer();
       }
-      debug_mutex_unlock(&alsa_mutex, 3); // release the mutex
-
+      debug_mutex_unlock(&alsa_mixer_mutex, 3); // release the mutex
       pthread_cleanup_pop(0);
       pthread_setcancelstate(oldState, NULL);
     }
@@ -1023,8 +1023,6 @@ static int init(int argc, char **argv) {
 
   debug(1, "alsa: output device name is \"%s\".", alsa_out_dev);
 
-  alsa_mix_handle = NULL; // indicates alsa handle isn't open
-
   // so, now, if the option to keep the DAC running has been selected, start a
   // thread to monitor the
   // length of the queue
@@ -1053,6 +1051,7 @@ static void deinit(void) {
 
 int set_mute_state() {
   int response = 1; // some problem expected, e.g. no mixer or not allowed to use it or disconnected
+  pthread_cleanup_debug_mutex_lock(&alsa_mixer_mutex, 10000, 0);
   if ((alsa_backend_state != abm_disconnected) && (config.alsa_use_hardware_mute == 1) &&
       (open_mixer() == 1)) {
     response = 0; // okay if actually using the mute facility
@@ -1079,6 +1078,8 @@ int set_mute_state() {
     }
     close_mixer();
   }
+  debug_mutex_unlock(&alsa_mixer_mutex, 3); // release the mutex
+  pthread_cleanup_pop(0); // release the mutex  
   return response;
 }
 
@@ -1385,10 +1386,11 @@ int play(void *buf, int samples) {
     if (alsa_backend_state != abm_playing) {
       debug(2, "alsa: play() -- alsa_backend_state => abm_playing");
       alsa_backend_state = abm_playing;
-      mute_requested_internally = 0; // stop requesting a mute for backend's own
+      
+      // mute_requested_internally = 0; // stop requesting a mute for backend's own
                                      // reasons, which might have been a flush
-      debug(2, "play() set_mute_state");
-      set_mute_state(); // try to action the request and return a status
+      //debug(2, "play() set_mute_state");
+      //set_mute_state(); // try to action the request and return a status
       // do_mute(0); // unmute for backend's reason
     }
     ret = do_play(buf, samples);
@@ -1437,6 +1439,7 @@ void do_volume(double vol) { // caller is assumed to have the alsa_mutex when
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   set_volume = vol;
+  pthread_cleanup_debug_mutex_lock(&alsa_mixer_mutex, 1000, 1);
   if (volume_set_request && (open_mixer() == 1)) {
     if (has_softvol) {
       if (ctl && elem_id) {
@@ -1466,15 +1469,14 @@ void do_volume(double vol) { // caller is assumed to have the alsa_mutex when
     volume_set_request = 0; // any external request that has been made is now satisfied
     close_mixer();
   }
+  debug_mutex_unlock(&alsa_mixer_mutex, 3);
+  pthread_cleanup_pop(0); // release the mutex
   pthread_setcancelstate(oldState, NULL);
 }
 
 void volume(double vol) {
-  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 1000, 1);
   volume_set_request = 1; // an external request has been made to set the volume
   do_volume(vol);
-  debug_mutex_unlock(&alsa_mutex, 3);
-  pthread_cleanup_pop(0); // release the mutex
 }
 
 /*
