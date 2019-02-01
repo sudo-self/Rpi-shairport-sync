@@ -576,13 +576,13 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
+  int release_buffer = 0; // on exit, don't deallocate the buffer if everything was okay
   char *buf = malloc(buflen + 1); // add a NUL at the end
   if (!buf) {
     warn("rtsp_read_request: can't get a buffer.");
-    reply = rtsp_read_request_response_error;
-    goto shutdown;
-  }
-
+    return(rtsp_read_request_response_error);
+  }  
+  pthread_cleanup_push(malloc_cleanup, buf);
   ssize_t nread;
   ssize_t inbuf = 0;
   int msg_size = -1;
@@ -717,11 +717,12 @@ do {
   char *jp = inbuf + buf;
   *jp = '\0';
   *the_packet = msg;
-  return reply;
-
 shutdown:
-  msg_free(the_packet);
-  free(buf);
+  if (reply != rtsp_read_request_response_ok) {
+    msg_free(the_packet);
+    release_buffer = 1; // allow the buffer to be released
+  }
+  pthread_cleanup_pop(release_buffer);
   return reply;
 }
 
