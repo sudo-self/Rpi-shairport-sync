@@ -2039,18 +2039,18 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
 
 #ifdef CONFIG_MBEDTLS
   mbedtls_md5_context tctx;
-  mbedtls_md5_starts(&tctx);
-  mbedtls_md5_update(&tctx, (const unsigned char *)username, strlen(username));
-  mbedtls_md5_update(&tctx, (unsigned char *)":", 1);
-  mbedtls_md5_update(&tctx, (const unsigned char *)realm, strlen(realm));
-  mbedtls_md5_update(&tctx, (unsigned char *)":", 1);
-  mbedtls_md5_update(&tctx, (const unsigned char *)config.password, strlen(config.password));
-  mbedtls_md5_finish(&tctx, digest_urp);
-  mbedtls_md5_starts(&tctx);
-  mbedtls_md5_update(&tctx, (const unsigned char *)req->method, strlen(req->method));
-  mbedtls_md5_update(&tctx, (unsigned char *)":", 1);
-  mbedtls_md5_update(&tctx, (const unsigned char *)uri, strlen(uri));
-  mbedtls_md5_finish(&tctx, digest_mu);
+  mbedtls_md5_starts_ret(&tctx);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)username, strlen(username));
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)realm, strlen(realm));
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)config.password, strlen(config.password));
+  mbedtls_md5_finish_ret(&tctx, digest_urp);
+  mbedtls_md5_starts_ret(&tctx);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)req->method, strlen(req->method));
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)uri, strlen(uri));
+  mbedtls_md5_finish_ret(&tctx, digest_mu);
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -2089,15 +2089,15 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
 #endif
 
 #ifdef CONFIG_MBEDTLS
-  mbedtls_md5_starts(&tctx);
-  mbedtls_md5_update(&tctx, buf, 32);
-  mbedtls_md5_update(&tctx, (unsigned char *)":", 1);
-  mbedtls_md5_update(&tctx, (const unsigned char *)*nonce, strlen(*nonce));
-  mbedtls_md5_update(&tctx, (unsigned char *)":", 1);
+  mbedtls_md5_starts_ret(&tctx);
+  mbedtls_md5_update_ret(&tctx, buf, 32);
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)*nonce, strlen(*nonce));
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
   for (i = 0; i < 16; i++)
     snprintf((char *)buf + 2 * i, 3, "%02x", digest_mu[i]);
-  mbedtls_md5_update(&tctx, buf, 32);
-  mbedtls_md5_finish(&tctx, digest_total);
+  mbedtls_md5_update_ret(&tctx, buf, 32);
+  mbedtls_md5_finish_ret(&tctx, digest_total);
 #endif
 
 #ifdef CONFIG_POLARSSL

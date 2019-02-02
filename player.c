@@ -2622,7 +2622,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
       }
 
     } else {
-      int32_t max_db, min_db;
+      int32_t max_db =0, min_db = 0;
       switch (volume_mode) {
       case vol_hw_only:
         max_db = hw_max_db;
