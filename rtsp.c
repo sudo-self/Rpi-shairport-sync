@@ -51,6 +51,7 @@
 #endif
 
 #ifdef CONFIG_MBEDTLS
+#include <mbedtls/version.h>
 #include <mbedtls/md5.h>
 #endif
 
