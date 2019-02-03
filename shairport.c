@@ -366,6 +366,7 @@ int parse_options(int argc, char **argv) {
     /* Read the file. If there is an error, report it and exit. */
     if (config_read_file(&config_file_stuff, config_file_real_path)) {
       free(config_file_real_path);
+      config_set_auto_convert (&config_file_stuff, 1); // allow autoconversion from int/float to int/float
       // make config.cfg point to it
       config.cfg = &config_file_stuff;
       /* Get the Service Name. */
