@@ -34,7 +34,6 @@
 
 #ifdef CONFIG_AVAHI
 extern mdns_backend mdns_avahi;
-extern mdns_backend mdns_external_avahi;
 #endif
 #ifdef CONFIG_DNS_SD
 extern mdns_backend mdns_dns_sd;
@@ -43,11 +42,11 @@ extern mdns_backend mdns_external_dns_sd;
 #ifdef CONFIG_TINYSVCMDNS
 extern mdns_backend mdns_tinysvcmdns;
 #endif
+extern mdns_backend mdns_external_avahi;
 
 static mdns_backend *mdns_backends[] = {
 #ifdef CONFIG_AVAHI
     &mdns_avahi,
-    &mdns_external_avahi,
 #endif
 #ifdef CONFIG_DNS_SD
     &mdns_dns_sd,
@@ -56,6 +55,7 @@ static mdns_backend *mdns_backends[] = {
 #ifdef CONFIG_TINYSVCMDNS
     &mdns_tinysvcmdns,
 #endif
+    &mdns_external_avahi,
     NULL};
 
 void mdns_register(void) {
