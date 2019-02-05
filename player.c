@@ -2553,7 +2553,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
   // range has been specified
   // the range might imply that both hw and software mixers are needed, so calculate this
 
-  int32_t hw_max_db, hw_min_db;
+  int32_t hw_max_db = 0, hw_min_db = 0; // zeroed to quieten an incorrect uninitialised warning
   int32_t sw_max_db = 0, sw_min_db = -9630;
   if (config.output->parameters) {
     volume_mode = vol_hw_only;
