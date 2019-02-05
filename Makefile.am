@@ -8,7 +8,7 @@ bin_PROGRAMS = shairport-sync
 
 # See below for the flags for the test client program
 
-shairport_sync_SOURCES = shairport.c rtsp.c mdns.c mdns_external.c common.c rtp.c player.c alac.c audio.c loudness.c activity_monitor.c
+shairport_sync_SOURCES = shairport.c rtsp.c mdns.c common.c rtp.c player.c alac.c audio.c loudness.c activity_monitor.c
 
 if BUILD_FOR_FREEBSD
   AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
@@ -38,6 +38,10 @@ endif
 
 if USE_TINYSVCMDNS
 shairport_sync_SOURCES += mdns_tinysvcmdns.c tinysvcmdns.c
+endif
+
+if USE_EXTERNAL_MDNS
+shairport_sync_SOURCES += mdns_external.c
 endif
 
 if USE_ALSA

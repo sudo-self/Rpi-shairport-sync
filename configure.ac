@@ -73,7 +73,6 @@ AC_ARG_WITH([dummy],[  --with-dummy = include the dummy audio back end ],[AC_MSG
 AM_CONDITIONAL([USE_DUMMY], [test "x$with_dummy" = "xyes" ])
 
 AC_ARG_WITH([stdout],[  --with-stdout = include the stdout audio back end ],[ AC_MSG_RESULT(>>Including the stdout audio back end)  AC_DEFINE([CONFIG_STDOUT], 1, [Needed by the compiler.]) ], )
-
 AM_CONDITIONAL([USE_STDOUT], [test "x$with_stdout" = "xyes" ])
 
 AC_ARG_WITH([pipe],[  --with-pipe = include the pipe audio back end ],[ AC_MSG_RESULT(>>Including the pipe audio back end)  AC_DEFINE([CONFIG_PIPE], 1, [Needed by the compiler.]) ], )
@@ -94,6 +93,9 @@ AM_CONDITIONAL([INSTALL_SYSTEMD], [test "x$with_systemd" = "xyes"])
 AC_ARG_WITH([freebsd-service],
 [  --with-freebsd-service = install a FreeBSD startup script during a make install], , )
 AM_CONDITIONAL([INSTALL_FREEBSD_SERVICE], [test "x$with_freebsd_service" = "xyes"])
+
+AC_ARG_WITH([external-mdns],[  --with-external-mdns = support the use of 'avahi-publish-service' or 'mDNSPublish' to advertise the service on Bonjour/ZeroConf ],[ AC_MSG_RESULT(>>Including external mdns support)  AC_DEFINE([CONFIG_EXTERNAL_MDNS], 1, [Needed by the compiler.]) ], )
+AM_CONDITIONAL([USE_EXTERNAL_MDNS], [test "x$with_external_mdns" = "xyes" ])
 
 # Add the libconfig package
 if  test "x${with_pkg_config}" = xyes ; then
