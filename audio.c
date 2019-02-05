@@ -112,8 +112,12 @@ void audio_ls_outputs(void) {
 
   for (out = outputs; *out; out++) {
     printf("\n");
-    printf("Options for output %s:\n", (*out)->name);
-    (*out)->help();
+    if ((*out)->help) {
+      printf("Options for output %s:\n", (*out)->name);
+      (*out)->help();
+    } else {
+      printf("No options for output %s:\n", (*out)->name);    
+    }
   }
 }
 
