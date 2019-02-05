@@ -45,6 +45,8 @@
 enum am_state { am_inactive, am_active, am_timing_out } state;
 enum ps_state { ps_inactive, ps_active } player_state;
 
+int activity_monitor_running = 0;
+
 pthread_t activity_monitor_thread;
 pthread_mutex_t activity_monitor_mutex;
 pthread_cond_t activity_monitor_cv;
@@ -218,11 +220,14 @@ void *activity_monitor_thread_code(void *arg) {
 void activity_monitor_start() {
   // debug(1,"activity_monitor_start");
   pthread_create(&activity_monitor_thread, NULL, activity_monitor_thread_code, NULL);
+  activity_monitor_running = 1;
 }
 
 void activity_monitor_stop() {
-  debug(1, "activity_monitor_stop start...");
-  pthread_cancel(activity_monitor_thread);
-  pthread_join(activity_monitor_thread, NULL);
-  debug(1, "activity_monitor_stop complete");
+  if (activity_monitor_running) {
+    debug(1, "activity_monitor_stop start...");
+    pthread_cancel(activity_monitor_thread);
+    pthread_join(activity_monitor_thread, NULL);
+    debug(1, "activity_monitor_stop complete");
+  }
 }

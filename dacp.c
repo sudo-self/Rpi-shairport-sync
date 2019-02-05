@@ -58,6 +58,7 @@ typedef struct {
   void *port_monitor_private_storage;
 } dacp_server_record;
 
+int dacp_monitor_initialised = 0;
 pthread_t dacp_monitor_thread;
 dacp_server_record dacp_server;
 void *mdns_dacp_monitor_private_storage_pointer;
@@ -888,15 +889,18 @@ void dacp_monitor_start() {
   memset(&dacp_server, 0, sizeof(dacp_server_record));
 
   pthread_create(&dacp_monitor_thread, NULL, dacp_monitor_thread_code, NULL);
+  dacp_monitor_initialised = 1;
 }
 
 void dacp_monitor_stop() {
-  debug(1, "dacp_monitor_stop");
-  pthread_cancel(dacp_monitor_thread);
-  pthread_join(dacp_monitor_thread, NULL);
-  pthread_mutex_destroy(&dacp_server_information_lock);
-  debug(1, "DACP Conversation Lock Mutex Destroyed");
-  pthread_mutex_destroy(&dacp_conversation_lock);
+  if (dacp_monitor_initialised) { // only if it's been started and initialised
+    debug(1, "dacp_monitor_stop");
+    pthread_cancel(dacp_monitor_thread);
+    pthread_join(dacp_monitor_thread, NULL);
+    pthread_mutex_destroy(&dacp_server_information_lock);
+    debug(1, "DACP Conversation Lock Mutex Destroyed");
+    pthread_mutex_destroy(&dacp_conversation_lock);
+  }
 }
 
 uint32_t dacp_tlv_crawl(char **p, int32_t *length) {

@@ -58,6 +58,8 @@
 #include <openssl/md5.h>
 #endif
 
+int metadata_hub_initialised = 0;
+
 pthread_rwlock_t metadata_hub_re_lock = PTHREAD_RWLOCK_INITIALIZER;
 struct track_metadata_bundle *track_metadata; // used for a temporary track metadata store
 
@@ -100,18 +102,21 @@ void metadata_hub_init(void) {
   // debug(1, "Metadata bundle initialisation.");
   memset(&metadata_store, 0, sizeof(metadata_store));
   track_metadata = NULL;
+  metadata_hub_initialised = 1;
 }
 
 void metadata_hub_stop(void) {
-  debug(1, "metadata_hub_stop.");
-  metadata_hub_release_track_artwork();
-  if (metadata_store.track_metadata) {
-    metadata_hub_release_track_metadata(metadata_store.track_metadata);
-    metadata_store.track_metadata = NULL;
-  }
-  if (track_metadata) {
-    metadata_hub_release_track_metadata(track_metadata);
-    track_metadata = NULL;
+  if (metadata_hub_initialised) {
+    debug(1, "metadata_hub_stop.");
+    metadata_hub_release_track_artwork();
+    if (metadata_store.track_metadata) {
+      metadata_hub_release_track_metadata(metadata_store.track_metadata);
+      metadata_store.track_metadata = NULL;
+    }
+    if (track_metadata) {
+      metadata_hub_release_track_metadata(track_metadata);
+      track_metadata = NULL;
+    }
   }
 }
 

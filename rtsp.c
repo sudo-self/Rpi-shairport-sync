@@ -91,6 +91,8 @@ enum rtsp_read_request_response {
 
 // Mike Brady's part...
 
+int metadata_running = 0;
+
 // always lock use this when accessing the playing conn value
 static pthread_mutex_t playing_conn_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -1454,12 +1456,15 @@ void metadata_init(void) {
   int ret = pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL);
   if (ret)
     debug(1, "Failed to create metadata thread!");
+  metadata_running = 1;
 }
 
 void metadata_stop(void) {
-  debug(1, "metadata_stop called.");
-  pthread_cancel(metadata_thread);
-  pthread_join(metadata_thread, NULL);
+  if (metadata_running) {
+    debug(1, "metadata_stop called.");
+    pthread_cancel(metadata_thread);
+    pthread_join(metadata_thread, NULL);
+  }
 }
 
 int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,

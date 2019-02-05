@@ -1075,7 +1075,7 @@ int parse_options(int argc, char **argv) {
 }
 
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
-GMainLoop *g_main_loop;
+static GMainLoop *g_main_loop = NULL;
 
 pthread_t dbus_thread;
 void *dbus_thread_func(__attribute__((unused)) void *arg) {
@@ -1138,7 +1138,7 @@ const char *pid_file_proc(void) {
 #endif
 
 void main_cleanup_handler(__attribute__((unused)) void *arg) {
-  // it doesn't look like this is called when the main function terminates.
+  // it doesn't look like this is called when the main function is cancelled eith a pthread cancel.
   debug(1, "main cleanup handler called.");
 #ifdef CONFIG_MQTT
   if (config.mqtt_enabled) {
@@ -1153,9 +1153,11 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
 #ifdef CONFIG_DBUS_INTERFACE
   stop_dbus_service();
 #endif
-  debug(1, "Stopping DBUS Loop Thread");
-  g_main_loop_quit(g_main_loop);
-  pthread_join(dbus_thread, NULL);
+  if (g_main_loop) {
+    debug(1, "Stopping DBUS Loop Thread");
+    g_main_loop_quit(g_main_loop);
+    pthread_join(dbus_thread, NULL);
+  }
 #endif
 
 #ifdef CONFIG_DACP_CLIENT
@@ -1174,7 +1176,7 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
 
   activity_monitor_stop(0);
 
-  if (config.output->deinit) {
+  if ((config.output) && (config.output->deinit)) {
     debug(1, "Deinitialise the audio backend.");
     config.output->deinit();
   }
