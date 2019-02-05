@@ -75,10 +75,13 @@
 #include <mbedtls/md.h>
 #include <mbedtls/version.h>
 #include <mbedtls/x509.h>
-
 #endif
 
+#ifdef CONFIG_LIBDAEMON
 #include <libdaemon/dlog.h>
+#else
+#include <syslog.h>
+#endif
 
 #ifdef CONFIG_ALSA
 void set_alsa_out_dev(char *);
@@ -143,13 +146,24 @@ void die(const char *format, ...) {
   va_end(args);
 
   if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    daemon_log(LOG_EMERG, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
+  
+  #ifdef CONFIG_LIBDAEMON
+    daemon_log(LOG_ERR, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
   else if ((debuglev) && (config.debugger_show_relative_time))
-    daemon_log(LOG_EMERG, "% 20.9f|*fatal error: %s", tsl, s);
+    daemon_log(LOG_ERR, "% 20.9f|*fatal error: %s", tsl, s);
   else if ((debuglev) && (config.debugger_show_elapsed_time))
-    daemon_log(LOG_EMERG, "% 20.9f|*fatal error: %s", tss, s);
+    daemon_log(LOG_ERR, "% 20.9f|*fatal error: %s", tss, s);
   else
-    daemon_log(LOG_EMERG, "fatal error: %s", s);
+    daemon_log(LOG_ERR, "fatal error: %s", s);
+  #else
+    syslog(LOG_ERR, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
+  else if ((debuglev) && (config.debugger_show_relative_time))
+    syslog(LOG_ERR, "% 20.9f|*fatal error: %s", tsl, s);
+  else if ((debuglev) && (config.debugger_show_elapsed_time))
+    syslog(LOG_ERR, "% 20.9f|*fatal error: %s", tss, s);
+  else
+    syslog(LOG_ERR, "fatal error: %s", s);  
+  #endif
   pthread_setcancelstate(oldState, NULL);
   exit(1);
 }
@@ -170,7 +184,7 @@ void warn(const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-
+#ifdef CONFIG_LIBDAEMON
   if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
     daemon_log(LOG_WARNING, "|% 20.9f|% 20.9f|*warning: %s", tss, tsl, s);
   else if ((debuglev) && (config.debugger_show_relative_time))
@@ -179,6 +193,16 @@ void warn(const char *format, ...) {
     daemon_log(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
   else
     daemon_log(LOG_WARNING, "%s", s);
+#else
+  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
+    syslog(LOG_WARNING, "|% 20.9f|% 20.9f|*warning: %s", tss, tsl, s);
+  else if ((debuglev) && (config.debugger_show_relative_time))
+    syslog(LOG_WARNING, "% 20.9f|*warning: %s", tsl, s);
+  else if ((debuglev) && (config.debugger_show_elapsed_time))
+    syslog(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
+  else
+    syslog(LOG_WARNING, "%s", s);
+#endif
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -200,6 +224,7 @@ void debug(int level, const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
+#ifdef CONFIG_LIBDAEMON
   if ((config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
     daemon_log(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
   else if (config.debugger_show_relative_time)
@@ -208,6 +233,16 @@ void debug(int level, const char *format, ...) {
     daemon_log(LOG_DEBUG, "% 20.9f|%s", tss, s);
   else
     daemon_log(LOG_DEBUG, "%s", s);
+#else
+  if ((config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
+    syslog(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
+  else if (config.debugger_show_relative_time)
+    syslog(LOG_DEBUG, "% 20.9f|%s", tsl, s);
+  else if (config.debugger_show_elapsed_time)
+    syslog(LOG_DEBUG, "% 20.9f|%s", tss, s);
+  else
+    syslog(LOG_DEBUG, "%s", s);
+#endif
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -227,7 +262,7 @@ void inform(const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-
+#ifdef CONFIG_LIBDAEMON
   if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
     daemon_log(LOG_INFO, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
   else if ((debuglev) && (config.debugger_show_relative_time))
@@ -236,6 +271,17 @@ void inform(const char *format, ...) {
     daemon_log(LOG_INFO, "% 20.9f|%s", tss, s);
   else
     daemon_log(LOG_INFO, "%s", s);
+#else
+  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
+    syslog(LOG_INFO, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
+  else if ((debuglev) && (config.debugger_show_relative_time))
+    syslog(LOG_INFO, "% 20.9f|%s", tsl, s);
+  else if ((debuglev) && (config.debugger_show_elapsed_time))
+    syslog(LOG_INFO, "% 20.9f|%s", tss, s);
+  else
+    syslog(LOG_INFO, "%s", s);
+
+#endif
   pthread_setcancelstate(oldState, NULL);
 }
 

@@ -141,10 +141,13 @@ typedef struct {
   uint32_t fixedLatencyOffset;  // add this to all automatic latencies supplied to get the actual
                                 // total latency
   // the total latency will be limited to the min and max-latency values, if supplied
+#ifdef CONFIG_LIBDAEMON
   int daemonise;
   int daemonise_store_pid; // don't try to save a PID file
   char *piddir;
   char *computed_piddir; // the actual pid directory to create, if any
+  char *pidfile;
+#endif
 
   int logOutputLevel;              // log output level
   int debugger_show_elapsed_time;  // in the debug message, display the time since startup
@@ -159,7 +162,6 @@ typedef struct {
   int decoders_supported;
   int use_apple_decoder; // set to 1 if you want to use the apple decoder instead of the original by
                          // David Hammerton
-  char *pidfile;
   // char *logfile;
   // char *errfile;
   char *configfile;
@@ -320,7 +322,6 @@ void command_set_volume(double volume);
 int mkpath(const char *path, mode_t mode);
 
 void shairport_shutdown();
-// void shairport_startup_complete(void);
 
 extern sigset_t pselect_sigset;
 
