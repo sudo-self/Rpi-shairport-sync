@@ -106,17 +106,17 @@ audio_output *audio_get_output(char *name) {
 void audio_ls_outputs(void) {
   audio_output **out;
 
-  printf("Available audio outputs:\n");
+  printf("Available audio backends:\n");
   for (out = outputs; *out; out++)
     printf("    %s%s\n", (*out)->name, out == outputs ? " (default)" : "");
 
   for (out = outputs; *out; out++) {
     printf("\n");
     if ((*out)->help) {
-      printf("Options for output %s:\n", (*out)->name);
+      printf("Settings and options for the audio backend \"%s\":\n", (*out)->name);
       (*out)->help();
     } else {
-      printf("No options for output %s:\n", (*out)->name);    
+      printf("There are no settings or options for the audio backend \"%s\".\n", (*out)->name);    
     }
   }
 }

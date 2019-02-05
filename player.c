@@ -2673,7 +2673,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         // before using the hw attenuation.
         // one imagines that hw priority is likely to be much better
         // if (config.volume_range_hw_priority) {
-        if (1) {
+        if (config.volume_range_hw_priority != 0) {
           // hw priority
           if ((sw_max_db - sw_min_db) > scaled_attenuation) {
             software_attenuation = sw_min_db + scaled_attenuation;

@@ -54,10 +54,9 @@ static int play(__attribute__((unused)) void *buf, __attribute__((unused)) int s
 
 static void stop(void) { debug(1, "dummy audio stopped\n"); }
 
-static void help(void) { printf("    There are no options for dummy audio.\n"); }
 
 audio_output audio_dummy = {.name = "dummy",
-                            .help = &help,
+                            .help = NULL,
                             .init = &init,
                             .deinit = &deinit,
                             .start = &start,

@@ -62,7 +62,6 @@
 
 #include "activity_monitor.h"
 #include "common.h"
-#include "mdns.h"
 #include "rtp.h"
 #include "rtsp.h"
 
@@ -96,7 +95,7 @@
 #include <FFTConvolver/convolver.h>
 #endif
 
-static int shutting_down = 0;
+// static int shutting_down = 0;
 char configuration_file_path[4096 + 1];
 char actual_configuration_file_path[4096 + 1];
 
@@ -113,11 +112,9 @@ static void sig_shutdown(__attribute__((unused)) int foo, __attribute__((unused)
 
 static void sig_child(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
                       __attribute__((unused)) void *baz) {
+  // wait for child processes to exit
   pid_t pid;
   while ((pid = waitpid((pid_t)-1, 0, WNOHANG)) > 0) {
-    if (pid == mdns_pid && !shutting_down) {
-      die("MDNS child process died unexpectedly!");
-    }
   }
 }
 
@@ -333,6 +330,8 @@ int parse_options(int argc, char **argv) {
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
   config.active_mode_timeout = 10.0;
+  config.volume_range_hw_priority = 1; // if combining software and hardware volume control, give the hardware priority
+  // i.e. when reducing volume, reduce the hw first before reducing the software.
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
@@ -608,6 +607,9 @@ int parse_options(int argc, char **argv) {
           die("Invalid volume_control_profile choice \"%s\". It should be \"standard\" (default) "
               "or \"flat\"");
       }
+      
+      config_set_lookup_bool(config.cfg, "general.volume_control_combined_hardware_priority", &config.volume_range_hw_priority);
+
 
       /* Get the interface to listen on, if specified Default is all interfaces */
       /* we keep the interface name and the index */

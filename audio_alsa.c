@@ -162,11 +162,10 @@ static uint64_t frame_index;
 static int measurement_data_is_valid;
 
 static void help(void) {
-  printf("    -d output-device    set the output device [default*|...]\n"
-         "    -m mixer-device     set the mixer device ['output-device'*|...]\n"
-         "    -c mixer-control    set the mixer control [Master*|...]\n"
-         "    -i mixer-index      set the mixer index [0*|...]\n"
-         "    *) default option\n");
+  printf("    -d output-device    set the output device, default is \"default\".\n"
+         "    -c mixer-control    set the mixer control name, default is to use no mixer.\n"
+         "    -m mixer-device     set the mixer device, default is the output device.\n"
+         "    -i mixer-index      set the mixer index, default is 0.\n");
 }
 
 void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; }
@@ -202,7 +201,7 @@ int open_mixer() {
             debug(3, "Mixer Control name is \"%s\".", alsa_mix_ctrl);
             alsa_mix_elem = snd_mixer_find_selem(alsa_mix_handle, alsa_mix_sid);
             if (!alsa_mix_elem) {
-              debug(1, "Failed to find mixer element");
+              warn("failed to find mixer control \"%s\".", alsa_mix_ctrl);
               response = -5;
             } else {
               response = 1; // we found a hardware mixer and successfully opened it

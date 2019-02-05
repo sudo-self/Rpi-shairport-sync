@@ -182,7 +182,7 @@ typedef struct {
                               // into the "active" mode.
   uint32_t volume_range_db;   // the range, in dB, from max dB to min dB. Zero means use the mixer's
                               // native range.
-  int volume_range_hw_priority; // when lowering the volume, use all the hw attenuation before using
+  int volume_range_hw_priority; // when extending the volume range by combining sw and hw attenuators, lowering the volume, use all the hw attenuation before using
                                 // sw attenuation
   enum sps_format_t output_format;
   enum volume_control_profile_type volume_control_profile;

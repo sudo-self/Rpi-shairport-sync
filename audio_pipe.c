@@ -127,7 +127,7 @@ static void deinit(void) {
     close(fd);
 }
 
-static void help(void) { printf("    pipe takes 1 argument: the name of the FIFO to write to.\n"); }
+static void help(void) { printf("    specify the pathname of the pipe to write to.\n"); }
 
 audio_output audio_pipe = {.name = "pipe",
                            .help = &help,

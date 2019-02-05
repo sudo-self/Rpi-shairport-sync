@@ -300,10 +300,8 @@ static void stop(void) {
   pa_stream_disconnect(stream);
 }
 
-static void help(void) { printf(" no settings.\n"); }
-
 audio_output audio_pa = {.name = "pa",
-                         .help = &help,
+                         .help = NULL,
                          .init = &init,
                          .deinit = &deinit,
                          .start = &start,
