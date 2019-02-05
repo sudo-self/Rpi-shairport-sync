@@ -2615,14 +2615,18 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
     if (airplay_volume == -144.0) {
 
       if ((config.output->mute) && (config.output->mute(1) == 0))
-        debug(2, "player_volume_without_notification: volume mode is %d, airplay_volume is %f, hardware mute is enabled.", volume_mode, airplay_volume);
+        debug(2, "player_volume_without_notification: volume mode is %d, airplay_volume is %f, "
+                 "hardware mute is enabled.",
+              volume_mode, airplay_volume);
       else {
         conn->software_mute_enabled = 1;
-        debug(2, "player_volume_without_notification: volume mode is %d, airplay_volume is %f, software mute is enabled.", volume_mode, airplay_volume);
+        debug(2, "player_volume_without_notification: volume mode is %d, airplay_volume is %f, "
+                 "software mute is enabled.",
+              volume_mode, airplay_volume);
       }
 
     } else {
-      int32_t max_db =0, min_db = 0;
+      int32_t max_db = 0, min_db = 0;
       switch (volume_mode) {
       case vol_hw_only:
         max_db = hw_max_db;
@@ -2633,7 +2637,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         min_db = sw_min_db;
         break;
       case vol_both:
-        //debug(1, "dB range passed is hw: %d, sw: %d, total: %d", hw_max_db - hw_min_db,
+        // debug(1, "dB range passed is hw: %d, sw: %d, total: %d", hw_max_db - hw_min_db,
         //      sw_max_db - sw_min_db, (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db));
         max_db =
             (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db); // this should be the range requested
@@ -2739,7 +2743,8 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         config.output->mute(0);
       conn->software_mute_enabled = 0;
 
-      debug(2, "player_volume_without_notification: volume mode is %d, airplay volume is %f, software_attenuation: %f, hardware_attenuation: %f, muting "
+      debug(2, "player_volume_without_notification: volume mode is %d, airplay volume is %f, "
+               "software_attenuation: %f, hardware_attenuation: %f, muting "
                "is disabled.",
             volume_mode, airplay_volume, software_attenuation, hardware_attenuation);
     }

@@ -44,8 +44,8 @@
 #include "config.h"
 
 #ifdef CONFIG_MBEDTLS
-#include <mbedtls/version.h>
 #include <mbedtls/md5.h>
+#include <mbedtls/version.h>
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -330,8 +330,9 @@ int parse_options(int argc, char **argv) {
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
   config.active_mode_timeout = 10.0;
-  config.volume_range_hw_priority = 1; // if combining software and hardware volume control, give the hardware priority
-  // i.e. when reducing volume, reduce the hw first before reducing the software.
+  config.volume_range_hw_priority =
+      1; // if combining software and hardware volume control, give the hardware priority
+// i.e. when reducing volume, reduce the hw first before reducing the software.
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
@@ -365,7 +366,8 @@ int parse_options(int argc, char **argv) {
     /* Read the file. If there is an error, report it and exit. */
     if (config_read_file(&config_file_stuff, config_file_real_path)) {
       free(config_file_real_path);
-      config_set_auto_convert (&config_file_stuff, 1); // allow autoconversion from int/float to int/float
+      config_set_auto_convert(&config_file_stuff,
+                              1); // allow autoconversion from int/float to int/float
       // make config.cfg point to it
       config.cfg = &config_file_stuff;
       /* Get the Service Name. */
@@ -607,9 +609,9 @@ int parse_options(int argc, char **argv) {
           die("Invalid volume_control_profile choice \"%s\". It should be \"standard\" (default) "
               "or \"flat\"");
       }
-      
-      config_set_lookup_bool(config.cfg, "general.volume_control_combined_hardware_priority", &config.volume_range_hw_priority);
 
+      config_set_lookup_bool(config.cfg, "general.volume_control_combined_hardware_priority",
+                             &config.volume_range_hw_priority);
 
       /* Get the interface to listen on, if specified Default is all interfaces */
       /* we keep the interface name and the index */
@@ -1525,9 +1527,8 @@ int main(int argc, char **argv) {
   /* Print out options */
   debug(1, "log verbosity is %d.", debuglev);
   debug(1, "disable resend requests is %s.", config.disable_resend_requests ? "on" : "off");
-  debug(1,
-        "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
-        "deliberately.",
+  debug(1, "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
+           "deliberately.",
         config.diagnostic_drop_packet_fraction);
   debug(1, "statistics_requester status is %d.", config.statistics_requested);
   debug(1, "daemon status is %d.", config.daemonise);
@@ -1554,11 +1555,16 @@ int main(int argc, char **argv) {
   debug(1, "drift tolerance is %f seconds.", config.tolerance);
   debug(1, "password is \"%s\".", config.password);
   debug(1, "ignore_volume_control is %d.", config.ignore_volume_control);
-  debug(1, "combined attenuators (0 -- software is / 1 -- hardware is top of attenuation range) is %d.", config.volume_range_hw_priority);
   if (config.volume_max_db_set)
     debug(1, "volume_max_db is %d.", config.volume_max_db);
   else
     debug(1, "volume_max_db is not set");
+  debug(1, "volume range in dB (zero means use the range specified by the mixer): %u.",
+        config.volume_range_db);
+  debug(
+      1,
+      "combined attenuators (0 -- software is / 1 -- hardware is top of attenuation range) is %d.",
+      config.volume_range_hw_priority);
   debug(1, "playback_mode is %d (0-stereo, 1-mono, 1-reverse_stereo, 2-both_left, 3-both_right).",
         config.playback_mode);
   debug(1, "disable_synchronization is %d.", config.no_sync);
@@ -1572,8 +1578,6 @@ int main(int argc, char **argv) {
   debug(1, "audio backend latency offset is %f seconds.", config.audio_backend_latency_offset);
   debug(1, "audio backend silence lead-in time is %f seconds. A value -1.0 means use the default.",
         config.audio_backend_silent_lead_in_time);
-  debug(1, "volume range in dB (zero means use the range specified by the mixer): %u.",
-        config.volume_range_db);
   debug(1, "zeroconf regtype is \"%s\".", config.regtype);
   debug(1, "decoders_supported field is %d.", config.decoders_supported);
   debug(1, "use_apple_decoder is %d.", config.use_apple_decoder);
@@ -1618,17 +1622,17 @@ int main(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_MBEDTLS
-  #if MBEDTLS_VERSION_MINOR >= 7
-    mbedtls_md5_context tctx;
-    mbedtls_md5_starts_ret(&tctx);
-    mbedtls_md5_update_ret(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
-    mbedtls_md5_finish_ret(&tctx, ap_md5);
-  #else
-    mbedtls_md5_context tctx;
-    mbedtls_md5_starts(&tctx);
-    mbedtls_md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
-    mbedtls_md5_finish(&tctx, ap_md5);
-  #endif
+#if MBEDTLS_VERSION_MINOR >= 7
+  mbedtls_md5_context tctx;
+  mbedtls_md5_starts_ret(&tctx);
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
+  mbedtls_md5_finish_ret(&tctx, ap_md5);
+#else
+  mbedtls_md5_context tctx;
+  mbedtls_md5_starts(&tctx);
+  mbedtls_md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
+  mbedtls_md5_finish(&tctx, ap_md5);
+#endif
 #endif
 
 #ifdef CONFIG_POLARSSL
