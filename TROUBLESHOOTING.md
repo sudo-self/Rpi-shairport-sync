@@ -10,28 +10,36 @@ In this brief document will be listed some problems and some solutions, some pro
 ### WiFi and Microwaves
 Microwaves can interfere with WiFi -- see [here](http://sciabc.us/F6Gaa) for example.
 
-### WiFi adapter running in power-saving / low-power mode
-
+### WiFi adapter running in power-saving/low-power mode
 **Check Throughput**
-
- You can check WiFi throughput using, for example, https://thepi.io/how-to-use-your-raspberry-pi-to-monitor-broadband-speed/
+You can learn how to check your Wi-Fi's throughput by following this [tutorial](https://thepi.io/how-to-use-your-raspberry-pi-to-monitor-broadband-speed/)
 
 **Problem**
-
 Shairport Sync is installed and running, but sometimes it disappears from the network, and sometimes it suffers from long dropouts.
 
 **Possible Cause**
+This can be caused by lots of things, however, the most prominent cause is that the Wi-Fi adapter may be set to run in a low-power/power-saving mode; which after a certain period of time(usually a minute or so), if the adapter is not busy, the system will hold back the active use of the adapter.
 
-This can be caused by lots of things, but one of them is that the WiFi adapter may be set to run in a low-power or power-saving mode. If it's not busy, then after a while it goes into a low-power mode. This is bad as the device needs to be always connected to the network to provide the AirPlay service. You need to turn off power-saving mode. How you do this varies with platform and with WiFi adapter – internet search is your friend. Here, for instance, is the command for the C.H.I.P. from Next Thing Co, which has built in WiFi and Linux and has the `iw` command installed:
+This is an unintended scenario where Shairport requires the Wi-Fi adapter at all times to function properly. Hence you need to turn off the power saving/low-power mode.
 
+How you do this varies with platform to platform or adapter to adapter and therefore internet search is your friend or some closed issues on this repo has some more knowledge for you as well.
+
+However, below are the instructions for the onboard Wi-Fi chip that comes with Raspberry Pi, another popular chip(Realtek RTL8188CUS), and, the chip 8192cu.
+
+Moreover, if you want an in-depth look at Raspberry Pi Wi-Fi adapters, [here](https://www.elinux.org/RPi_USB_Wi-Fi_Adapters) is a good primer.
+
+#### Onboard Wi-Fi Chip
+
+Here, for instance, is the command for the C.H.I.P. from Next Thing Co., which has built in WiFi and Linux and has the `iw` command installed:
 ```
 # iw dev wlan0 set power_save off
 ```
-Here is the command sequence for a Raspberry Pi 3, which has built-in WiFi:
 
+Here is the command sequence for a Raspberry Pi 3, which has built-in WiFi:
 ```
 # iwconfig wlan0 power off
 ```
+
 Alternatively, (also for the Raspberry Pi), add the following line:
 ```
 wireless-power off
@@ -39,7 +47,6 @@ wireless-power off
 to the file `/etc/network/interfaces`.
 
 Here is another option, suggested by [davidhq](https://github.com/davidhq) in [#653](https://github.com/mikebrady/shairport-sync/issues/653#issuecomment-391100620):
-
 ```
 # nano /etc/network/if-up.d/off-power-manager
 ```
@@ -49,12 +56,37 @@ Type:
 #!/bin/sh
 /sbin/iwconfig wlan0 power off
 ```
+
 Then:
 ```
 # chmod +x /etc/network/if-up.d/off-power-manager
 ```
 
-There are some more details in some the closed issues on this repository.
+#### Realtek RTL8188CUS
+
+The chip `Realtek RTL8188CUS` is a popular one used by many Wi-Fi adapters. To disable it's power-saving/low-power mode:
+
+- `sudo vim /etc/modprobe.d/r8188eu.conf`,
+- paste the below content into the file,
+	- `options r8188eu rtw_power_mgnt=0 rtw_enusbss=0`
+- `sudo reboot`
+
+**After the reboot**, the power-saving/low-power mode should be disabled. You can check it by the following command. In return, it should output `0`.
+
+`cat /sys/module/r8188eu/parameters/rtw_power_mgnt`
+
+#### 8192cu
+
+Another chip you may encounter is `8192cu`. The process is similar to `Realtek RTL8188CUS`; just a simple name change.
+
+- `sudo vim /etc/modprobe.d/8192cu.conf`,
+- paste the below content into the file,
+	- `options 8192cu rtw_power_mgnt=0 rtw_enusbss=0`
+- `sudo reboot`
+
+**After the reboot**, the power-saving/low-power mode should be disabled. You can check it by the following command. In return, it should output `0`.
+
+`cat /sys/module/8192cu/parameters/rtw_power_mgnt`
 
 ### Faulty WiFi
 For an example of what it can take to track down a bad WiFi situation – in this case, a faulty WiFi adapter – please look at [this report](https://github.com/mikebrady/shairport-sync/issues/689).
