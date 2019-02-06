@@ -12,7 +12,7 @@ Microwaves can interfere with WiFi -- see [here](http://sciabc.us/F6Gaa) for exa
 
 ### WiFi adapter running in power-saving/low-power mode
 **Check Throughput**
-You can learn how to check your Wi-Fi's throughput by following this [tutorial](https://thepi.io/how-to-use-your-raspberry-pi-to-monitor-broadband-speed/)
+You can learn how to check your Wi-Fi's throughput by following this [tutorial](https://thepi.io/how-to-use-your-raspberry-pi-to-monitor-broadband-speed/).
 
 **Problem**
 Shairport Sync is installed and running, but sometimes it disappears from the network, and sometimes it suffers from long dropouts.
@@ -64,7 +64,7 @@ Then:
 
 #### Realtek RTL8188CUS
 
-The chip `Realtek RTL8188CUS` is a popular one used by many Wi-Fi adapters. To disable it's power-saving/low-power mode:
+The chip `Realtek RTL8188CUS` is a popular one used by many Wi-Fi adapters. To disable its power-saving/low-power mode:
 
 - `sudo vim /etc/modprobe.d/r8188eu.conf`,
 - paste the below content into the file,
@@ -77,14 +77,14 @@ The chip `Realtek RTL8188CUS` is a popular one used by many Wi-Fi adapters. To d
 
 #### 8192cu
 
-Another chip you may encounter is `8192cu`. The process is similar to `Realtek RTL8188CUS`; just a simple name change.
+Another chip you may encounter is `8192cu`. The process is similar to `Realtek RTL8188CUS` – just a simple name change.
 
 - `sudo vim /etc/modprobe.d/8192cu.conf`,
 - paste the below content into the file,
 	- `options 8192cu rtw_power_mgnt=0 rtw_enusbss=0`
 - `sudo reboot`
 
-**After the reboot**, the power-saving/low-power mode should be disabled. You can check it by the following command. In return, it should output `0`.
+**After the reboot**, the power-saving/low-power mode should be disabled. You can check it by the following command. It should return the value `0`.
 
 `cat /sys/module/8192cu/parameters/rtw_power_mgnt`
 
