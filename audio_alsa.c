@@ -27,8 +27,6 @@
 
 #define ALSA_PCM_NEW_HW_PARAMS_API
 
-#include "audio.h"
-#include "common.h"
 #include <alsa/asoundlib.h>
 #include <inttypes.h>
 #include <math.h>
@@ -36,6 +34,12 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
+
+#include "config.h"
+
+#include "common.h"
+#include "activity_monitor.h"
+#include "audio.h"
 
 enum alsa_backend_mode {
   abm_disconnected,
@@ -983,7 +987,7 @@ static int init(int argc, char **argv) {
       if ((strcasecmp(str, "no") == 0) || (strcasecmp(str, "off") == 0) || (strcasecmp(str, "never") == 0))
         config.disable_standby_mode = disable_standby_off;
       else if ((strcasecmp(str, "yes") == 0) || (strcasecmp(str, "on") == 0) || (strcasecmp(str, "always") == 0)) {
-        config.disable_standby_mode = disable_standby_on;
+        config.disable_standby_mode = disable_standby_always;
         config.keep_dac_busy = 1;
       } else if (strcasecmp(str, "while active") == 0)
         config.disable_standby_mode = disable_standby_while_active;

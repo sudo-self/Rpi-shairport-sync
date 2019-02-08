@@ -66,7 +66,7 @@ enum disable_standby_mode_type {
   disable_standby_off = 0,
   disable_standby_while_active,
   disable_standby_always
-}
+};
 
 // the following enum is for the formats recognised -- currently only S16LE is recognised for input,
 // so these are output only for the present
