@@ -40,8 +40,12 @@
 
 #include "activity_monitor.h"
 #include "common.h"
-#include "dbus-service.h"
 #include "rtsp.h"
+
+#ifdef CONFIG_DBUS_INTERFACE
+#include "dbus-service.h"
+#endif
+
 
 enum am_state state;
 enum ps_state { ps_inactive, ps_active } player_state;
