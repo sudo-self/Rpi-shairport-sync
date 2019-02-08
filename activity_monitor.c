@@ -40,6 +40,7 @@
 
 #include "activity_monitor.h"
 #include "common.h"
+#include "dbus-service.h"
 #include "rtsp.h"
 
 enum am_state state;
@@ -60,6 +61,17 @@ void going_active(int block) {
   debug(2, "abeg");                       // active mode begin
   send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
+
+#ifdef CONFIG_DBUS_INTERFACE
+    shairport_sync_set_active(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
+#endif
+
+  if (config.disable_standby_mode == disable_standby_while_active) {
+    config.keep_dac_busy = 1;
+#ifdef CONFIG_DBUS_INTERFACE
+    shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
+#endif
+  }
 }
 
 void going_inactive(int block) {
@@ -71,6 +83,17 @@ void going_inactive(int block) {
   debug(2, "aend");                       // active mode end
   send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
+
+#ifdef CONFIG_DBUS_INTERFACE
+    shairport_sync_set_active(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
+#endif
+
+  if (config.disable_standby_mode == disable_standby_while_active) {
+    config.keep_dac_busy = 0;
+#ifdef CONFIG_DBUS_INTERFACE
+    shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
+#endif
+  }
 }
 
 void activity_monitor_signify_activity(int active) {
