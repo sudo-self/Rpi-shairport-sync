@@ -975,12 +975,26 @@ static int init(int argc, char **argv) {
       }
     }
 
-    // Get the optional "Keep DAC Busy setting"
-    int kdb;
-    if (config_set_lookup_bool(config.cfg, "alsa.disable_standby_mode", &kdb)) {
-      config.keep_dac_busy = kdb;
+
+    /* Get the optional disable_standby_mode setting. */
+    config.disable_standby_mode = disable_standby_while_active;
+    config.keep_dac_busy = 0;
+    if (config_lookup_string(config.cfg, "alsa.disable_standby_mode", &str)) {
+      if ((strcasecmp(str, "no") == 0) || (strcasecmp(str, "off") == 0) || (strcasecmp(str, "never") == 0))
+        config.disable_standby_mode = disable_standby_off;
+      else if ((strcasecmp(str, "yes") == 0) || (strcasecmp(str, "on") == 0) || (strcasecmp(str, "always") == 0)) {
+        config.disable_standby_mode = disable_standby_on;
+        config.keep_dac_busy = 1;
+      } else if (strcasecmp(str, "while active") == 0)
+        config.disable_standby_mode = disable_standby_while_active;
+      else {
+        warn("Invalid disable_standby_mode option choice \"%s\". It should be "
+             "\"always\", \"while active\" or \"never\". "
+             "It is set to \"while active\".");
+      }
     }
-    debug(1, "alsa: disable_standby_mode is %s.", config.keep_dac_busy ? "on" : "off");
+
+    debug(1, "alsa: disable_standby_mode is %d.", config.disable_standby_mode);
   }
 
   optind = 1; // optind=0 is equivalent to optind=1 plus special behaviour

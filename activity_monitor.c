@@ -42,7 +42,7 @@
 #include "common.h"
 #include "rtsp.h"
 
-enum am_state { am_inactive, am_active, am_timing_out } state;
+enum am_state state;
 enum ps_state { ps_inactive, ps_active } player_state;
 
 int activity_monitor_running = 0;
@@ -215,6 +215,10 @@ void *activity_monitor_thread_code(void *arg) {
   pthread_mutex_unlock(&activity_monitor_mutex);
   pthread_cleanup_pop(0); // should never happen
   pthread_exit(NULL);
+}
+
+enum am_state activity_status() {
+  return (state);
 }
 
 void activity_monitor_start() {

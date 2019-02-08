@@ -62,6 +62,12 @@ enum decoders_supported_type {
   decoder_apple_alac,
 } decoders_supported_type;
 
+enum disable_standby_mode_type {
+  disable_standby_off = 0,
+  disable_standby_while_active,
+  disable_standby_always
+}
+
 // the following enum is for the formats recognised -- currently only S16LE is recognised for input,
 // so these are output only for the present
 
@@ -201,6 +207,7 @@ typedef struct {
   float loudness_reference_volume_db;
   int alsa_use_hardware_mute;
   double alsa_maximum_stall_time;
+  enum disable_standby_mode_type disable_standby_mode;
   volatile int keep_dac_busy;
 
 #if defined(CONFIG_DBUS_INTERFACE)
