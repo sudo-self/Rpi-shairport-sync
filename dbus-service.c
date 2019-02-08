@@ -15,6 +15,8 @@
 
 #include "dbus-service.h"
 
+int service_is_running = 0;
+
 ShairportSyncDiagnostics *shairportSyncDiagnosticsSkeleton = NULL;
 ShairportSyncRemoteControl *shairportSyncRemoteControlSkeleton = NULL;
 ShairportSyncAdvancedRemoteControl *shairportSyncAdvancedRemoteControlSkeleton = NULL;
@@ -841,6 +843,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 
   debug(1, "Shairport Sync native D-Bus service started at \"%s\" on the %s bus.", name,
         (config.dbus_service_bus_type == DBT_session) ? "session" : "system");
+  service_is_running = 1;
 }
 
 static void on_dbus_name_lost_again(__attribute__((unused)) GDBusConnection *connection,
@@ -887,4 +890,9 @@ void stop_dbus_service() {
     g_bus_unown_name(ownerID);
   else
     debug(1, "Zero OwnerID for \"org.gnome.ShairportSync\".");
+  service_is_running  = 0;
+}
+
+int dbus_service_is_running() {
+  return service_is_running;
 }

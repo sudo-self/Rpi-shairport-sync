@@ -1533,7 +1533,12 @@ void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
 */
 
 void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
+  int okb = -1;
   while (1) {
+    if (okb != config.keep_dac_busy) {
+      debug(1,"keep_dac_busy is now %d",config.keep_dac_busy);
+      okb = config.keep_dac_busy;
+    }
     if ((config.keep_dac_busy != 0) && (alsa_device_initialised == 0)) {
       debug(2, "alsa: alsa_buffer_monitor_thread_code() calling "
                "do_alsa_device_init_if_needed.");
