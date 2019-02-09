@@ -1545,7 +1545,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
       do_alsa_device_init_if_needed();
     }
     int sleep_time_ms = (int)(config.audio_backend_silence_scan_interval * 1000);
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 200000, 1);
+    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 200000, 0);
     // check possible state transitions here
     if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
       // open the dac and move to abm_connected mode
@@ -1620,7 +1620,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
         }
       }
     }
-    debug_mutex_unlock(&alsa_mutex, 3);
+    debug_mutex_unlock(&alsa_mutex, 0);
     pthread_cleanup_pop(0);       // release the mutex
     usleep(sleep_time_ms * 1000); // has a cancellation point in it
   }
