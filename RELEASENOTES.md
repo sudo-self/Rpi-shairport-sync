@@ -8,10 +8,11 @@ Version 3.3d52 to Version 3.3d40
 * The volume-control software has been completely rewritten. From a user's point of view, the result should be a much smoother response to volume contol changes, free from artefacts. It is now also possible to combine the hardware mixer and the software attenuator in two ways -- giving priority to the software mixer or giving priority to the hardware mixer.
 * The muting/unmuting code has been rewritten to be simpler and more consistent.
 * In the `alsa` backend, new `play()` and `delay()` functions minimise the use of `snd_pcm_recover()` to prevent unnecessary resets of the output DACs.
-* In the `alsa` backend driver, hardware isn't accessed until the first time it is needed. That is, when Shairport Sync starts up, it no longer needs to access the device momentarily. instead, it waits for the first use.
-* The `libdaemon` library is now an optional build. It is not necessary for `systemd` systems and van be omitted. Use the `--without-libdaemon` configuration option to leave it out.
+* In the `alsa` backend driver, hardware isn't accessed until the first time it is needed. That is, when Shairport Sync starts up, it no longer needs to access the device momentarily. Instead, it waits for the first use.
+* The `libdaemon` library is now an optional build. It is not necessary for `systemd` systems and can be omitted. Use the `--without-libdaemon` configuration option to leave it out.
+
 **Bug Fixes**
-* The `mdns-external` method used to advertise the Shairport Sync AirPlay service on ZeroConf is now an optional build and is omitted by default. Hitherto, it was included with `--with-avahi` and could not be included on its own.
+* The `mdns-external` method used to advertise the Shairport Sync AirPlay service on ZeroConf is now an optional build and is omitted by default. Previously it was included with `--with-avahi` and could not be included on its own.
 * A number of memory leaks associated with the use of OpenSSL have been fixed.
 
 Version 3.3d39 to Version 3.3d38
