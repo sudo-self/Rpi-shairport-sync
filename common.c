@@ -450,7 +450,7 @@ char *base64_enc(uint8_t *input, int length) {
   b64 = BIO_push(b64, bmem);
   BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
   BIO_write(b64, input, length);
-  BIO_flush(b64);
+  (void) BIO_flush(b64);
   BIO_get_mem_ptr(b64, &bptr);
 
   char *buf = (char *)malloc(bptr->length);
@@ -482,7 +482,7 @@ uint8_t *base64_dec(char *input, int *outlen) {
   BIO_write(bmem, input, inlen);
   while (inlen++ & 3)
     BIO_write(bmem, "=", 1);
-  BIO_flush(bmem);
+  (void) BIO_flush(bmem);
 
   int bufsize = strlen(input) * 3 / 4 + 1;
   uint8_t *buf = malloc(bufsize);

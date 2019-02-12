@@ -170,7 +170,6 @@ void *activity_monitor_thread_code(void *arg) {
 
   uint64_t sec;
   uint64_t nsec;
-  int rc;
   struct timespec time_for_wait;
 
   state = am_inactive;
