@@ -5,7 +5,7 @@ Version 3.3d52 to Version 3.3d40
 * The new `alsa`-only Disable Standby feature, intended to reduce audible pops by preventing the DAC entering standby mode, can be set with the `alsa` group setting `disable_standby_mode` to `always`, `while_active` or `never`. The `always` setting is recommended for systems where the output device is dedicated to Shairport Sync. The "Disable Standby" mode can be set or cleared via the D-Bus interface `DisableStandby` property.
 
 **Enhancements**
-* The volume-control software has been completely rewritten. From a user's point of view, the result should be a much smoother response to volume contol changes, free from artefacts. It is now also possible to combine the hardware mixer and the software attenuator in two ways -- giving priority to the software mixer of giving priority to the hardware mixer.
+* The volume-control software has been completely rewritten. From a user's point of view, the result should be a much smoother response to volume contol changes, free from artefacts. It is now also possible to combine the hardware mixer and the software attenuator in two ways -- giving priority to the software mixer or giving priority to the hardware mixer.
 * The muting/unmuting code has been rewritten to be simpler and more consistent.
 * In the `alsa` backend, new `play()` and `delay()` functions minimise the use of `snd_pcm_recover()` to prevent unnecessary resets of the output DACs.
 * In the `alsa` backend driver, hardware isn't accessed until the first time it is needed. That is, when Shairport Sync starts up, it no longer needs to access the device momentarily. instead, it waits for the first use.
