@@ -132,7 +132,7 @@ void activity_monitor_signify_activity(int active) {
     going_active(
         config.cmd_blocking); // note -- will be executed with the mutex locked, but that's okay
   } else if ((state == am_active) && (player_state == ps_inactive) &&
-             (config.active_mode_timeout == 0.0)) {
+             (config.active_state_timeout == 0.0)) {
     going_inactive(
         config.cmd_blocking); // note -- will be executed with the mutex locked, but that's okay
   }
@@ -189,14 +189,14 @@ void *activity_monitor_thread_code(void *arg) {
       // debug(1,"am_state: am_active");
       while (player_state != ps_inactive)
         pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);
-      if (config.active_mode_timeout == 0.0) {
+      if (config.active_state_timeout == 0.0) {
         state = am_inactive;
         // going_inactive(); // this is done in activity_monitor_signify_activity
       } else {
         state = am_timing_out;
 
         uint64_t time_to_wait_for_wakeup_fp =
-            (uint64_t)(config.active_mode_timeout * 1000000); // resolution of microseconds
+            (uint64_t)(config.active_state_timeout * 1000000); // resolution of microseconds
         time_to_wait_for_wakeup_fp = time_to_wait_for_wakeup_fp << 32;
         time_to_wait_for_wakeup_fp = time_to_wait_for_wakeup_fp / 1000000;
 
