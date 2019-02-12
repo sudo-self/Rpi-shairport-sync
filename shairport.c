@@ -336,7 +336,7 @@ int parse_options(int argc, char **argv) {
                                  // nothing else comes in first.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
-  config.active_mode_timeout = 10.0;
+  config.active_state_timeout = 10.0;
   config.volume_range_hw_priority =
       1; // if combining software and hardware volume control, give the hardware priority
 // i.e. when reducing volume, reduce the hw first before reducing the software.
@@ -737,23 +737,23 @@ int parse_options(int argc, char **argv) {
         config.cmd_stop = (char *)str;
       }
 
-      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_before_entering_active_mode",
+      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_before_entering_active_state",
                                &str)) {
         config.cmd_active_start = (char *)str;
       }
 
-      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_after_exiting_active_mode",
+      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_after_exiting_active_state",
                                &str)) {
         config.cmd_active_stop = (char *)str;
       }
 
-      if (config_lookup_float(config.cfg, "sessioncontrol.active_mode_timeout", &dvalue)) {
+      if (config_lookup_float(config.cfg, "sessioncontrol.active_state_timeout", &dvalue)) {
         if (dvalue < 0.0)
-          warn("Invalid value \"%f\" for sessioncontrol.active_mode_timeout. It must be positive. "
+          warn("Invalid value \"%f\" for sessioncontrol.active_state_timeout. It must be positive. "
                "The default of %f will be used instead.",
-               dvalue, config.active_mode_timeout);
+               dvalue, config.active_state_timeout);
         else
-          config.active_mode_timeout = dvalue;
+          config.active_state_timeout = dvalue;
       }
 
       if (config_lookup_string(config.cfg,
@@ -1542,9 +1542,9 @@ int main(int argc, char **argv) {
   debug(1, "wait-cmd status is %d.", config.cmd_blocking);
   debug(1, "run_this_before_play_begins may return output is %d.", config.cmd_start_returns_output);
   debug(1, "run_this_if_an_unfixable_error_is_detected action is \"%s\".", config.cmd_unfixable);
-  debug(1, "run_this_before_entering_active_mode action is  \"%s\".", config.cmd_active_start);
-  debug(1, "run_this_after_exiting_active_mode action is  \"%s\".", config.cmd_active_stop);
-  debug(1, "active_mode_timeout is  %f seconds.", config.active_mode_timeout);
+  debug(1, "run_this_before_entering_active_state action is  \"%s\".", config.cmd_active_start);
+  debug(1, "run_this_after_exiting_active_state action is  \"%s\".", config.cmd_active_stop);
+  debug(1, "active_state_timeout is  %f seconds.", config.active_state_timeout);
   debug(1, "mdns backend \"%s\".", config.mdns_name);
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
   debug(1, "stuffing option is \"%d\" (0-basic, 1-soxr).", config.packet_stuffing);

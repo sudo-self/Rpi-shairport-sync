@@ -989,12 +989,12 @@ static int init(int argc, char **argv) {
       else if ((strcasecmp(str, "yes") == 0) || (strcasecmp(str, "on") == 0) || (strcasecmp(str, "always") == 0)) {
         config.disable_standby_mode = disable_standby_always;
         config.keep_dac_busy = 1;
-      } else if (strcasecmp(str, "while active") == 0)
+      } else if (strcasecmp(str, "while_active") == 0)
         config.disable_standby_mode = disable_standby_while_active;
       else {
         warn("Invalid disable_standby_mode option choice \"%s\". It should be "
-             "\"always\", \"while active\" or \"never\". "
-             "It is set to \"while active\".");
+             "\"always\", \"while_active\" or \"never\". "
+             "It is set to \"while_active\".");
       }
     }
 
