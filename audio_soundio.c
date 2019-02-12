@@ -27,8 +27,9 @@ static void write_callback(struct SoundIoOutStream *outstream, int frame_count_m
   int fill_bytes = soundio_ring_buffer_fill_count(ring_buffer);
   int fill_count = fill_bytes / outstream->bytes_per_frame;
 
-  debug(3, "[--->>] frame_count_min: %d , frame_count_max: %d , fill_bytes: %d , fill_count: %d , "
-           "outstream->bytes_per_frame: %d",
+  debug(3,
+        "[--->>] frame_count_min: %d , frame_count_max: %d , fill_bytes: %d , fill_count: %d , "
+        "outstream->bytes_per_frame: %d",
         frame_count_min, frame_count_max, fill_bytes, fill_count, outstream->bytes_per_frame);
 
   if (frame_count_min > fill_count) {

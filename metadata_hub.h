@@ -12,6 +12,11 @@ enum play_status_type {
   PS_PLAYING,
 } play_status_type;
 
+enum active_mode_type {
+  AM_INACTIVE = 0,
+  AM_ACTIVE,
+} active_mode_type;
+
 enum shuffle_status_type {
   SS_NOT_AVAILABLE = 0,
   SS_OFF,
@@ -77,6 +82,7 @@ typedef struct metadata_bundle {
 
   enum play_status_type
       player_state; // this is the state of the actual player itself, which can be a bit noisy.
+  enum active_mode_type active_state;
 
   int speaker_volume; // this is the actual speaker volume, allowing for the main volume and the
                       // speaker volume control

@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <string.h>
 #include <unistd.h>
 
 #include <jack/jack.h>
@@ -301,6 +300,9 @@ void *open_client_if_necessary_thread_function(void *arg) {
 int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.500;
+  config.audio_backend_buffer_interpolation_threshold_in_seconds =
+      0.25; // below this, soxr interpolation will not occur -- it'll be basic interpolation
+            // instead.
   config.jack_auto_client_open_interval = 1; // check every second
 
   // get settings from settings file first, allow them to be overridden by
@@ -332,8 +334,9 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
      * we should try. */
     if (config_lookup_int(config.cfg, "jack.auto_client_open_interval", &value)) {
       if ((value < 0) || (value > 300))
-        debug(1, "Invalid jack auto_client_open_interval \"%sd\". It should be between 0 and 300, "
-                 "default is %d.",
+        debug(1,
+              "Invalid jack auto_client_open_interval \"%sd\". It should be between 0 and 300, "
+              "default is %d.",
               value, config.jack_auto_client_open_interval);
       else
         config.jack_auto_client_open_interval = value;

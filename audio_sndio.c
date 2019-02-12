@@ -99,6 +99,9 @@ static int init(int argc, char **argv) {
   devname = SIO_DEVANY;
 
   config.audio_backend_buffer_desired_length = 1.0;
+  config.audio_backend_buffer_interpolation_threshold_in_seconds =
+      0.25; // below this, soxr interpolation will not occur -- it'll be basic interpolation
+            // instead.
   config.audio_backend_latency_offset = 0;
 
   // get settings from settings file

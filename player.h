@@ -68,14 +68,15 @@ typedef struct {
 } stream_cfg;
 
 typedef struct {
-  int connection_number;    // for debug ID purposes, nothing else...
-  int resend_interval;      // this is really just for debugging
-  int AirPlayVersion;       // zero if not an AirPlay session. Used to help calculate latency
-  uint32_t latency;         // the actual latency used for this play session
-  uint32_t minimum_latency; // set if an a=min-latency: line appears in the ANNOUNCE message; zero
-                            // otherwise
-  uint32_t maximum_latency; // set if an a=max-latency: line appears in the ANNOUNCE message; zero
-                            // otherwise
+  int connection_number;     // for debug ID purposes, nothing else...
+  int resend_interval;       // this is really just for debugging
+  int AirPlayVersion;        // zero if not an AirPlay session. Used to help calculate latency
+  uint32_t latency;          // the actual latency used for this play session
+  uint32_t minimum_latency;  // set if an a=min-latency: line appears in the ANNOUNCE message; zero
+                             // otherwise
+  uint32_t maximum_latency;  // set if an a=max-latency: line appears in the ANNOUNCE message; zero
+                             // otherwise
+  int software_mute_enabled; // if we don't have a real mute that we can use
 
   int fd;
   int authorized;   // set if a password is required and has been supplied
@@ -132,7 +133,7 @@ typedef struct {
   int32_t last_seqno_read;
   // mutexes and condition variables
   pthread_cond_t flowcontrol;
-  pthread_mutex_t ab_mutex, flush_mutex;
+  pthread_mutex_t ab_mutex, flush_mutex, volume_control_mutex;
   int fix_volume;
   uint32_t timestamp_epoch, last_timestamp,
       maximum_timestamp_interval; // timestamp_epoch of zero means not initialised, could start at 2
@@ -248,6 +249,7 @@ typedef struct {
   void *dapo_private_storage;  // this is used for compatibility, if dacp stuff isn't enabled.
 
   int enable_dither; // needed for filling silences before play actually starts
+  int64_t dac_buffer_queue_minimum_length;
 } rtsp_conn_info;
 
 uint32_t modulo_32_offset(uint32_t from, uint32_t to);

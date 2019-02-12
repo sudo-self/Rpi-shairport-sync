@@ -3,7 +3,7 @@
  * Copyright (c) James Laird 2013
 
  * Modifications associated with audio synchronization, mutithreading and
- * metadata handling copyright (c) Mike Brady 2014-2018
+ * metadata handling copyright (c) Mike Brady 2014-2019
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -51,6 +51,7 @@
 #endif
 
 #ifdef CONFIG_MBEDTLS
+#include <mbedtls/version.h>
 #include <mbedtls/md5.h>
 #endif
 
@@ -90,6 +91,8 @@ enum rtsp_read_request_response {
 
 // Mike Brady's part...
 
+int metadata_running = 0;
+
 // always lock use this when accessing the playing conn value
 static pthread_mutex_t playing_conn_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -119,7 +122,10 @@ typedef struct {
 } pc_queue;          // producer-consumer queue
 #endif
 
+static int msg_indexes = 1;
+
 typedef struct {
+  int index_number;
   uint32_t referenceCount; // we might start using this...
   unsigned int nheaders;
   char *name[16];
@@ -285,15 +291,16 @@ void *player_watchdog_thread_code(void *arg) {
         if (time_since_last_bark >= ct) {
           conn->watchdog_barks++;
           if (conn->watchdog_barks == 1) {
-            debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
-                     "of the heart\".",
+            debug(1,
+                  "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
+                  "of the heart\".",
                   conn->connection_number);
             conn->stop = 1;
             pthread_cancel(conn->thread);
           } else if (conn->watchdog_barks == 3) {
             if ((config.cmd_unfixable) && (conn->unfixable_error_reported == 0)) {
               conn->unfixable_error_reported = 1;
-              command_execute(config.cmd_unfixable, "unable_to_cancel_play_session");
+              command_execute(config.cmd_unfixable, "unable_to_cancel_play_session", 1);
             } else {
               warn("an unrecoverable error, \"unable_to_cancel_play_session\", has been detected.",
                    conn->connection_number);
@@ -401,16 +408,17 @@ static char *nextline(char *in, int inbuf) {
 }
 
 void msg_retain(rtsp_message *msg) {
-  if (msg) {
-    int rc = pthread_mutex_lock(&reference_counter_lock);
-    if (rc)
-      debug(1, "Error %d locking reference counter lock");
+  int rc = pthread_mutex_lock(&reference_counter_lock);
+  if (rc)
+    debug(1, "Error %d locking reference counter lock");
+  if (msg > (rtsp_message *)0x00010000) {
     msg->referenceCount++;
+    // debug(1,"msg_retain -- item %d reference count %d.", msg->index_number, msg->referenceCount);
     rc = pthread_mutex_unlock(&reference_counter_lock);
     if (rc)
       debug(1, "Error %d unlocking reference counter lock");
   } else {
-    debug(1, "null rtsp_message pointer passed to retain");
+    debug(1, "invalid rtsp_message pointer 0x%x passed to retain", (uintptr_t)msg);
   }
 }
 
@@ -419,9 +427,11 @@ rtsp_message *msg_init(void) {
   if (msg) {
     memset(msg, 0, sizeof(rtsp_message));
     msg->referenceCount = 1; // from now on, any access to this must be protected with the lock
+    msg->index_number = msg_indexes++;
   } else {
-    die("can not allocate memory for an rtsp_message.");
+    die("msg_init -- can not allocate memory for rtsp_message %d.", msg_indexes);
   }
+  // debug(1,"msg_init -- create item %d.", msg->index_number);
   return msg;
 }
 
@@ -476,12 +486,11 @@ static void debug_print_msg_content(int level, rtsp_message *msg) {
 }
 */
 
-void msg_free(rtsp_message *msg) {
-
-  if (msg) {
-    debug_mutex_lock(&reference_counter_lock, 1000, 0);
+void msg_free(rtsp_message **msgh) {
+  debug_mutex_lock(&reference_counter_lock, 1000, 0);
+  if (*msgh > (rtsp_message *)0x00010000) {
+    rtsp_message *msg = *msgh;
     msg->referenceCount--;
-    debug_mutex_unlock(&reference_counter_lock, 0);
     if (msg->referenceCount == 0) {
       unsigned int i;
       for (i = 0; i < msg->nheaders; i++) {
@@ -490,14 +499,24 @@ void msg_free(rtsp_message *msg) {
       }
       if (msg->content)
         free(msg->content);
+      // debug(1,"msg_free item %d -- free.",msg->index_number);
+      uintptr_t index = (msg->index_number) & 0xFFFF;
+      if (index == 0)
+        index = 0x10000; // ensure it doesn't fold to zero.
+      *msgh =
+          (rtsp_message *)(index); // put a version of the index number of the freed message in here
       free(msg);
-    } // else {
-      // debug(1,"rtsp_message reference count non-zero:
-      // %d!",msg->referenceCount);
-      //}
-  } else {
-    debug(1, "null rtsp_message pointer passed to msg_free()");
+    } else {
+      // debug(1,"msg_free item %d -- decrement reference to
+      // %d.",msg->index_number,msg->referenceCount);
+    }
+  } else if (*msgh != NULL) {
+    debug(1,
+          "msg_free: error attempting to free an allocated but already-freed rtsp_message, number "
+          "%d.",
+          (uintptr_t)*msgh);
   }
+  debug_mutex_unlock(&reference_counter_lock, 0);
 }
 
 int msg_handle_line(rtsp_message **pmsg, char *line) {
@@ -550,18 +569,23 @@ int msg_handle_line(rtsp_message **pmsg, char *line) {
   }
 
 fail:
-  *pmsg = NULL;
-  msg_free(msg);
+  msg_free(pmsg);
   return 0;
 }
 
 enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_message **the_packet) {
+
+  *the_packet = NULL; // need this for erro handling
+
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
+  int release_buffer = 0; // on exit, don't deallocate the buffer if everything was okay
   char *buf = malloc(buflen + 1); // add a NUL at the end
-
-  rtsp_message *msg = NULL;
-
+  if (!buf) {
+    warn("rtsp_read_request: can't get a buffer.");
+    return(rtsp_read_request_response_error);
+  }  
+  pthread_cleanup_push(malloc_cleanup, buf);
   ssize_t nread;
   ssize_t inbuf = 0;
   int msg_size = -1;
@@ -607,9 +631,9 @@ do {
 
     char *next;
     while (msg_size < 0 && (next = nextline(buf, inbuf))) {
-      msg_size = msg_handle_line(&msg, buf);
+      msg_size = msg_handle_line(the_packet, buf);
 
-      if (!msg) {
+      if (!(*the_packet)) {
         warn("no RTSP header received");
         reply = rtsp_read_request_response_bad_packet;
         goto shutdown;
@@ -674,7 +698,7 @@ do {
     size_t read_chunk = msg_size - inbuf;
     if (read_chunk > max_read_chunk)
       read_chunk = max_read_chunk;
-    usleep(40000); // wait about 40 milliseconds between reads of up to about 64 kB
+    usleep(80000); // wait about 80 milliseconds between reads of up to about 64 kB
     nread = read(conn->fd, buf + inbuf, read_chunk);
     if (!nread) {
       reply = rtsp_read_request_response_error;
@@ -690,21 +714,18 @@ do {
     inbuf += nread;
   }
 
+  rtsp_message *msg = *the_packet;
   msg->contentlength = inbuf;
   msg->content = buf;
   char *jp = inbuf + buf;
   *jp = '\0';
   *the_packet = msg;
-  return reply;
-
 shutdown:
-  if (msg) {
-    msg_free(msg); // which will free the content and everything else
+  if (reply != rtsp_read_request_response_ok) {
+    msg_free(the_packet);
+    release_buffer = 1; // allow the buffer to be released
   }
-  // in case the message wasn't formed or wasn't fully initialised
-  if ((msg && (msg->content == NULL)) || (!msg))
-    free(buf);
-  *the_packet = NULL;
+  pthread_cleanup_pop(release_buffer);
   return reply;
 }
 
@@ -820,9 +841,10 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
                     rtsp_message *resp) {
   debug(3, "Connection %d: OPTIONS", conn->connection_number);
   resp->respcode = 200;
-  msg_add_header(resp, "Public", "ANNOUNCE, SETUP, RECORD, "
-                                 "PAUSE, FLUSH, TEARDOWN, "
-                                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
+  msg_add_header(resp, "Public",
+                 "ANNOUNCE, SETUP, RECORD, "
+                 "PAUSE, FLUSH, TEARDOWN, "
+                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
 }
 
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
@@ -1034,8 +1056,8 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
     } else
 #ifdef CONFIG_METADATA
         if (!strncmp(cp, "progress: ", strlen("progress: "))) {
-      char *progress = cp + strlen("volume: ");
-      // debug(2, "progress: \"%s\"\n",progress); // rtpstampstart/rtpstampnow/rtpstampend 44100 per
+      char *progress = cp + strlen("progress: ");
+      // debug(2, "progress: \"%s\"",progress); // rtpstampstart/rtpstampnow/rtpstampend 44100 per
       // second
       send_ssnc_metadata('prgr', strdup(progress), strlen(progress), 1);
 
@@ -1076,6 +1098,8 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 //    'PICT' -- the payload is a picture, either a JPEG or a PNG. Check the
 //    first few bytes to see
 //    which.
+//    'abeg' -- active mode entered. No arguments
+//    'aend' -- active mode exited. No arguments
 //    'pbeg' -- play stream begin. No arguments
 //    'pend' -- play stream end. No arguments
 //    'pfls' -- play stream flush. No arguments
@@ -1396,7 +1420,7 @@ void metadata_pack_cleanup_function(void *arg) {
   // debug(1, "metadata_pack_cleanup_function called");
   metadata_package *pack = (metadata_package *)arg;
   if (pack->carrier)
-    msg_free(pack->carrier); // release the message
+    msg_free(&pack->carrier); // release the message
   else if (pack->data)
     free(pack->data);
 }
@@ -1432,12 +1456,15 @@ void metadata_init(void) {
   int ret = pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL);
   if (ret)
     debug(1, "Failed to create metadata thread!");
+  metadata_running = 1;
 }
 
 void metadata_stop(void) {
-  debug(1, "metadata_stop called.");
-  pthread_cancel(metadata_thread);
-  pthread_join(metadata_thread, NULL);
+  if (metadata_running) {
+    debug(1, "metadata_stop called.");
+    pthread_cancel(metadata_thread);
+    pthread_join(metadata_thread, NULL);
+  }
 }
 
 int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,
@@ -1474,14 +1501,17 @@ int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rts
   pack.code = code;
   pack.data = data;
   pack.length = length;
-  if (carrier)
-    msg_retain(carrier);
   pack.carrier = carrier;
+  if (pack.carrier)
+    msg_retain(pack.carrier);
   int rc = pc_queue_add_item(&metadata_queue, &pack, block);
-  if ((rc == EBUSY) && (carrier))
-    msg_free(carrier);
-  if (rc == EBUSY)
-    warn("Metadata queue is busy, dropping message of type 0x%08X, code 0x%08X.", type, code);
+  if (rc == EBUSY) {
+    if (pack.carrier)
+      msg_free(&pack.carrier);
+    else if (data)
+      free(data);
+    warn("Metadata queue is busy, discarding message of type 0x%08X, code 0x%08X.", type, code);
+  }
   return rc;
 }
 
@@ -1548,7 +1578,7 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
   char *ct = msg_get_header(req, "Content-Type");
 
   if (ct) {
-// debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
+    // debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
 
 #ifdef CONFIG_METADATA
     // It seems that the rtptime of the message is used as a kind of an ID that
@@ -1996,6 +2026,8 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
 #ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
 
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   MD5_Init(&ctx);
   MD5_Update(&ctx, username, strlen(username));
   MD5_Update(&ctx, ":", 1);
@@ -2008,9 +2040,25 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
   MD5_Update(&ctx, ":", 1);
   MD5_Update(&ctx, uri, strlen(uri));
   MD5_Final(digest_mu, &ctx);
+  pthread_setcancelstate(oldState, NULL);
 #endif
 
 #ifdef CONFIG_MBEDTLS
+  #if MBEDTLS_VERSION_MINOR >= 7
+  mbedtls_md5_context tctx;
+  mbedtls_md5_starts_ret(&tctx);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)username, strlen(username));
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)realm, strlen(realm));
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)config.password, strlen(config.password));
+  mbedtls_md5_finish_ret(&tctx, digest_urp);
+  mbedtls_md5_starts_ret(&tctx);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)req->method, strlen(req->method));
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)uri, strlen(uri));
+  mbedtls_md5_finish_ret(&tctx, digest_mu);
+  #else
   mbedtls_md5_context tctx;
   mbedtls_md5_starts(&tctx);
   mbedtls_md5_update(&tctx, (const unsigned char *)username, strlen(username));
@@ -2024,6 +2072,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
   mbedtls_md5_update(&tctx, (unsigned char *)":", 1);
   mbedtls_md5_update(&tctx, (const unsigned char *)uri, strlen(uri));
   mbedtls_md5_finish(&tctx, digest_mu);
+  #endif
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -2048,6 +2097,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
     snprintf((char *)buf + 2 * i, 3, "%02x", digest_urp[i]);
 
 #ifdef CONFIG_OPENSSL
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   MD5_Init(&ctx);
   MD5_Update(&ctx, buf, 32);
   MD5_Update(&ctx, ":", 1);
@@ -2057,9 +2107,21 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
     snprintf((char *)buf + 2 * i, 3, "%02x", digest_mu[i]);
   MD5_Update(&ctx, buf, 32);
   MD5_Final(digest_total, &ctx);
+  pthread_setcancelstate(oldState, NULL);
 #endif
 
 #ifdef CONFIG_MBEDTLS
+  #if MBEDTLS_VERSION_MINOR >= 7
+  mbedtls_md5_starts_ret(&tctx);
+  mbedtls_md5_update_ret(&tctx, buf, 32);
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)*nonce, strlen(*nonce));
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
+  for (i = 0; i < 16; i++)
+    snprintf((char *)buf + 2 * i, 3, "%02x", digest_mu[i]);
+  mbedtls_md5_update_ret(&tctx, buf, 32);
+  mbedtls_md5_finish_ret(&tctx, digest_total);
+  #else
   mbedtls_md5_starts(&tctx);
   mbedtls_md5_update(&tctx, buf, 32);
   mbedtls_md5_update(&tctx, (unsigned char *)":", 1);
@@ -2069,6 +2131,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
     snprintf((char *)buf + 2 * i, 3, "%02x", digest_mu[i]);
   mbedtls_md5_update(&tctx, buf, 32);
   mbedtls_md5_finish(&tctx, digest_total);
+  #endif
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -2135,7 +2198,10 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   }
 
   // remove flow control and mutexes
-  int rc = pthread_cond_destroy(&conn->flowcontrol);
+  int rc = pthread_mutex_destroy(&conn->volume_control_mutex);
+  if (rc)
+    debug(1, "Connection %d: error %d destroying volume_control_mutex.", conn->connection_number, rc);
+  rc = pthread_cond_destroy(&conn->flowcontrol);
   if (rc)
     debug(1, "Connection %d: error %d destroying flow control condition variable.",
           conn->connection_number, rc);
@@ -2168,7 +2234,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
 
 void msg_cleanup_function(void *arg) {
   // debug(3, "msg_cleanup_function called.");
-  msg_free((rtsp_message *)arg);
+  msg_free((rtsp_message **)arg);
 }
 
 static void *rtsp_conversation_thread_func(void *pconn) {
@@ -2198,6 +2264,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   if (rc)
     die("Connection %d: error %d initialising flow control condition variable.",
         conn->connection_number, rc);
+  rc = pthread_mutex_init(&conn->volume_control_mutex, NULL);
+  if (rc)
+    die("Connection %d: error %d initialising volume_control_mutex.", conn->connection_number, rc);
 
   // nothing before this is cancellable
   pthread_cleanup_push(rtsp_conversation_thread_cleanup_function, (void *)conn);
@@ -2214,16 +2283,17 @@ static void *rtsp_conversation_thread_func(void *pconn) {
     int debug_level = 3; // for printing the request and response
     reply = rtsp_read_request(conn, &req);
     if (reply == rtsp_read_request_response_ok) {
-      pthread_cleanup_push(msg_cleanup_function, (void *)req);
+      pthread_cleanup_push(msg_cleanup_function, (void *)&req);
       resp = msg_init();
-      pthread_cleanup_push(msg_cleanup_function, (void *)resp);
+      pthread_cleanup_push(msg_cleanup_function, (void *)&resp);
       resp->respcode = 400;
 
       if (strcmp(req->method, "OPTIONS") !=
           0) // the options message is very common, so don't log it until level 3
         debug_level = 2;
-      debug(debug_level, "Connection %d: Received an RTSP Packet of type \"%s\":",
-            conn->connection_number, req->method),
+      debug(debug_level,
+            "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
+            req->method),
           debug_print_msg_headers(debug_level, req);
 
       apple_challenge(conn->fd, req, resp);
@@ -2282,8 +2352,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
-          debug(1, "Connection %d: Unable to write an RTSP message response. Terminating the "
-                   "connection.",
+          debug(1,
+                "Connection %d: Unable to write an RTSP message response. Terminating the "
+                "connection.",
                 conn->connection_number);
           struct linger so_linger;
           so_linger.l_onoff = 1; // "true"
@@ -2576,8 +2647,12 @@ void rtsp_listen_loop(void) {
 
       ret = pthread_create(&conn->thread, NULL, rtsp_conversation_thread_func,
                            conn); // also acts as a memory barrier
-      if (ret)
-        die("Failed to create RTSP receiver thread %d!", conn->connection_number);
+      if (ret) {
+        char errorstring[1024];
+        strerror_r(ret, (char *)errorstring, sizeof(errorstring));
+        die("Connection %d: cannot create an RTSP conversation thread. Error %d: \"%s\".",
+            conn->connection_number, ret, (char *)errorstring);
+      }
       debug(3, "Successfully created RTSP receiver thread %d.", conn->connection_number);
       conn->running = 1; // this must happen before the thread is tracked
       track_thread(conn);

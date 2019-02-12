@@ -74,10 +74,8 @@ static void deinit(void) {
   // don't close stdout
 }
 
-static void help(void) { printf("    stdout takes no arguments\n"); }
-
 audio_output audio_stdout = {.name = "stdout",
-                             .help = &help,
+                             .help = NULL,
                              .init = &init,
                              .deinit = &deinit,
                              .start = &start,

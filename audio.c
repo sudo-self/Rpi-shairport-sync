@@ -106,14 +106,18 @@ audio_output *audio_get_output(char *name) {
 void audio_ls_outputs(void) {
   audio_output **out;
 
-  printf("Available audio outputs:\n");
+  printf("Available audio backends:\n");
   for (out = outputs; *out; out++)
     printf("    %s%s\n", (*out)->name, out == outputs ? " (default)" : "");
 
   for (out = outputs; *out; out++) {
     printf("\n");
-    printf("Options for output %s:\n", (*out)->name);
-    (*out)->help();
+    if ((*out)->help) {
+      printf("Settings and options for the audio backend \"%s\":\n", (*out)->name);
+      (*out)->help();
+    } else {
+      printf("There are no settings or options for the audio backend \"%s\".\n", (*out)->name);    
+    }
   }
 }
 
@@ -150,6 +154,21 @@ void parse_general_audio_options(void) {
             dvalue, config.audio_backend_buffer_desired_length);
       } else {
         config.audio_backend_buffer_desired_length = dvalue;
+      }
+    }
+
+    /* Get the minumum buffer size for fancy interpolation setting in seconds. */
+    if (config_lookup_float(config.cfg,
+                            "general.audio_backend_buffer_interpolation_threshold_in_seconds",
+                            &dvalue)) {
+      if ((dvalue < 0) || (dvalue > config.audio_backend_buffer_desired_length)) {
+        die("Invalid audio_backend_buffer_interpolation_threshold_in_seconds value: \"%f\". It "
+            "should be between 0 and "
+            "audio_backend_buffer_desired_length_in_seconds of %.3f, default is %.3f seconds",
+            dvalue, config.audio_backend_buffer_desired_length,
+            config.audio_backend_buffer_interpolation_threshold_in_seconds);
+      } else {
+        config.audio_backend_buffer_interpolation_threshold_in_seconds = dvalue;
       }
     }
 

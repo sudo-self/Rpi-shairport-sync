@@ -2,7 +2,7 @@
  * Utility routines. This file is part of Shairport.
  * Copyright (c) James Laird 2013
  * The volume to attenuation function vol2attn copyright (c) Mike Brady 2014
- * Further changes (c) Mike Brady 2014 -- 2018
+ * Further changes and additions (c) Mike Brady 2014 -- 2019
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -75,10 +75,13 @@
 #include <mbedtls/md.h>
 #include <mbedtls/version.h>
 #include <mbedtls/x509.h>
-
 #endif
 
+#ifdef CONFIG_LIBDAEMON
 #include <libdaemon/dlog.h>
+#else
+#include <syslog.h>
+#endif
 
 #ifdef CONFIG_ALSA
 void set_alsa_out_dev(char *);
@@ -114,7 +117,8 @@ uint16_t nextFreeUDPPort() {
   if (UDPPortIndex == 0)
     UDPPortIndex = config.udp_port_base;
   else if (UDPPortIndex == (config.udp_port_base + config.udp_port_range - 1))
-    UDPPortIndex = config.udp_port_base;
+    UDPPortIndex = config.udp_port_base + 3; // avoid wrapping back to the first three, as they can
+                                             // be assigned by resetFreeUDPPort without checking
   else
     UDPPortIndex++;
   return UDPPortIndex;
@@ -142,13 +146,24 @@ void die(const char *format, ...) {
   va_end(args);
 
   if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    daemon_log(LOG_EMERG, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
+  
+  #ifdef CONFIG_LIBDAEMON
+    daemon_log(LOG_ERR, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
   else if ((debuglev) && (config.debugger_show_relative_time))
-    daemon_log(LOG_EMERG, "% 20.9f|*fatal error: %s", tsl, s);
+    daemon_log(LOG_ERR, "% 20.9f|*fatal error: %s", tsl, s);
   else if ((debuglev) && (config.debugger_show_elapsed_time))
-    daemon_log(LOG_EMERG, "% 20.9f|*fatal error: %s", tss, s);
+    daemon_log(LOG_ERR, "% 20.9f|*fatal error: %s", tss, s);
   else
-    daemon_log(LOG_EMERG, "fatal error: %s", s);
+    daemon_log(LOG_ERR, "fatal error: %s", s);
+  #else
+    syslog(LOG_ERR, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
+  else if ((debuglev) && (config.debugger_show_relative_time))
+    syslog(LOG_ERR, "% 20.9f|*fatal error: %s", tsl, s);
+  else if ((debuglev) && (config.debugger_show_elapsed_time))
+    syslog(LOG_ERR, "% 20.9f|*fatal error: %s", tss, s);
+  else
+    syslog(LOG_ERR, "fatal error: %s", s);  
+  #endif
   pthread_setcancelstate(oldState, NULL);
   exit(1);
 }
@@ -169,7 +184,7 @@ void warn(const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-
+#ifdef CONFIG_LIBDAEMON
   if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
     daemon_log(LOG_WARNING, "|% 20.9f|% 20.9f|*warning: %s", tss, tsl, s);
   else if ((debuglev) && (config.debugger_show_relative_time))
@@ -178,6 +193,16 @@ void warn(const char *format, ...) {
     daemon_log(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
   else
     daemon_log(LOG_WARNING, "%s", s);
+#else
+  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
+    syslog(LOG_WARNING, "|% 20.9f|% 20.9f|*warning: %s", tss, tsl, s);
+  else if ((debuglev) && (config.debugger_show_relative_time))
+    syslog(LOG_WARNING, "% 20.9f|*warning: %s", tsl, s);
+  else if ((debuglev) && (config.debugger_show_elapsed_time))
+    syslog(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
+  else
+    syslog(LOG_WARNING, "%s", s);
+#endif
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -199,6 +224,7 @@ void debug(int level, const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
+#ifdef CONFIG_LIBDAEMON
   if ((config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
     daemon_log(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
   else if (config.debugger_show_relative_time)
@@ -207,6 +233,16 @@ void debug(int level, const char *format, ...) {
     daemon_log(LOG_DEBUG, "% 20.9f|%s", tss, s);
   else
     daemon_log(LOG_DEBUG, "%s", s);
+#else
+  if ((config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
+    syslog(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
+  else if (config.debugger_show_relative_time)
+    syslog(LOG_DEBUG, "% 20.9f|%s", tsl, s);
+  else if (config.debugger_show_elapsed_time)
+    syslog(LOG_DEBUG, "% 20.9f|%s", tss, s);
+  else
+    syslog(LOG_DEBUG, "%s", s);
+#endif
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -226,7 +262,7 @@ void inform(const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-
+#ifdef CONFIG_LIBDAEMON
   if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
     daemon_log(LOG_INFO, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
   else if ((debuglev) && (config.debugger_show_relative_time))
@@ -235,6 +271,17 @@ void inform(const char *format, ...) {
     daemon_log(LOG_INFO, "% 20.9f|%s", tss, s);
   else
     daemon_log(LOG_INFO, "%s", s);
+#else
+  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
+    syslog(LOG_INFO, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
+  else if ((debuglev) && (config.debugger_show_relative_time))
+    syslog(LOG_INFO, "% 20.9f|%s", tsl, s);
+  else if ((debuglev) && (config.debugger_show_elapsed_time))
+    syslog(LOG_INFO, "% 20.9f|%s", tss, s);
+  else
+    syslog(LOG_INFO, "%s", s);
+
+#endif
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -394,6 +441,8 @@ uint8_t *base64_dec(char *input, int *outlen) {
 
 #ifdef CONFIG_OPENSSL
 char *base64_enc(uint8_t *input, int length) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   BIO *bmem, *b64;
   BUF_MEM *bptr;
   b64 = BIO_new(BIO_f_base64());
@@ -412,12 +461,15 @@ char *base64_enc(uint8_t *input, int length) {
     buf[bptr->length - 1] = 0;
   }
 
-  BIO_free_all(bmem);
+  BIO_free_all(b64);
 
+  pthread_setcancelstate(oldState, NULL);
   return buf;
 }
 
 uint8_t *base64_dec(char *input, int *outlen) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   BIO *bmem, *b64;
   int inlen = strlen(input);
 
@@ -438,10 +490,10 @@ uint8_t *base64_dec(char *input, int *outlen) {
 
   nread = BIO_read(b64, buf, bufsize);
 
-  // BIO_free_all(bmem);
   BIO_free_all(b64);
 
   *outlen = nread;
+  pthread_setcancelstate(oldState, NULL);
   return buf;
 }
 #endif
@@ -473,6 +525,8 @@ static char super_secret_key[] =
 
 #ifdef CONFIG_OPENSSL
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   RSA *rsa = NULL;
   if (!rsa) {
     BIO *bmem = BIO_new_mem_buf(super_secret_key, -1);
@@ -491,6 +545,8 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
   default:
     die("bad rsa mode");
   }
+  RSA_free(rsa);
+  pthread_setcancelstate(oldState, NULL);
   return out;
 }
 #endif
@@ -716,7 +772,8 @@ void command_start(void) {
                                     and if blocking is true, wait for
                                     process to finish */
         pid_t rc = waitpid(pid, 0, 0);                              /* wait for child to exit */
-        if (rc != pid) {
+        if ((rc != pid) && (errno != ECHILD)) {
+          // In this context, ECHILD means that the child process has already completed, I think!
           warn("Execution of on-start command returned an error.");
           debug(1, "on-start command %s finished with error %d", config.cmd_start, errno);
         }
@@ -739,7 +796,7 @@ void command_start(void) {
     }
   }
 }
-void command_execute(const char *command, const char *extra_argument) {
+void command_execute(const char *command, const char *extra_argument, const int block) {
   // this has a cancellation point if waiting is enabled
   if (command) {
     char new_command_buffer[1024];
@@ -767,10 +824,11 @@ void command_execute(const char *command, const char *extra_argument) {
         exit(127); /* only if execv fails */
       }
     } else {
-      if (config.cmd_blocking) { /* pid!=0 means parent process and if blocking is true, wait for
+      if (block) { /* pid!=0 means parent process and if blocking is true, wait for
                                     process to finish */
         pid_t rc = waitpid(pid, 0, 0); /* wait for child to exit */
-        if (rc != pid) {
+        if ((rc != pid) && (errno != ECHILD)) {
+          // In this context, ECHILD means that the child process has already completed, I think!
           warn("Execution of command \"%s\" returned an error.", full_command);
           debug(1, "Command \"%s\" finished with error %d", full_command, errno);
         }
@@ -782,36 +840,8 @@ void command_execute(const char *command, const char *extra_argument) {
 
 void command_stop(void) {
   // this has a cancellation point if waiting is enabled
-  if (config.cmd_stop) {
-    /*Spawn a child to run the program.*/
-    pid_t pid = fork();
-    if (pid == 0) { /* child process */
-      int argC;
-      char **argV;
-      // debug(1,"on-stop command found.");
-      if (poptParseArgvString(config.cmd_stop, &argC, (const char ***)&argV) !=
-          0) // note that argV should be free()'d after use, but we expect this fork to exit
-             // eventually.
-        debug(1, "Can't decipher on-stop command arguments");
-      else {
-        // debug(1,"Executing on-stop command %s",config.cmd_stop);
-        execv(argV[0], argV);
-        warn("Execution of on-stop command failed to start");
-        debug(1, "Error executing on-stop command %s", config.cmd_stop);
-        exit(127); /* only if execv fails */
-      }
-    } else {
-      if (config.cmd_blocking) { /* pid!=0 means parent process and if blocking is true, wait for
-                                    process to finish */
-        pid_t rc = waitpid(pid, 0, 0); /* wait for child to exit */
-        if (rc != pid) {
-          warn("Execution of on-stop command returned an error.");
-          debug(1, "Stop command %s finished with error %d", config.cmd_stop, errno);
-        }
-      }
-      // debug(1,"Continue after on-stop command");
-    }
-  }
+  if (config.cmd_stop)
+    command_execute(config.cmd_stop, "", config.cmd_blocking);
 }
 
 // this is for reading an unsigned 32 bit number, such as an RTP timestamp
@@ -846,17 +876,17 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
 
 double vol2attn(double vol, long max_db, long min_db) {
 
-// We use a little coordinate geometry to build a transfer function from the volume passed in to
-// the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
-// "volume in" which will be from -30 to 0. The y axis will be the "volume out" which will be from
-// the bottom of the range to the top. We build the transfer function from one or more lines. We
-// characterise each line with two numbers: the first is where on x the line starts when y=0 (x
-// can be from 0 to -30); the second is where on y the line stops when when x is -30. thus, if the
-// line was characterised as {0,-30}, it would be an identity transfer. Assuming, for example, a
-// dynamic range of lv=-60 to hv=0 Typically we'll use three lines -- a three order transfer
-// function First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
-// Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
-// Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
+  // We use a little coordinate geometry to build a transfer function from the volume passed in to
+  // the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
+  // "volume in" which will be from -30 to 0. The y axis will be the "volume out" which will be from
+  // the bottom of the range to the top. We build the transfer function from one or more lines. We
+  // characterise each line with two numbers: the first is where on x the line starts when y=0 (x
+  // can be from 0 to -30); the second is where on y the line stops when when x is -30. thus, if the
+  // line was characterised as {0,-30}, it would be an identity transfer. Assuming, for example, a
+  // dynamic range of lv=-60 to hv=0 Typically we'll use three lines -- a three order transfer
+  // function First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
+  // Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
+  // Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
 
 #define order 3
 
@@ -1160,15 +1190,18 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 
   timeoutTime.tv_sec = time_then;
   timeoutTime.tv_nsec = time_then_nsec;
-
+  int64_t start_time = get_absolute_time_in_fp();
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
+  int64_t et = get_absolute_time_in_fp() - start_time;
 
   if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
+    et = (et * 1000000) >> 32; // microseconds
     char errstr[1000];
     if (r == ETIMEDOUT)
       debug(debuglevel,
-            "waiting for a mutex, maximum expected time of %d microseconds exceeded \"%s\".",
-            dally_time, debugmessage);
+            "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
+            "waiting time of %d microseconds. \"%s\".",
+            (1.0 * et) / 1000000, dally_time, debugmessage);
     else
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
@@ -1254,6 +1287,11 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const cha
           strerror_r(r, errstr, sizeof(errstr)), mutexname, dstring);
   pthread_setcancelstate(oldState, NULL);
   return r;
+}
+
+void malloc_cleanup(void *arg) {
+  // debug(1, "malloc cleanup called.");
+  free(arg);
 }
 
 void pthread_cleanup_debug_mutex_unlock(void *arg) { pthread_mutex_unlock((pthread_mutex_t *)arg); }

@@ -70,6 +70,10 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
 
   // set up default values first
   config.audio_backend_buffer_desired_length = 0.35;
+  config.audio_backend_buffer_interpolation_threshold_in_seconds =
+      0.02; // below this, soxr interpolation will not occur -- it'll be basic interpolation
+            // instead.
+
   config.audio_backend_latency_offset = 0;
 
   // get settings from settings file
@@ -296,10 +300,8 @@ static void stop(void) {
   pa_stream_disconnect(stream);
 }
 
-static void help(void) { printf(" no settings.\n"); }
-
 audio_output audio_pa = {.name = "pa",
-                         .help = &help,
+                         .help = NULL,
                          .init = &init,
                          .deinit = &deinit,
                          .start = &start,

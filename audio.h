@@ -47,7 +47,8 @@ typedef struct {
   void (*parameters)(audio_parameters *info);
 
   // may be NULL, in which case software muting is used.
-  void (*mute)(int do_mute);
+  // also, will return a 1 if it is actually using the mute facility, 0 otherwise
+  int (*mute)(int do_mute);
 
 } audio_output;
 

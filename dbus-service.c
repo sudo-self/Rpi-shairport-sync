@@ -15,6 +15,8 @@
 
 #include "dbus-service.h"
 
+int service_is_running = 0;
+
 ShairportSyncDiagnostics *shairportSyncDiagnosticsSkeleton = NULL;
 ShairportSyncRemoteControl *shairportSyncRemoteControlSkeleton = NULL;
 ShairportSyncAdvancedRemoteControl *shairportSyncAdvancedRemoteControlSkeleton = NULL;
@@ -378,14 +380,27 @@ gboolean notify_verbosity_callback(ShairportSyncDiagnostics *skeleton,
   return TRUE;
 }
 
+gboolean notify_disable_standby_callback(ShairportSync *skeleton,
+                                         __attribute__((unused)) gpointer user_data) {
+  // debug(1, "\"notify_disable_standby_callback\" called.");
+  if (shairport_sync_get_disable_standby(skeleton)) {
+    debug(1, ">> activating disable standby");
+    config.keep_dac_busy = 1;
+  } else {
+    debug(1, ">> deactivating disable standby");
+    config.keep_dac_busy = 0;
+  }
+  return TRUE;
+}
+
 gboolean notify_loudness_filter_active_callback(ShairportSync *skeleton,
                                                 __attribute__((unused)) gpointer user_data) {
-  debug(1, "\"notify_loudness_filter_active_callback\" called.");
+  // debug(1, "\"notify_loudness_filter_active_callback\" called.");
   if (shairport_sync_get_loudness_filter_active(skeleton)) {
-    debug(1, "activating loudness filter");
+    debug(1, ">> activating loudness filter");
     config.loudness = 1;
   } else {
-    debug(1, "deactivating loudness filter");
+    debug(1, ">> deactivating loudness filter");
     config.loudness = 0;
   }
   return TRUE;
@@ -395,10 +410,10 @@ gboolean notify_loudness_threshold_callback(ShairportSync *skeleton,
                                             __attribute__((unused)) gpointer user_data) {
   gdouble th = shairport_sync_get_loudness_threshold(skeleton);
   if ((th <= 0.0) && (th >= -100.0)) {
-    debug(1, "Setting loudness threshhold to %f.", th);
+    debug(1, ">> setting loudness threshhold to %f.", th);
     config.loudness_reference_volume_db = th;
   } else {
-    debug(1, "Invalid loudness threshhold: %f. Ignored.", th);
+    debug(1, ">> invalid loudness threshhold: %f. Ignored.", th);
     shairport_sync_set_loudness_threshold(skeleton, config.loudness_reference_volume_db);
   }
   return TRUE;
@@ -408,11 +423,41 @@ gboolean notify_drift_tolerance_callback(ShairportSync *skeleton,
                                          __attribute__((unused)) gpointer user_data) {
   gdouble dt = shairport_sync_get_drift_tolerance(skeleton);
   if ((dt >= 0.0) && (dt <= 2.0)) {
-    debug(1, "Setting drift tolerance to %f.", dt);
+    debug(1, ">> setting drift tolerance to %f seconds", dt);
     config.tolerance = dt;
   } else {
-    debug(1, "Invalid drift tolerance: %f. Ignored.", dt);
+    debug(1, ">> invalid drift tolerance: %f seconds. Ignored.", dt);
     shairport_sync_set_drift_tolerance(skeleton, config.tolerance);
+  }
+  return TRUE;
+}
+
+gboolean notify_disable_standby_mode_callback(ShairportSync *skeleton,
+                                     __attribute__((unused)) gpointer user_data) {
+  char *th = (char *)shairport_sync_get_disable_standby_mode(skeleton);
+  if ((strcasecmp(th, "no") == 0) || (strcasecmp(th, "off") == 0) || (strcasecmp(th, "never") == 0)) {
+    config.disable_standby_mode = disable_standby_off;
+    config.keep_dac_busy = 0;
+  } else if ((strcasecmp(th, "yes") == 0) || (strcasecmp(th, "on") == 0) || (strcasecmp(th, "always") == 0)) {
+    config.disable_standby_mode = disable_standby_always;
+    config.keep_dac_busy = 1;
+  } else if (strcasecmp(th, "while active") == 0)
+    config.disable_standby_mode = disable_standby_while_active;
+  else {
+    warn("An unrecognised disable_standby_mode: \"%s\" was requested via D-Bus interface.", th);
+    switch (config.disable_standby_mode) {
+      case disable_standby_off:
+        shairport_sync_set_disable_standby_mode(skeleton, "off");
+        break;
+      case disable_standby_always:
+        shairport_sync_set_disable_standby_mode(skeleton, "always");
+        break;
+      case disable_standby_while_active:
+        shairport_sync_set_disable_standby_mode(skeleton, "while active");
+        break;
+      default:
+        break;
+    }
   }
   return TRUE;
 }
@@ -609,8 +654,12 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(notify_interpolation_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::alacdecoder",
                    G_CALLBACK(notify_alacdecoder_callback), NULL);
-  g_signal_connect(shairportSyncSkeleton, "notify::volume-control-profile",
+  g_signal_connect(shairportSyncSkeleton, "notify::disable-standby-mode",
+                   G_CALLBACK(notify_disable_standby_mode_callback), NULL);
+   g_signal_connect(shairportSyncSkeleton, "notify::volume-control-profile",
                    G_CALLBACK(notify_volume_control_profile_callback), NULL);
+  g_signal_connect(shairportSyncSkeleton, "notify::disable-standby",
+                   G_CALLBACK(notify_disable_standby_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::loudness-filter-active",
                    G_CALLBACK(notify_loudness_filter_active_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::loudness-threshold",
@@ -691,6 +740,27 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 
 #endif
 
+  shairport_sync_set_active(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
+  debug(1, ">> Active set to \"false\"");
+
+  switch (config.disable_standby_mode) {
+    case disable_standby_off:
+      shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "off");
+      debug(1, ">> disable standby mode set to \"off\"");
+      break;
+    case disable_standby_always:
+      shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "always");
+      debug(1, ">> disable standby mode set to \"always\"");
+      break;
+    case disable_standby_while_active:
+      shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "while active");
+      debug(1, ">> disable standby mode set to \"while active\"");
+      break;
+    default:
+      debug(1,"invalid disable_standby mode!");
+      break;
+  }
+
 #ifdef CONFIG_SOXR
   if (config.packet_stuffing == ST_basic) {
     shairport_sync_set_interpolation(SHAIRPORT_SYNC(shairportSyncSkeleton), "basic");
@@ -709,6 +779,12 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
     shairport_sync_set_volume_control_profile(SHAIRPORT_SYNC(shairportSyncSkeleton), "standard");
   else
     shairport_sync_set_volume_control_profile(SHAIRPORT_SYNC(shairportSyncSkeleton), "flat");
+
+  if (config.keep_dac_busy == 0) {
+    shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
+  } else {
+    shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
+  }
 
   if (config.loudness == 0) {
     shairport_sync_set_loudness_filter_active(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
@@ -767,6 +843,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 
   debug(1, "Shairport Sync native D-Bus service started at \"%s\" on the %s bus.", name,
         (config.dbus_service_bus_type == DBT_session) ? "session" : "system");
+  service_is_running = 1;
 }
 
 static void on_dbus_name_lost_again(__attribute__((unused)) GDBusConnection *connection,
@@ -813,4 +890,9 @@ void stop_dbus_service() {
     g_bus_unown_name(ownerID);
   else
     debug(1, "Zero OwnerID for \"org.gnome.ShairportSync\".");
+  service_is_running  = 0;
+}
+
+int dbus_service_is_running() {
+  return service_is_running;
 }

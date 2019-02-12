@@ -2,7 +2,7 @@
  * Shairport, an Apple Airplay receiver
  * Copyright (c) James Laird 2013
  * All rights reserved.
- * Modifications (c) Mike Brady 2014--2018
+ * Modifications and additions (c) Mike Brady 2014--2019
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -45,6 +45,7 @@
 
 #ifdef CONFIG_MBEDTLS
 #include <mbedtls/md5.h>
+#include <mbedtls/version.h>
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -59,8 +60,8 @@
 #include <glib.h>
 #endif
 
+#include "activity_monitor.h"
 #include "common.h"
-#include "mdns.h"
 #include "rtp.h"
 #include "rtsp.h"
 
@@ -84,17 +85,21 @@
 #include "mpris-service.h"
 #endif
 
+#ifdef CONFIG_LIBDAEMON
 #include <libdaemon/dexec.h>
 #include <libdaemon/dfork.h>
 #include <libdaemon/dlog.h>
 #include <libdaemon/dpid.h>
 #include <libdaemon/dsignal.h>
+#else
+#include <syslog.h>
+#endif
 
 #ifdef CONFIG_CONVOLUTION
 #include <FFTConvolver/convolver.h>
 #endif
 
-static int shutting_down = 0;
+// static int shutting_down = 0;
 char configuration_file_path[4096 + 1];
 char actual_configuration_file_path[4096 + 1];
 
@@ -103,19 +108,18 @@ static void sig_ignore(__attribute__((unused)) int foo, __attribute__((unused)) 
 static void sig_shutdown(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
                          __attribute__((unused)) void *baz) {
   debug(1, "shutdown requested...");
-  //  daemon_log(LOG_NOTICE, "exit...");
+#ifdef CONFIG_LIBDAEMON
   daemon_retval_send(255);
   daemon_pid_file_remove();
+#endif
   exit(0);
 }
 
 static void sig_child(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
                       __attribute__((unused)) void *baz) {
+  // wait for child processes to exit
   pid_t pid;
   while ((pid = waitpid((pid_t)-1, 0, WNOHANG)) > 0) {
-    if (pid == mdns_pid && !shutting_down) {
-      die("MDNS child process died unexpectedly!");
-    }
   }
 }
 
@@ -149,12 +153,12 @@ void usage(char *progname) {
   printf("\n");
   printf("Options:\n");
   printf("    -h, --help              show this help.\n");
+#ifdef CONFIG_LIBDAEMON
   printf("    -d, --daemon            daemonise.\n");
   printf("    -j, --justDaemoniseNoPIDFile            daemonise without a PID file.\n");
+#endif
   printf("    -V, --version           show version information.\n");
   printf("    -k, --kill              kill the existing shairport daemon.\n");
-  printf("    -D, --disconnectFromOutput  disconnect immediately from the output device.\n");
-  printf("    -R, --reconnectToOutput  reconnect to the output device.\n");
   printf("    -c, --configfile=FILE   read configuration settings from FILE. Default is "
          "/etc/shairport-sync.conf.\n");
 
@@ -314,6 +318,7 @@ int parse_options(int argc, char **argv) {
 
   poptFreeContext(optCon);
 
+#ifdef CONFIG_LIBDAEMON
   if ((daemonisewith) && (daemonisewithout))
     die("Select either daemonize_with_pid_file or daemonize_without_pid_file -- you have selected "
         "both!");
@@ -322,6 +327,7 @@ int parse_options(int argc, char **argv) {
     if (daemonisewith)
       config.daemonise_store_pid = 1;
   };
+#endif
 
   config.resyncthreshold = 1.0 * fResyncthreshold / 44100;
   config.tolerance = 1.0 * fTolerance / 44100;
@@ -330,6 +336,10 @@ int parse_options(int argc, char **argv) {
                                  // nothing else comes in first.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
+  config.active_mode_timeout = 10.0;
+  config.volume_range_hw_priority =
+      1; // if combining software and hardware volume control, give the hardware priority
+// i.e. when reducing volume, reduce the hw first before reducing the software.
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
@@ -363,12 +373,15 @@ int parse_options(int argc, char **argv) {
     /* Read the file. If there is an error, report it and exit. */
     if (config_read_file(&config_file_stuff, config_file_real_path)) {
       free(config_file_real_path);
+      config_set_auto_convert(&config_file_stuff,
+                              1); // allow autoconversion from int/float to int/float
       // make config.cfg point to it
       config.cfg = &config_file_stuff;
       /* Get the Service Name. */
       if (config_lookup_string(config.cfg, "general.name", &str)) {
         raw_service_name = (char *)str;
       }
+#ifdef CONFIG_LIBDAEMON
       int daemonisewithout = 0;
       int daemonisewith = 0;
       /* Get the Daemonize setting. */
@@ -389,7 +402,7 @@ int parse_options(int argc, char **argv) {
       /* Get the directory path for the pid file created when the program is daemonised. */
       if (config_lookup_string(config.cfg, "sessioncontrol.daemon_pid_dir", &str))
         config.piddir = (char *)str;
-
+#endif
       /* Get the mdns_backend setting. */
       if (config_lookup_string(config.cfg, "general.mdns_backend", &str))
         config.mdns_name = (char *)str;
@@ -605,6 +618,9 @@ int parse_options(int argc, char **argv) {
               "or \"flat\"");
       }
 
+      config_set_lookup_bool(config.cfg, "general.volume_control_combined_hardware_priority",
+                             &config.volume_range_hw_priority);
+
       /* Get the interface to listen on, if specified Default is all interfaces */
       /* we keep the interface name and the index */
 
@@ -719,6 +735,25 @@ int parse_options(int argc, char **argv) {
 
       if (config_lookup_string(config.cfg, "sessioncontrol.run_this_after_play_ends", &str)) {
         config.cmd_stop = (char *)str;
+      }
+
+      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_before_entering_active_mode",
+                               &str)) {
+        config.cmd_active_start = (char *)str;
+      }
+
+      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_after_exiting_active_mode",
+                               &str)) {
+        config.cmd_active_stop = (char *)str;
+      }
+
+      if (config_lookup_float(config.cfg, "sessioncontrol.active_mode_timeout", &dvalue)) {
+        if (dvalue < 0.0)
+          warn("Invalid value \"%f\" for sessioncontrol.active_mode_timeout. It must be positive. "
+               "The default of %f will be used instead.",
+               dvalue, config.active_mode_timeout);
+        else
+          config.active_mode_timeout = dvalue;
       }
 
       if (config_lookup_string(config.cfg,
@@ -1022,6 +1057,8 @@ int parse_options(int argc, char **argv) {
   }
 #endif
 
+#ifdef CONFIG_LIBDAEMON
+
 // now, check and calculate the pid directory
 #ifdef DEFINED_CUSTOM_PID_DIR
   char *use_this_pid_dir = PIDDIR;
@@ -1033,12 +1070,12 @@ int parse_options(int argc, char **argv) {
     use_this_pid_dir = config.piddir;
   if (use_this_pid_dir)
     config.computed_piddir = strdup(use_this_pid_dir);
-
+#endif
   return optind + 1;
 }
 
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
-GMainLoop *g_main_loop;
+static GMainLoop *g_main_loop = NULL;
 
 pthread_t dbus_thread;
 void *dbus_thread_func(__attribute__((unused)) void *arg) {
@@ -1089,14 +1126,7 @@ void signal_setup(void) {
   sigaction(SIGCHLD, &sa, NULL);
 }
 
-// forked daemon lets the spawner know it's up and running OK
-// should be called only once!
-void shairport_startup_complete(void) {
-  if (config.daemonise) {
-    //        daemon_ready();
-  }
-}
-
+#ifdef CONFIG_LIBDAEMON
 char pid_file_path_string[4096] = "\0";
 
 const char *pid_file_proc(void) {
@@ -1105,29 +1135,10 @@ const char *pid_file_proc(void) {
   // debug(1,"pid_file_path_string \"%s\".",pid_file_path_string);
   return pid_file_path_string;
 }
-
-void exit_function() {
-  debug(1, "exit function called...");
-  // cancel_all_RTSP_threads();
-  if (conns)
-    free(conns); // make sure the connections have been deleted first
-  if (config.service_name)
-    free(config.service_name);
-  if (config.regtype)
-    free(config.regtype);
-  if (config.computed_piddir)
-    free(config.computed_piddir);
-  if (ranarray)
-    free((void *)ranarray);
-  if (config.cfg)
-    config_destroy(config.cfg);
-  if (config.appName)
-    free(config.appName);
-  // probably should be freeing malloc'ed memory here, including strdup-created strings...
-}
+#endif
 
 void main_cleanup_handler(__attribute__((unused)) void *arg) {
-
+  // it doesn't look like this is called when the main function is cancelled eith a pthread cancel.
   debug(1, "main cleanup handler called.");
 #ifdef CONFIG_MQTT
   if (config.mqtt_enabled) {
@@ -1142,9 +1153,11 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
 #ifdef CONFIG_DBUS_INTERFACE
   stop_dbus_service();
 #endif
-  debug(1, "Stopping DBUS Loop Thread");
-  g_main_loop_quit(g_main_loop);
-  pthread_join(dbus_thread, NULL);
+  if (g_main_loop) {
+    debug(1, "Stopping DBUS Loop Thread");
+    g_main_loop_quit(g_main_loop);
+    pthread_join(dbus_thread, NULL);
+  }
 #endif
 
 #ifdef CONFIG_DACP_CLIENT
@@ -1160,28 +1173,51 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
 #ifdef CONFIG_METADATA
   metadata_stop(); // close down the metadata pipe
 #endif
-  if (config.output->deinit) {
+
+  activity_monitor_stop(0);
+
+  if ((config.output) && (config.output->deinit)) {
     debug(1, "Deinitialise the audio backend.");
     config.output->deinit();
   }
-  daemon_log(LOG_NOTICE, "Unexpected exit...");
+#ifdef CONFIG_LIBDAEMON
   daemon_retval_send(0);
   daemon_pid_file_remove();
   daemon_signal_done();
+#endif  
+  debug(1, "Exit...");
   exit(0);
+}
+
+void exit_function() {
+  debug(1, "exit function called...");
+  main_cleanup_handler(NULL);
+  if (conns)
+    free(conns); // make sure the connections have been deleted first
+  if (config.service_name)
+    free(config.service_name);
+  if (config.regtype)
+    free(config.regtype);
+#ifdef CONFIG_LIBDAEMON
+  if (config.computed_piddir)
+    free(config.computed_piddir);
+#endif
+  if (ranarray)
+    free((void *)ranarray);
+  if (config.cfg)
+    config_destroy(config.cfg);
+  if (config.appName)
+    free(config.appName);
+  // probably should be freeing malloc'ed memory here, including strdup-created strings...
 }
 
 int main(int argc, char **argv) {
   conns = NULL; // no connections active
   memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
+  memset(&config, 0, sizeof(config)); // also clears all strings, BTW
   fp_time_at_startup = get_absolute_time_in_fp();
   fp_time_at_last_debug_message = fp_time_at_startup;
-  //  debug(1,"startup");
-  daemon_set_verbosity(LOG_DEBUG);
-  memset(&config, 0, sizeof(config)); // also clears all strings, BTW
-  atexit(exit_function);
-
-  // this is a bit weird, but apparently necessary
+  // this is a bit weird, but necessary -- basename() may modify the argument passed in
   char *basec = strdup(argv[0]);
   char *bname = basename(basec);
   config.appName = strdup(bname);
@@ -1189,9 +1225,18 @@ int main(int argc, char **argv) {
     die("can not allocate memory for the app name!");
   free(basec);
 
+  //  debug(1,"startup");
+#ifdef CONFIG_LIBDAEMON
+  daemon_set_verbosity(LOG_DEBUG);
+#else
+  setlogmask (LOG_UPTO (LOG_DEBUG));
+  openlog(NULL,0,LOG_DAEMON);
+#endif
+  atexit(exit_function);
+
   // set defaults
 
-  // get thje endianness
+  // get the endianness
   union {
     uint32_t u32;
     uint8_t arr[4];
@@ -1268,6 +1313,8 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
+#ifdef CONFIG_LIBDAEMON
+
   pid_t pid;
 
   /* Reset signal handlers */
@@ -1287,44 +1334,22 @@ int main(int argc, char **argv) {
 
   daemon_pid_file_proc = pid_file_proc;
 
-  /* Check if we are called with -D or --disconnectFromOutput parameter */
-  if (argc >= 2 &&
-      ((strcmp(argv[1], "-D") == 0) || (strcmp(argv[1], "--disconnectFromOutput") == 0))) {
-    if ((pid = daemon_pid_file_is_running()) >= 0) {
-      if (kill(pid, SIGUSR2) != 0) { // try to send the signal
-        daemon_log(LOG_WARNING,
-                   "Failed trying to send disconnectFromOutput command to daemon pid: %d: %s", pid,
-                   strerror(errno));
-      }
-    } else {
-      daemon_log(LOG_WARNING,
-                 "Can't send a disconnectFromOutput request -- Failed to find daemon: %s",
-                 strerror(errno));
-    }
-    exit(1);
-  }
+#endif
 
-  /* Check if we are called with -R or --reconnectToOutput parameter */
-  if (argc >= 2 &&
-      ((strcmp(argv[1], "-R") == 0) || (strcmp(argv[1], "--reconnectToOutput") == 0))) {
-    if ((pid = daemon_pid_file_is_running()) >= 0) {
-      if (kill(pid, SIGHUP) != 0) { // try to send the signal
-        daemon_log(LOG_WARNING,
-                   "Failed trying to send reconnectToOutput command to daemon pid: %d: %s", pid,
-                   strerror(errno));
-      }
-    } else {
-      daemon_log(LOG_WARNING, "Can't send a reconnectToOutput request -- Failed to find daemon: %s",
-                 strerror(errno));
-    }
-    exit(1);
-  }
 
   // parse arguments into config -- needed to locate pid_dir
   int audio_arg = parse_options(argc, argv);
 
+  // mDNS supports maximum of 63-character names (we append 13).
+  if (strlen(config.service_name) > 50) {
+    warn("Supplied name too long (max 50 characters)");
+    config.service_name[50] = '\0'; // truncate it and carry on...
+  }
+
   /* Check if we are called with -k or --kill parameter */
   if (argc >= 2 && ((strcmp(argv[1], "-k") == 0) || (strcmp(argv[1], "--kill") == 0))) {
+  
+#ifdef CONFIG_LIBDAEMON
     int ret;
 
     /* Kill daemon with SIGTERM */
@@ -1334,18 +1359,18 @@ int main(int argc, char **argv) {
     else
       daemon_pid_file_remove();
     return ret < 0 ? 1 : 0;
+#else
+    syslog(LOG_ERR, "shairport-sync was built without support for the -k or --kill option");
+    return 1;
+#endif
+
   }
 
+#ifdef CONFIG_LIBDAEMON
   /* If we are going to daemonise, check that the daemon is not running already.*/
   if ((config.daemonise) && ((pid = daemon_pid_file_is_running()) >= 0)) {
     daemon_log(LOG_ERR, "Daemon already running on PID file %u", pid);
     return 1;
-  }
-
-  // mDNS supports maximum of 63-character names (we append 13).
-  if (strlen(config.service_name) > 50) {
-    warn("Supplied name too long (max 50 characters)");
-    config.service_name[50] = '\0'; // truncate it and carry on...
   }
 
   /* here, daemonise with libdaemon */
@@ -1430,6 +1455,8 @@ int main(int argc, char **argv) {
     /* end libdaemon stuff */
   }
 
+#endif
+
   main_thread_id = pthread_self();
   if (!main_thread_id)
     debug(1, "Main thread is set up to be NULL!");
@@ -1501,17 +1528,23 @@ int main(int argc, char **argv) {
            "deliberately.",
         config.diagnostic_drop_packet_fraction);
   debug(1, "statistics_requester status is %d.", config.statistics_requested);
+#if CONFIG_LIBDAEMON
   debug(1, "daemon status is %d.", config.daemonise);
   debug(1, "deamon pid file path is \"%s\".", pid_file_proc());
+#endif
   debug(1, "rtsp listening port is %d.", config.port);
   debug(1, "udp base port is %d.", config.udp_port_base);
   debug(1, "udp port range is %d.", config.udp_port_range);
   debug(1, "player name is \"%s\".", config.service_name);
   debug(1, "backend is \"%s\".", config.output_name);
-  debug(1, "on-start action is \"%s\".", config.cmd_start);
-  debug(1, "on-stop action is \"%s\".", config.cmd_stop);
+  debug(1, "run_this_before_play_begins action is \"%s\".", config.cmd_start);
+  debug(1, "run_this_after_play_ends action is \"%s\".", config.cmd_stop);
   debug(1, "wait-cmd status is %d.", config.cmd_blocking);
-  debug(1, "on-start returns output is %d.", config.cmd_start_returns_output);
+  debug(1, "run_this_before_play_begins may return output is %d.", config.cmd_start_returns_output);
+  debug(1, "run_this_if_an_unfixable_error_is_detected action is \"%s\".", config.cmd_unfixable);
+  debug(1, "run_this_before_entering_active_mode action is  \"%s\".", config.cmd_active_start);
+  debug(1, "run_this_after_exiting_active_mode action is  \"%s\".", config.cmd_active_stop);
+  debug(1, "active_mode_timeout is  %f seconds.", config.active_mode_timeout);
   debug(1, "mdns backend \"%s\".", config.mdns_name);
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
   debug(1, "stuffing option is \"%d\" (0-basic, 1-soxr).", config.packet_stuffing);
@@ -1525,6 +1558,12 @@ int main(int argc, char **argv) {
     debug(1, "volume_max_db is %d.", config.volume_max_db);
   else
     debug(1, "volume_max_db is not set");
+  debug(1, "volume range in dB (zero means use the range specified by the mixer): %u.",
+        config.volume_range_db);
+  debug(
+      1,
+      "combined attenuators (0 -- software is / 1 -- hardware is top of attenuation range) is %d.",
+      config.volume_range_hw_priority);
   debug(1, "playback_mode is %d (0-stereo, 1-mono, 1-reverse_stereo, 2-both_left, 3-both_right).",
         config.playback_mode);
   debug(1, "disable_synchronization is %d.", config.no_sync);
@@ -1538,8 +1577,6 @@ int main(int argc, char **argv) {
   debug(1, "audio backend latency offset is %f seconds.", config.audio_backend_latency_offset);
   debug(1, "audio backend silence lead-in time is %f seconds. A value -1.0 means use the default.",
         config.audio_backend_silent_lead_in_time);
-  debug(1, "volume range in dB (zero means use the range specified by the mixer): %u.",
-        config.volume_range_db);
   debug(1, "zeroconf regtype is \"%s\".", config.regtype);
   debug(1, "decoders_supported field is %d.", config.decoders_supported);
   debug(1, "use_apple_decoder is %d.", config.use_apple_decoder);
@@ -1584,10 +1621,17 @@ int main(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_MBEDTLS
+#if MBEDTLS_VERSION_MINOR >= 7
+  mbedtls_md5_context tctx;
+  mbedtls_md5_starts_ret(&tctx);
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
+  mbedtls_md5_finish_ret(&tctx, ap_md5);
+#else
   mbedtls_md5_context tctx;
   mbedtls_md5_starts(&tctx);
   mbedtls_md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
   mbedtls_md5_finish(&tctx, ap_md5);
+#endif
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -1628,6 +1672,8 @@ int main(int argc, char **argv) {
     initialise_mqtt();
   }
 #endif
+
+  activity_monitor_start();
 
   // daemon_log(LOG_INFO, "Successful Startup");
   rtsp_listen_loop();

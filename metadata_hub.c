@@ -46,6 +46,7 @@
 #include "metadata_hub.h"
 
 #ifdef CONFIG_MBEDTLS
+#include <mbedtls/version.h>
 #include <mbedtls/md5.h>
 #endif
 
@@ -56,6 +57,8 @@
 #ifdef CONFIG_OPENSSL
 #include <openssl/md5.h>
 #endif
+
+int metadata_hub_initialised = 0;
 
 pthread_rwlock_t metadata_hub_re_lock = PTHREAD_RWLOCK_INITIALIZER;
 struct track_metadata_bundle *track_metadata; // used for a temporary track metadata store
@@ -99,18 +102,21 @@ void metadata_hub_init(void) {
   // debug(1, "Metadata bundle initialisation.");
   memset(&metadata_store, 0, sizeof(metadata_store));
   track_metadata = NULL;
+  metadata_hub_initialised = 1;
 }
 
 void metadata_hub_stop(void) {
-  debug(1, "metadata_hub_stop.");
-  metadata_hub_release_track_artwork();
-  if (metadata_store.track_metadata) {
-    metadata_hub_release_track_metadata(metadata_store.track_metadata);
-    metadata_store.track_metadata = NULL;
-  }
-  if (track_metadata) {
-    metadata_hub_release_track_metadata(track_metadata);
-    track_metadata = NULL;
+  if (metadata_hub_initialised) {
+    debug(1, "metadata_hub_stop.");
+    metadata_hub_release_track_artwork();
+    if (metadata_store.track_metadata) {
+      metadata_hub_release_track_metadata(metadata_store.track_metadata);
+      metadata_store.track_metadata = NULL;
+    }
+    if (track_metadata) {
+      metadata_hub_release_track_metadata(track_metadata);
+      track_metadata = NULL;
+    }
   }
 }
 
@@ -217,9 +223,9 @@ char *metadata_write_image_file(const char *buf, int len) {
   char *path = NULL; // this will be what is returned
 
   uint8_t img_md5[16];
-// uint8_t ap_md5[16];
+  // uint8_t ap_md5[16];
 
-#ifdef CONFIG_SSL
+#ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
   MD5_Init(&ctx);
   MD5_Update(&ctx, buf, len);
@@ -227,10 +233,17 @@ char *metadata_write_image_file(const char *buf, int len) {
 #endif
 
 #ifdef CONFIG_MBEDTLS
-  mbedtls_md5_context tctx;
-  mbedtls_md5_starts(&tctx);
-  mbedtls_md5_update(&tctx, (const unsigned char *)buf, len);
-  mbedtls_md5_finish(&tctx, img_md5);
+  #if MBEDTLS_VERSION_MINOR >= 7
+    mbedtls_md5_context tctx;
+    mbedtls_md5_starts_ret(&tctx);
+    mbedtls_md5_update_ret(&tctx, (const unsigned char *)buf, len);
+    mbedtls_md5_finish_ret(&tctx, img_md5);
+  #else
+    mbedtls_md5_context tctx;
+    mbedtls_md5_starts(&tctx);
+    mbedtls_md5_update(&tctx, (const unsigned char *)buf, len);
+    mbedtls_md5_finish(&tctx, img_md5);
+  #endif
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -489,27 +502,15 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       track_metadata = (struct track_metadata_bundle *)malloc(sizeof(struct track_metadata_bundle));
       if (track_metadata == NULL)
         die("Could not allocate memory for track metadata.");
-      memset(track_metadata, 0, sizeof(struct track_metadata_bundle)); // now we have a valid track
-                                                                       // metadata space, but the
-                                                                       // metadata itself
-      // might turin out to be invalid. Specifically, YouTube on iOS can generate a sequence of
-      // track metadata that is invalid.
-      // it is distinguished by having an item_id of zero.
+      memset(track_metadata, 0, sizeof(struct track_metadata_bundle));
       break;
     case 'mden':
       if (track_metadata) {
-        if ((track_metadata->item_id_received == 0) || (track_metadata->item_id != 0)) {
-          // i.e. it's only invalid if it has definitely been given an item_id of zero
-          metadata_hub_modify_prolog();
-          metadata_hub_release_track_metadata(metadata_store.track_metadata);
-          metadata_store.track_metadata = track_metadata;
-          track_metadata = NULL;
-          metadata_hub_modify_epilog(1);
-        } else {
-          debug(1, "The track information received is invalid -- dropping it");
-          metadata_hub_release_track_metadata(track_metadata);
-          track_metadata = NULL;
-        }
+        metadata_hub_modify_prolog();
+        metadata_hub_release_track_metadata(metadata_store.track_metadata);
+        metadata_store.track_metadata = track_metadata;
+        track_metadata = NULL;
+        metadata_hub_modify_epilog(1);
       }
       debug(2, "MH Metadata stream processing end.");
       break;
@@ -559,6 +560,18 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       break;
     // these could tell us about play / pause etc. but will only occur if metadata is enabled, so
     // we'll just ignore them
+    case 'abeg': {
+      metadata_hub_modify_prolog();
+      int changed = (metadata_store.active_state != AM_ACTIVE);
+      metadata_store.active_state = AM_ACTIVE;
+      metadata_hub_modify_epilog(changed);
+    } break;
+    case 'aend': {
+      metadata_hub_modify_prolog();
+      int changed = (metadata_store.active_state != AM_INACTIVE);
+      metadata_store.active_state = AM_INACTIVE;
+      metadata_hub_modify_epilog(changed);
+    } break;
     case 'pbeg': {
       metadata_hub_modify_prolog();
       int changed = (metadata_store.player_state != PS_PLAYING);

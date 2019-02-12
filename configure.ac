@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.50])
-AC_INIT([shairport-sync], [3.3d41], [mikebrady@eircom.net])
+AC_INIT([shairport-sync], [3.3d52], [mikebrady@eircom.net])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([shairport.c])
 AC_CONFIG_HEADERS([config.h])
@@ -44,14 +44,35 @@ AM_CONDITIONAL([BUILD_FOR_OPENBSD], [test "x${with_os}" = xopenbsd ])
 AC_ARG_WITH([pkg_config],
 [  --with-pkg-config = use pkg-config to find libraries], ,[with_pkg_config=yes])
 
-AC_MSG_RESULT(>>Including libdaemon)
-if  test "x${with_pkg_config}" = xyes ; then
-  PKG_CHECK_MODULES(
-      [DAEMON], [libdaemon],
-      [LIBS="${DAEMON_LIBS} ${LIBS}"])
-else
-  AC_CHECK_LIB([daemon],[daemon_fork], , AC_MSG_ERROR(libdaemon needed))
-fi
+# Look for libdaemon
+AC_ARG_WITH(libdaemon, [  --with-libdaemon = include support for daemonising in older non-systemd systems],
+  if test "x${with_libdaemon}" = xyes ; then
+    [AC_MSG_RESULT(>>Including libdaemon support for older systems)
+    AC_DEFINE([CONFIG_LIBDAEMON], 1, [Include libdaemon])
+    REQUESTED_LIBDAEMON=1
+    if  test "x${with_pkg_config}" = xyes ; then
+      PKG_CHECK_MODULES(
+          [DAEMON], [libdaemon],
+          [LIBS="${DAEMON_LIBS} ${LIBS}"])
+    else
+      AC_CHECK_LIB([daemon],[daemon_fork], , AC_MSG_ERROR(libdaemon needed))
+    fi
+   ]
+  fi,
+    #default is to include libdaemon
+    [AC_MSG_RESULT(>>Including libdaemon support for older systems)
+    AC_DEFINE([CONFIG_LIBDAEMON], 1, [Include libdaemon])
+    REQUESTED_LIBDAEMON=1
+    if  test "x${with_pkg_config}" = xyes ; then
+      PKG_CHECK_MODULES(
+          [DAEMON], [libdaemon],
+          [LIBS="${DAEMON_LIBS} ${LIBS}"])
+    else
+      AC_CHECK_LIB([daemon],[daemon_fork], , AC_MSG_ERROR(libdaemon needed))
+    fi
+   ]
+  )
+AM_CONDITIONAL([USE_LIBDAEMON], [test "x$REQUESTED_LIBDAEMON" = "x1"])
 
 ##### The following check for the pthreads library doesn't put the compiler into the correct pthread mode
 ##### so we add the -pthread compilation flag in AMFLAGS in the Makefile.am as well.
@@ -73,7 +94,6 @@ AC_ARG_WITH([dummy],[  --with-dummy = include the dummy audio back end ],[AC_MSG
 AM_CONDITIONAL([USE_DUMMY], [test "x$with_dummy" = "xyes" ])
 
 AC_ARG_WITH([stdout],[  --with-stdout = include the stdout audio back end ],[ AC_MSG_RESULT(>>Including the stdout audio back end)  AC_DEFINE([CONFIG_STDOUT], 1, [Needed by the compiler.]) ], )
-
 AM_CONDITIONAL([USE_STDOUT], [test "x$with_stdout" = "xyes" ])
 
 AC_ARG_WITH([pipe],[  --with-pipe = include the pipe audio back end ],[ AC_MSG_RESULT(>>Including the pipe audio back end)  AC_DEFINE([CONFIG_PIPE], 1, [Needed by the compiler.]) ], )
@@ -94,6 +114,9 @@ AM_CONDITIONAL([INSTALL_SYSTEMD], [test "x$with_systemd" = "xyes"])
 AC_ARG_WITH([freebsd-service],
 [  --with-freebsd-service = install a FreeBSD startup script during a make install], , )
 AM_CONDITIONAL([INSTALL_FREEBSD_SERVICE], [test "x$with_freebsd_service" = "xyes"])
+
+AC_ARG_WITH([external-mdns],[  --with-external-mdns = support the use of 'avahi-publish-service' or 'mDNSPublish' to advertise the service on Bonjour/ZeroConf ],[ AC_MSG_RESULT(>>Including external mdns support)  AC_DEFINE([CONFIG_EXTERNAL_MDNS], 1, [Needed by the compiler.]) ], )
+AM_CONDITIONAL([USE_EXTERNAL_MDNS], [test "x$with_external_mdns" = "xyes" ])
 
 # Add the libconfig package
 if  test "x${with_pkg_config}" = xyes ; then
@@ -175,14 +198,15 @@ AC_ARG_WITH(soxr, [  --with-soxr = choose libsoxr for high-quality interpolation
     AC_DEFINE([CONFIG_SOXR], 1, [Include support for using the SoX Resampler library for interpolation])
     PKG_CHECK_MODULES(
         [SOXR], [soxr],
-        [LIBS="${SOXR_LIBS} ${LIBS}"])
+        [LIBS="${SOXR_LIBS} ${LIBS}"],
+        [AC_MSG_ERROR(soxr support requires the libsoxr library -- libsoxr-dev suggested!)])
   else
     AC_CHECK_LIB([avutil],[av_get_cpu_flags])
     if  test "x${ac_cv_lib_avutil_av_get_cpu_flags}" = xyes ; then
       # soxr may link against libavutil, depending on the architecture, but for the sake of simplicity link with it if it is found
-      AC_CHECK_LIB([soxr],[soxr_create], , AC_MSG_ERROR(soxr support requested but libsoxr not found!), [-lavutil])
+      AC_CHECK_LIB([soxr],[soxr_create], , AC_MSG_ERROR(soxr support requires the libsoxr library -- libsoxr-dev suggested!), [-lavutil])
     else
-      AC_CHECK_LIB([soxr],[soxr_create], , AC_MSG_ERROR(soxr support requested but libsoxr not found!))
+      AC_CHECK_LIB([soxr],[soxr_create], , AC_MSG_ERROR(soxr support requires the libsoxr library -- libsoxr-dev suggested!))
     fi
   fi
 ], )

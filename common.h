@@ -30,7 +30,8 @@ enum dbus_session_type {
 } dbt_type;
 #endif
 
-#define sps_extra_errno_output_stalled 32768
+#define sps_extra_code_output_stalled 32768
+#define sps_extra_code_output_state_cannot_make_ready 32769
 
 enum endian_type {
   SS_LITTLE_ENDIAN = 0,
@@ -60,6 +61,12 @@ enum decoders_supported_type {
   decoder_hammerton = 0,
   decoder_apple_alac,
 } decoders_supported_type;
+
+enum disable_standby_mode_type {
+  disable_standby_off = 0,
+  disable_standby_while_active,
+  disable_standby_always
+};
 
 // the following enum is for the formats recognised -- currently only S16LE is recognised for input,
 // so these are output only for the present
@@ -140,10 +147,13 @@ typedef struct {
   uint32_t fixedLatencyOffset;  // add this to all automatic latencies supplied to get the actual
                                 // total latency
   // the total latency will be limited to the min and max-latency values, if supplied
+#ifdef CONFIG_LIBDAEMON
   int daemonise;
   int daemonise_store_pid; // don't try to save a PID file
   char *piddir;
   char *computed_piddir; // the actual pid directory to create, if any
+  char *pidfile;
+#endif
 
   int logOutputLevel;              // log output level
   int debugger_show_elapsed_time;  // in the debug message, display the time since startup
@@ -151,13 +161,13 @@ typedef struct {
   int statistics_requested, use_negotiated_latencies;
   enum playback_mode_type playback_mode;
   char *cmd_start, *cmd_stop, *cmd_set_volume, *cmd_unfixable;
+  char *cmd_active_start, *cmd_active_stop;
   int cmd_blocking, cmd_start_returns_output;
   double tolerance; // allow this much drift before attempting to correct it
   enum stuffing_type packet_stuffing;
   int decoders_supported;
   int use_apple_decoder; // set to 1 if you want to use the apple decoder instead of the original by
                          // David Hammerton
-  char *pidfile;
   // char *logfile;
   // char *errfile;
   char *configfile;
@@ -167,11 +177,21 @@ typedef struct {
   int interface_index; // only valid if the interface string is non-NULL
   double audio_backend_buffer_desired_length; // this will be the length in seconds of the
                                               // audio backend buffer -- the DAC buffer for ALSA
+  double audio_backend_buffer_interpolation_threshold_in_seconds; // below this, soxr interpolation
+                                                                  // will not occur -- it'll be
+                                                                  // basic interpolation instead.
+  double audio_backend_silence_threshold; // below this, silence will be added to the output buffer
+  double audio_backend_silence_scan_interval; // check the threshold this often
+
   double audio_backend_latency_offset; // this will be the offset in seconds to compensate for any
                                        // fixed latency there might be in the audio path
   double audio_backend_silent_lead_in_time; // the length of the silence that should precede a play.
-  uint32_t volume_range_db; // the range, in dB, from max dB to min dB. Zero means use the mixer's
-                            // native range.
+  double active_mode_timeout; // the amount of time from when play ends to when the system leaves
+                              // into the "active" mode.
+  uint32_t volume_range_db;   // the range, in dB, from max dB to min dB. Zero means use the mixer's
+                              // native range.
+  int volume_range_hw_priority; // when extending the volume range by combining sw and hw attenuators, lowering the volume, use all the hw attenuation before using
+                                // sw attenuation
   enum sps_format_t output_format;
   enum volume_control_profile_type volume_control_profile;
   int output_rate;
@@ -187,6 +207,7 @@ typedef struct {
   float loudness_reference_volume_db;
   int alsa_use_hardware_mute;
   double alsa_maximum_stall_time;
+  enum disable_standby_mode_type disable_standby_mode;
   volatile int keep_dac_busy;
 
 #if defined(CONFIG_DBUS_INTERFACE)
@@ -302,13 +323,12 @@ int config_set_lookup_bool(config_t *cfg, char *where, int *dst);
 
 void command_start(void);
 void command_stop(void);
-void command_execute(const char *command, const char *extra_argument);
+void command_execute(const char *command, const char *extra_argument, const int block);
 void command_set_volume(double volume);
 
 int mkpath(const char *path, mode_t mode);
 
 void shairport_shutdown();
-// void shairport_startup_complete(void);
 
 extern sigset_t pselect_sigset;
 
@@ -340,5 +360,7 @@ void sps_nanosleep(const time_t sec,
 
 int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_format_t format,
                              int with_dither, int64_t random_number_in);
+
+void malloc_cleanup(void *arg);
 
 #endif // _COMMON_H
