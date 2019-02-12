@@ -416,7 +416,7 @@ int rr_list_append(struct rr_list **rr_head, struct rr_entry *rr) {
     if (*rr_head == NULL) {
       *rr_head = node;
     } else {
-      struct rr_list *e = *rr_head, *taile;
+      struct rr_list *e = *rr_head, *taile = NULL;
       for (; e; e = e->next) {
         // already in list - don't add
         if (e->e == rr) {
@@ -426,7 +426,10 @@ int rr_list_append(struct rr_list **rr_head, struct rr_entry *rr) {
         if (e->next == NULL)
           taile = e;
       }
-      taile->next = node;
+      if (taile)
+        taile->next = node;
+      else
+        DEBUG_PRINTF("taile not given a value.\n");
     }
   } else {
     die("can not allocate memory for \"node\" in tinysvcmdns.");
@@ -500,7 +503,7 @@ struct rr_entry *rr_create(uint8_t *name, enum rr_type type) {
 }
 
 void rr_set_nsec(struct rr_entry *rr_nsec, enum rr_type type) {
-  assert(rr_nsec->type = RR_NSEC);
+  assert((rr_nsec->type = RR_NSEC));
   assert((type / 8) < sizeof(rr_nsec->data.NSEC.bitmap));
 
   rr_nsec->data.NSEC.bitmap[type / 8] = 1 << (7 - (type % 8));
