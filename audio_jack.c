@@ -361,6 +361,8 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     config.jack_right_channel_name = strdup("right");
 
   jackbuf = jack_ringbuffer_create(buffer_size); // make the jack ringbuffer the same size as audio_lmb
+  if (jackbuf == NULL)
+    die("Can't allocate %d bytes for the JACK ringbuffer.", buffer_size);
   jack_ringbuffer_mlock(jackbuf);		 // lock buffer into memory so that it never gets paged out
 
   jack_set_error_function(default_jack_error_callback);
