@@ -38,15 +38,20 @@ enum ift_type {
   IFT_frame_right_sample,
 } ift_type;
 
+// Two-channel, 16bit audio:
+static const int bytes_per_frame = 4;
 // Four seconds buffer -- should be plenty
-#define buffer_size 44100 * 4 * 2 * 2
+#define buffer_size 44100 * 4 * bytes_per_frame
 
 static pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+/*
 char *audio_lmb, *audio_umb, *audio_toq, *audio_eoq;
+
 size_t audio_occupancy; // this is in frames, not bytes. A frame is a left and
                         // right sample, each 16 bits, hence 4 bytes
+*/
 pthread_t *open_client_if_necessary_thread = NULL;
 
 int jack_init(int, char **);
@@ -83,6 +88,7 @@ jack_nframes_t sample_rate;
 jack_nframes_t jack_latency;
 
 static jack_ringbuffer_t *jackbuf;
+static int flush_please = 0;
 
 jack_latency_range_t latest_left_latency_range, latest_right_latency_range;
 int64_t time_of_latest_transfer;
@@ -90,7 +96,15 @@ int64_t time_of_latest_transfer;
 int play(void *buf, int samples) {
   // debug(1,"jack_play of %d samples.",samples);
   // copy the samples into the queue
-  size_t bytes_to_transfer = samples * 2 * 2;
+  size_t bytes_to_transfer, bytes_transferred;
+  bytes_to_transfer = samples * bytes_per_frame;
+  pthread_mutex_lock(&buffer_mutex); // it's ok to lock here since we're not in the realtime callback
+    bytes_transferred = jack_ringbuffer_write(jackbuf, buf, bytes_to_transfer);
+  pthread_mutex_unlock(&buffer_mutex);
+  if (bytes_transferred < bytes_to_transfer) {
+    debug(1, "JACK ringbuffer overrun. Only wrote %d of %d bytes.", bytes_transferred, bytes_to_transfer);
+  }
+/*
   size_t space_to_end_of_buffer = audio_umb - audio_eoq;
   if (space_to_end_of_buffer >= bytes_to_transfer) {
     memcpy(audio_eoq, buf, bytes_to_transfer);
@@ -107,6 +121,7 @@ int play(void *buf, int samples) {
     audio_eoq = audio_lmb + bytes_to_transfer - space_to_end_of_buffer;
     pthread_mutex_unlock(&buffer_mutex);
   }
+*/
   return 0;
 }
 
@@ -132,6 +147,24 @@ void deinterleave_and_convert_stream(const char *interleaved_frames,
   }
 }
 
+static inline jack_default_audio_sample_t sample_conv(short sample) {
+  return ((sample < 0) ? (-1.0 * sample / SHRT_MIN) : (1.0 * sample / SHRT_MAX));
+}
+
+void deinterleave_and_convert(const char *interleaved_frames,
+                              jack_default_audio_sample_t * const jack_buffer_left,
+                              jack_default_audio_sample_t * const jack_buffer_right,
+                              jack_nframes_t nframes) {
+  jack_nframes_t i;
+  short *ifp = (short *)interleaved_frames; // we're dealing with 16bit audio here
+  jack_default_audio_sample_t *fpl = jack_buffer_left;
+  jack_default_audio_sample_t *fpr = jack_buffer_right;
+  for (i=0; i<nframes; i++) {
+    fpl[i] = sample_conv(*ifp++);
+    fpr[i] = sample_conv(*ifp++);
+  }
+}
+
 int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
 
   jack_default_audio_sample_t *left_buffer =
@@ -139,6 +172,41 @@ int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *a
   jack_default_audio_sample_t *right_buffer =
       (jack_default_audio_sample_t *)jack_port_get_buffer(right_port, nframes);
 
+  jack_ringbuffer_data_t v[2] = { 0 };
+  jack_nframes_t i, thisbuf;
+  int frames_written = 0;
+  int frames_required = 0;
+
+  jack_ringbuffer_get_read_vector(jackbuf, v); // an array of two elements because of possible ringbuffer wrap-around
+  for (i=0; i<2; i++) {
+    thisbuf = v[i].len / bytes_per_frame;
+    if (thisbuf > nframes) {
+      frames_required = nframes;
+    } else {
+      frames_required = thisbuf;
+    }
+    deinterleave_and_convert(v[i].buf, &left_buffer[frames_written], &right_buffer[frames_written], frames_required);
+    frames_written = frames_required;
+    nframes -= frames_written;
+  }
+  jack_ringbuffer_read_advance(jackbuf, frames_written * bytes_per_frame);
+
+  // debug(1,"transferring %u frames",written);
+  // Why are we doing this? The port latency should never change unless the JACK graph is reordered. Should happen on a graph reorder callback only.
+  // jack_port_get_latency_range(left_port, JackPlaybackLatency, &latest_left_latency_range);
+  // jack_port_get_latency_range(right_port, JackPlaybackLatency, &latest_right_latency_range);
+
+  // now, if there are any more frames to put into the buffer, fill them with
+  // silence
+  while (nframes > 0) {
+    left_buffer[frames_written] = 0.0;
+    right_buffer[frames_written] = 0.0;
+    frames_written++;
+    nframes--;
+  }
+  time_of_latest_transfer = get_absolute_time_in_fp(); // this is the only writer, no locking necessary.
+
+/*
   size_t frames_we_can_transfer = nframes;
   // lock
   pthread_mutex_lock(&buffer_mutex);
@@ -173,7 +241,6 @@ int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *a
                                     IFT_frame_right_sample);
     audio_toq = audio_lmb + (frames_we_can_transfer - first_portion_to_write) * 2 * 2;
   }
-  // debug(1,"transferring %u frames",frames_we_can_transfer);
   audio_occupancy -= frames_we_can_transfer;
   jack_port_get_latency_range(left_port, JackPlaybackLatency, &latest_left_latency_range);
   jack_port_get_latency_range(right_port, JackPlaybackLatency, &latest_right_latency_range);
@@ -181,15 +248,11 @@ int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *a
   pthread_mutex_unlock(&buffer_mutex);
   // unlock
 
-  // now, if there are any more frames to put into the buffer, fill them with
-  // silence
-  jack_nframes_t i;
-  for (i = frames_we_can_transfer; i < nframes; i++) {
-    left_buffer[i] = 0.0;
-    right_buffer[i] = 0.0;
-  }
+*/
   return 0;
 }
+
+// FIXME: set_graph_order_callback(), recompute latencies here!
 
 void default_jack_error_callback(const char *desc) { debug(2, "jackd error: \"%s\"", desc); }
 
@@ -207,6 +270,7 @@ void default_jack_set_latency_callback(jack_latency_callback_mode_t mode,
       b_latency = (right_latency_range.min + right_latency_range.max) / 2;
     // jack_latency = b_latency; // actually, we are not interested in the latency of the jack
     // devices connected...
+    // FIXME: yes, we are.
     jack_latency = 0;
     debug(1, "playback latency callback: %" PRIu32 ".", jack_latency);
   }
@@ -368,6 +432,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   jack_set_error_function(default_jack_error_callback);
   jack_set_info_function(default_jack_info_callback);
 
+/*
   // allocate space for the audio buffer
   audio_lmb = malloc(buffer_size);
   if (audio_lmb == NULL)
@@ -375,6 +440,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   audio_toq = audio_eoq = audio_lmb;
   audio_umb = audio_lmb + buffer_size;
   audio_occupancy = 0; // frames
+*/
 
   client_is_open = 0;
 
@@ -411,13 +477,16 @@ int jack_delay(long *the_delay) {
   // but then a transfer could occur and we would get the buffer occupancy after another transfer
   // had occurred
   // so we could "lose" a full transfer (e.g. 1024 frames @ 44,100 fps ~ 23.2 milliseconds)
+
   pthread_mutex_lock(&buffer_mutex);
-  int64_t time_now = get_absolute_time_in_fp();
-  int64_t delta = time_now - time_of_latest_transfer; // this is the time back to the last time data
-                                                      // was transferred into a jack buffer
-  size_t audio_occupancy_now = audio_occupancy;       // this is the buffer occupancy before any
-  // subsequent transfer because transfer is blocked
-  // by the mutex
+    int64_t time_now = get_absolute_time_in_fp();
+    // this is the time back to the last time data
+    // was transferred into a jack buffer
+    int64_t delta = time_now - time_of_latest_transfer;
+    // this is the buffer occupancy before any
+    // subsequent transfer because transfer is blocked
+    // by the mutex
+    size_t audio_occupancy_now = jack_ringbuffer_read_space(jackbuf);
   pthread_mutex_unlock(&buffer_mutex);
 
   int64_t frames_processed_since_latest_latency_check = (delta * 44100) >> 32;
@@ -427,17 +496,18 @@ int jack_delay(long *the_delay) {
     base_latency = (latest_right_latency_range.min + latest_right_latency_range.max) / 2;
   *the_delay = base_latency + audio_occupancy_now - frames_processed_since_latest_latency_check;
   // debug(1,"reporting a delay of %d frames",*the_delay);
-
   return 0;
 }
 
 void jack_flush() {
+  debug(1, "It is not possible to safely flush a lock-free ringbuffer. Asking the process callback to do it...");
+  flush_please = 1;
+/*
   //  debug(1,"jack flush");
-  pthread_mutex_lock(&buffer_mutex);
   audio_toq = audio_eoq = audio_lmb;
   audio_umb = audio_lmb + buffer_size;
   audio_occupancy = 0; // frames
-  pthread_mutex_unlock(&buffer_mutex);
+*/
 }
 
 void jack_stop(void) {
