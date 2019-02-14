@@ -23,11 +23,16 @@ and enter valid DNS server addresses, e.g. `8.8.8.8`.
   * `wget` for convenience,
   * `flex` for compiling `libconfig`
   * `bison` for compiling `libconfig` 
+  
+Assuming the Cygwin setup program (`setup-x86_64.exe` in this case) is in your Downloads directory and the default directory is your home directory, the following command should work:
+```
+.\Downloads\setup-x86_64.exe -P pkg-config,autoconf,automake,clang,libdaemon-devel,popt-devel,make,libao-devel,openssl-devel,libtool,git,wget,flex,bison
+```
 
 * Download, configure, compile and install `libconfig`:
 ```
 $ git clone https://github.com/hyperrealm/libconfig.git
-$ cd libconfig
+$ ./make
 $ autoreconf -fi
 $ ./configure
 $ make
@@ -36,7 +41,7 @@ $ cd ..
 ```
 * Next, download, configure and compile Shairport Sync:
 ```
-$ git clone https://github.com/mikebrady/shairport-sync.git
+$ cd 
 $ cd shairport-sync
 $ autoreconf -fi
 $ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./configure --with-ao --with-ssl=openssl --with-tinysvcmdns
