@@ -490,7 +490,7 @@ int jack_delay(long *the_delay) {
     // this is the buffer occupancy before any
     // subsequent transfer because transfer is blocked
     // by the mutex
-    size_t audio_occupancy_now = jack_ringbuffer_read_space(jackbuf);
+    size_t audio_occupancy_now = jack_ringbuffer_read_space(jackbuf) / bytes_per_frame;
   pthread_mutex_unlock(&buffer_mutex);
 
   int64_t frames_processed_since_latest_latency_check = (delta * 44100) >> 32;
