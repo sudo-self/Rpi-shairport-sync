@@ -31,6 +31,7 @@
 
 #include <jack/jack.h>
 #include <jack/transport.h>
+#include <jack/ringbuffer.h>
 
 enum ift_type {
   IFT_frame_left_sample = 0,
@@ -80,6 +81,8 @@ int client_is_open;
 jack_client_t *client;
 jack_nframes_t sample_rate;
 jack_nframes_t jack_latency;
+
+static jack_ringbuffer_t *jackbuf;
 
 jack_latency_range_t latest_left_latency_range, latest_right_latency_range;
 int64_t time_of_latest_transfer;
@@ -282,6 +285,9 @@ void jack_deinit() {
   if (open_client_if_necessary_thread) {
     pthread_cancel(*open_client_if_necessary_thread);
     free((char *)open_client_if_necessary_thread);
+
+   jack_ringbuffer_free(jackbuf);
+
   }
 }
 
@@ -353,6 +359,9 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     config.jack_left_channel_name = strdup("left");
   if (config.jack_right_channel_name == NULL)
     config.jack_right_channel_name = strdup("right");
+
+  jackbuf = jack_ringbuffer_create(buffer_size); // make the jack ringbuffer the same size as audio_lmb
+  jack_ringbuffer_mlock(jackbuf);		 // lock buffer into memory so that it never gets paged out
 
   jack_set_error_function(default_jack_error_callback);
   jack_set_info_function(default_jack_info_callback);
