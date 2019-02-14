@@ -177,20 +177,23 @@ int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *a
   int frames_written = 0;
   int frames_required = 0;
 
-  jack_ringbuffer_get_read_vector(jackbuf, v); // an array of two elements because of possible ringbuffer wrap-around
-  for (i=0; i<2; i++) {
-    thisbuf = v[i].len / bytes_per_frame;
-    if (thisbuf > nframes) {
-      frames_required = nframes;
-    } else {
-      frames_required = thisbuf;
+  if (flush_please) {
+    jack_ringbuffer_read_advance(jackbuf, jack_ringbuffer_read_space(jackbuf));
+  } else {
+    jack_ringbuffer_get_read_vector(jackbuf, v); // an array of two elements because of possible ringbuffer wrap-around
+    for (i=0; i<2; i++) {
+      thisbuf = v[i].len / bytes_per_frame;
+      if (thisbuf > nframes) {
+        frames_required = nframes;
+	    } else {
+        frames_required = thisbuf;
+      }
+      deinterleave_and_convert(v[i].buf, &left_buffer[frames_written], &right_buffer[frames_written], frames_required);
+      frames_written = frames_required;
+      nframes -= frames_written;
     }
-    deinterleave_and_convert(v[i].buf, &left_buffer[frames_written], &right_buffer[frames_written], frames_required);
-    frames_written = frames_required;
-    nframes -= frames_written;
+    jack_ringbuffer_read_advance(jackbuf, frames_written * bytes_per_frame);
   }
-  jack_ringbuffer_read_advance(jackbuf, frames_written * bytes_per_frame);
-
   // debug(1,"transferring %u frames",written);
   // Why are we doing this? The port latency should never change unless the JACK graph is reordered. Should happen on a graph reorder callback only.
   // jack_port_get_latency_range(left_port, JackPlaybackLatency, &latest_left_latency_range);
