@@ -121,7 +121,7 @@ static void deinterleave_and_convert(const char *interleaved_frames,
   }
 }
 
-int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
+static int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
 
   jack_default_audio_sample_t *left_buffer =
       (jack_default_audio_sample_t *)jack_port_get_buffer(left_port, nframes);
@@ -166,9 +166,9 @@ int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *a
 
 // FIXME: set_graph_order_callback(), recompute latencies here!
 
-void default_jack_error_callback(const char *desc) { debug(2, "jackd error: \"%s\"", desc); }
+static void default_jack_error_callback(const char *desc) { debug(2, "jackd error: \"%s\"", desc); }
 
-void default_jack_info_callback(const char *desc) { inform("jackd information: \"%s\"", desc); }
+static void default_jack_info_callback(const char *desc) { inform("jackd information: \"%s\"", desc); }
 
 int jack_is_running() {
   int reply = -1; // meaning jack is not running
