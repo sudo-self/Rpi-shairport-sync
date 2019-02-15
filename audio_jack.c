@@ -46,12 +46,6 @@ static const int bytes_per_frame = 4;
 static pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-/*
-char *audio_lmb, *audio_umb, *audio_toq, *audio_eoq;
-
-size_t audio_occupancy; // this is in frames, not bytes. A frame is a left and
-                        // right sample, each 16 bits, hence 4 bytes
-*/
 pthread_t *open_client_if_necessary_thread = NULL;
 
 int jack_init(int, char **);
@@ -334,7 +328,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   if (config.jack_right_channel_name == NULL)
     config.jack_right_channel_name = strdup("right");
 
-  jackbuf = jack_ringbuffer_create(buffer_size); // make the jack ringbuffer the same size as audio_lmb
+  jackbuf = jack_ringbuffer_create(buffer_size);
   if (jackbuf == NULL)
     die("Can't allocate %d bytes for the JACK ringbuffer.", buffer_size);
   jack_ringbuffer_mlock(jackbuf);		 // lock buffer into memory so that it never gets paged out
