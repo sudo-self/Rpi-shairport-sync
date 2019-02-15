@@ -41,7 +41,7 @@ enum ift_type {
 // Two-channel, 16bit audio:
 static const int bytes_per_frame = 4;
 // Four seconds buffer -- should be plenty
-#define buffer_size 44100 * 4 * bytes_per_frame
+#define buffer_size (44100 * 4 * bytes_per_frame)
 
 static pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
