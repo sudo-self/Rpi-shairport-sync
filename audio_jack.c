@@ -100,6 +100,8 @@ int play(void *buf, int samples) {
   bytes_to_transfer = samples * bytes_per_frame;
   pthread_mutex_lock(&buffer_mutex); // it's ok to lock here since we're not in the realtime callback
     bytes_transferred = jack_ringbuffer_write(jackbuf, buf, bytes_to_transfer);
+    // semantics change: we now measure the last time audio was moved into the ringbuffer, not the jack output buffers.
+    time_of_latest_transfer = get_absolute_time_in_fp();
   pthread_mutex_unlock(&buffer_mutex);
   if (bytes_transferred < bytes_to_transfer) {
     debug(1, "JACK ringbuffer overrun. Only wrote %d of %d bytes.", bytes_transferred, bytes_to_transfer);
@@ -208,7 +210,6 @@ int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *a
     frames_written++;
     nframes--;
   }
-  time_of_latest_transfer = get_absolute_time_in_fp(); // this is the only writer, no locking necessary.
 
 /*
   size_t frames_we_can_transfer = nframes;
@@ -477,6 +478,10 @@ void jack_start(__attribute__((unused)) int i_sample_rate,
 
 int jack_delay(long *the_delay) {
 
+  // semantics change: we now look at the last transfer into the lock-free ringbuffer, not
+  // into the jack buffers directly (because locking those would violate real-time constraints).
+  // on average, that should lead to just a constant additional latency. the old comment still applies:
+
   // without the mutex, we could get the time of what is the last transfer of data to a jack buffer,
   // but then a transfer could occur and we would get the buffer occupancy after another transfer
   // had occurred
@@ -504,7 +509,7 @@ int jack_delay(long *the_delay) {
 }
 
 void jack_flush() {
-  debug(1, "It is not possible to safely flush a lock-free ringbuffer. Asking the process callback to do it...");
+  debug(1, "Only the consumer can safely flush a lock-free ringbuffer. Asking the process callback to do it...");
   flush_please = 1;
 /*
   //  debug(1,"jack flush");
