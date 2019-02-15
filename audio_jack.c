@@ -180,8 +180,10 @@ int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *a
   int frames_required = 0;
 
   if (flush_please) {
+    // we just move the read pointer ahead without doing anything with the data.
     jack_ringbuffer_read_advance(jackbuf, jack_ringbuffer_read_space(jackbuf));
     flush_please = 0;
+    // since we don't change nframes, the whole buffer will be zeroed later.
   } else {
     jack_ringbuffer_get_read_vector(jackbuf, v); // an array of two elements because of possible ringbuffer wrap-around
     for (i=0; i<2; i++) {
