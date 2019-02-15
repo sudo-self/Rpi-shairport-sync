@@ -263,6 +263,7 @@ void default_jack_error_callback(const char *desc) { debug(2, "jackd error: \"%s
 
 void default_jack_info_callback(const char *desc) { inform("jackd information: \"%s\"", desc); }
 
+/*
 void default_jack_set_latency_callback(jack_latency_callback_mode_t mode,
                                        __attribute__((unused)) void *arg) {
   if (mode == JackPlaybackLatency) {
@@ -280,6 +281,7 @@ void default_jack_set_latency_callback(jack_latency_callback_mode_t mode,
     debug(1, "playback latency callback: %" PRIu32 ".", jack_latency);
   }
 }
+*/
 
 int jack_is_running() {
   int reply = -1; // meaning jack is not running
@@ -325,16 +327,19 @@ int jack_client_open_if_needed(void) {
       sample_rate = jack_get_sample_rate(client);
       // debug(1, "jackaudio sample rate = %" PRId32 ".", sample_rate);
       if (sample_rate == 44100) {
-        if (jack_set_latency_callback(client, default_jack_set_latency_callback, NULL) == 0) {
+        // FIXME: shairport-sync has no need for a latency callback, it's a leaf node with only outputs.
+        // If in the future some jack video player wants to resync to shairplay-sync audio, then yes, but
+        // the current usage seems to suggest a misunderstanding.
+//      if (jack_set_latency_callback(client, default_jack_set_latency_callback, NULL) == 0) {
           if (jack_activate(client)) {
             debug(1, "jackaudio cannot activate client");
           } else {
             debug(2, "jackaudio client opened.");
             client_is_open = 1;
           }
-        } else {
-          debug(1, "jackaudio cannot set latency callback");
-        }
+//      } else {
+//        debug(1, "jackaudio cannot set latency callback");
+//      }
       } else {
         inform(
             "jackaudio is running at the wrong speed (%d) for Shairport Sync, which must be 44100",
@@ -505,15 +510,22 @@ int jack_delay(long *the_delay) {
     // subsequent transfer because transfer is blocked
     // by the mutex
     size_t audio_occupancy_now = jack_ringbuffer_read_space(jackbuf) / bytes_per_frame;
+    debug(1, "JN: audio_occupancy_now is %d.", audio_occupancy_now);
   pthread_mutex_unlock(&buffer_mutex);
 
   int64_t frames_processed_since_latest_latency_check = (delta * 44100) >> 32;
+
+  // FIXME: this should only be done if there was an actual change, i.e. on the jack graph reorder
+  // callback, to update a static variable which can be checked here. For now, use a fixed arbitrary value:
+  jack_nframes_t base_latency = 0;
+
   // debug(1,"delta: %" PRId64 " frames.",frames_processed_since_latest_latency_check);
-  jack_nframes_t base_latency = (latest_left_latency_range.min + latest_left_latency_range.max) / 2;
-  if (base_latency == 0)
-    base_latency = (latest_right_latency_range.min + latest_right_latency_range.max) / 2;
+
+  // jack_nframes_t base_latency = (latest_left_latency_range.min + latest_left_latency_range.max) / 2;
+  // if (base_latency == 0)
+  //   base_latency = (latest_right_latency_range.min + latest_right_latency_range.max) / 2;
   *the_delay = base_latency + audio_occupancy_now - frames_processed_since_latest_latency_check;
-  // debug(1,"reporting a delay of %d frames",*the_delay);
+  debug(1,"reporting a delay of %d frames",*the_delay);
   return 0;
 }
 
