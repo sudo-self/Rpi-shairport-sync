@@ -87,21 +87,6 @@ static int flush_please = 0;
 jack_latency_range_t latest_left_latency_range, latest_right_latency_range;
 int64_t time_of_latest_transfer;
 
-int play(void *buf, int samples) {
-  // debug(1,"jack_play of %d samples.",samples);
-  // copy the samples into the queue
-  size_t bytes_to_transfer, bytes_transferred;
-  bytes_to_transfer = samples * bytes_per_frame;
-  pthread_mutex_lock(&buffer_mutex); // it's ok to lock here since we're not in the realtime callback
-    bytes_transferred = jack_ringbuffer_write(jackbuf, buf, bytes_to_transfer);
-    // semantics change: we now measure the last time audio was moved into the ringbuffer, not the jack output buffers.
-    time_of_latest_transfer = get_absolute_time_in_fp();
-  pthread_mutex_unlock(&buffer_mutex);
-  if (bytes_transferred < bytes_to_transfer) {
-    debug(1, "JACK ringbuffer overrun. Only wrote %d of %d bytes.", bytes_transferred, bytes_to_transfer);
-  }
-  return 0;
-}
 
 static inline jack_default_audio_sample_t sample_conv(short sample) {
   return ((sample < 0) ? (-1.0 * sample / SHRT_MIN) : (1.0 * sample / SHRT_MAX));
@@ -170,35 +155,6 @@ static void default_jack_error_callback(const char *desc) { debug(2, "jackd erro
 
 static void default_jack_info_callback(const char *desc) { inform("jackd information: \"%s\"", desc); }
 
-int jack_is_running() {
-  int reply = -1; // meaning jack is not running
-  if (client_is_open) {
-
-    // check if the ports have a zero latency -- if they both have, then it's disconnected.
-
-    // FIXME: this causes a segfault when shairport-sync is exited with CTRL-C, because
-    // the client_is_open flag is stale by then. Also, this test is not necessary.
-    // shairport-sync should not worry what's reading its ports. As long as jack is alive,
-    // deliver audio, even if nothing is connected. This behaviour probably stems from 
-    // the wish to not hog an audio device if not needed, which is no longer an issue with
-    // jack. Moreover, don't "conserve" CPU this way, because in a realtime system you want
-    // deterministic  CPU load more than anything else.
-    //    jack_latency_range_t left_latency_range, right_latency_range;
-    //	  jack_port_get_latency_range(left_port, JackPlaybackLatency, &left_latency_range);
-    //    jack_port_get_latency_range(right_port, JackPlaybackLatency, &right_latency_range);
-
-    //    if ((left_latency_range.min == 0) && (left_latency_range.max == 0) &&
-    //        (right_latency_range.min == 0) && (right_latency_range.max == 0)) {
-    //      reply = -2; // meaning Shairport Sync is not connected
-    //    } else {
-
-    // FIXME: For now, we assume JACK is always running, as it should.
-    // Still need to understand why shairport-sync needs this function.
-    reply = 0; // meaning jack is open and Shairport Sync is connected to it
-               //    }
-  }
-  return reply;
-}
 
 static int jack_client_open_if_needed(void) {
   pthread_mutex_lock(&client_mutex);
@@ -241,17 +197,6 @@ static void jack_close(void) {
     client_is_open = 0;
   }
   pthread_mutex_unlock(&client_mutex);
-}
-
-void jack_deinit() {
-  jack_close();
-  if (open_client_if_necessary_thread) {
-    pthread_cancel(*open_client_if_necessary_thread);
-    free((char *)open_client_if_necessary_thread);
-
-   jack_ringbuffer_free(jackbuf);
-
-  }
 }
 
 static void *open_client_if_necessary_thread_function(void *arg) {
@@ -351,6 +296,17 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   return 0;
 }
 
+void jack_deinit() {
+  jack_close();
+  if (open_client_if_necessary_thread) {
+    pthread_cancel(*open_client_if_necessary_thread);
+    free((char *)open_client_if_necessary_thread);
+
+   jack_ringbuffer_free(jackbuf);
+
+  }
+}
+
 void jack_start(__attribute__((unused)) int i_sample_rate,
                 __attribute__((unused)) int i_sample_format) {
   // debug(1, "jack start");
@@ -358,6 +314,47 @@ void jack_start(__attribute__((unused)) int i_sample_rate,
 
   if (jack_client_open_if_needed() == 0)
     debug(1, "cannot open a jack client for a play session");
+}
+
+void jack_stop(void) {
+  // debug(1, "jack stop");
+  if (config.jack_auto_client_disconnect)
+    jack_close();
+}
+
+int jack_is_running() {
+  int reply = -1; // meaning jack is not running
+  if (client_is_open) {
+
+    // check if the ports have a zero latency -- if they both have, then it's disconnected.
+
+    // FIXME: this causes a segfault when shairport-sync is exited with CTRL-C, because
+    // the client_is_open flag is stale by then. Also, this test is not necessary.
+    // shairport-sync should not worry what's reading its ports. As long as jack is alive,
+    // deliver audio, even if nothing is connected. This behaviour probably stems from 
+    // the wish to not hog an audio device if not needed, which is no longer an issue with
+    // jack. Moreover, don't "conserve" CPU this way, because in a realtime system you want
+    // deterministic  CPU load more than anything else.
+    //    jack_latency_range_t left_latency_range, right_latency_range;
+    //	  jack_port_get_latency_range(left_port, JackPlaybackLatency, &left_latency_range);
+    //    jack_port_get_latency_range(right_port, JackPlaybackLatency, &right_latency_range);
+
+    //    if ((left_latency_range.min == 0) && (left_latency_range.max == 0) &&
+    //        (right_latency_range.min == 0) && (right_latency_range.max == 0)) {
+    //      reply = -2; // meaning Shairport Sync is not connected
+    //    } else {
+
+    // FIXME: For now, we assume JACK is always running, as it should.
+    // Still need to understand why shairport-sync needs this function.
+    reply = 0; // meaning jack is open and Shairport Sync is connected to it
+               //    }
+  }
+  return reply;
+}
+
+void jack_flush() {
+  // debug(1, "Only the consumer can safely flush a lock-free ringbuffer. Asking the process callback to do it...");
+  flush_please = 1;
 }
 
 int jack_delay(long *the_delay) {
@@ -399,13 +396,18 @@ int jack_delay(long *the_delay) {
   return 0;
 }
 
-void jack_flush() {
-  // debug(1, "Only the consumer can safely flush a lock-free ringbuffer. Asking the process callback to do it...");
-  flush_please = 1;
-}
-
-void jack_stop(void) {
-  // debug(1, "jack stop");
-  if (config.jack_auto_client_disconnect)
-    jack_close();
+int play(void *buf, int samples) {
+  // debug(1,"jack_play of %d samples.",samples);
+  // copy the samples into the queue
+  size_t bytes_to_transfer, bytes_transferred;
+  bytes_to_transfer = samples * bytes_per_frame;
+  pthread_mutex_lock(&buffer_mutex); // it's ok to lock here since we're not in the realtime callback
+    bytes_transferred = jack_ringbuffer_write(jackbuf, buf, bytes_to_transfer);
+    // semantics change: we now measure the last time audio was moved into the ringbuffer, not the jack output buffers.
+    time_of_latest_transfer = get_absolute_time_in_fp();
+  pthread_mutex_unlock(&buffer_mutex);
+  if (bytes_transferred < bytes_to_transfer) {
+    debug(1, "JACK ringbuffer overrun. Only wrote %d of %d bytes.", bytes_transferred, bytes_to_transfer);
+  }
+  return 0;
 }
