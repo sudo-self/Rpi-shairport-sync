@@ -153,11 +153,6 @@ int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *a
     }
     jack_ringbuffer_read_advance(jackbuf, frames_written * bytes_per_frame);
   }
-  // debug(1,"transferring %u frames",written);
-  // Why are we doing this? The port latency should never change unless the JACK graph is reordered. Should happen on a graph reorder callback only.
-  jack_port_get_latency_range(left_port, JackPlaybackLatency, &latest_left_latency_range);
-  jack_port_get_latency_range(right_port, JackPlaybackLatency, &latest_right_latency_range);
-
   // now, if there are any more frames to put into the buffer, fill them with
   // silence
   while (nframes > 0) {
