@@ -287,14 +287,24 @@ int jack_is_running() {
 
     // check if the ports have a zero latency -- if they both have, then it's disconnected.
 
-    jack_latency_range_t left_latency_range, right_latency_range;
-    jack_port_get_latency_range(left_port, JackPlaybackLatency, &left_latency_range);
-    jack_port_get_latency_range(right_port, JackPlaybackLatency, &right_latency_range);
+    // FIXME: this causes a segfault when shairport-sync is exited with CTRL-C, because
+    // the client_is_open flag is stale by then. Also, this test is not necessary.
+    // shairport-sync should not worry what's reading its ports. As long as jack is alive,
+    // deliver audio, even if nothing is connected. This behaviour probably stems from 
+    // the wish to not hog an audio device if not needed, which is no longer an issue with
+    // jack. Moreover, don't "conserve" CPU this way, because in a realtime system you want
+    // deterministic  CPU load more than anything else.
+    //    jack_latency_range_t left_latency_range, right_latency_range;
+    //	  jack_port_get_latency_range(left_port, JackPlaybackLatency, &left_latency_range);
+    //    jack_port_get_latency_range(right_port, JackPlaybackLatency, &right_latency_range);
 
     //    if ((left_latency_range.min == 0) && (left_latency_range.max == 0) &&
     //        (right_latency_range.min == 0) && (right_latency_range.max == 0)) {
     //      reply = -2; // meaning Shairport Sync is not connected
     //    } else {
+
+    // FIXME: For now, we assume JACK is always running, as it should.
+    // Still need to understand why shairport-sync needs this function.
     reply = 0; // meaning jack is open and Shairport Sync is connected to it
                //    }
   }
