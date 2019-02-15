@@ -283,7 +283,6 @@ void default_jack_set_latency_callback(jack_latency_callback_mode_t mode,
 
 int jack_is_running() {
   int reply = -1; // meaning jack is not running
-  // if the client is open and initialised, see if the status is "rolling"
   if (client_is_open) {
 
     // check if the ports have a zero latency -- if they both have, then it's disconnected.
