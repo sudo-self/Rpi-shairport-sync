@@ -380,7 +380,7 @@ int jack_delay(long *the_delay) {
     // subsequent transfer because transfer is blocked
     // by the mutex
     size_t audio_occupancy_now = jack_ringbuffer_read_space(jackbuf) / bytes_per_frame;
-    debug(1, "JN: audio_occupancy_now is %d.", audio_occupancy_now);
+    // debug(1, "audio_occupancy_now is %d.", audio_occupancy_now);
   pthread_mutex_unlock(&buffer_mutex);
 
   int64_t frames_processed_since_latest_latency_check = (delta * 44100) >> 32;
@@ -395,12 +395,12 @@ int jack_delay(long *the_delay) {
   // if (base_latency == 0)
   //   base_latency = (latest_right_latency_range.min + latest_right_latency_range.max) / 2;
   *the_delay = base_latency + audio_occupancy_now - frames_processed_since_latest_latency_check;
-  debug(1,"reporting a delay of %d frames",*the_delay);
+  // debug(1,"reporting a delay of %d frames",*the_delay);
   return 0;
 }
 
 void jack_flush() {
-  debug(1, "Only the consumer can safely flush a lock-free ringbuffer. Asking the process callback to do it...");
+  // debug(1, "Only the consumer can safely flush a lock-free ringbuffer. Asking the process callback to do it...");
   flush_please = 1;
 }
 
