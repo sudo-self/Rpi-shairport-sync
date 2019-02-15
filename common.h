@@ -233,7 +233,6 @@ typedef struct {
                                           // debugging. Currently audio packets only...
 #ifdef CONFIG_JACK
   char *jack_client_name;
-  int jack_auto_client_open_interval; // will try to open a client automatically every second
   int jack_auto_client_disconnect;    // will disconnect from the server on end of session if set,
                                       // normally clear.
 #endif

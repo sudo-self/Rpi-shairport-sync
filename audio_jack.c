@@ -189,25 +189,12 @@ static void jack_close(void) {
   pthread_mutex_unlock(&client_mutex);
 }
 
-static void *open_client_if_necessary_thread_function(void *arg) {
-  int *interval = (int *)arg;
-  while (*interval != 0) {
-    if (client_is_open == 0) {
-      debug(1, "Try to open the jack client");
-      jack_client_open_if_needed();
-    }
-    sleep(*interval);
-  }
-  pthread_exit(NULL);
-}
-
 int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.500;
   config.audio_backend_buffer_interpolation_threshold_in_seconds =
       0.25; // below this, soxr interpolation will not occur -- it'll be basic interpolation
             // instead.
-  config.jack_auto_client_open_interval = 1; // check every second
 
   // get settings from settings file first, allow them to be overridden by
   // command line options
@@ -220,22 +207,9 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   // now the specific options
   if (config.cfg != NULL) {
     const char *str;
-    int value;
     /* Get the Client Name. */
     if (config_lookup_string(config.cfg, "jack.client_name", &str)) {
       config.jack_client_name = (char *)str;
-    }
-
-    /* See if we should attempt to connect to the jack server automatically, and, if so, how often
-     * we should try. */
-    if (config_lookup_int(config.cfg, "jack.auto_client_open_interval", &value)) {
-      if ((value < 0) || (value > 300))
-        debug(1,
-              "Invalid jack auto_client_open_interval \"%sd\". It should be between 0 and 300, "
-              "default is %d.",
-              value, config.jack_auto_client_open_interval);
-      else
-        config.jack_auto_client_open_interval = value;
     }
 
     /* See if we should close the client at then end of a play session. */
@@ -256,33 +230,14 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
 
   client_is_open = 0;
 
-  // now, if selected, start a thread to automatically open a client when there is a server.
-  if (config.jack_auto_client_open_interval != 0) {
-    open_client_if_necessary_thread = malloc(sizeof(pthread_t));
-    if (open_client_if_necessary_thread == NULL) {
-      debug(1, "Couldn't allocate space for jack server scanner thread");
-      jack_client_open_if_needed();
-    } else {
-      pthread_create(open_client_if_necessary_thread, NULL,
-                     open_client_if_necessary_thread_function,
-                     &config.jack_auto_client_open_interval);
-    }
-  } else {
-    jack_client_open_if_needed();
-  }
+  jack_client_open_if_needed();
 
   return 0;
 }
 
 void jack_deinit() {
   jack_close();
-  if (open_client_if_necessary_thread) {
-    pthread_cancel(*open_client_if_necessary_thread);
-    free((char *)open_client_if_necessary_thread);
-
-   jack_ringbuffer_free(jackbuf);
-
-  }
+  jack_ringbuffer_free(jackbuf);
 }
 
 void jack_start(__attribute__((unused)) int i_sample_rate,
