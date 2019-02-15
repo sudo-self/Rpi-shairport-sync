@@ -107,10 +107,10 @@ static inline jack_default_audio_sample_t sample_conv(short sample) {
   return ((sample < 0) ? (-1.0 * sample / SHRT_MIN) : (1.0 * sample / SHRT_MAX));
 }
 
-void deinterleave_and_convert(const char *interleaved_frames,
-                              jack_default_audio_sample_t * const jack_buffer_left,
-                              jack_default_audio_sample_t * const jack_buffer_right,
-                              jack_nframes_t nframes) {
+static void deinterleave_and_convert(const char *interleaved_frames,
+                                     jack_default_audio_sample_t * const jack_buffer_left,
+                                     jack_default_audio_sample_t * const jack_buffer_right,
+                                     jack_nframes_t nframes) {
   jack_nframes_t i;
   short *ifp = (short *)interleaved_frames; // we're dealing with 16bit audio here
   jack_default_audio_sample_t *fpl = jack_buffer_left;
