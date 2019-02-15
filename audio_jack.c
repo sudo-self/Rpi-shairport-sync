@@ -211,10 +211,6 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     if (config_lookup_string(config.cfg, "jack.client_name", &str)) {
       config.jack_client_name = (char *)str;
     }
-
-    /* See if we should close the client at then end of a play session. */
-    config_set_lookup_bool(config.cfg, "jack.auto_client_disconnect",
-                           &config.jack_auto_client_disconnect);
   }
 
   if (config.jack_client_name == NULL)
@@ -251,8 +247,6 @@ void jack_start(__attribute__((unused)) int i_sample_rate,
 
 void jack_stop(void) {
   // debug(1, "jack stop");
-  if (config.jack_auto_client_disconnect)
-    jack_close();
 }
 
 int jack_is_running() {
