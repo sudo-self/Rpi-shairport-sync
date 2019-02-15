@@ -194,8 +194,8 @@ int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *a
         frames_required = thisbuf;
       }
       deinterleave_and_convert(v[i].buf, &left_buffer[frames_written], &right_buffer[frames_written], frames_required);
-      frames_written = frames_required;
-      nframes -= frames_written;
+      frames_written += frames_required;
+      nframes -= frames_required;
     }
     jack_ringbuffer_read_advance(jackbuf, frames_written * bytes_per_frame);
   }
