@@ -200,7 +200,7 @@ int jack_is_running() {
   return reply;
 }
 
-int jack_client_open_if_needed(void) {
+static int jack_client_open_if_needed(void) {
   pthread_mutex_lock(&client_mutex);
   if (client_is_open == 0) {
     jack_status_t status;
@@ -231,7 +231,7 @@ int jack_client_open_if_needed(void) {
   return client_is_open;
 }
 
-void jack_close(void) {
+static void jack_close(void) {
   pthread_mutex_lock(&client_mutex);
   if (client_is_open) {
     if (jack_deactivate(client))
@@ -254,7 +254,7 @@ void jack_deinit() {
   }
 }
 
-void *open_client_if_necessary_thread_function(void *arg) {
+static void *open_client_if_necessary_thread_function(void *arg) {
   int *interval = (int *)arg;
   while (*interval != 0) {
     if (client_is_open == 0) {
