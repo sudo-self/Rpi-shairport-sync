@@ -20,17 +20,11 @@
 #include "audio.h"
 #include "common.h"
 #include <errno.h>
-#include <getopt.h>
 #include <limits.h>
-#include <math.h>
 #include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <jack/jack.h>
-#include <jack/transport.h>
 #include <jack/ringbuffer.h>
 
 // Two-channel, 16bit audio:
@@ -215,6 +209,9 @@ void jack_deinit() {
 void jack_start(__attribute__((unused)) int i_sample_rate,
                 __attribute__((unused)) int i_sample_format) {
   // nothing to do, JACK client has already been set up at jack_init()
+  // also, we have no say over the sample rate or sample format of JACK
+  // we convert the 16bit samples to float, and die if the sample rate is != 44k1.
+  // FIXME: later, resampling would be nice. Fold into soxr if possible
 }
 
 void jack_flush() {
