@@ -33,11 +33,6 @@
 #include <jack/transport.h>
 #include <jack/ringbuffer.h>
 
-enum ift_type {
-  IFT_frame_left_sample = 0,
-  IFT_frame_right_sample,
-} ift_type;
-
 // Two-channel, 16bit audio:
 static const int bytes_per_frame = 4;
 // Four seconds buffer -- should be plenty
@@ -73,8 +68,6 @@ audio_output audio_jack = {.name = "jack",
 
 jack_port_t *left_port;
 jack_port_t *right_port;
-
-long offset = 0;
 
 int client_is_open;
 jack_client_t *client;
