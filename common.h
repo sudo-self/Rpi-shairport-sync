@@ -232,7 +232,7 @@ typedef struct {
   double diagnostic_drop_packet_fraction; // pseudo randomly drop this fraction of packets, for
                                           // debugging. Currently audio packets only...
 #ifdef CONFIG_JACK
-  char *jack_client_name, *jack_left_channel_name, *jack_right_channel_name;
+  char *jack_client_name;
   int jack_auto_client_open_interval; // will try to open a client automatically every second
   int jack_auto_client_disconnect;    // will disconnect from the server on end of session if set,
                                       // normally clear.

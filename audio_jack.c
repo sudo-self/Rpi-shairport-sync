@@ -163,9 +163,9 @@ static int jack_client_open_if_needed(void) {
     client = jack_client_open(config.jack_client_name, JackNoStartServer, &status);
     if (client) {
       jack_set_process_callback(client, jack_stream_write_cb, 0);
-      left_port = jack_port_register(client, config.jack_left_channel_name, JACK_DEFAULT_AUDIO_TYPE,
+      left_port = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE,
                                      JackPortIsOutput, 0);
-      right_port = jack_port_register(client, config.jack_right_channel_name,
+      right_port = jack_port_register(client, "out_R",
                                       JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
       sample_rate = jack_get_sample_rate(client);
       // debug(1, "jackaudio sample rate = %" PRId32 ".", sample_rate);
@@ -235,14 +235,6 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     if (config_lookup_string(config.cfg, "jack.client_name", &str)) {
       config.jack_client_name = (char *)str;
     }
-    /* Get the Left Channel Name. */
-    if (config_lookup_string(config.cfg, "jack.left_channel_name", &str)) {
-      config.jack_left_channel_name = (char *)str;
-    }
-    /* Get the Right Channel Name. */
-    if (config_lookup_string(config.cfg, "jack.right_channel_name", &str)) {
-      config.jack_right_channel_name = (char *)str;
-    }
 
     /* See if we should attempt to connect to the jack server automatically, and, if so, how often
      * we should try. */
@@ -263,10 +255,6 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
 
   if (config.jack_client_name == NULL)
     config.jack_client_name = strdup("Shairport Sync");
-  if (config.jack_left_channel_name == NULL)
-    config.jack_left_channel_name = strdup("left");
-  if (config.jack_right_channel_name == NULL)
-    config.jack_right_channel_name = strdup("right");
 
   jackbuf = jack_ringbuffer_create(buffer_size);
   if (jackbuf == NULL)
