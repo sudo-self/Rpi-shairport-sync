@@ -148,47 +148,6 @@ static void default_jack_error_callback(const char *desc) { debug(2, "jackd erro
 
 static void default_jack_info_callback(const char *desc) { inform("jackd information: \"%s\"", desc); }
 
-static int jack_client_open_if_needed(void) {
-  pthread_mutex_lock(&client_mutex);
-  if (client_is_open == 0) {
-    jack_status_t status;
-    client = jack_client_open(config.jack_client_name, JackNoStartServer, &status);
-    if (!client) {
-      die("Could not start JACK server. JackStatus is %x", status);
-    }
-    sample_rate = jack_get_sample_rate(client);
-    if (sample_rate != 44100) {
-      die("The JACK server is running at the wrong sample rate (%d) for Shairport Sync. Must be 44100 Hz.",
-          sample_rate);
-    }
-    jack_set_process_callback(client, jack_stream_write_cb, 0);
-    left_port = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE,
-                                   JackPortIsOutput, 0);
-    right_port = jack_port_register(client, "out_R",
-                                    JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-    if (jack_activate(client)) {
-      die("Could not activate %s JACK client.", config.jack_client_name);
-    } else {
-      debug(2, "JACK client %s activated sucessfully.", config.jack_client_name);
-      client_is_open = 1;
-    }
-  }
-  pthread_mutex_unlock(&client_mutex);
-  return client_is_open;
-}
-
-static void jack_close(void) {
-  pthread_mutex_lock(&client_mutex);
-  if (client_is_open) {
-    if (jack_deactivate(client))
-      debug(1, "Error deactivating jack client");
-    if (jack_client_close(client))
-      debug(1, "Error closing jack client");
-    client_is_open = 0;
-  }
-  pthread_mutex_unlock(&client_mutex);
-}
-
 int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.500;
@@ -226,23 +185,51 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
 
   client_is_open = 0;
 
-  jack_client_open_if_needed();
+  pthread_mutex_lock(&client_mutex);
+  if (client_is_open == 0) {
+    jack_status_t status;
+    client = jack_client_open(config.jack_client_name, JackNoStartServer, &status);
+    if (!client) {
+      die("Could not start JACK server. JackStatus is %x", status);
+    }
+    sample_rate = jack_get_sample_rate(client);
+    if (sample_rate != 44100) {
+      die("The JACK server is running at the wrong sample rate (%d) for Shairport Sync. Must be 44100 Hz.",
+          sample_rate);
+    }
+    jack_set_process_callback(client, jack_stream_write_cb, 0);
+    left_port = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE,
+                                   JackPortIsOutput, 0);
+    right_port = jack_port_register(client, "out_R",
+                                    JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+    if (jack_activate(client)) {
+      die("Could not activate %s JACK client.", config.jack_client_name);
+    } else {
+      debug(2, "JACK client %s activated sucessfully.", config.jack_client_name);
+      client_is_open = 1;
+    }
+  }
+  pthread_mutex_unlock(&client_mutex);
 
   return 0;
 }
 
 void jack_deinit() {
-  jack_close();
+  pthread_mutex_lock(&client_mutex);
+  if (client_is_open) {
+    if (jack_deactivate(client))
+      debug(1, "Error deactivating jack client");
+    if (jack_client_close(client))
+      debug(1, "Error closing jack client");
+    client_is_open = 0;
+  }
+  pthread_mutex_unlock(&client_mutex);
   jack_ringbuffer_free(jackbuf);
 }
 
 void jack_start(__attribute__((unused)) int i_sample_rate,
                 __attribute__((unused)) int i_sample_format) {
-  // debug(1, "jack start");
-  // see if the client is running. If not, try to open and initialise it
-
-  if (jack_client_open_if_needed() == 0)
-    debug(1, "cannot open a jack client for a play session");
+  // nothing to do, JACK client has already been set up at jack_init()
 }
 
 int jack_is_running() {
