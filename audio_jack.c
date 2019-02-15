@@ -148,32 +148,29 @@ static void default_jack_error_callback(const char *desc) { debug(2, "jackd erro
 
 static void default_jack_info_callback(const char *desc) { inform("jackd information: \"%s\"", desc); }
 
-
 static int jack_client_open_if_needed(void) {
   pthread_mutex_lock(&client_mutex);
   if (client_is_open == 0) {
     jack_status_t status;
     client = jack_client_open(config.jack_client_name, JackNoStartServer, &status);
-    if (client) {
-      jack_set_process_callback(client, jack_stream_write_cb, 0);
-      left_port = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE,
-                                     JackPortIsOutput, 0);
-      right_port = jack_port_register(client, "out_R",
-                                      JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-      sample_rate = jack_get_sample_rate(client);
-      // debug(1, "jackaudio sample rate = %" PRId32 ".", sample_rate);
-      if (sample_rate == 44100) {
-          if (jack_activate(client)) {
-            debug(1, "jackaudio cannot activate client");
-          } else {
-            debug(2, "jackaudio client opened.");
-            client_is_open = 1;
-          }
-      } else {
-        inform(
-            "jackaudio is running at the wrong speed (%d) for Shairport Sync, which must be 44100",
-            sample_rate);
-      }
+    if (!client) {
+      die("Could not start JACK server. JackStatus is %x", status);
+    }
+    sample_rate = jack_get_sample_rate(client);
+    if (sample_rate != 44100) {
+      die("The JACK server is running at the wrong sample rate (%d) for Shairport Sync. Must be 44100 Hz.",
+          sample_rate);
+    }
+    jack_set_process_callback(client, jack_stream_write_cb, 0);
+    left_port = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE,
+                                   JackPortIsOutput, 0);
+    right_port = jack_port_register(client, "out_R",
+                                    JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+    if (jack_activate(client)) {
+      die("Could not activate %s JACK client.", config.jack_client_name);
+    } else {
+      debug(2, "JACK client %s activated sucessfully.", config.jack_client_name);
+      client_is_open = 1;
     }
   }
   pthread_mutex_unlock(&client_mutex);
