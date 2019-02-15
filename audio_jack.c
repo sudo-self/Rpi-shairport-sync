@@ -39,7 +39,6 @@ static const int bytes_per_frame = 4;
 #define buffer_size (44100 * 4 * bytes_per_frame)
 
 static pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t *open_client_if_necessary_thread = NULL;
 
@@ -181,7 +180,6 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   jack_set_error_function(default_jack_error_callback);
   jack_set_info_function(default_jack_info_callback);
 
-  pthread_mutex_lock(&client_mutex);
   jack_status_t status;
   client = jack_client_open(config.jack_client_name, JackNoStartServer, &status);
   if (!client) {
@@ -202,18 +200,15 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   } else {
     debug(2, "JACK client %s activated sucessfully.", config.jack_client_name);
   }
-  pthread_mutex_unlock(&client_mutex);
 
   return 0;
 }
 
 void jack_deinit() {
-  pthread_mutex_lock(&client_mutex);
   if (jack_deactivate(client))
     debug(1, "Error deactivating jack client");
   if (jack_client_close(client))
     debug(1, "Error closing jack client");
-  pthread_mutex_unlock(&client_mutex);
   jack_ringbuffer_free(jackbuf);
 }
 
