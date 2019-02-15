@@ -57,7 +57,7 @@ audio_output audio_jack = {.name = "jack",
                            .init = &jack_init,
                            .deinit = &jack_deinit,
                            .start = &jack_start,
-                           .stop = &jack_stop,
+                           .stop = NULL,
                            .is_running = &jack_is_running,
                            .flush = &jack_flush,
                            .delay = &jack_delay,
@@ -243,10 +243,6 @@ void jack_start(__attribute__((unused)) int i_sample_rate,
 
   if (jack_client_open_if_needed() == 0)
     debug(1, "cannot open a jack client for a play session");
-}
-
-void jack_stop(void) {
-  // debug(1, "jack stop");
 }
 
 int jack_is_running() {
