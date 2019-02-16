@@ -233,6 +233,7 @@ typedef struct {
                                           // debugging. Currently audio packets only...
 #ifdef CONFIG_JACK
   char *jack_client_name;
+  char *jack_autoconnect_pattern;
 #endif
 
 } shairport_cfg;
