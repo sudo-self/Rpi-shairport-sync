@@ -885,7 +885,7 @@ int start_dbus_service() {
 }
 
 void stop_dbus_service() {
-  debug(1, "stopping dbus service");
+  debug(2, "stopping dbus service");
   if (ownerID)
     g_bus_unown_name(ownerID);
   else

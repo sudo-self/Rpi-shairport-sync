@@ -6,6 +6,8 @@
  * tinysvcmdns - a tiny MDNS implementation for publishing services
  * Copyright (C) 2011 Darell Tan
  * All rights reserved.
+ * Updated many times by Mike Brady (c) 2014 -- 2019
+ * Includes fixes for CVE-12087 and CVE-2017-12130
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -81,6 +83,8 @@ struct name_comp {
 
 // duplicates a name
 inline uint8_t *dup_nlabel(const uint8_t *n) {
+  if (n == NULL)
+    return NULL;
   assert(n[0] <= 63); // prevent mis-use
   return (uint8_t *)strdup((char *)n);
 }
@@ -126,7 +130,8 @@ char *nlabel_to_str(const uint8_t *name) {
   size_t buf_len = 256;
 
   assert(name != NULL);
-
+  if (name == NULL)
+    return NULL;
   label = labelp = malloc(buf_len);
 
   if (label) {
@@ -186,7 +191,9 @@ uint8_t *create_label(const char *txt) {
   int len;
   uint8_t *s;
 
-  assert(txt != NULL);
+  //  assert(txt != NULL);
+  if (txt == NULL)
+    return NULL;
   len = strlen(txt);
   if (len > 63)
     return NULL;
@@ -678,9 +685,12 @@ static size_t mdns_parse_qn(uint8_t *pkt_buf, size_t pkt_len, size_t off, struct
   if (rr)
     memset(rr, 0, sizeof(struct rr_entry));
   else
-    die("could not allocate memory for \"rr\" in tinysvcmdns");
+    goto err;
 
   name = uncompress_nlabel(pkt_buf, pkt_len, off);
+  if (name == NULL)
+    goto err;
+
   p += label_len(pkt_buf, pkt_len, off);
   rr->name = name;
 
@@ -694,6 +704,10 @@ static size_t mdns_parse_qn(uint8_t *pkt_buf, size_t pkt_len, size_t off, struct
   rr_list_append(&pkt->rr_qn, rr);
 
   return p - (pkt_buf + off);
+
+err:
+  free(rr);
+  return 0;
 }
 
 // parse the MDNS RR section
@@ -716,10 +730,13 @@ static size_t mdns_parse_rr(uint8_t *pkt_buf, size_t pkt_len, size_t off, struct
   if (rr)
     memset(rr, 0, sizeof(struct rr_entry));
   else
-    die("could not allocate memory for \"rr (2)\" in tinysvcmdns");
+    goto err;
 
   name = uncompress_nlabel(pkt_buf, pkt_len, off);
-  p += label_len(pkt_buf, pkt_len, off);
+  if (name == NULL)
+    goto err;
+
+  // parse the MDNS RR section  p += label_len(pkt_buf, pkt_len, off);
   rr->name = name;
 
   rr->type = mdns_read_u16(p);
@@ -822,6 +839,10 @@ static size_t mdns_parse_rr(uint8_t *pkt_buf, size_t pkt_len, size_t off, struct
   rr_list_append(&pkt->rr_ans, rr);
 
   return p - (pkt_buf + off);
+
+err:
+  free(rr);
+  return 0;
 }
 
 // parse a MDNS packet into an mdns_pkt struct
@@ -1716,8 +1737,7 @@ void mdnsd_stop(struct mdnsd *s) {
   assert(s != NULL);
 
   struct timeval tv = {
-      .tv_sec = 0,
-      .tv_usec = 500 * 1000,
+      .tv_sec = 0, .tv_usec = 500 * 1000,
   };
 
   s->stop_flag = 1;
