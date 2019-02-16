@@ -1394,7 +1394,7 @@ int play(void *buf, int samples) {
   // debug(3,"audio_alsa play called.");
   int ret = 0;
 
-  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 50000, 1);
+  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 50000, 0);
 
   if (alsa_backend_state == abm_disconnected) {
     ret = do_open();
