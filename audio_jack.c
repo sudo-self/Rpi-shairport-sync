@@ -134,7 +134,15 @@ static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
   return 0;
 }
 
-// FIXME: set_graph_order_callback(), recompute latencies here!
+static int graph(__attribute__((unused)) void * arg) {
+  jack_port_get_latency_range(left_port, JackPlaybackLatency, &latest_left_latency_range);
+  jack_port_get_latency_range(right_port, JackPlaybackLatency, &latest_right_latency_range);
+  debug(1, "JACK graph reorder callback called. Current latencies to terminal downstream port:\n"
+           "\tLmin = %d, Lmax = %d, Rmin =  %d, Rmax = %d",
+           latest_left_latency_range.min, latest_left_latency_range.max,
+           latest_right_latency_range.min, latest_right_latency_range.max);
+  return 0;
+}
 
 static void error(const char *desc) { debug(2, "jackd error: \"%s\"", desc); }
 
@@ -172,9 +180,6 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     die("Can't allocate %d bytes for the JACK ringbuffer.", buffer_size);
   jack_ringbuffer_mlock(jackbuf);		 // lock buffer into memory so that it never gets paged out
 
-  jack_set_error_function(&error);
-  jack_set_info_function(&info);
-
   pthread_mutex_lock(&client_mutex);
   jack_status_t status;
   client = jack_client_open(config.jack_client_name, JackNoStartServer, &status);
@@ -187,6 +192,10 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
         sample_rate);
   }
   jack_set_process_callback(client, &process, 0);
+  jack_set_graph_order_callback(client, &graph, 0);
+  jack_set_error_function(&error);
+  jack_set_info_function(&info);
+
   left_port = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE,
                                  JackPortIsOutput, 0);
   right_port = jack_port_register(client, "out_R",
@@ -225,7 +234,7 @@ void jack_flush() {
 }
 
 int jack_delay(long *the_delay) {
-
+  jack_nframes_t base_latency;
   // semantics change: we now look at the last transfer into the lock-free ringbuffer, not
   // into the jack buffers directly (because locking those would violate real-time constraints).
   // on average, that should lead to just a constant additional latency. the old comment still applies:
@@ -234,7 +243,6 @@ int jack_delay(long *the_delay) {
   // but then a transfer could occur and we would get the buffer occupancy after another transfer
   // had occurred
   // so we could "lose" a full transfer (e.g. 1024 frames @ 44,100 fps ~ 23.2 milliseconds)
-
   pthread_mutex_lock(&buffer_mutex);
     int64_t time_now = get_absolute_time_in_fp();
     // this is the time back to the last time data
@@ -248,16 +256,10 @@ int jack_delay(long *the_delay) {
   pthread_mutex_unlock(&buffer_mutex);
 
   int64_t frames_processed_since_latest_latency_check = (delta * 44100) >> 32;
-
-  // FIXME: this should only be done if there was an actual change, i.e. on the jack graph reorder
-  // callback, to update a static variable which can be checked here. For now, use a fixed arbitrary value:
-  jack_nframes_t base_latency = 0;
-
   // debug(1,"delta: %" PRId64 " frames.",frames_processed_since_latest_latency_check);
-
-  // jack_nframes_t base_latency = (latest_left_latency_range.min + latest_left_latency_range.max) / 2;
-  // if (base_latency == 0)
-  //   base_latency = (latest_right_latency_range.min + latest_right_latency_range.max) / 2;
+  // use the average of the left and right maximum latencies. if max is really different from min,
+  // there is an anomaly in the graph that we don't have any hope of fixing anyways
+  base_latency = (latest_left_latency_range.max + latest_right_latency_range.max) / 2;
   *the_delay = base_latency + audio_occupancy_now - frames_processed_since_latest_latency_check;
   // debug(1,"reporting a delay of %d frames",*the_delay);
   return 0;
