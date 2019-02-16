@@ -265,9 +265,9 @@ void activity_monitor_start() {
 
 void activity_monitor_stop() {
   if (activity_monitor_running) {
-    debug(1, "activity_monitor_stop start...");
+    debug(3, "activity_monitor_stop start...");
     pthread_cancel(activity_monitor_thread);
     pthread_join(activity_monitor_thread, NULL);
-    debug(1, "activity_monitor_stop complete");
+    debug(2, "activity_monitor_stop complete");
   }
 }

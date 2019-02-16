@@ -107,7 +107,7 @@ static void sig_ignore(__attribute__((unused)) int foo, __attribute__((unused)) 
                        __attribute__((unused)) void *baz) {}
 static void sig_shutdown(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
                          __attribute__((unused)) void *baz) {
-  debug(1, "shutdown requested...");
+  debug(2, "shutdown requested...");
 #ifdef CONFIG_LIBDAEMON
   daemon_retval_send(255);
   daemon_pid_file_remove();
@@ -1087,7 +1087,7 @@ pthread_t dbus_thread;
 void *dbus_thread_func(__attribute__((unused)) void *arg) {
   g_main_loop = g_main_loop_new(NULL, FALSE);
   g_main_loop_run(g_main_loop);
-  debug(1, "g_main_loop thread exit");
+  debug(2, "g_main_loop thread exit");
   pthread_exit(NULL);
 }
 #endif
@@ -1145,7 +1145,7 @@ const char *pid_file_proc(void) {
 
 void main_cleanup_handler(__attribute__((unused)) void *arg) {
   // it doesn't look like this is called when the main function is cancelled eith a pthread cancel.
-  debug(1, "main cleanup handler called.");
+  debug(2, "main cleanup handler called.");
 #ifdef CONFIG_MQTT
   if (config.mqtt_enabled) {
     // terminate_mqtt();
@@ -1160,19 +1160,19 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
   stop_dbus_service();
 #endif
   if (g_main_loop) {
-    debug(1, "Stopping DBUS Loop Thread");
+    debug(2, "Stopping DBUS Loop Thread");
     g_main_loop_quit(g_main_loop);
     pthread_join(dbus_thread, NULL);
   }
 #endif
 
 #ifdef CONFIG_DACP_CLIENT
-  debug(1, "Stopping DACP Monitor");
+  debug(2, "Stopping DACP Monitor");
   dacp_monitor_stop();
 #endif
 
 #ifdef CONFIG_METADATA_HUB
-  debug(1, "Stopping metadata hub");
+  debug(2, "Stopping metadata hub");
   metadata_hub_stop();
 #endif
 
@@ -1183,7 +1183,7 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
   activity_monitor_stop(0);
 
   if ((config.output) && (config.output->deinit)) {
-    debug(1, "Deinitialise the audio backend.");
+    debug(2, "Deinitialise the audio backend.");
     config.output->deinit();
   }
 #ifdef CONFIG_LIBDAEMON
@@ -1191,12 +1191,12 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
   daemon_pid_file_remove();
   daemon_signal_done();
 #endif  
-  debug(1, "Exit...");
+  debug(2, "Exit...");
   exit(0);
 }
 
 void exit_function() {
-  debug(1, "exit function called...");
+  debug(2, "exit function called...");
   main_cleanup_handler(NULL);
   if (conns)
     free(conns); // make sure the connections have been deleted first

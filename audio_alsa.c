@@ -1059,9 +1059,9 @@ static void deinit(void) {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   // debug(2,"audio_alsa deinit called.");
   stop();
-  debug(1, "Cancel buffer monitor thread.");
+  debug(2, "Cancel buffer monitor thread.");
   pthread_cancel(alsa_buffer_monitor_thread);
-  debug(1, "Join buffer monitor thread.");
+  debug(3, "Join buffer monitor thread.");
   pthread_join(alsa_buffer_monitor_thread, NULL);
   pthread_setcancelstate(oldState, NULL);
 }

@@ -107,7 +107,7 @@ void metadata_hub_init(void) {
 
 void metadata_hub_stop(void) {
   if (metadata_hub_initialised) {
-    debug(1, "metadata_hub_stop.");
+    debug(2, "metadata_hub_stop.");
     metadata_hub_release_track_artwork();
     if (metadata_store.track_metadata) {
       metadata_hub_release_track_metadata(metadata_store.track_metadata);

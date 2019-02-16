@@ -894,11 +894,11 @@ void dacp_monitor_start() {
 
 void dacp_monitor_stop() {
   if (dacp_monitor_initialised) { // only if it's been started and initialised
-    debug(1, "dacp_monitor_stop");
+    debug(2, "dacp_monitor_stop");
     pthread_cancel(dacp_monitor_thread);
     pthread_join(dacp_monitor_thread, NULL);
     pthread_mutex_destroy(&dacp_server_information_lock);
-    debug(1, "DACP Conversation Lock Mutex Destroyed");
+    debug(3, "DACP Conversation Lock Mutex Destroyed");
     pthread_mutex_destroy(&dacp_conversation_lock);
   }
 }

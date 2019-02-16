@@ -1411,7 +1411,7 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
 }
 
 void metadata_thread_cleanup_function(__attribute__((unused)) void *arg) {
-  debug(1, "metadata_thread_cleanup_function called");
+  debug(2, "metadata_thread_cleanup_function called");
   metadata_delete_multicast_socket();
   metadata_close();
   pc_queue_delete(&metadata_queue);
@@ -1462,7 +1462,7 @@ void metadata_init(void) {
 
 void metadata_stop(void) {
   if (metadata_running) {
-    debug(1, "metadata_stop called.");
+    debug(2, "metadata_stop called.");
     pthread_cancel(metadata_thread);
     pthread_join(metadata_thread, NULL);
   }
