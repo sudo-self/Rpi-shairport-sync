@@ -91,7 +91,7 @@ static void deinterleave_and_convert(const char *interleaved_frames,
   }
 }
 
-static int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
+static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
 
   jack_default_audio_sample_t *left_buffer =
       (jack_default_audio_sample_t *)jack_port_get_buffer(left_port, nframes);
@@ -136,9 +136,9 @@ static int jack_stream_write_cb(jack_nframes_t nframes, __attribute__((unused)) 
 
 // FIXME: set_graph_order_callback(), recompute latencies here!
 
-static void default_jack_error_callback(const char *desc) { debug(2, "jackd error: \"%s\"", desc); }
+static void error(const char *desc) { debug(2, "jackd error: \"%s\"", desc); }
 
-static void default_jack_info_callback(const char *desc) { inform("jackd information: \"%s\"", desc); }
+static void info(const char *desc) { inform("jackd information: \"%s\"", desc); }
 
 int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   config.audio_backend_latency_offset = 0;
@@ -172,8 +172,8 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     die("Can't allocate %d bytes for the JACK ringbuffer.", buffer_size);
   jack_ringbuffer_mlock(jackbuf);		 // lock buffer into memory so that it never gets paged out
 
-  jack_set_error_function(default_jack_error_callback);
-  jack_set_info_function(default_jack_info_callback);
+  jack_set_error_function(&error);
+  jack_set_info_function(&info);
 
   pthread_mutex_lock(&client_mutex);
   jack_status_t status;
@@ -186,7 +186,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     die("The JACK server is running at the wrong sample rate (%d) for Shairport Sync. Must be 44100 Hz.",
         sample_rate);
   }
-  jack_set_process_callback(client, jack_stream_write_cb, 0);
+  jack_set_process_callback(client, &process, 0);
   left_port = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE,
                                  JackPortIsOutput, 0);
   right_port = jack_port_register(client, "out_R",
