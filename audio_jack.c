@@ -199,9 +199,9 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   jack_set_info_function(&info);
 
   left_port = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE,
-                                 JackPortIsOutput, NULL);
+                                 JackPortIsOutput, 0);
   right_port = jack_port_register(client, "out_R", JACK_DEFAULT_AUDIO_TYPE, 
-                                 JackPortIsOutput, NULL);
+                                 JackPortIsOutput, 0);
   if (jack_activate(client)) {
     die("Could not activate %s JACK client.", config.jack_client_name);
   } else {
