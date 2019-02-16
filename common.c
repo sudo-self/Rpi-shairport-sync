@@ -91,6 +91,28 @@ void set_alsa_out_dev(char *);
 
 static volatile int requested_connection_state_to_output = 1;
 
+// this stuff is to direct logging to syslog via libdaemon or directly
+// alternatively you can direct it to stderr using a command line option
+
+#ifdef CONFIG_LIBDAEMON
+static void (*sps_log)(int prio, const char *t, ...) = daemon_log;
+#else
+static void (*sps_log)(int prio, const char *t, ...) = syslog;
+#endif
+
+void do_sps_log(__attribute__((unused)) int prio, const char *t, ...) {
+  char s[1024];
+  va_list args;
+  va_start(args, t);
+  vsnprintf(s, sizeof(s), t, args);
+  va_end(args);
+  fprintf(stderr,"%s\n",s);    
+}
+
+void log_to_stderr() {
+  sps_log = do_sps_log;
+}
+
 shairport_cfg config;
 
 volatile int debuglev = 0;
@@ -146,24 +168,13 @@ void die(const char *format, ...) {
   va_end(args);
 
   if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-  
-  #ifdef CONFIG_LIBDAEMON
-    daemon_log(LOG_ERR, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
+    sps_log(LOG_ERR, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
   else if ((debuglev) && (config.debugger_show_relative_time))
-    daemon_log(LOG_ERR, "% 20.9f|*fatal error: %s", tsl, s);
+    sps_log(LOG_ERR, "% 20.9f|*fatal error: %s", tsl, s);
   else if ((debuglev) && (config.debugger_show_elapsed_time))
-    daemon_log(LOG_ERR, "% 20.9f|*fatal error: %s", tss, s);
+    sps_log(LOG_ERR, "% 20.9f|*fatal error: %s", tss, s);
   else
-    daemon_log(LOG_ERR, "fatal error: %s", s);
-  #else
-    syslog(LOG_ERR, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
-  else if ((debuglev) && (config.debugger_show_relative_time))
-    syslog(LOG_ERR, "% 20.9f|*fatal error: %s", tsl, s);
-  else if ((debuglev) && (config.debugger_show_elapsed_time))
-    syslog(LOG_ERR, "% 20.9f|*fatal error: %s", tss, s);
-  else
-    syslog(LOG_ERR, "fatal error: %s", s);  
-  #endif
+    sps_log(LOG_ERR, "fatal error: %s", s);  
   pthread_setcancelstate(oldState, NULL);
   exit(1);
 }
@@ -184,25 +195,14 @@ void warn(const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-#ifdef CONFIG_LIBDAEMON
   if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    daemon_log(LOG_WARNING, "|% 20.9f|% 20.9f|*warning: %s", tss, tsl, s);
+    sps_log(LOG_WARNING, "|% 20.9f|% 20.9f|*warning: %s", tss, tsl, s);
   else if ((debuglev) && (config.debugger_show_relative_time))
-    daemon_log(LOG_WARNING, "% 20.9f|*warning: %s", tsl, s);
+    sps_log(LOG_WARNING, "% 20.9f|*warning: %s", tsl, s);
   else if ((debuglev) && (config.debugger_show_elapsed_time))
-    daemon_log(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
+    sps_log(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
   else
-    daemon_log(LOG_WARNING, "%s", s);
-#else
-  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    syslog(LOG_WARNING, "|% 20.9f|% 20.9f|*warning: %s", tss, tsl, s);
-  else if ((debuglev) && (config.debugger_show_relative_time))
-    syslog(LOG_WARNING, "% 20.9f|*warning: %s", tsl, s);
-  else if ((debuglev) && (config.debugger_show_elapsed_time))
-    syslog(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
-  else
-    syslog(LOG_WARNING, "%s", s);
-#endif
+    sps_log(LOG_WARNING, "%s", s);
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -224,25 +224,14 @@ void debug(int level, const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-#ifdef CONFIG_LIBDAEMON
   if ((config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    daemon_log(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
+    sps_log(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
   else if (config.debugger_show_relative_time)
-    daemon_log(LOG_DEBUG, "% 20.9f|%s", tsl, s);
+    sps_log(LOG_DEBUG, "% 20.9f|%s", tsl, s);
   else if (config.debugger_show_elapsed_time)
-    daemon_log(LOG_DEBUG, "% 20.9f|%s", tss, s);
+    sps_log(LOG_DEBUG, "% 20.9f|%s", tss, s);
   else
-    daemon_log(LOG_DEBUG, "%s", s);
-#else
-  if ((config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    syslog(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
-  else if (config.debugger_show_relative_time)
-    syslog(LOG_DEBUG, "% 20.9f|%s", tsl, s);
-  else if (config.debugger_show_elapsed_time)
-    syslog(LOG_DEBUG, "% 20.9f|%s", tss, s);
-  else
-    syslog(LOG_DEBUG, "%s", s);
-#endif
+    sps_log(LOG_DEBUG, "%s", s);
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -262,26 +251,14 @@ void inform(const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-#ifdef CONFIG_LIBDAEMON
   if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    daemon_log(LOG_INFO, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
+    sps_log(LOG_INFO, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
   else if ((debuglev) && (config.debugger_show_relative_time))
-    daemon_log(LOG_INFO, "% 20.9f|%s", tsl, s);
+    sps_log(LOG_INFO, "% 20.9f|%s", tsl, s);
   else if ((debuglev) && (config.debugger_show_elapsed_time))
-    daemon_log(LOG_INFO, "% 20.9f|%s", tss, s);
+    sps_log(LOG_INFO, "% 20.9f|%s", tss, s);
   else
-    daemon_log(LOG_INFO, "%s", s);
-#else
-  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    syslog(LOG_INFO, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
-  else if ((debuglev) && (config.debugger_show_relative_time))
-    syslog(LOG_INFO, "% 20.9f|%s", tsl, s);
-  else if ((debuglev) && (config.debugger_show_elapsed_time))
-    syslog(LOG_INFO, "% 20.9f|%s", tss, s);
-  else
-    syslog(LOG_INFO, "%s", s);
-
-#endif
+    sps_log(LOG_INFO, "%s", s);
   pthread_setcancelstate(oldState, NULL);
 }
 

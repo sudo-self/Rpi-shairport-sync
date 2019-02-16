@@ -156,9 +156,9 @@ void usage(char *progname) {
 #ifdef CONFIG_LIBDAEMON
   printf("    -d, --daemon            daemonise.\n");
   printf("    -j, --justDaemoniseNoPIDFile            daemonise without a PID file.\n");
+  printf("    -k, --kill              kill the existing shairport daemon.\n");
 #endif
   printf("    -V, --version           show version information.\n");
-  printf("    -k, --kill              kill the existing shairport daemon.\n");
   printf("    -c, --configfile=FILE   read configuration settings from FILE. Default is "
          "/etc/shairport-sync.conf.\n");
 
@@ -170,7 +170,6 @@ void usage(char *progname) {
   printf("    -a, --name=NAME         set advertised name.\n");
   printf("    -L, --latency=FRAMES    [Deprecated] Set the latency for audio sent from an unknown "
          "device.\n");
-  printf("                            The default is to set it automatically.\n");
   printf("                            The default is to set it automatically.\n");
   printf("    -S, --stuffing=MODE set how to adjust current latency to match desired latency, "
          "where \n");
@@ -213,6 +212,7 @@ void usage(char *progname) {
   printf("                            The default is /tmp/shairport-sync-metadata.\n");
   printf("    --get-coverart          send cover art through the metadata pipe.\n");
 #endif
+  printf("    -u, --use-stderr          log messages through STDERR rather than syslog.\n");
   printf("\n");
   mdns_ls_backends();
   printf("\n");
@@ -229,15 +229,17 @@ int parse_options(int argc, char **argv) {
   int fResyncthreshold = (int)(config.resyncthreshold * 44100);
   int fTolerance = (int)(config.tolerance * 44100);
   poptContext optCon; /* context for parsing command-line options */
+#if CONFIG_LIBDAEMON      
   int daemonisewith = 0;
   int daemonisewithout = 0;
+#endif
   struct poptOption optionsTable[] = {
       {"verbose", 'v', POPT_ARG_NONE, NULL, 'v', NULL, NULL},
-      {"disconnectFromOutput", 'D', POPT_ARG_NONE, NULL, 0, NULL, NULL},
-      {"reconnectToOutput", 'R', POPT_ARG_NONE, NULL, 0, NULL, NULL},
+#if CONFIG_LIBDAEMON      
       {"kill", 'k', POPT_ARG_NONE, NULL, 0, NULL, NULL},
       {"daemon", 'd', POPT_ARG_NONE, &daemonisewith, 0, NULL, NULL},
       {"justDaemoniseNoPIDFile", 'j', POPT_ARG_NONE, &daemonisewithout, 0, NULL, NULL},
+#endif
       {"configfile", 'c', POPT_ARG_STRING, &config.configfile, 0, NULL, NULL},
       {"statistics", 0, POPT_ARG_NONE, &config.statistics_requested, 0, NULL, NULL},
       {"logOutputLevel", 0, POPT_ARG_NONE, &config.logOutputLevel, 0, NULL, NULL},
@@ -255,6 +257,7 @@ int parse_options(int argc, char **argv) {
       {"timeout", 't', POPT_ARG_INT, &config.timeout, 't', NULL, NULL},
       {"password", 0, POPT_ARG_STRING, &config.password, 0, NULL, NULL},
       {"tolerance", 'z', POPT_ARG_INT, &fTolerance, 0, NULL, NULL},
+      {"use-stderr", 'u', POPT_ARG_NONE, NULL, 'u', NULL, NULL},
 #ifdef CONFIG_METADATA
       {"metadata-pipename", 'M', POPT_ARG_STRING, &config.metadata_pipename, 'M', NULL, NULL},
       {"get-coverart", 'g', POPT_ARG_NONE, &config.get_coverart, 'g', NULL, NULL},
@@ -280,6 +283,9 @@ int parse_options(int argc, char **argv) {
     switch (c) {
     case 'v':
       debuglev++;
+      break;
+    case 'u':
+      log_to_stderr();
       break;
     case 'D':
       inform("Warning: the option -D or --disconnectFromOutput is deprecated.");

@@ -245,6 +245,8 @@ uint16_t nctohs(const uint8_t *p); // read 2 characters from *p and do ntohs on 
 
 void memory_barrier();
 
+void log_to_stderr(); // call this to director logging to stderr;
+
 // true if Shairport Sync is supposed to be sending output to the output device, false otherwise
 
 int get_requested_connection_state_to_output();
