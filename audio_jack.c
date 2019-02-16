@@ -20,6 +20,7 @@
 
 #include "audio.h"
 #include "common.h"
+#include <stdlib.h>
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>
@@ -156,6 +157,7 @@ static void info(const char *desc) {
 }
 
 int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
+  int i;
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.500;
   config.audio_backend_buffer_interpolation_threshold_in_seconds =
@@ -206,7 +208,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   jack_set_error_function(&error);
   jack_set_info_function(&info);
 
-  for (int i=0; i < NPORTS; i++) {
+  for (i=0; i < NPORTS; i++) {
     port[i] = jack_port_register(client, port_name[i], JACK_DEFAULT_AUDIO_TYPE,
                                  JackPortIsOutput, 0);
   }
@@ -218,14 +220,40 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
 
   if (config.jack_autoconnect_pattern != NULL) {
     debug(1, "config.jack_autoconnect_pattern is %s.", config.jack_autoconnect_pattern);
-    const char** port_list = jack_get_ports(client, config.jack_autoconnect_pattern, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput);
-    while (*port_list != NULL) {
-      debug(1, "Found matching JACK port %s.", *port_list);
-      port_list++;
-      // FIXME: implement actual connection, warn user if more than 2 hits.
+    const char** port_list = jack_get_ports(client, config.jack_autoconnect_pattern,
+                                            JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput);
+    for (i=0; i<NPORTS ; i++) {
+      char* full_port_name[NPORTS];
+      full_port_name[i] = malloc(sizeof(char) * jack_port_name_size());
+      sprintf(full_port_name[i], "%s:%s", config.jack_client_name, port_name[i]);
+      if (port_list[i] != NULL) {
+        int err;
+        debug(1, "Connecting %s to %s.", full_port_name[i], port_list[i]);
+        err = jack_connect(client, full_port_name[i], port_list[i]);
+        switch (err) {
+        case EEXIST:
+          inform("The requested connection from %s to %s already exists.",
+                 full_port_name[i], port_list[i]);
+          break;
+        case 0:
+          // success
+          break;
+        default:
+          inform("JACK error no. %d occured while trying to connect %s to %s.",
+                 err, full_port_name[i], port_list[i]);
+          break;
+        }
+      } else {
+        inform("No matching port found in %s to connect %s to. You may not hear audio.",
+               config.jack_autoconnect_pattern, full_port_name[i]);
+      }
+      free(full_port_name[i]);
     }
+    while (port_list[i++] != NULL) {
+      inform("Additional matching port %s found. Check that the connections are what you intended.");
+    }
+    jack_free(port_list);
   }
-  
   pthread_mutex_unlock(&client_mutex);
 
   return 0;
