@@ -1,6 +1,7 @@
 /*
  * jack output driver. This file is part of Shairport Sync.
- * Copyright (c) 2018 Mike Brady <mikebrady@iercom.net>
+ * Copyright (c) 2019 Mike Brady <mikebrady@iercom.net>,
+ *                    Jörn Nettingsmeier <nettings@luchtbeweging.nl>
  *
  * All rights reserved.
  *
