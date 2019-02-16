@@ -242,37 +242,39 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     // I've reported it to the jack-devel mailing list, they're in a better place to fix it.
     const char** port_list = jack_get_ports(client, config.jack_autoconnect_pattern,
                                             JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput);
-    for (i = 0; i < NPORTS ; i++) {
-      char* full_port_name[NPORTS];
-      full_port_name[i] = malloc(sizeof(char) * jack_port_name_size());
-      sprintf(full_port_name[i], "%s:%s", config.jack_client_name, port_name[i]);
-      if (port_list[i] != NULL) {
-        int err;
-        debug(2, "Connecting %s to %s.", full_port_name[i], port_list[i]);
-        err = jack_connect(client, full_port_name[i], port_list[i]);
-        switch (err) {
-        case EEXIST:
-          inform("The requested connection from %s to %s already exists.",
-                 full_port_name[i], port_list[i]);
-          break;
-        case 0:
-          // success
-          break;
-        default:
-          warn("JACK error no. %d occured while trying to connect %s to %s.",
-                 err, full_port_name[i], port_list[i]);
-          break;
+    if (port_list != NULL) {
+      for (i = 0; i < NPORTS ; i++) {
+        char* full_port_name[NPORTS];
+        full_port_name[i] = malloc(sizeof(char) * jack_port_name_size());
+        sprintf(full_port_name[i], "%s:%s", config.jack_client_name, port_name[i]);
+        if (port_list[i] != NULL) {
+          int err;
+          debug(2, "Connecting %s to %s.", full_port_name[i], port_list[i]);
+          err = jack_connect(client, full_port_name[i], port_list[i]);
+          switch (err) {
+          case EEXIST:
+            inform("The requested connection from %s to %s already exists.",
+                   full_port_name[i], port_list[i]);
+            break;
+          case 0:
+            // success
+            break;
+          default:
+            warn("JACK error no. %d occured while trying to connect %s to %s.",
+                   err, full_port_name[i], port_list[i]);
+            break;
+          }
+        } else {
+          inform("No matching port found in %s to connect %s to. You may not hear audio.",
+                 config.jack_autoconnect_pattern, full_port_name[i]);
         }
-      } else {
-        inform("No matching port found in %s to connect %s to. You may not hear audio.",
-               config.jack_autoconnect_pattern, full_port_name[i]);
+        free(full_port_name[i]);
       }
-      free(full_port_name[i]);
+      while (port_list[i++] != NULL) {
+        inform("Additional matching port %s found. Check that the connections are what you intended.");
+      }
+      jack_free(port_list);
     }
-    while (port_list[i++] != NULL) {
-      inform("Additional matching port %s found. Check that the connections are what you intended.");
-    }
-    jack_free(port_list);
   }
   pthread_mutex_unlock(&client_mutex);
 
