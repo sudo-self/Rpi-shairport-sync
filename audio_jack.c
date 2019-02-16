@@ -59,7 +59,8 @@ audio_output audio_jack = {.name = "jack",
                            .parameters = NULL,
                            .mute = NULL};
 
-// This also affects deinterlacing, so make it exactly the number of incoming audio channels!
+// This also affects deinterlacing.
+// So make it exactly the number of incoming audio channels!
 #define NPORTS 2
 static jack_port_t *port[NPORTS];
 static const char* port_name[NPORTS] = { "out_L", "out_R" };
@@ -76,40 +77,55 @@ static int64_t time_of_latest_transfer;
 
 
 static inline jack_default_audio_sample_t sample_conv(short sample) {
+  // It sounds correct, but I don't understand it.
+  // Zero int needs to be zero float. Check.
+  // Plus 32767 int is 1.0. Check.
+  // Minus 32767 int is -0.99997. And here my brain shuts down.
+  // In my head, it should be 1.0, and we should tolerate an overflow
+  // at minus 32768. But I'm sure there's a textbook explanation somewhere.
   return ((sample < 0) ? (-1.0 * sample / SHRT_MIN) : (1.0 * sample / SHRT_MAX));
 }
 
-static void deinterleave_and_convert(const char *interleaved_frames,
-                                     jack_default_audio_sample_t* jack_buffer[],
+static void deinterleave_and_convert(const char *interleaved_input_buffer,
+                                     jack_default_audio_sample_t* jack_output_buffer[],
                                      jack_nframes_t offset,
                                      jack_nframes_t nframes) {
   jack_nframes_t f;
-  short *ifp = (short *)interleaved_frames; // we're dealing with 16bit audio here
-  for (f=offset; f<(nframes + offset); f++) {
-    for (int i=0; i<NPORTS; i++) {
-      jack_buffer[i][f] = sample_conv(*ifp++);
+  // We're dealing with 16bit audio here:
+  short *ifp = (short *)interleaved_input_buffer;
+  // Zero-copy, we're working directly on the target and destination buffers,
+  // so deal with an offset for the second part of the input ringbuffer
+  for (f = offset; f < (nframes + offset); f++) {
+    for (int i = 0; i < NPORTS; i++) {
+      jack_output_buffer[i][f] = sample_conv(*ifp++);
     }
   }
 }
 
+// This is the JACK process callback. We don't decide when it runs.
+// It must be hard-realtime safe (i.e. fully deterministic, with constant CPU
+// usage. No calls to anything that could ever block: no syscalls, no screen
+// output, no file access, no mutexes...
+// The JACK ringbuffer we use to get the data in here is explicitly lock-free.
 static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
   jack_default_audio_sample_t *buffer[NPORTS];
-  for (int i=0; i < NPORTS; i++) {
-    buffer[i] = (jack_default_audio_sample_t *)jack_port_get_buffer(port[i], nframes);
-  }
+  // Expect an array of two elements because of possible ringbuffer wrap-around:
   jack_ringbuffer_data_t v[2] = { 0 };
   jack_nframes_t i, thisbuf;
   int frames_written = 0;
   int frames_required = 0;
 
+  for (i = 0; i < NPORTS; i++) {
+    buffer[i] = (jack_default_audio_sample_t *)jack_port_get_buffer(port[i], nframes);
+  }
   if (flush_please) {
-    // we just move the read pointer ahead without doing anything with the data.
+    // We just move the read pointer ahead without doing anything with the data.
     jack_ringbuffer_read_advance(jackbuf, jack_ringbuffer_read_space(jackbuf));
     flush_please = 0;
-    // since we don't change nframes, the whole buffer will be zeroed later.
+    // Since we don't change nframes, the whole buffer will be zeroed later.
   } else {
-    jack_ringbuffer_get_read_vector(jackbuf, v); // an array of two elements because of possible ringbuffer wrap-around
-    for (i=0; i<2; i++) {
+    jack_ringbuffer_get_read_vector(jackbuf, v);
+    for (i = 0; i < 2; i++) {
       thisbuf = v[i].len / bytes_per_frame;
       if (thisbuf > nframes) {
         frames_required = nframes;
@@ -122,24 +138,28 @@ static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
     }
     jack_ringbuffer_read_advance(jackbuf, frames_written * bytes_per_frame);
   }
-  // now, if there are any more frames to put into the buffer, fill them with
-  // silence
+  // If there are any more frames to put into the buffer, fill them with
+  // silence. This is a critical underflow situation. Let's at least keep the JACK
+  // graph humming along while preventing the motorboat sound of a repeating buffer.
   while (nframes > 0) {
-    for (int i=0; i < NPORTS; i++) {
+    for (i = 0; i < NPORTS; i++) {
       buffer[i][frames_written] = 0.0;
     }
     frames_written++;
     nframes--;
   }
-  return 0;
+  return 0; // Tell JACK that all is well.
 }
 
+// This is the JACK graph reorder callback. Now we know some JACK connections
+// have changed, so we recompute the latency.
 static int graph(__attribute__((unused)) void * arg) {
   int latency = 0;
   debug(2, "JACK graph reorder callback called.");
   for (int i=0; i<NPORTS; i++) {
     jack_port_get_latency_range(port[i], JackPlaybackLatency, &latest_latency_range[i]);
-    debug(2, "JACK latency for port %s\tmin: %d\t max: %d", port_name[i], latest_latency_range[i].min, latest_latency_range[i].max);
+    debug(2, "JACK latency for port %s\tmin: %d\t max: %d",
+          port_name[i], latest_latency_range[i].min, latest_latency_range[i].max);
     latency += latest_latency_range[i].max;
   }
   latency /= NPORTS;
@@ -148,10 +168,12 @@ static int graph(__attribute__((unused)) void * arg) {
   return 0;
 }
 
+// This the function JACK will call in case of an error in the library.
 static void error(const char *desc) {
   warn("JACK error: \"%s\"", desc);
 }
 
+// This is the function JACK will call in case of a non-critical event in the library.
 static void info(const char *desc) {
   inform("JACK information: \"%s\"", desc);
 }
@@ -160,26 +182,19 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   int i;
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.500;
-  config.audio_backend_buffer_interpolation_threshold_in_seconds =
-      0.25; // below this, soxr interpolation will not occur -- it'll be basic interpolation
-            // instead.
+  // Below this, soxr interpolation will not occur -- it'll be basic interpolation
+  // instead.
+  config.audio_backend_buffer_interpolation_threshold_in_seconds = 0.25;
 
-  // get settings from settings file first, allow them to be overridden by
-  // command line options
-
-  // do the "general" audio  options. Note, these options are in the "general" stanza!
+  // Do the "general" audio  options. Note, these options are in the "general" stanza!
   parse_general_audio_options();
 
-  // other options would be picked up here...
-
-  // now the specific options
+  // Now the options specific to the backend, from the "jack" stanza:
   if (config.cfg != NULL) {
     const char *str;
-    /* Get the Client Name. */
     if (config_lookup_string(config.cfg, "jack.client_name", &str)) {
       config.jack_client_name = (char *)str;
     }
-    /* Get the autoconnect pattern. */
     if (config_lookup_string(config.cfg, "jack.autoconnect_pattern", &str)) {
       config.jack_autoconnect_pattern = (char *)str;
     }
@@ -190,8 +205,12 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   jackbuf = jack_ringbuffer_create(buffer_size);
   if (jackbuf == NULL)
     die("Can't allocate %d bytes for the JACK ringbuffer.", buffer_size);
-  jack_ringbuffer_mlock(jackbuf);		 // lock buffer into memory so that it never gets paged out
-
+  // Lock the ringbuffer into memory so that it never gets paged out, which would
+  // break realtime constraints.
+  jack_ringbuffer_mlock(jackbuf);
+  // This mutex should not be necessary, but removing it causes segfaults on
+  // shutdown. Apparently, there are multiple threads in the main program trying
+  // to do stuff. FIXME: Try to consolidate into one thread and get rid of this lock.
   pthread_mutex_lock(&client_mutex);
   jack_status_t status;
   client = jack_client_open(config.jack_client_name, JackNoStartServer, &status);
@@ -200,14 +219,13 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   }
   sample_rate = jack_get_sample_rate(client);
   if (sample_rate != 44100) {
-    die("The JACK server is running at the wrong sample rate (%d) for Shairport Sync. Must be 44100 Hz.",
-        sample_rate);
+    die("The JACK server is running at the wrong sample rate (%d) for Shairport Sync."
+        " Must be 44100 Hz.", sample_rate);
   }
   jack_set_process_callback(client, &process, NULL);
   jack_set_graph_order_callback(client, &graph, NULL);
   jack_set_error_function(&error);
   jack_set_info_function(&info);
-
   for (i=0; i < NPORTS; i++) {
     port[i] = jack_port_register(client, port_name[i], JACK_DEFAULT_AUDIO_TYPE,
                                  JackPortIsOutput, 0);
@@ -217,15 +235,14 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   } else {
     debug(2, "JACK client %s activated sucessfully.", config.jack_client_name);
   }
-
   if (config.jack_autoconnect_pattern != NULL) {
     inform("config.jack_autoconnect_pattern is %s. If you see the program die after this," 
          "you made a syntax error.", config.jack_autoconnect_pattern);
-    // sadly, this will throw a segfault if the user provides a syntactically incorrect regex.
-    // i've reported it to the jack-devel mailing list, they're in a better place to fix it.
+    // Sadly, this will throw a segfault if the user provides a syntactically incorrect regex.
+    // I've reported it to the jack-devel mailing list, they're in a better place to fix it.
     const char** port_list = jack_get_ports(client, config.jack_autoconnect_pattern,
                                             JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput);
-    for (i=0; i<NPORTS ; i++) {
+    for (i = 0; i < NPORTS ; i++) {
       char* full_port_name[NPORTS];
       full_port_name[i] = malloc(sizeof(char) * jack_port_name_size());
       sprintf(full_port_name[i], "%s:%s", config.jack_client_name, port_name[i]);
@@ -274,42 +291,39 @@ void jack_deinit() {
 
 void jack_start(__attribute__((unused)) int i_sample_rate,
                 __attribute__((unused)) int i_sample_format) {
-  // nothing to do, JACK client has already been set up at jack_init()
-  // also, we have no say over the sample rate or sample format of JACK
-  // we convert the 16bit samples to float, and die if the sample rate is != 44k1.
-  // FIXME: later, resampling would be nice. Fold into soxr if possible
+  // Nothing to do, JACK client has already been set up at jack_init().
+  // Also, we have no say over the sample rate or sample format of JACK,
+  // We convert the 16bit samples to float, and die if the sample rate is != 44k1.
+  // FIXME: later, resampling would be nice. Fold into soxr if possible.
 }
 
 void jack_flush() {
-  // debug(1, "Only the consumer can safely flush a lock-free ringbuffer. Asking the process callback to do it...");
+  debug(2, "Only the consumer can safely flush a lock-free ringbuffer. Asking the"
+           " process callback to do it...");
   flush_please = 1;
 }
 
 int jack_delay(long *the_delay) {
-  // semantics change: we now look at the last transfer into the lock-free ringbuffer, not
-  // into the jack buffers directly (because locking those would violate real-time constraints).
-  // on average, that should lead to just a constant additional latency. the old comment still applies:
-
-  // without the mutex, we could get the time of what is the last transfer of data to a jack buffer,
-  // but then a transfer could occur and we would get the buffer occupancy after another transfer
-  // had occurred
-  // so we could "lose" a full transfer (e.g. 1024 frames @ 44,100 fps ~ 23.2 milliseconds)
+  // Semantics change: we now look at the last transfer into the lock-free
+  // ringbuffer, not into the jack buffers directly (because locking those would
+  // violate real-time constraints). On average, that should lead to  just a
+  // constant additional latency.
+  // Without the mutex, we could get the time of what is the last transfer of data
+  // to a jack buffer, but then a transfer could occur and we would get the buffer
+  // occupancy after another transfer had occurred, so we could "lose" a full transfer
+  // (e.g. 1024 frames @ 44,100 fps ~ 23.2 milliseconds)
   pthread_mutex_lock(&buffer_mutex);
     int64_t time_now = get_absolute_time_in_fp();
-    // this is the time back to the last time data
-    // was transferred into a jack buffer
     int64_t delta = time_now - time_of_latest_transfer;
-    // this is the buffer occupancy before any
-    // subsequent transfer because transfer is blocked
-    // by the mutex
     size_t audio_occupancy_now = jack_ringbuffer_read_space(jackbuf) / bytes_per_frame;
-    // debug(1, "audio_occupancy_now is %d.", audio_occupancy_now);
+    debug(2, "audio_occupancy_now is %d.", audio_occupancy_now);
   pthread_mutex_unlock(&buffer_mutex);
 
   int64_t frames_processed_since_latest_latency_check = (delta * 44100) >> 32;
   // debug(1,"delta: %" PRId64 " frames.",frames_processed_since_latest_latency_check);
-  // use the average of the left and right maximum latencies. if max is really different from min,
-  // there is an anomaly in the graph that we don't have any hope of fixing anyways
+  // jack_latency is set by the graph() callback, it's the average of the maximum
+  // latencies of all our output ports. Adjust this constant baseline delay according
+  // to the buffer fill level:
   *the_delay = jack_latency + audio_occupancy_now - frames_processed_since_latest_latency_check;
   // debug(1,"reporting a delay of %d frames",*the_delay);
   return 0;
@@ -320,13 +334,14 @@ int play(void *buf, int samples) {
   // copy the samples into the queue
   size_t bytes_to_transfer, bytes_transferred;
   bytes_to_transfer = samples * bytes_per_frame;
-  pthread_mutex_lock(&buffer_mutex); // it's ok to lock here since we're not in the realtime callback
+  // It's ok to lock here since we're not in the realtime callback:
+  pthread_mutex_lock(&buffer_mutex);
     bytes_transferred = jack_ringbuffer_write(jackbuf, buf, bytes_to_transfer);
-    // semantics change: we now measure the last time audio was moved into the ringbuffer, not the jack output buffers.
     time_of_latest_transfer = get_absolute_time_in_fp();
   pthread_mutex_unlock(&buffer_mutex);
   if (bytes_transferred < bytes_to_transfer) {
-    warn("JACK ringbuffer overrun. Only wrote %d of %d bytes.", bytes_transferred, bytes_to_transfer);
+    warn("JACK ringbuffer overrun. Only wrote %d of %d bytes.",
+         bytes_transferred, bytes_to_transfer);
   }
   return 0;
 }
