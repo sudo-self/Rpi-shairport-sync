@@ -137,16 +137,22 @@ static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
 static int graph(__attribute__((unused)) void * arg) {
   jack_port_get_latency_range(left_port, JackPlaybackLatency, &latest_left_latency_range);
   jack_port_get_latency_range(right_port, JackPlaybackLatency, &latest_right_latency_range);
+  jack_latency = (latest_left_latency_range.max + latest_right_latency_range.max) / 2;
   debug(1, "JACK graph reorder callback called. Current latencies to terminal downstream port:\n"
-           "\tLmin = %d, Lmax = %d, Rmin =  %d, Rmax = %d",
+           "\tLmin = %d, Lmax = %d, Rmin =  %d, Rmax = %d; jack base latency = %d",
            latest_left_latency_range.min, latest_left_latency_range.max,
-           latest_right_latency_range.min, latest_right_latency_range.max);
+           latest_right_latency_range.min, latest_right_latency_range.max,
+           jack_latency);
   return 0;
 }
 
-static void error(const char *desc) { debug(2, "jackd error: \"%s\"", desc); }
+static void error(const char *desc) {
+  debug(2, "JACK error: \"%s\"", desc);
+}
 
-static void info(const char *desc) { inform("jackd information: \"%s\"", desc); }
+static void info(const char *desc) {
+  inform("JACK information: \"%s\"", desc);
+}
 
 int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   config.audio_backend_latency_offset = 0;
@@ -234,7 +240,6 @@ void jack_flush() {
 }
 
 int jack_delay(long *the_delay) {
-  jack_nframes_t base_latency;
   // semantics change: we now look at the last transfer into the lock-free ringbuffer, not
   // into the jack buffers directly (because locking those would violate real-time constraints).
   // on average, that should lead to just a constant additional latency. the old comment still applies:
@@ -259,8 +264,7 @@ int jack_delay(long *the_delay) {
   // debug(1,"delta: %" PRId64 " frames.",frames_processed_since_latest_latency_check);
   // use the average of the left and right maximum latencies. if max is really different from min,
   // there is an anomaly in the graph that we don't have any hope of fixing anyways
-  base_latency = (latest_left_latency_range.max + latest_right_latency_range.max) / 2;
-  *the_delay = base_latency + audio_occupancy_now - frames_processed_since_latest_latency_check;
+  *the_delay = jack_latency + audio_occupancy_now - frames_processed_since_latest_latency_check;
   // debug(1,"reporting a delay of %d frames",*the_delay);
   return 0;
 }
