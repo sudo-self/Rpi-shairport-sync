@@ -173,6 +173,10 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     if (config_lookup_string(config.cfg, "jack.client_name", &str)) {
       config.jack_client_name = (char *)str;
     }
+    /* Get the autoconnect pattern. */
+    if (config_lookup_string(config.cfg, "jack.autoconnect_pattern", &str)) {
+      config.jack_autoconnect_pattern = (char *)str;
+    }
   }
   if (config.jack_client_name == NULL)
     config.jack_client_name = strdup("shairport-sync");
@@ -207,6 +211,17 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   } else {
     debug(2, "JACK client %s activated sucessfully.", config.jack_client_name);
   }
+
+  if (config.jack_autoconnect_pattern != NULL) {
+    debug(1, "config.jack_autoconnect_pattern is %s.", config.jack_autoconnect_pattern);
+    const char** port_list = jack_get_ports(client, config.jack_autoconnect_pattern, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput);
+    while (*port_list != NULL) {
+      debug(1, "Found matching JACK port %s.", *port_list);
+      port_list++;
+      // FIXME: implement actual connection, warn user if more than 2 hits.
+    }
+  }
+  
   pthread_mutex_unlock(&client_mutex);
 
   return 0;
