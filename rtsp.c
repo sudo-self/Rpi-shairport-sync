@@ -291,6 +291,7 @@ void *player_watchdog_thread_code(void *arg) {
         if (time_since_last_bark >= ct) {
           conn->watchdog_barks++;
           if (conn->watchdog_barks == 1) {
+            debuglev = 3; // tell us everything.
             debug(1,
                   "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
                   "of the heart\".",
