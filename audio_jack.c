@@ -58,8 +58,10 @@ audio_output audio_jack = {.name = "jack",
                            .parameters = NULL,
                            .mute = NULL};
 
-static jack_port_t *left_port;
-static jack_port_t *right_port;
+// This also affects deinterlacing, so make it exactly the number of incoming audio channels!
+#define NPORTS 2
+static jack_port_t *port[NPORTS];
+static const char* port_name[NPORTS] = { "out_L", "out_R" };
 
 static jack_client_t *client;
 static jack_nframes_t sample_rate;
@@ -68,7 +70,7 @@ static jack_nframes_t jack_latency;
 static jack_ringbuffer_t *jackbuf;
 static int flush_please = 0;
 
-static jack_latency_range_t latest_left_latency_range, latest_right_latency_range;
+static jack_latency_range_t latest_latency_range[NPORTS];
 static int64_t time_of_latest_transfer;
 
 
@@ -77,24 +79,23 @@ static inline jack_default_audio_sample_t sample_conv(short sample) {
 }
 
 static void deinterleave_and_convert(const char *interleaved_frames,
-                                     jack_default_audio_sample_t * const jack_buffer_left,
-                                     jack_default_audio_sample_t * const jack_buffer_right,
+                                     jack_default_audio_sample_t* jack_buffer[],
+                                     jack_nframes_t offset,
                                      jack_nframes_t nframes) {
-  jack_nframes_t i;
+  jack_nframes_t f;
   short *ifp = (short *)interleaved_frames; // we're dealing with 16bit audio here
-  jack_default_audio_sample_t *fpl = jack_buffer_left;
-  jack_default_audio_sample_t *fpr = jack_buffer_right;
-  for (i=0; i<nframes; i++) {
-    fpl[i] = sample_conv(*ifp++);
-    fpr[i] = sample_conv(*ifp++);
+  for (f=offset; f<(nframes + offset); f++) {
+    for (int i=0; i<NPORTS; i++) {
+      jack_buffer[i][f] = sample_conv(*ifp++);
+    }
   }
 }
 
 static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
-  jack_default_audio_sample_t *left_buffer =
-      (jack_default_audio_sample_t *)jack_port_get_buffer(left_port, nframes);
-  jack_default_audio_sample_t *right_buffer =
-      (jack_default_audio_sample_t *)jack_port_get_buffer(right_port, nframes);
+  jack_default_audio_sample_t *buffer[NPORTS];
+  for (int i=0; i < NPORTS; i++) {
+    buffer[i] = (jack_default_audio_sample_t *)jack_port_get_buffer(port[i], nframes);
+  }
   jack_ringbuffer_data_t v[2] = { 0 };
   jack_nframes_t i, thisbuf;
   int frames_written = 0;
@@ -114,7 +115,7 @@ static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
 	    } else {
         frames_required = thisbuf;
       }
-      deinterleave_and_convert(v[i].buf, &left_buffer[frames_written], &right_buffer[frames_written], frames_required);
+      deinterleave_and_convert(v[i].buf, buffer, frames_written, frames_required);
       frames_written += frames_required;
       nframes -= frames_required;
     }
@@ -123,8 +124,9 @@ static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
   // now, if there are any more frames to put into the buffer, fill them with
   // silence
   while (nframes > 0) {
-    left_buffer[frames_written] = 0.0;
-    right_buffer[frames_written] = 0.0;
+    for (int i=0; i < NPORTS; i++) {
+      buffer[i][frames_written] = 0.0;
+    }
     frames_written++;
     nframes--;
   }
@@ -132,14 +134,16 @@ static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
 }
 
 static int graph(__attribute__((unused)) void * arg) {
-  jack_port_get_latency_range(left_port, JackPlaybackLatency, &latest_left_latency_range);
-  jack_port_get_latency_range(right_port, JackPlaybackLatency, &latest_right_latency_range);
-  jack_latency = (latest_left_latency_range.max + latest_right_latency_range.max) / 2;
-  debug(1, "JACK graph reorder callback called. Current latencies to terminal downstream port:\n"
-           "\tLmin = %d, Lmax = %d, Rmin =  %d, Rmax = %d; jack base latency = %d",
-           latest_left_latency_range.min, latest_left_latency_range.max,
-           latest_right_latency_range.min, latest_right_latency_range.max,
-           jack_latency);
+  int latency = 0;
+  debug(1, "JACK graph reorder callback called. Current latencies to terminal downstream port:");
+  for (int i=0; i<NPORTS; i++) {
+    jack_port_get_latency_range(port[i], JackPlaybackLatency, &latest_latency_range[i]);
+    debug(1, "Port %s\tmin: %d\t max: %d", port_name[i], latest_latency_range[i].min, latest_latency_range[i].max);
+    latency += latest_latency_range[i].max;
+  }
+  latency /= NPORTS;
+  jack_latency = latency;
+  debug(1, "Average maximum latency across all ports: %d", jack_latency);
   return 0;
 }
 
@@ -202,10 +206,10 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   jack_set_error_function(&error);
   jack_set_info_function(&info);
 
-  left_port = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE,
+  for (int i=0; i < NPORTS; i++) {
+    port[i] = jack_port_register(client, port_name[i], JACK_DEFAULT_AUDIO_TYPE,
                                  JackPortIsOutput, 0);
-  right_port = jack_port_register(client, "out_R", JACK_DEFAULT_AUDIO_TYPE, 
-                                 JackPortIsOutput, 0);
+  }
   if (jack_activate(client)) {
     die("Could not activate %s JACK client.", config.jack_client_name);
   } else {
