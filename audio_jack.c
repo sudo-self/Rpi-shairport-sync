@@ -92,12 +92,10 @@ static void deinterleave_and_convert(const char *interleaved_frames,
 }
 
 static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
-
   jack_default_audio_sample_t *left_buffer =
       (jack_default_audio_sample_t *)jack_port_get_buffer(left_port, nframes);
   jack_default_audio_sample_t *right_buffer =
       (jack_default_audio_sample_t *)jack_port_get_buffer(right_port, nframes);
-
   jack_ringbuffer_data_t v[2] = { 0 };
   jack_nframes_t i, thisbuf;
   int frames_written = 0;
@@ -177,7 +175,6 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
       config.jack_client_name = (char *)str;
     }
   }
-
   if (config.jack_client_name == NULL)
     config.jack_client_name = strdup("shairport-sync");
 
@@ -197,15 +194,15 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     die("The JACK server is running at the wrong sample rate (%d) for Shairport Sync. Must be 44100 Hz.",
         sample_rate);
   }
-  jack_set_process_callback(client, &process, 0);
-  jack_set_graph_order_callback(client, &graph, 0);
+  jack_set_process_callback(client, &process, NULL);
+  jack_set_graph_order_callback(client, &graph, NULL);
   jack_set_error_function(&error);
   jack_set_info_function(&info);
 
   left_port = jack_port_register(client, "out_L", JACK_DEFAULT_AUDIO_TYPE,
-                                 JackPortIsOutput, 0);
-  right_port = jack_port_register(client, "out_R",
-                                  JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+                                 JackPortIsOutput, NULL);
+  right_port = jack_port_register(client, "out_R", JACK_DEFAULT_AUDIO_TYPE, 
+                                 JackPortIsOutput, NULL);
   if (jack_activate(client)) {
     die("Could not activate %s JACK client.", config.jack_client_name);
   } else {
