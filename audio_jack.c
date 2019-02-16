@@ -36,8 +36,6 @@ static const int bytes_per_frame = 4;
 static pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-pthread_t *open_client_if_necessary_thread = NULL;
-
 int jack_init(int, char **);
 void jack_deinit(void);
 void jack_start(int, int);
@@ -60,18 +58,18 @@ audio_output audio_jack = {.name = "jack",
                            .parameters = NULL,
                            .mute = NULL};
 
-jack_port_t *left_port;
-jack_port_t *right_port;
+static jack_port_t *left_port;
+static jack_port_t *right_port;
 
-jack_client_t *client;
-jack_nframes_t sample_rate;
-jack_nframes_t jack_latency;
+static jack_client_t *client;
+static jack_nframes_t sample_rate;
+static jack_nframes_t jack_latency;
 
 static jack_ringbuffer_t *jackbuf;
 static int flush_please = 0;
 
-jack_latency_range_t latest_left_latency_range, latest_right_latency_range;
-int64_t time_of_latest_transfer;
+static jack_latency_range_t latest_left_latency_range, latest_right_latency_range;
+static int64_t time_of_latest_transfer;
 
 
 static inline jack_default_audio_sample_t sample_conv(short sample) {
