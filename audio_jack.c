@@ -136,20 +136,20 @@ static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
 
 static int graph(__attribute__((unused)) void * arg) {
   int latency = 0;
-  debug(1, "JACK graph reorder callback called. Current latencies to terminal downstream port:");
+  debug(2, "JACK graph reorder callback called.");
   for (int i=0; i<NPORTS; i++) {
     jack_port_get_latency_range(port[i], JackPlaybackLatency, &latest_latency_range[i]);
-    debug(1, "Port %s\tmin: %d\t max: %d", port_name[i], latest_latency_range[i].min, latest_latency_range[i].max);
+    debug(2, "JACK latency for port %s\tmin: %d\t max: %d", port_name[i], latest_latency_range[i].min, latest_latency_range[i].max);
     latency += latest_latency_range[i].max;
   }
   latency /= NPORTS;
   jack_latency = latency;
-  debug(1, "Average maximum latency across all ports: %d", jack_latency);
+  debug(1, "Average maximum JACK latency across all ports: %d", jack_latency);
   return 0;
 }
 
 static void error(const char *desc) {
-  debug(2, "JACK error: \"%s\"", desc);
+  warn("JACK error: \"%s\"", desc);
 }
 
 static void info(const char *desc) {
@@ -219,7 +219,10 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   }
 
   if (config.jack_autoconnect_pattern != NULL) {
-    debug(1, "config.jack_autoconnect_pattern is %s.", config.jack_autoconnect_pattern);
+    inform("config.jack_autoconnect_pattern is %s. If you see the program die after this," 
+         "you made a syntax error.", config.jack_autoconnect_pattern);
+    // sadly, this will throw a segfault if the user provides a syntactically incorrect regex.
+    // i've reported it to the jack-devel mailing list, they're in a better place to fix it.
     const char** port_list = jack_get_ports(client, config.jack_autoconnect_pattern,
                                             JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput);
     for (i=0; i<NPORTS ; i++) {
@@ -228,7 +231,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
       sprintf(full_port_name[i], "%s:%s", config.jack_client_name, port_name[i]);
       if (port_list[i] != NULL) {
         int err;
-        debug(1, "Connecting %s to %s.", full_port_name[i], port_list[i]);
+        debug(2, "Connecting %s to %s.", full_port_name[i], port_list[i]);
         err = jack_connect(client, full_port_name[i], port_list[i]);
         switch (err) {
         case EEXIST:
@@ -239,7 +242,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
           // success
           break;
         default:
-          inform("JACK error no. %d occured while trying to connect %s to %s.",
+          warn("JACK error no. %d occured while trying to connect %s to %s.",
                  err, full_port_name[i], port_list[i]);
           break;
         }
@@ -262,9 +265,9 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
 void jack_deinit() {
   pthread_mutex_lock(&client_mutex);
   if (jack_deactivate(client))
-    debug(1, "Error deactivating jack client");
+    warn("Error deactivating jack client");
   if (jack_client_close(client))
-    debug(1, "Error closing jack client");
+    warn("Error closing jack client");
   pthread_mutex_unlock(&client_mutex);
   jack_ringbuffer_free(jackbuf);
 }
@@ -323,7 +326,7 @@ int play(void *buf, int samples) {
     time_of_latest_transfer = get_absolute_time_in_fp();
   pthread_mutex_unlock(&buffer_mutex);
   if (bytes_transferred < bytes_to_transfer) {
-    debug(1, "JACK ringbuffer overrun. Only wrote %d of %d bytes.", bytes_transferred, bytes_to_transfer);
+    warn("JACK ringbuffer overrun. Only wrote %d of %d bytes.", bytes_transferred, bytes_to_transfer);
   }
   return 0;
 }
