@@ -179,7 +179,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   }
 
   if (config.jack_client_name == NULL)
-    config.jack_client_name = strdup("Shairport Sync");
+    config.jack_client_name = strdup("shairport-sync");
 
   jackbuf = jack_ringbuffer_create(buffer_size);
   if (jackbuf == NULL)
