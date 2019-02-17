@@ -344,8 +344,9 @@ int parse_options(int argc, char **argv) {
   config.diagnostic_drop_packet_fraction = 0.0;
   config.active_state_timeout = 10.0;
   config.volume_range_hw_priority =
-      1; // if combining software and hardware volume control, give the hardware priority
-// i.e. when reducing volume, reduce the hw first before reducing the software.
+      0; // if combining software and hardware volume control, give the software priority
+// i.e. when reducing volume, reduce the sw first before reducing the software.
+// this is because some hw mixers mute at the bottom of their range, and they don't always advertise this fact
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
@@ -1568,7 +1569,7 @@ int main(int argc, char **argv) {
         config.volume_range_db);
   debug(
       1,
-      "combined attenuators (0 -- software is / 1 -- hardware is top of attenuation range) is %d.",
+      "volume_range_combined_hardware_priority (1 means hardware mixer attenuation is used first) is %d.",
       config.volume_range_hw_priority);
   debug(1, "playback_mode is %d (0-stereo, 1-mono, 1-reverse_stereo, 2-both_left, 3-both_right).",
         config.playback_mode);
