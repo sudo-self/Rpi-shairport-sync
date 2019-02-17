@@ -114,7 +114,6 @@ int frame_size; // in bytes for interleaved stereo
 int alsa_device_initialised; // boolean to ensure the initialisation is only
                              // done once
 snd_pcm_t *alsa_handle = NULL;
-int alsa_uses_monotonic_clock = 0;
 static snd_pcm_hw_params_t *alsa_params = NULL;
 static snd_pcm_sw_params_t *alsa_swparams = NULL;
 static snd_ctl_t *ctl = NULL;
@@ -459,12 +458,6 @@ int actual_open_alsa_device(void) {
     return ret;
   }
   
-  alsa_uses_monotonic_clock = snd_pcm_hw_params_is_monotonic(alsa_params);	
-  debug(1,"alsa_uses_monotonic_clock is %d",alsa_uses_monotonic_clock);
-  
-  debug (1,"sizeof time_t is: %d.", sizeof(time_t));
-  debug (1,"sizeof long is: %d.", sizeof(long));
-
   ret = snd_pcm_sw_params_current(alsa_handle, alsa_swparams);
   if (ret < 0) {
     warn("audio_alsa: Unable to get current sw parameters for device \"%s\": "
@@ -1158,6 +1151,8 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
       if (*state == SND_PCM_STATE_DRAINING)
         debug(1, "alsa: draining with a delay of %d.", delay);
 
+// It seems that the alsa library uses CLOCK_REALTIME before 1.0.28, even though
+// the check for monotonic returns true. Might have to watch out for this.
 #if SND_LIB_MINOR == 0 && SND_LIB_SUBMINOR < 28
       clock_gettime(CLOCK_REALTIME, &tn);
 #else
