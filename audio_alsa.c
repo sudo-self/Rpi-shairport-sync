@@ -1151,7 +1151,14 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
       if (*state == SND_PCM_STATE_DRAINING)
         debug(1, "alsa: draining with a delay of %d.", delay);
 
+// It seems that the alsa library uses CLOCK_REALTIME before 1.0.28, even though
+// the check for monotonic returns true. Might have to watch out for this.
+#if SND_LIB_MINOR == 0 && SND_LIB_SUBMINOR < 28
+      clock_gettime(CLOCK_REALTIME, &tn);
+#else
       clock_gettime(CLOCK_MONOTONIC, &tn);
+#endif
+    
       uint64_t time_now_ns = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
       uint64_t update_timestamp_ns =
           update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
@@ -1167,6 +1174,11 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
                    ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
                    ", stall_monitor_error_threshold %" PRIX64 ".",
                 time_now_ns, update_timestamp_ns, stall_monitor_start_time,
+                stall_monitor_error_threshold);
+          debug(2, "DAC seems to have stalled with time_now: %lx,%lx"
+                   ", update_timestamp: %lx,%lx, stall_monitor_start_time %" PRIX64
+                   ", stall_monitor_error_threshold %" PRIX64 ".",
+                tn.tv_sec, tn.tv_nsec, update_timestamp.tv_sec, update_timestamp.tv_nsec, stall_monitor_start_time,
                 stall_monitor_error_threshold);
           ret = sps_extra_code_output_stalled;
         }
