@@ -461,6 +461,9 @@ int actual_open_alsa_device(void) {
   
   alsa_uses_monolithic_clock = snd_pcm_hw_params_is_monotonic	(alsa_params);	
   debug(1,"alsa does%s use CLOCK_MONOLITHIC",alsa_uses_monolithic_clock ? "" : " not");
+  
+  debug (1,"sizeof time_t is: %d.", sizeof(time_t));
+  debug (1,"sizeof long is: %d.", sizeof(long));
 
   ret = snd_pcm_sw_params_current(alsa_handle, alsa_swparams);
   if (ret < 0) {
@@ -1171,6 +1174,11 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
                    ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
                    ", stall_monitor_error_threshold %" PRIX64 ".",
                 time_now_ns, update_timestamp_ns, stall_monitor_start_time,
+                stall_monitor_error_threshold);
+          debug(2, "DAC seems to have stalled with time_now: %lx,%lx"
+                   ", update_timestamp: %lx,%lx, stall_monitor_start_time %" PRIX64
+                   ", stall_monitor_error_threshold %" PRIX64 ".",
+                tn.tv_sec, tn.tv_nsec, update_timestamp.tv_sec, update_timestamp.tv_nsec, stall_monitor_start_time,
                 stall_monitor_error_threshold);
           ret = sps_extra_code_output_stalled;
         }
