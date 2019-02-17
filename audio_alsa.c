@@ -114,7 +114,7 @@ int frame_size; // in bytes for interleaved stereo
 int alsa_device_initialised; // boolean to ensure the initialisation is only
                              // done once
 snd_pcm_t *alsa_handle = NULL;
-int alsa_uses_monolithic_clock;
+int alsa_uses_monotonic_clock = 0;
 static snd_pcm_hw_params_t *alsa_params = NULL;
 static snd_pcm_sw_params_t *alsa_swparams = NULL;
 static snd_ctl_t *ctl = NULL;
@@ -459,8 +459,8 @@ int actual_open_alsa_device(void) {
     return ret;
   }
   
-  alsa_uses_monolithic_clock = snd_pcm_hw_params_is_monotonic	(alsa_params);	
-  debug(1,"alsa does%s use CLOCK_MONOLITHIC",alsa_uses_monolithic_clock ? "" : " not");
+  alsa_uses_monotonic_clock = snd_pcm_hw_params_is_monotonic(alsa_params);	
+  debug(1,"alsa_uses_monotonic_clock is %d",alsa_uses_monotonic_clock);
   
   debug (1,"sizeof time_t is: %d.", sizeof(time_t));
   debug (1,"sizeof long is: %d.", sizeof(long));
