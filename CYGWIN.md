@@ -26,9 +26,7 @@ and enter valid DNS server addresses, e.g. `8.8.8.8`.
   
 Assuming the Cygwin setup program (`setup-x86_64.exe` in this case) is in your Downloads directory and the default directory is your home directory, the following command should work:
 ```
-.\Downloads\setup-x86_64.exe -P pkg-config,autoconf,automake,clang, \
-        libdaemon-devel,popt-devel,make,libao-devel,openssl-devel, \
-        libtool,git,wget,flex,bison
+.\Downloads\setup-x86_64.exe -P pkg-config,autoconf,automake,clang,libdaemon-devel,popt-devel,make,libao-devel,openssl-devel,libtool,git,wget,flex,bison
 ```
 
 * Download, configure, compile and install `libconfig`:
