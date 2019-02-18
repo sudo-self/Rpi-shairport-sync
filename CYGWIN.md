@@ -43,7 +43,7 @@ $ cd ..
 ```
 * Next, download, configure and compile Shairport Sync:
 ```
-$ cd 
+$ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
 $ autoreconf -fi
 $ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./configure --with-ao --with-ssl=openssl --with-tinysvcmdns
