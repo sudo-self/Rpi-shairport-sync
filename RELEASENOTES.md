@@ -6,7 +6,7 @@ Version 3.3d54 to Version 3.3d40
 * A new command-line option, `-u`, directs logging to STDERR rather than the system log. Useful when you compile Shairport Sync without `libdaemon` using the `--without-libdaemon` configuration option.
 
 **Enhancements**
-* Changes to the Jack Audio back end. The audio_jack.c back end for jack audio has been extensively rewritten by [Jörn Nettingsmeier](https://github.com/nettings) in a way that is more in keeping with the jack audio style. It uses native jack lockless buffers and offers autoconnect facilities that the previous version didn't have. Many thanks to him.
+* Changes to the Jack Audio back end. The back end for jack audio, `audio_jack.c`,  has been extensively rewritten by [Jörn Nettingsmeier](https://github.com/nettings) in a way that is more in keeping with the Jack Audio style. It uses native jack lockless buffers and offers autoconnect facilities that the previous version didn't have. Many thanks to him.
 * The volume-control software has been completely rewritten. From a user's point of view, the result should be a much smoother response to volume contol changes, free from artefacts. It is now also possible to combine the hardware mixer and the software attenuator in two ways -- giving priority to the software mixer or giving priority to the hardware mixer. see the new `volume_range_combined_hardware_priority` setting in the `general` section opf the configuration file.
 * The muting/unmuting code has been rewritten to be simpler and more consistent.
 * In the `alsa` backend, new `play()` and `delay()` functions minimise the use of `snd_pcm_recover()` to prevent unnecessary resets of the output DACs.
