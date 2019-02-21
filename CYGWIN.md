@@ -8,7 +8,7 @@ The end result is a Windows Service called `CYGWIN Shairport Sync` which provide
 
 Windows Firewall
 ----
-While getting everything working, it is suggested that you temporarily disable the Windows Firewall. Shairport Sync uses port 5000 for TCP and uses a range of ports -- a minimum of three and preferably at least 10, from 6001 upwards. The Bonjour Service, used in conjunction with the Avahi daemon, advertises Shairport Syncv over a number of further ports. Once everything is working, the firewall can be re-enabled gradually.
+While getting everything working, it is suggested that you temporarily disable the Windows Firewall. Shairport Sync uses port 5000 for TCP and uses three ports for UDP, so you should leave a minimum of three, and preferably at least 10, open from 6001 upwards. The Bonjour Service, used in conjunction with the Avahi daemon, advertises Shairport Sync over a number of further ports. Once everything is working, the firewall can be re-enabled gradually.
 
 Setting up Windows
 ----
@@ -46,7 +46,7 @@ Enter `yes` for all queries. Next, open the Windows `Services` desktop applicati
 
 The `libconfig` Library
 ----
-Shairport Sync relies on one further library – `libconfig` – that is not a Cygwin package, so it must be downloaded, compiled and installed:
+Shairport Sync relies on a library – `libconfig` – that is not a Cygwin package, so it must be downloaded, compiled and installed:
 * Download, configure, compile and install `libconfig`:
 ```
 $ git clone https://github.com/hyperrealm/libconfig.git
@@ -80,9 +80,9 @@ $ shairport-sync-config
 ```
 Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN Shairport Sync` service. Open it and start it.
 
-An AirPlay player should now see a new AirPlay output device on the local network, with the computer's Device Name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the Shairport Sync configuration file, installed at `/etc/shairport-sync.conf`.
+An AirPlay player on the local network should now see a new AirPlay output device bearing the computer's Device Name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the Shairport Sync configuration file, installed at `/etc/shairport-sync.conf`.
 
-Since this is now a Cygwin Service, you do not need to open Cygwin to launch it -- it should launch automatically whenever Windows is booted up.
+Since Shairport Sync is now a Cygwin Service, you do not need to open Cygwin to launch it -- it should launch automatically when Windows is booted up.
 
 Known Issues
 ----
