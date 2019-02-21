@@ -64,6 +64,7 @@ Shairport Sync
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
+$ git checkout development // this is temporary
 $ autoreconf -fi
 $ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./configure --with-ao --with-ssl=openssl \
     --with-avahi --with-dbus-interface --sysconfdir=/etc --with-cygwin-service
