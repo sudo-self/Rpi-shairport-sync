@@ -17,7 +17,7 @@ Set up Windows 10 and install all updates. Install the `Bonjour Service`, availa
 * Download and run `Bonjour Print Services for Windows v2.0.2`
 * After accepting conditions, the installer will do a preliminary installation of the Bonjour Service and will then pause, inviting you to install Bonjour Print Services. You can decline to do this, as the Bonjour Service will have just been installed.
 
-* Check Bonjour Service is running. In Windows, open the `Services` desktop application and ensure that you can see `Bonjour Services` running.
+* Check Bonjour Service is running. In Windows, open the `Services` desktop application and ensure that you can see `Bonjour Service` running.
 
 Setting up Cygwin
 ----
