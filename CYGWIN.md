@@ -1,5 +1,5 @@
 Installing to Cygwin
-----
+====
 
 This is based on installing onto a fresh default installation of Cygwin 2.895 (64-bit installation) running in Windows 10
 inside VMWare Fusion on a Mac.
@@ -9,7 +9,7 @@ The end result is Cygwin Shairport Sync, an AirPlay facility for Windows.
 The is not, as yet, an installer for Shairport Sync in CYGWIN.
 
 Setting up Windows
-====
+----
 Set up Windows 10 and install all updates. Next, install the `Bonjour Service`, available from Apple in an installer called "Bonjour Print Services for Windows v2.0.2".
 
 * Download and run `Bonjour Print Services for Windows v2.0.2`
@@ -19,7 +19,7 @@ Set up Windows 10 and install all updates. Next, install the `Bonjour Service`, 
 
 
 Setting up Cygwin
-====
+----
 * Download the Cygwin installer from the [official website](https://cygwin.com/install.html). Save the installer in the Downloads folder.
 
 * Open a Window Command Prompt and enter the following (long!) command:
@@ -43,6 +43,8 @@ $ /usr/sbin/avahi-daemon-config
 ```
 Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents) and look for the `CYGWIN Avahi service`. Open it and start it.
 
+The `libconfig` Library
+----
 * Download, configure, compile and install `libconfig`:
 ```
 $ git clone https://github.com/hyperrealm/libconfig.git
@@ -53,6 +55,9 @@ $ make
 $ make install
 $ cd ..
 ```
+
+Shairport Sync
+----
 * Next, download, configure and compile Shairport Sync:
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
