@@ -83,7 +83,6 @@ Enter `yes` for all queries. Next, open the Windows `Services` desktop applicati
 An AirPlay player on the local network should now  be able to see an AirPlay output device bearing the computer's Device Name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the Shairport Sync configuration file, installed at `/etc/shairport-sync.conf`.
 
 Since Shairport Sync is now a Cygwin Service, you do not need to open Cygwin to launch it -- it should launch automatically when Windows is booted up.
-
 Known Issues
 ----
-* Shairport Sync cannot access the D-Bus system bus to make its Dbus interface available. The cause of this problem is unknown. (While the Avahi daemon can access the D-Bus system bus, Shairport Sync can not. The two applications use different D-Bus libraries, so perhaps the issue lies there.)
+* Shairport Sync cannot access the D-Bus system bus to make its D-Bus interface available. The cause of this problem is unknown. (While the Avahi daemon can access the D-Bus system bus, Shairport Sync can not. The two applications use different D-Bus libraries, so perhaps the issue lies there.)
