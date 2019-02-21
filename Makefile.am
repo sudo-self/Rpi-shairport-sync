@@ -163,10 +163,18 @@ if INSTALL_CONFIG_FILES
 	cp scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf.sample
 	[ -f $(DESTDIR)$(sysconfdir)/shairport-sync.conf ] || cp scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf
 if USE_DBUS
+if INSTALL_CYGWIN_SERVICE
+	cp scripts/shairport-sync-dbus-policy-cygwin.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-dbus.conf
+else
 	cp scripts/shairport-sync-dbus-policy.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-dbus.conf
 endif
+endif
 if USE_MPRIS
+if INSTALL_CYGWIN_SERVICE
+	cp scripts/shairport-sync-mpris-policy-cygwin.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-dbus.conf
+else
 	cp scripts/shairport-sync-mpris-policy.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-mpris.conf
+endif
 endif
 endif
 if INSTALL_SYSTEMV
@@ -188,4 +196,7 @@ if INSTALL_FREEBSD_SERVICE
 	chown shairport-sync:shairport-sync /var/run/shairport-sync
 	[ -f /usr/local/etc/rc.d/shairport_sync ] || cp scripts/shairport-sync.freebsd /usr/local/etc/rc.d/shairport_sync
 	chmod 555 /usr/local/etc/rc.d/shairport_sync 
+endif
+if INSTALL_CYGWIN_SERVICE
+	cp scripts/shairport-sync-config /usr/local/bin
 endif
