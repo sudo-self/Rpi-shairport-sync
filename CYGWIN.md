@@ -25,8 +25,8 @@ Setting up Cygwin
 
 * Open a Windows `Command Prompt` window and enter the following multi-line command, omitting the `C:\Users\mike>` prompt:
 ```
-C:\Users\mike> Downloads\setup-x86_64.exe -P cygrunsrv,dbus,avahi,avahi-tools,gnome-keyring,libavahi-client-devel, ^ 
-libglib2.0-devel,openssl,pkg-config,autoconf,automake,clang,libdaemon-devel,popt-devel, ^ 
+C:\Users\mike> Downloads\setup-x86_64.exe -P cygrunsrv,dbus,avahi,avahi-tools,gnome-keyring,libavahi-client-devel, ^
+libglib2.0-devel,openssl,pkg-config,autoconf,automake,clang,libdaemon-devel,popt-devel, ^
 make,libao-devel,openssl-devel,libtool,git,wget,flex,bison
 ```
 This will do a complete installation of Cygwin and all necessary packages.
