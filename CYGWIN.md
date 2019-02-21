@@ -76,7 +76,7 @@ Shairport Sync Service
 ----
 * To install Shairport Sync as a Cygwin Service, open (or return to) a `Cygwin64 Terminal` window in Administrator mode. Enter the following command:
 ```
-shairport-sync-config
+$ shairport-sync-config
 ```
 Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN Shairport Sync` service. Open it and start it.
 
