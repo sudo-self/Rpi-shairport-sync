@@ -6,15 +6,18 @@ inside VMWare Fusion on a Mac.
 
 The end result is a Windows Service called `CYGWIN Shairport Sync` which provides an AirPlay service by which iOS devices or other AirPlay sources on the network can play audio through Windows.
 
+Windows Firewall
+----
+While getting everything working, it is suggested that you temporarily disable the Windows Firewall. Shairport Sync uses port 5000 for TCP and uses a range of ports -- a minimum of three and preferably at least 10, from 6001 upwards -- while it is working. The Bonjour Service, used in conjunction with the Avahi daemon, advertises Shairport Syncv over a number of further ports. Once everything is working, one can consider re-enabling the firewall, if necessary.
+
 Setting up Windows
 ----
-Set up Windows 10 and install all updates. Next, install the `Bonjour Service`, available from Apple in an installer called "Bonjour Print Services for Windows v2.0.2".
+Set up Windows 10 and install all updates. Install the `Bonjour Service`, available from Apple in an installer called "Bonjour Print Services for Windows v2.0.2".
 
 * Download and run `Bonjour Print Services for Windows v2.0.2`
 * After accepting conditions, the installer will do a preliminary installation of the Bonjour Service and will then pause, inviting you to install Bonjour Print Services. You can decline to do this, as the Bonjour Service will have just been installed.
 
 * Check Bonjour Service is running. In Windows, open the `Services` desktop application and ensure that you can see `Bonjour Services` running.
-
 
 Setting up Cygwin
 ----
@@ -71,11 +74,13 @@ $ make install
 
 Shairport Sync Service
 ----
-* To install Shairport Sync as a CYGWIN Service, open (or return to) a `Cygwin64 Terminal` window in Administrator mode. Enter the following command:
+* To install Shairport Sync as a Cygwin Service, open (or return to) a `Cygwin64 Terminal` window in Administrator mode. Enter the following command:
 ```
 shairport-sync-config
 ```
-Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents) and look for the `CYGWIN Shairport Sync` service. Open it and start it. An AirPlay player should now see a new AirPlay output device on the local network, with the same name as the Windows machine's name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the configuration file, installed at `/etc/shairport-sync.conf`.
+Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN Shairport Sync` service. Open it and start it.
+
+An AirPlay player should now see a new AirPlay output device on the local network, with the same name as the Windows machine's name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the configuration file, installed at `/etc/shairport-sync.conf`.
 
 Since this is now a Cygwin Service, you do not need to open Cygwin to launch it -- it should launch automatically whenever Windows is booted up.
 
