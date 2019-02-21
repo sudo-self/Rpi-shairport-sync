@@ -11,7 +11,7 @@ Setting up Windows
 Set up Windows 10 and install all updates. Next, install the `Bonjour Service`, available from Apple in an installer called "Bonjour Print Services for Windows v2.0.2".
 
 * Download and run `Bonjour Print Services for Windows v2.0.2`
-* After accepting conditions, the installer will do a preliminary installion of the Bonjour Service and will then pause, inviting you to install Bonjour Print Services. You can decline to do this, as the Bonjour Service will have been installed.
+* After accepting conditions, the installer will do a preliminary installation of the Bonjour Service and will then pause, inviting you to install Bonjour Print Services. You can decline to do this, as the Bonjour Service will have just been installed.
 
 * Check Bonjour Service is running. In Windows, open the "Services" application and ensure that you can see `Bonjour Services` running.
 
