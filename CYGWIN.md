@@ -50,7 +50,7 @@ Shairport Sync relies on one further library – `libconfig` – that is not a C
 * Download, configure, compile and install `libconfig`:
 ```
 $ git clone https://github.com/hyperrealm/libconfig.git
-$ cd libconfig
+$ cd libconfigthe
 $ autoreconf -fi
 $ ./configure
 $ make
@@ -80,7 +80,7 @@ $ shairport-sync-config
 ```
 Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN Shairport Sync` service. Open it and start it.
 
-An AirPlay player should now see a new AirPlay output device on the local network, with the same name as the Windows machine's name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the Shairport Sync configuration file, installed at `/etc/shairport-sync.conf`.
+An AirPlay player should now see a new AirPlay output device on the local network, with the computer's Device Name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the Shairport Sync configuration file, installed at `/etc/shairport-sync.conf`.
 
 Since this is now a Cygwin Service, you do not need to open Cygwin to launch it -- it should launch automatically whenever Windows is booted up.
 
