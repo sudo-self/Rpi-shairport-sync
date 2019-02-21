@@ -25,8 +25,8 @@ Setting up Cygwin
 * Open a Window Command Prompt and enter the following (long!) command:
 ```
 Downloads\setup-x86_64.exe -P cygrunsrv,dbus,avahi,avahi-tools,gnome-keyring,libavahi-client-devel, ^
-libglib2.0-devel,openssl,pkg-config,autoconf,automake,clang,libdaemon-devel,popt-devel,make,libao-devel, ^
-openssl-devel,libtool,git,wget,flex,bison
+libglib2.0-devel,openssl,pkg-config,autoconf,automake,clang,libdaemon-devel,popt-devel, ^
+make,libao-devel,openssl-devel,libtool,git,wget,flex,bison
 ```
 This will do a complete installation of Cygwin and all necessary packages.
 * Set up the D-Bus and Avahi Services:
@@ -58,7 +58,8 @@ $ cd ..
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
 $ autoreconf -fi
-$ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./configure --with-ao --with-ssl=openssl --with-avahi --with-dbus-interface --sysconfdir=/etc
+$ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./configure --with-ao --with-ssl=openssl \
+    --with-avahi --with-dbus-interface --sysconfdir=/etc
 $ make
 ```
 * That's it. There should be a `shairport-sync.exe` file in your directory.
