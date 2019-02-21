@@ -8,7 +8,7 @@ The end result is a Windows Service called `CYGWIN Shairport Sync` which provide
 
 Windows Firewall
 ----
-While getting everything working, it is suggested that you temporarily disable the Windows Firewall. Shairport Sync uses port 5000 for TCP and uses a range of ports -- a minimum of three and preferably at least 10, from 6001 upwards -- while it is working. The Bonjour Service, used in conjunction with the Avahi daemon, advertises Shairport Syncv over a number of further ports. Once everything is working, one can consider re-enabling the firewall, if necessary.
+While getting everything working, it is suggested that you temporarily disable the Windows Firewall. Shairport Sync uses port 5000 for TCP and uses a range of ports -- a minimum of three and preferably at least 10, from 6001 upwards. The Bonjour Service, used in conjunction with the Avahi daemon, advertises Shairport Syncv over a number of further ports. Once everything is working, the firewall can be re-enabled gradually.
 
 Setting up Windows
 ----
