@@ -50,7 +50,7 @@ Shairport Sync relies on a library – `libconfig` – that is not a Cygwin pack
 * Download, configure, compile and install `libconfig`:
 ```
 $ git clone https://github.com/hyperrealm/libconfig.git
-$ cd libconfigthe
+$ cd libconfig
 $ autoreconf -fi
 $ ./configure
 $ make
