@@ -6,8 +6,6 @@ inside VMWare Fusion on a Mac.
 
 The end result will be `Cygwin Shairport Sync`, an AirPlay service for Windows.
 
-The is not, as yet, an installer for Shairport Sync in CYGWIN.
-
 Setting up Windows
 ----
 Set up Windows 10 and install all updates. Next, install the `Bonjour Service`, available from Apple in an installer called "Bonjour Print Services for Windows v2.0.2".
@@ -66,5 +64,20 @@ $ autoreconf -fi
 $ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./configure --with-ao --with-ssl=openssl \
     --with-avahi --with-dbus-interface --sysconfdir=/etc
 $ make
+$ make install
 ```
-* That's it. There should be a `shairport-sync.exe` file in your directory.
+* The last step above will install the shairport-sync application in `/usr/local/bin` and will also install a service installer script and two D-Bus policy files. 
+
+Shairport Sync Service
+----
+* To install Shairport Sync as a CYGWIN Service, open (or return to) a `Cygwin64 Terminal` window in Administrator mode. Enter the following command:
+```
+shairport-sync-config
+```
+Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents) and look for the `CYGWIN Shairport Sync` service. Open it and start it. An AirPlay player should now see a new AirPlay output device on the local network, with the same name as the Windows machine's name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the configuration file, installed at `/etc/shairport-sync.conf`.
+
+Since this is now a Cygwin Service, you do not need to open Cygwin to launch it -- it should launch automatically whenever Windows is booted up.
+
+Known Issues
+----
+* Shairport Sync cannot access the D-Bus "system" bus to make its facilities available. The cause of this problem is unknown. (While the Avahi daemon can access the D-Bus "system" bus, Shairport Sync can not. The two applications use different DBus libraries, so perhaps the issue likes there.)
