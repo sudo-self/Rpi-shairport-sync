@@ -13,7 +13,7 @@ Set up Windows 10 and install all updates. Next, install the `Bonjour Service`, 
 * Download and run `Bonjour Print Services for Windows v2.0.2`
 * After accepting conditions, the installer will do a preliminary installation of the Bonjour Service and will then pause, inviting you to install Bonjour Print Services. You can decline to do this, as the Bonjour Service will have just been installed.
 
-* Check Bonjour Service is running. In Windows, open the "Services" application and ensure that you can see `Bonjour Services` running.
+* Check Bonjour Service is running. In Windows, open the `Services` desktop application and ensure that you can see `Bonjour Services` running.
 
 
 Setting up Cygwin
@@ -33,16 +33,17 @@ Open a `Cygwin64 Terminal` window in Administrator mode. Enter the following com
 ```
 $ messagebus-config
 ```
-Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents) and look for the `CYGWIN D-Bus system service`. Open it and start it.
+Enter `yes` for all queries. Next, open the Windows `Services` desktop application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN D-Bus system service`. Open it and start it.
 
 Next, open (or return to) a `Cygwin64 Terminal` window in Administrator mode. Enter the following command:
 ```
 $ /usr/sbin/avahi-daemon-config
 ```
-Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents) and look for the `CYGWIN Avahi service`. Open it and start it.
+Enter `yes` for all queries. Next, open the Windows `Services` desktop application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN Avahi service`. Open it and start it.
 
 The `libconfig` Library
 ----
+Shairport Sync relies on one further library – `libconfig` – that is not a Cygwin package, so it must be downloaded, compiled and installed:
 * Download, configure, compile and install `libconfig`:
 ```
 $ git clone https://github.com/hyperrealm/libconfig.git
