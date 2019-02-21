@@ -8,7 +8,7 @@ The end result is Cygwin Shairport Sync, an AirPlay facility for Windows.
 
 Setting up Windows
 ====
-Set up Windows 10 and install all updates. Next, you must install the `Bonjour Service`, available from Apple in an installer called "Bonjour Print Services for Windows v2.0.2".
+Set up Windows 10 and install all updates. Next, install the `Bonjour Service`, available from Apple in an installer called "Bonjour Print Services for Windows v2.0.2".
 
 * Download and run `Bonjour Print Services for Windows v2.0.2`
 * After accepting conditions, the installer will do a preliminary installion of the Bonjour Service and will then pause, inviting you to install Bonjour Print Services. You can decline to do this, as the Bonjour Service will have been installed.
@@ -24,6 +24,7 @@ Downloads\setup-x86_64.exe -P cygrunsrv,dbus,avahi,avahi-tools,gnome-keyring,lib
 This will do a complete installation of Cygwin and all necessary packages.
 * Set up the D-Bus and Avahi Services:
 
+TBA
 
 * Download, configure, compile and install `libconfig`:
 ```
