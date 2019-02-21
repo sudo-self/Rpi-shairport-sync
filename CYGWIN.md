@@ -1,7 +1,7 @@
 Installing to Cygwin
 ====
 
-This is based on installing onto a fresh default installation of Cygwin 2.895 (64-bit installation) running in Windows 10
+This is based on installing onto a fresh installation of Cygwin 2.895 (64-bit installation) running in Windows 10
 inside VMWare Fusion on a Mac.
 
 The end result is a Windows Service called `CYGWIN Shairport Sync` which provides an AirPlay service by which iOS devices or other AirPlay sources on the network can play audio through Windows.
@@ -70,7 +70,7 @@ $ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./configure --with-ao --with-ssl=open
 $ make
 $ make install
 ```
-* The last step above will install the shairport-sync application in `/usr/local/bin` and will also install a service installer script and two D-Bus policy files. 
+* The last step above will install the shairport-sync application in `/usr/local/bin` and will also install a configuration file, a service configuration script and two D-Bus policy files. 
 
 Shairport Sync Service
 ----
@@ -80,7 +80,7 @@ shairport-sync-config
 ```
 Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN Shairport Sync` service. Open it and start it.
 
-An AirPlay player should now see a new AirPlay output device on the local network, with the same name as the Windows machine's name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the configuration file, installed at `/etc/shairport-sync.conf`.
+An AirPlay player should now see a new AirPlay output device on the local network, with the same name as the Windows machine's name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the Shairport Sync configuration file, installed at `/etc/shairport-sync.conf`.
 
 Since this is now a Cygwin Service, you do not need to open Cygwin to launch it -- it should launch automatically whenever Windows is booted up.
 
