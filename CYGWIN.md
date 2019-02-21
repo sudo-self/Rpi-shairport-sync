@@ -80,7 +80,7 @@ $ shairport-sync-config
 ```
 Enter `yes` for all queries. Next, open the Windows `Services` desktop application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN Shairport Sync` service. Open it and start it.
 
-An AirPlay player on the local network should now see a new AirPlay output device bearing the computer's Device Name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the Shairport Sync configuration file, installed at `/etc/shairport-sync.conf`.
+An AirPlay player on the local network should now  be able to see an AirPlay output device bearing the computer's Device Name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the Shairport Sync configuration file, installed at `/etc/shairport-sync.conf`.
 
 Since Shairport Sync is now a Cygwin Service, you do not need to open Cygwin to launch it -- it should launch automatically when Windows is booted up.
 
