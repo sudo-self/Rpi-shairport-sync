@@ -24,7 +24,7 @@ Setting up Cygwin
 
 * Open a Window Command Prompt and enter the following (long!) command:
 ```
-Downloads\setup-x86_64.exe -P cygrunsrv,dbus,avahi,avahi-tools,gnome-keyring,libavahi-client-devel, ^
+C:\Users\mike> Downloads\setup-x86_64.exe -P cygrunsrv,dbus,avahi,avahi-tools,gnome-keyring,libavahi-client-devel, ^
 libglib2.0-devel,openssl,pkg-config,autoconf,automake,clang,libdaemon-devel,popt-devel, ^
 make,libao-devel,openssl-devel,libtool,git,wget,flex,bison
 ```
@@ -39,7 +39,7 @@ Enter `yes` for all queries. Next, open the Windows "Services" application (if i
 
 Next, open (or return to) a `Cygwin64 Terminal` window in Administrator mode. Enter the following command:
 ```
-$  /usr/sbin/avahi-daemon-config
+$ /usr/sbin/avahi-daemon-config
 ```
 Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents) and look for the `CYGWIN Avahi service`. Open it and start it.
 
