@@ -4,7 +4,7 @@ Installing to Cygwin
 This is based on installing onto a fresh default installation of Cygwin 2.895 (64-bit installation) running in Windows 10
 inside VMWare Fusion on a Mac.
 
-The end result will be `Cygwin Shairport Sync`, an AirPlay service for Windows.
+The end result is a Windows Service called `CYGWIN Shairport Sync`, providing an AirPlay service.
 
 Setting up Windows
 ----
