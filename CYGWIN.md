@@ -13,6 +13,9 @@ Set up Windows 10 and install all updates. Next, install the `Bonjour Service`, 
 * Download and run `Bonjour Print Services for Windows v2.0.2`
 * After accepting conditions, the installer will do a preliminary installion of the Bonjour Service and will then pause, inviting you to install Bonjour Print Services. You can decline to do this, as the Bonjour Service will have been installed.
 
+* Check Bonjour Service is running. In Windows, open the "Services" application and ensure that you can see `Bonjour Services` running.
+
+
 Setting up Cygwin
 ====
 * Download the Cygwin installer from the [official website](https://cygwin.com/install.html). Save the installer in the Downloads folder.
@@ -24,7 +27,17 @@ Downloads\setup-x86_64.exe -P cygrunsrv,dbus,avahi,avahi-tools,gnome-keyring,lib
 This will do a complete installation of Cygwin and all necessary packages.
 * Set up the D-Bus and Avahi Services:
 
-TBA
+Open a `Cygwin64 Terminal` window in Administrator mode. Enter the following command:
+```
+$ messagebus-config
+```
+Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents) and look for the `CYGWIN D-Bus system service`. Open it and start it.
+
+Next, open (or return to) a `Cygwin64 Terminal` window in Administrator mode. Enter the following command:
+```
+$  /usr/sbin/avahi-daemon-config
+```
+Enter `yes` for all queries. Next, open the Windows "Services" application (if it's already open, refresh the screen contents) and look for the `CYGWIN Avahi service`. Open it and start it.
 
 * Download, configure, compile and install `libconfig`:
 ```
