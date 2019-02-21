@@ -4,7 +4,7 @@ Installing to Cygwin
 This is based on installing onto a fresh installation of Cygwin 2.895 (64-bit installation) running in Windows 10
 inside VMWare Fusion on a Mac.
 
-The end result is a Windows Service called `CYGWIN Shairport Sync` which provides an AirPlay service by which iOS devices or other AirPlay sources on the network can play audio through Windows.
+The end result is a Windows Service called `CYGWIN Shairport Sync` which provides an AirPlay service by which iOS devices or other AirPlay sources on the network can play audio through the Windows device.
 
 Windows Firewall
 ----
@@ -86,4 +86,4 @@ Since Shairport Sync is now a Cygwin Service, you do not need to open Cygwin to 
 
 Known Issues
 ----
-* Shairport Sync cannot access the D-Bus "system" bus to make its Dbus interface available. The cause of this problem is unknown. (While the Avahi daemon can access the D-Bus "system" bus, Shairport Sync can not. The two applications use different DBus libraries, so perhaps the issue lies there.)
+* Shairport Sync cannot access the D-Bus system bus to make its Dbus interface available. The cause of this problem is unknown. (While the Avahi daemon can access the D-Bus system bus, Shairport Sync can not. The two applications use different D-Bus libraries, so perhaps the issue lies there.)
