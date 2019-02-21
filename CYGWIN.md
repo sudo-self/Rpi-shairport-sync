@@ -1,4 +1,4 @@
-Installing to Cygwin
+Installing Shairport Sync into Cygwin
 ====
 
 This guide is based on installing onto a fresh installation of Cygwin 2.895 (64-bit installation) running in Windows 10
@@ -15,7 +15,7 @@ Setting up Windows
 Set up Windows 10 and install all updates. Install the `Bonjour Service`, available from Apple in an installer called "Bonjour Print Services for Windows v2.0.2".
 
 * Download and run `Bonjour Print Services for Windows v2.0.2`
-* After accepting conditions, the installer will do a preliminary installation of the Bonjour Service and will then pause, inviting you to install Bonjour Print Services. You can decline to do this, as the Bonjour Service will have just been installed.
+* After accepting conditions and clicking the `Install` button, the installer will do a preliminary installation, installing   just the Bonjour Service. It will then pause, inviting you to install Bonjour Print Services. You can decline this, as the Bonjour Service will have been installed during the first part of the installation.
 
 * Check Bonjour Service is running. In Windows, open the `Services` desktop application and ensure that you can see `Bonjour Service` running.
 
@@ -23,7 +23,7 @@ Setting up Cygwin
 ----
 * Download the Cygwin installer from the [official website](https://cygwin.com/install.html). Save the installer in the Downloads folder.
 
-* Open a Windows `Command Prompt` window and enter the following (long!) command, omitting the `C:\Users\mike>` prompt:
+* Open a Windows `Command Prompt` window and enter the following multi-line command, omitting the `C:\Users\mike>` prompt:
 ```
 C:\Users\mike> Downloads\setup-x86_64.exe -P cygrunsrv,dbus,avahi,avahi-tools,gnome-keyring,libavahi-client-devel, ^
 libglib2.0-devel,openssl,pkg-config,autoconf,automake,clang,libdaemon-devel,popt-devel, ^
@@ -36,13 +36,13 @@ Open a `Cygwin64 Terminal` window in Administrator mode. Enter the following com
 ```
 $ messagebus-config
 ```
-Enter `yes` for all queries. Next, open the Windows `Services` desktop application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN D-Bus system service`. Open it and start it.
+Answer `yes` to all queries. Open the Windows `Services` desktop application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN D-Bus system service`. Open it and start it.
 
 Next, open (or return to) a `Cygwin64 Terminal` window in Administrator mode. Enter the following command:
 ```
 $ /usr/sbin/avahi-daemon-config
 ```
-Enter `yes` for all queries. Next, open the Windows `Services` desktop application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN Avahi service`. Open it and start it.
+Answer `yes` to all queries. Open the Windows `Services` desktop application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN Avahi service`. Open it and start it.
 
 The `libconfig` Library
 ----
@@ -60,7 +60,7 @@ $ cd ..
 
 Shairport Sync
 ----
-* Next, download, configure and compile Shairport Sync:
+* Download, configure and compile Shairport Sync:
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
@@ -70,7 +70,7 @@ $ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./configure --with-ao --with-ssl=open
 $ make
 $ make install
 ```
-* The last step above will install the shairport-sync application in `/usr/local/bin` and will also install a configuration file, a service configuration script and two D-Bus policy files. 
+* The last step above installs the `shairport-sync` application into `/usr/local/bin` and also installs a configuration file, a service configuration script and two D-Bus policy files. 
 
 Shairport Sync Service
 ----
@@ -78,11 +78,11 @@ Shairport Sync Service
 ```
 $ shairport-sync-config
 ```
-Enter `yes` for all queries. Next, open the Windows `Services` desktop application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN Shairport Sync` service. Open it and start it.
+Answer `yes` to all queries. Open the Windows `Services` desktop application (if it's already open, refresh the screen contents: `Actions > Refresh`) and look for the `CYGWIN Shairport Sync` service. Open it and start it.
 
 An AirPlay player on the local network should now  be able to see an AirPlay output device bearing the computer's Device Name, e.g. `DESKTOP-0RHGN0`. You can set a different name by changing the settings in the Shairport Sync configuration file, installed at `/etc/shairport-sync.conf`.
 
-Since Shairport Sync is now a Cygwin Service, you do not need to open Cygwin to launch it -- it should launch automatically when Windows is booted up.
+Since Shairport Sync is now a Cygwin Service, you do not need to open Cygwin to launch it – it should launch automatically when Windows is booted up.
 
 Known Issues
 ----
