@@ -20,7 +20,7 @@ Setting up Cygwin
 ----
 * Download the Cygwin installer from the [official website](https://cygwin.com/install.html). Save the installer in the Downloads folder.
 
-* Open a Window Command Prompt and enter the following (long!) command:
+* Open a Windows `Command Prompt` window and enter the following (long!) command, omitting the `C:\Users\mike>` prompt:
 ```
 C:\Users\mike> Downloads\setup-x86_64.exe -P cygrunsrv,dbus,avahi,avahi-tools,gnome-keyring,libavahi-client-devel, ^
 libglib2.0-devel,openssl,pkg-config,autoconf,automake,clang,libdaemon-devel,popt-devel, ^
