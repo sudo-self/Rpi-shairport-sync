@@ -86,4 +86,4 @@ Since this is now a Cygwin Service, you do not need to open Cygwin to launch it 
 
 Known Issues
 ----
-* Shairport Sync cannot access the D-Bus "system" bus to make its Dbus interface available. The cause of this problem is unknown. (While the Avahi daemon can access the D-Bus "system" bus, Shairport Sync can not. The two applications use different DBus libraries, so perhaps the issue likes there.)
+* Shairport Sync cannot access the D-Bus "system" bus to make its Dbus interface available. The cause of this problem is unknown. (While the Avahi daemon can access the D-Bus "system" bus, Shairport Sync can not. The two applications use different DBus libraries, so perhaps the issue lies there.)
