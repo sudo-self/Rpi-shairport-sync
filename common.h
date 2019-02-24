@@ -251,6 +251,8 @@ int get_requested_connection_state_to_output();
 
 void set_requested_connection_state_to_output(int v);
 
+ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, int timeout); // timeout in milliseconds
+
 ssize_t non_blocking_write(int fd, const void *buf, size_t count); // used in a few places
 
 /* from

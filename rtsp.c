@@ -779,7 +779,7 @@ int msg_write_response(int fd, rtsp_message *resp) {
     debug(1, "Attempted to write overlong RTSP packet 3");
     return -3;
   }
-  ssize_t reply = write(fd, pkt, p - pkt);
+  ssize_t reply = non_blocking_write_with_timeout(fd, pkt, p - pkt, 3000); // wait three seconds (3,000 milliseconds) for it to become available
   if (reply == -1) {
     char errorstring[1024];
     strerror_r(errno, (char *)errorstring, sizeof(errorstring));
@@ -787,7 +787,7 @@ int msg_write_response(int fd, rtsp_message *resp) {
     return -4;
   }
   if (reply != p - pkt) {
-    debug(1, "msg_write_response error -- requested bytes not fully written.");
+    debug(1, "msg_write_response error -- requested bytes: %d not fully written: %d.",p - pkt, reply);
     return -5;
   }
   return 0;
