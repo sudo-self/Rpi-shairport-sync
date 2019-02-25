@@ -986,8 +986,10 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
             msg_add_header(resp, "Session", "1");
 
             resp->respcode = 200; // it all worked out okay
-            debug(1, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.",
-                  conn->connection_number, conn->local_control_port, conn->local_timing_port,
+            debug(1, "Connection %d: SETUP DACP-ID \"%s\" from %s to %s with UDP ports Control: %d, Timing: %d and Audio: %d.",
+                  conn->connection_number, 
+                  conn->dacp_id, &conn->client_ip_string, &conn->self_ip_string,
+                  conn->local_control_port, conn->local_timing_port,
                   conn->local_audio_port);
 
           } else {
@@ -1882,8 +1884,10 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     resp->respcode = 200;
   } else {
     resp->respcode = 453;
-    debug(1, "Connection %d: failed because a connection is already playing.",
-          conn->connection_number);
+    debug(1, "Connection %d: DACP-ID \"%s\" on %s failed because a connection is already playing.",
+          conn->connection_number,
+          conn->dacp_id,
+          conn->client_ip_string);
   }
 
 out:
