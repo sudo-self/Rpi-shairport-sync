@@ -187,7 +187,7 @@ int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
   int rc;
   if (the_queue) {
     if (block == 0) {
-      rc = pthread_mutex_trylock(&the_queue->pc_queue_lock);
+      rc = debug_mutex_lock(&the_queue->pc_queue_lock, 10000, 2);
       if (rc == EBUSY)
         return EBUSY;
     } else
@@ -1718,7 +1718,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
   }
 
   if (have_the_player) {
-    debug(3, "RTSP conversation thread %d has acquired play lock.", conn->connection_number);
+    debug(3, "Connection %d: ANNOUNCE has acquired play lock.", conn->connection_number);
 
     // now, if this new session did not break in, then it's okay to reset the next UDP ports
     // to the start of the range
@@ -1884,10 +1884,8 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     resp->respcode = 200;
   } else {
     resp->respcode = 453;
-    debug(1, "Connection %d: DACP-ID \"%s\" on %s failed because a connection is already playing.",
-          conn->connection_number,
-          conn->dacp_id,
-          conn->client_ip_string);
+    debug(1, "Connection %d: ANNOUNCE failed because another connection is already playing.",
+          conn->connection_number);
   }
 
 out:

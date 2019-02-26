@@ -80,6 +80,7 @@ enum sps_format_t {
   SPS_FORMAT_S24_3LE,
   SPS_FORMAT_S24_3BE,
   SPS_FORMAT_S32,
+  SPS_FORMAT_AUTO,
 } sps_format_t;
 
 typedef struct {

@@ -75,6 +75,7 @@ struct sndio_formats {
 static struct sndio_formats formats[] = {{"S8", SPS_FORMAT_S8, 8, 1, 1, SIO_LE_NATIVE},
                                          {"U8", SPS_FORMAT_U8, 8, 1, 0, SIO_LE_NATIVE},
                                          {"S16", SPS_FORMAT_S16, 16, 2, 1, SIO_LE_NATIVE},
+                                         {"AUTOMATIC", SPS_FORMAT_S16, 16, 2, 1, SIO_LE_NATIVE}, // TODO: make this really automatic?
                                          {"S24", SPS_FORMAT_S24, 24, 4, 1, SIO_LE_NATIVE},
                                          {"S24_3LE", SPS_FORMAT_S24_3LE, 24, 3, 1, 1},
                                          {"S24_3BE", SPS_FORMAT_S24_3BE, 24, 3, 1, 0},
@@ -146,7 +147,7 @@ static int init(int argc, char **argv) {
       }
       if (!found)
         die("Invalid output format \"%s\". Should be one of: S8, U8, S16, S24, "
-            "S24_3LE, S24_3BE, S32",
+            "S24_3LE, S24_3BE, S32, Automatic",
             tmp);
     }
   }

@@ -323,48 +323,7 @@ int actual_open_alsa_device(void) {
          snd_strerror(ret));
     return ret;
   }
-  snd_pcm_format_t sf;
-  switch (sample_format) {
-  case SPS_FORMAT_S8:
-    sf = SND_PCM_FORMAT_S8;
-    frame_size = 2;
-    break;
-  case SPS_FORMAT_U8:
-    sf = SND_PCM_FORMAT_U8;
-    frame_size = 2;
-    break;
-  case SPS_FORMAT_S16:
-    sf = SND_PCM_FORMAT_S16;
-    frame_size = 4;
-    break;
-  case SPS_FORMAT_S24:
-    sf = SND_PCM_FORMAT_S24;
-    frame_size = 8;
-    break;
-  case SPS_FORMAT_S24_3LE:
-    sf = SND_PCM_FORMAT_S24_3LE;
-    frame_size = 6;
-    break;
-  case SPS_FORMAT_S24_3BE:
-    sf = SND_PCM_FORMAT_S24_3BE;
-    frame_size = 6;
-    break;
-  case SPS_FORMAT_S32:
-    sf = SND_PCM_FORMAT_S32;
-    frame_size = 8;
-    break;
-  default:
-    sf = SND_PCM_FORMAT_S16; // this is just to quieten a compiler warning
-    frame_size = 4;
-    debug(1, "Unsupported output format at audio_alsa.c");
-    return -EINVAL;
-  }
-  ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
-  if (ret < 0) {
-    warn("audio_alsa: Sample format %d not available for device \"%s\": %s", sample_format,
-         alsa_out_dev, snd_strerror(ret));
-    return ret;
-  }
+  
 
   ret = snd_pcm_hw_params_set_channels(alsa_handle, alsa_params, 2);
   if (ret < 0) {
@@ -378,6 +337,83 @@ int actual_open_alsa_device(void) {
     warn("audio_alsa: Rate %iHz not available for playback: %s", desired_sample_rate,
          snd_strerror(ret));
     return ret;
+  }
+  
+  
+  if (sample_format == SPS_FORMAT_AUTO) {
+  
+    struct alsa_formats {
+      snd_pcm_format_t alsa_sound_format;
+      enum sps_format_t sps_sound_format;
+      int frame_size;
+      char * description;
+    };
+  
+    struct alsa_formats formats[] = {{SND_PCM_FORMAT_S32,SPS_FORMAT_S32,8,"S32"},
+                                     {SND_PCM_FORMAT_S24,SPS_FORMAT_S24,8,"S24"},
+                                     {SND_PCM_FORMAT_S24_3LE,SPS_FORMAT_S24_3LE,6,"S24_LE"},
+                                     {SND_PCM_FORMAT_S24_3BE,SPS_FORMAT_S24_3BE,6,"S24_BE"},
+                                     {SND_PCM_FORMAT_S16,SPS_FORMAT_S16,4,"S16"}};
+                                     
+    int acceptable_format_found = 0;
+    unsigned int i = 0;
+    while((!acceptable_format_found) && (i < sizeof(formats) / sizeof(formats[0]))) {
+      if (snd_pcm_hw_params_set_format(alsa_handle, alsa_params, formats[i].alsa_sound_format) == 0) {
+        acceptable_format_found = 1;
+        frame_size = formats[i].frame_size;
+        config.output_format = formats[i].sps_sound_format;
+        debug(1,"alsa: output format automatically chosen to be \"%s\".",formats[i].description);
+      } else {
+        i++;
+      }
+    }
+    if (!acceptable_format_found) {
+      die("Can't find a suitable automatic output format setting.");
+    }
+  } else {
+    snd_pcm_format_t sf;
+    switch (sample_format) {
+    case SPS_FORMAT_S8:
+      sf = SND_PCM_FORMAT_S8;
+      frame_size = 2;
+      break;
+    case SPS_FORMAT_U8:
+      sf = SND_PCM_FORMAT_U8;
+      frame_size = 2;
+      break;
+    case SPS_FORMAT_S16:
+      sf = SND_PCM_FORMAT_S16;
+      frame_size = 4;
+      break;
+    case SPS_FORMAT_S24:
+      sf = SND_PCM_FORMAT_S24;
+      frame_size = 8;
+      break;
+    case SPS_FORMAT_S24_3LE:
+      sf = SND_PCM_FORMAT_S24_3LE;
+      frame_size = 6;
+      break;
+    case SPS_FORMAT_S24_3BE:
+      sf = SND_PCM_FORMAT_S24_3BE;
+      frame_size = 6;
+      break;
+    case SPS_FORMAT_S32:
+      sf = SND_PCM_FORMAT_S32;
+      frame_size = 8;
+      break;
+    default:
+      sf = SND_PCM_FORMAT_S16; // this is just to quieten a compiler warning
+      frame_size = 4;
+      debug(1, "Unsupported output format at audio_alsa.c");
+      return -EINVAL;
+    }
+
+    ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
+    if (ret < 0) {
+      warn("audio_alsa: Sample format %d not available for device \"%s\": %s", sample_format,
+           alsa_out_dev, snd_strerror(ret));
+      return ret;
+    }
   }
 
   if (set_period_size_request != 0) {
@@ -898,8 +934,10 @@ static int init(int argc, char **argv) {
         config.output_format = SPS_FORMAT_U8;
       else if (strcasecmp(str, "S8") == 0)
         config.output_format = SPS_FORMAT_S8;
+      else if (strcasecmp(str, "AUTOMATIC") == 0)
+        config.output_format = SPS_FORMAT_AUTO;
       else {
-        warn("Invalid output format \"%s\". It should be \"U8\", \"S8\", "
+        warn("Invalid output format \"%s\". It should be \"Automatic\", \"U8\", \"S8\", "
              "\"S16\", \"S24\", "
              "\"S24_3LE\", \"S24_3BE\" or "
              "\"S32\". It is set to \"S16\".",

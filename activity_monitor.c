@@ -111,7 +111,9 @@ void going_inactive(int block) {
 }
 
 void activity_monitor_signify_activity(int active) {
-  pthread_mutex_lock(&activity_monitor_mutex);
+  // this could be pthread_cancelled and they is likely to be cancellation points in the
+  // hooked-on procedures
+  pthread_cleanup_debug_mutex_lock(&activity_monitor_mutex, 10000, 1);
   player_state = active == 0 ? ps_inactive : ps_active;
   // Now, although we could simply let the state machine in the activity monitor thread
   // look after eveything, we will change state here in two situations:
@@ -123,7 +125,7 @@ void activity_monitor_signify_activity(int active) {
   //
   // The reason for all this is that we might want to perform the attached scripts
   // and wait for them to complete before continuing. If they were perfomed in the
-  // activity monitor thread, then we coldn't wait for them to complete.
+  // activity monitor thread, then we couldn't wait for them to complete.
 
   // Thus, the only time the thread will execute a going_... function is when a non-zero
   // timeout actually matures.
@@ -138,7 +140,7 @@ void activity_monitor_signify_activity(int active) {
   }
 
   pthread_cond_signal(&activity_monitor_cv);
-  pthread_mutex_unlock(&activity_monitor_mutex);
+  pthread_cleanup_pop(1); // release the mutex
 }
 
 void activity_thread_cleanup_handler(__attribute__((unused)) void *arg) {
