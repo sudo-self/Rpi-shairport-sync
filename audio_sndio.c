@@ -65,7 +65,7 @@ struct sio_par par;
 struct sndio_formats {
   const char *name;
   enum sps_format_t fmt;
-  int rate;
+  unsigned int rate;
   unsigned int bits;
   unsigned int bps;
   unsigned int sig;
