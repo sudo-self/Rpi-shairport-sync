@@ -65,21 +65,21 @@ struct sio_par par;
 struct sndio_formats {
   const char *name;
   enum sps_format_t fmt;
-
+  int rate;
   unsigned int bits;
   unsigned int bps;
   unsigned int sig;
   unsigned int le;
 };
 
-static struct sndio_formats formats[] = {{"S8", SPS_FORMAT_S8, 8, 1, 1, SIO_LE_NATIVE},
-                                         {"U8", SPS_FORMAT_U8, 8, 1, 0, SIO_LE_NATIVE},
-                                         {"S16", SPS_FORMAT_S16, 16, 2, 1, SIO_LE_NATIVE},
-                                         {"AUTOMATIC", SPS_FORMAT_S16, 16, 2, 1, SIO_LE_NATIVE}, // TODO: make this really automatic?
-                                         {"S24", SPS_FORMAT_S24, 24, 4, 1, SIO_LE_NATIVE},
-                                         {"S24_3LE", SPS_FORMAT_S24_3LE, 24, 3, 1, 1},
-                                         {"S24_3BE", SPS_FORMAT_S24_3BE, 24, 3, 1, 0},
-                                         {"S32", SPS_FORMAT_S32, 24, 4, 1, SIO_LE_NATIVE}};
+static struct sndio_formats formats[] = {{"S8", SPS_FORMAT_S8, 44100, 8, 1, 1, SIO_LE_NATIVE},
+                                         {"U8", SPS_FORMAT_U8, 44100, 8, 1, 0, SIO_LE_NATIVE},
+                                         {"S16", SPS_FORMAT_S16, 44100, 16, 2, 1, SIO_LE_NATIVE},
+                                         {"AUTOMATIC", SPS_FORMAT_S16, 44100, 16, 2, 1, SIO_LE_NATIVE}, // TODO: make this really automatic?
+                                         {"S24", SPS_FORMAT_S24, 44100, 24, 4, 1, SIO_LE_NATIVE},
+                                         {"S24_3LE", SPS_FORMAT_S24_3LE, 44100, 24, 3, 1, 1},
+                                         {"S24_3BE", SPS_FORMAT_S24_3BE, 44100, 24, 3, 1, 0},
+                                         {"S32", SPS_FORMAT_S32, 44100, 24, 4, 1, SIO_LE_NATIVE}};
 
 static void help() { printf("    -d output-device    set the output device [default*|...]\n"); }
 
@@ -175,6 +175,7 @@ static int init(int argc, char **argv) {
   written = played = 0;
   time_of_last_onmove_cb = 0;
   at_least_one_onmove_cb_seen = 0;
+  
 
   for (i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (formats[i].fmt == config.output_format) {
@@ -185,12 +186,12 @@ static int init(int argc, char **argv) {
       break;
     }
   }
-
+  
   if (!sio_setpar(hdl, &par) || !sio_getpar(hdl, &par))
     die("sndio: failed to set audio parameters");
   for (i = 0, found = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (formats[i].bits == par.bits && formats[i].bps == par.bps && formats[i].sig == par.sig &&
-        formats[i].le == par.le) {
+        formats[i].le == par.le && formats[i].rate == par.rate) {
       config.output_format = formats[i].fmt;
       found = 1;
       break;
@@ -198,6 +199,7 @@ static int init(int argc, char **argv) {
   }
   if (!found)
     die("sndio: failed to negotiate audio parameters");
+  
 
   framesize = par.bps * par.pchan;
   config.output_rate = par.rate;
