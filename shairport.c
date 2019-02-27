@@ -867,7 +867,7 @@ int parse_options(int argc, char **argv) {
 
     } else {
       if (config_error_type(&config_file_stuff) == CONFIG_ERR_FILE_IO)
-        debug(1, "Error reading configuration file \"%s\": \"%s\".",
+        debug(2, "Error reading configuration file \"%s\": \"%s\".",
               config_error_file(&config_file_stuff), config_error_text(&config_file_stuff));
       else {
         die("Line %d of the configuration file \"%s\":\n%s", config_error_line(&config_file_stuff),
