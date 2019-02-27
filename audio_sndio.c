@@ -198,7 +198,7 @@ static int init(int argc, char **argv) {
     }
   }
   if (!found)
-    die("sndio: failed to negotiate audio parameters");
+    die("sndio: could not set output device to the required format and rate.");
   
 
   framesize = par.bps * par.pchan;
