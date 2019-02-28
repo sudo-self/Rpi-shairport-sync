@@ -985,7 +985,7 @@ static int init(int argc, char **argv) {
 
 
     /* Get the optional disable_standby_mode setting. */
-    config.disable_standby_mode = disable_standby_while_active;
+    config.disable_standby_mode = disable_standby_off;
     config.keep_dac_busy = 0;
     if (config_lookup_string(config.cfg, "alsa.disable_standby_mode", &str)) {
       if ((strcasecmp(str, "no") == 0) || (strcasecmp(str, "off") == 0) || (strcasecmp(str, "never") == 0))
@@ -998,7 +998,7 @@ static int init(int argc, char **argv) {
       else {
         warn("Invalid disable_standby_mode option choice \"%s\". It should be "
              "\"always\", \"while_active\" or \"never\". "
-             "It is set to \"while_active\".");
+             "It is set to \"never\".");
       }
     }
 
