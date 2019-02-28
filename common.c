@@ -1391,8 +1391,6 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
     case SPS_FORMAT_UNKNOWN:
       die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
       break;
-    case SPS_FORMAT_AUTO:
-      die("Unexpected SPS_FORMAT_AUTO while calculating dither mask.");
     }
     dither_mask -= 1;
     // int64_t r = r64i();
