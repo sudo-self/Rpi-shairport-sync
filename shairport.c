@@ -342,7 +342,7 @@ int parse_options(int argc, char **argv) {
                                  // nothing else comes in first.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
-  config.active_state_timeout = 10.0;
+  config.active_state_timeout = 1.0;
   config.volume_range_hw_priority =
       0; // if combining software and hardware volume control, give the software priority
 // i.e. when reducing volume, reduce the sw first before reducing the software.

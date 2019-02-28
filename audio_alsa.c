@@ -1002,7 +1002,7 @@ static int init(int argc, char **argv) {
       }
     }
 
-    debug(1, "alsa: disable_standby_mode is %d.", config.disable_standby_mode);
+    debug(1, "alsa: disable_standby_mode is \"%s\".", config.disable_standby_mode == disable_standby_off ? "never" : config.disable_standby_mode == disable_standby_always ? "always" : "while_active");
   }
 
   optind = 1; // optind=0 is equivalent to optind=1 plus special behaviour
@@ -1552,7 +1552,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
   int okb = -1;
   while (1) {
     if (okb != config.keep_dac_busy) {
-      debug(1,"keep_dac_busy is now %d",config.keep_dac_busy);
+      debug(1,"keep_dac_busy is now \"%s\"",config.keep_dac_busy == 0 ? "no" : "yes");
       okb = config.keep_dac_busy;
     }
     if ((config.keep_dac_busy != 0) && (alsa_device_initialised == 0)) {
