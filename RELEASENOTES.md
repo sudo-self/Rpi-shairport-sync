@@ -1,12 +1,12 @@
-Version 3.3d54 to Version 3.3d40
+Version 3.3d56 to Version 3.3d40
 ====
 **New Features**
-* Two new external program/script hooks – `run_this_before_entering_active_state` and `run_this_after_exiting_active_state` are provided for when the system goes active or inactive. Background: Many users use the `run_this_before_play_begins` program hook to turn on an amplifier and the `run_this_after_play_ends` hook to turn it off. A big problem is when another play session starts immediately afterwards. This happens, for example, when a YouTube clip ends and the next one begins, and the time interval can be very short. All this switching can stress electronics and speakers. To get around this, the concept of an *active state* covering a sequence of play sessions is introduced. An active state begins when a play session starts. When the play session ends, the system stays in the active state for a period called the `active_state_timeout`, 10 seconds by default. If another play session starts before that timeout elapses, the system remains in the active state; otherwise the system leaves the active state. The two new hooks mentioned above can be used to execute programs/scripts when the system goes active or inactive.
+* Two new external program/script hooks – `run_this_before_entering_active_state` and `run_this_after_exiting_active_state` are provided for when the system goes active or inactive. Background: Many users use the `run_this_before_play_begins` program hook to turn on an amplifier and the `run_this_after_play_ends` hook to turn it off. A big problem is when another play session starts immediately after a play session ends, causing the amplifier to be switched off and then on again very quickly. This happens, for example, when a YouTube clip ends and the next one begins. To get around this, the concept of an *active state* covering a sequence of play sessions is introduced. When a play session starts the system goes active, i.e. it enters the active state. When the play session ends, the system remains active for a period determined by the `active_state_timeout` setting, 10 seconds by default. If another play session starts before the period elapses, the system stays active; otherwise the system goes inactive -- it leaves the active state. The two new hooks mentioned above can be used to execute programs/scripts when the system goes active or inactive.
 * A new `alsa`-only `disable_standby_mode` setting, for controlling the Disable Standby feature, can be set to `always`, `while_active` or `never`. The `always` setting is recommended for systems where the output device is dedicated to Shairport Sync. The "Disable Standby" state iself can be set or cleared via the D-Bus interface `DisableStandby` property.
 * A new command-line option, `-u`, directs logging to STDERR rather than the system log. Useful when you compile Shairport Sync without `libdaemon` using the `--without-libdaemon` configuration option.
 
 **Enhancements**
-* Changes to the Jack Audio back end. The back end for jack audio, `audio_jack.c`,  has been extensively rewritten by [Jörn Nettingsmeier](https://github.com/nettings) in a way that is more in keeping with the Jack Audio style. It uses native jack lockless buffers and offers autoconnect facilities that the previous version didn't have. Many thanks to him.
+* Changes to the Jack Audio back end. The back end for Jack Audio, `audio_jack.c`,  has been extensively rewritten by [Jörn Nettingsmeier](https://github.com/nettings) in a way that is more in keeping with the Jack Audio style. It uses native Jack Audio lockless buffers and offers autoconnect facilities that the previous version didn't have. Many thanks to him.
 * The volume-control software has been completely rewritten. From a user's point of view, the result should be a much smoother response to volume contol changes, free from artefacts. It is now also possible to combine the hardware mixer and the software attenuator in two ways -- giving priority to the software mixer or giving priority to the hardware mixer. see the new `volume_range_combined_hardware_priority` setting in the `general` section opf the configuration file.
 * The muting/unmuting code has been rewritten to be simpler and more consistent.
 * In the `alsa` backend, new `play()` and `delay()` functions minimise the use of `snd_pcm_recover()` to prevent unnecessary resets of the output DACs.
@@ -23,13 +23,13 @@ Version 3.3d39 to Version 3.3d38
 
 **New Feature**
 
-A new feature called *Disable Standby* keeps the output DAC in the play state all the time and helps to remove some annoying clicking / popping noises. It is really pretty impressive, especially combined with the fixes to the dithering code described below. If you can enable 24- or 32-bit audio output to your output device, you can get even better results.
+A new feature called *Disable Standby* keeps the output DAC in the play state all the time and helps to remove some annoying clicking / popping noises. It is really pretty impressive, especially combined with fixes to the dithering code described below. If you can enable 24- or 32-bit audio output to your output device, you can get even better results.
 
 This is an ALSA-specific attempt to remove the annoying low-level clicking sounds that some output devices make just when they start processing audio and sometimes when they stop. Typically a faint click might be heard just before a play session starts or just before audio resumes after a pause. Similarly, a faint click can sometimes be heard just after a play session ends.
 
-It is extremely difficult to remove these clicks completely from the hardware, so this new feature ensures that — once Shairport Sync has started — the output device avoids situations where these clicks might be generated by *always* playing audio. To accomplish this, if Shairport Sync isn't actually playing anything, audio frames consisting of silence are sent to the output device. Apart from the initial startup transition, the output device never stops playing, avoiding both starting and stopping transitions.
+It is extremely difficult to remove these clicks completely from the hardware, so this new feature ensures that the output device avoids situations where these clicks might be generated by *always* playing audio. To accomplish this, if Shairport Sync isn't actually playing anything, audio frames consisting of silence are sent to the output device, keeping it playing. Apart from the initial startup transition, the output device never stops playing and thus never transitions to and from standby mode, avoiding the possibility of generating associated audio disturbances.
 
-To enable this feature, a new `alsa` group setting with the name `disable_standby_mode` is available. (If you do a full `$ sudo make install`, a new sample configuration file with this setting in it is installed at `/etc/shairport-sync.conf.sample` or `/usr/local/etc/shairport-sync.conf.sample`.) The default for the setting is `"no"`. *(Note -- this was changed subsequently; please see above.)*
+To enable this feature, a new `alsa` group setting with the name `disable_standby_mode` is available. (If you do a full `$ sudo make install`, a new sample configuration file with this setting in it is installed at `/etc/shairport-sync.conf.sample` or `/usr/local/etc/shairport-sync.conf.sample`.) 
 
 A downside to this feature is that the output device totally dedicated to Shairport Sync. For this reason, this new feature is disabled by default. 
 
@@ -37,7 +37,7 @@ Note -- this setting is likely to change. It will probably be necessary to modif
 
 **Enhancements and Bug Fixes**
 
-* At present, Shairport Sync adds dither to the audio if (a) the built-in software-based volume control is used, (b) if the audio is mixed to mono or (3) if there is a change in sample size, say from 16- to 24-bit. The code for generating dither has been much improved. Due to a poor pseudo-random number arrangement, the dither noise didn't sound like white noise -- now it does. In addition, if dither is to be added, it is also added to the silence inserted just prior to the start of play, and is also added to the silent frames used to prevent the output device from going into standby mode, if selected.
+* At present, Shairport Sync adds dither to the audio (a) if the built-in software-based volume control is used, (b) if the audio is mixed to mono or (3) if there is a reduction in sample size, say from 16- to 8-bit. The code for generating dither has been much improved. Due to a poor pseudo-random number arrangement, the dither noise didn't sound like white noise -- now it does. In addition, if dither is to be added, it is also added to the silence inserted just prior to the start of play, and is also added to the silent frames used to prevent the output device from going into standby mode, if selected.
 
 Version 3.3d37 to Version 3.3d22
 ====
@@ -46,7 +46,7 @@ These updates are about stability.
 
 **Enhancements and Bug Fixes**
 
-With great help from [gibman](https://github.com/gibman) — see [#772](https://github.com/mikebrady/shairport-sync/issues/772) for the gory details — myriad issues have been identified and fixed. In particular, [gibman](https://github.com/gibman) shared an automated way of stress-testing Shairport Sync, and this has resulted in the detection of many bugs.
+With great help from [gibman](https://github.com/gibman) — see [#772](https://github.com/mikebrady/shairport-sync/issues/772) for the gory details — a myriad of issues have been identified and fixed. In particular, [gibman](https://github.com/gibman) shared an automated way of stress-testing Shairport Sync, and this has resulted in the detection of many bugs.
 
 And so, with apologies to Shakespeare, we have taken up arms against a sea of troubles, and by opposing we have ended them. It is hoped that the result is considerably more stable and can better withstand the, uh, slings and arrows of outrageous fortune.
 
@@ -67,7 +67,7 @@ Here is a flavour of some of the issues addressed:
 * Fix a compilation error and a warning when using the `--with-convolution` configuration option.
 
 **New Feature**
-* A new `run_this_if_an_unfixable_error_is_detected` (in the `sessioncontrol` group of settings) program hook is provided. At the moment, two conditions can cause this to be activated. The first is if the watchdog is unable to terminate a play session. The second is if the output device stalls for a long period. Both conditions can be caused by malfunctioning DACs. The external program could, for example, reboot the device.
+* A new `run_this_if_an_unfixable_error_is_detected` (in the `sessioncontrol` group of settings) program hook is provided. At the moment, two conditions can trigger this. The first is if the watchdog is unable to terminate a play session. The second is if the output device stalls for a long period. Both conditions can be caused by malfunctioning DACs. The external program could, for example, reboot the device.
 
 Version 3.3d21
 ====
