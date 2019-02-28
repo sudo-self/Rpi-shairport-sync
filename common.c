@@ -955,7 +955,8 @@ uint64_t get_absolute_time_in_fp() {
   return time_now_fp;
 }
 
-ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
+ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, int timeout) {
+  // timeout is in milliseconds
   void *ibuf = (void *)buf;
   size_t bytes_remaining = count;
   int rc = 1;
@@ -964,7 +965,7 @@ ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
     // check that we can do some writing
     ufds[0].fd = fd;
     ufds[0].events = POLLOUT;
-    rc = poll(ufds, 1, 5000);
+    rc = poll(ufds, 1, timeout);
     if (rc < 0) {
       // debug(1, "non-blocking write error waiting for pipe to become ready for writing...");
     } else if (rc == 0) {
@@ -975,18 +976,22 @@ ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
       ssize_t bytes_written = write(fd, ibuf, bytes_remaining);
       if (bytes_written == -1) {
         // debug(1,"Error %d in non_blocking_write: \"%s\".",errno,strerror(errno));
-        rc = -1;
+        rc = bytes_written; // to imitate the return from write()
       } else {
         ibuf += bytes_written;
         bytes_remaining -= bytes_written;
       }
     }
   }
-  if (rc == 0)
+  if (rc > 0)
     return count - bytes_remaining; // this is just to mimic a normal write/3.
   else
     return rc;
   //  return write(fd,buf,count);
+}
+
+ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
+  return non_blocking_write_with_timeout(fd,buf,count,5000); // default is 5 seconds.
 }
 
 /* from
@@ -1385,6 +1390,7 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
       break;
     case SPS_FORMAT_UNKNOWN:
       die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
+      break;
     }
     dither_mask -= 1;
     // int64_t r = r64i();

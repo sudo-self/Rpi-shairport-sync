@@ -323,6 +323,22 @@ int actual_open_alsa_device(void) {
          snd_strerror(ret));
     return ret;
   }
+  
+
+  ret = snd_pcm_hw_params_set_channels(alsa_handle, alsa_params, 2);
+  if (ret < 0) {
+    warn("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
+         snd_strerror(ret));
+    return ret;
+  }
+
+  ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &my_sample_rate, &dir);
+  if (ret < 0) {
+    warn("audio_alsa: Rate %iHz not available for playback: %s", desired_sample_rate,
+         snd_strerror(ret));
+    return ret;
+  }
+  
   snd_pcm_format_t sf;
   switch (sample_format) {
   case SPS_FORMAT_S8:
@@ -359,26 +375,14 @@ int actual_open_alsa_device(void) {
     debug(1, "Unsupported output format at audio_alsa.c");
     return -EINVAL;
   }
+
   ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
   if (ret < 0) {
     warn("audio_alsa: Sample format %d not available for device \"%s\": %s", sample_format,
          alsa_out_dev, snd_strerror(ret));
     return ret;
   }
-
-  ret = snd_pcm_hw_params_set_channels(alsa_handle, alsa_params, 2);
-  if (ret < 0) {
-    warn("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
-         snd_strerror(ret));
-    return ret;
-  }
-
-  ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &my_sample_rate, &dir);
-  if (ret < 0) {
-    warn("audio_alsa: Rate %iHz not available for playback: %s", desired_sample_rate,
-         snd_strerror(ret));
-    return ret;
-  }
+  
 
   if (set_period_size_request != 0) {
     debug(1, "Attempting to set the period size");
@@ -981,7 +985,7 @@ static int init(int argc, char **argv) {
 
 
     /* Get the optional disable_standby_mode setting. */
-    config.disable_standby_mode = disable_standby_while_active;
+    config.disable_standby_mode = disable_standby_off;
     config.keep_dac_busy = 0;
     if (config_lookup_string(config.cfg, "alsa.disable_standby_mode", &str)) {
       if ((strcasecmp(str, "no") == 0) || (strcasecmp(str, "off") == 0) || (strcasecmp(str, "never") == 0))
@@ -994,11 +998,11 @@ static int init(int argc, char **argv) {
       else {
         warn("Invalid disable_standby_mode option choice \"%s\". It should be "
              "\"always\", \"while_active\" or \"never\". "
-             "It is set to \"while_active\".");
+             "It is set to \"never\".");
       }
     }
 
-    debug(1, "alsa: disable_standby_mode is %d.", config.disable_standby_mode);
+    debug(1, "alsa: disable_standby_mode is \"%s\".", config.disable_standby_mode == disable_standby_off ? "never" : config.disable_standby_mode == disable_standby_always ? "always" : "while_active");
   }
 
   optind = 1; // optind=0 is equivalent to optind=1 plus special behaviour
@@ -1548,7 +1552,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
   int okb = -1;
   while (1) {
     if (okb != config.keep_dac_busy) {
-      debug(1,"keep_dac_busy is now %d",config.keep_dac_busy);
+      debug(1,"keep_dac_busy is now \"%s\"",config.keep_dac_busy == 0 ? "no" : "yes");
       okb = config.keep_dac_busy;
     }
     if ((config.keep_dac_busy != 0) && (alsa_device_initialised == 0)) {

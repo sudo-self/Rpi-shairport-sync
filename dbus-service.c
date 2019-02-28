@@ -20,7 +20,6 @@ int service_is_running = 0;
 ShairportSyncDiagnostics *shairportSyncDiagnosticsSkeleton = NULL;
 ShairportSyncRemoteControl *shairportSyncRemoteControlSkeleton = NULL;
 ShairportSyncAdvancedRemoteControl *shairportSyncAdvancedRemoteControlSkeleton = NULL;
-GDBusConnection *ourBusConnection = NULL;
 
 guint ownerID = 0;
 
@@ -434,14 +433,12 @@ gboolean notify_drift_tolerance_callback(ShairportSync *skeleton,
 }
 
 gboolean notify_disable_standby_mode_callback(ShairportSync *skeleton,
-                                              __attribute__((unused)) gpointer user_data) {
+                                     __attribute__((unused)) gpointer user_data) {
   char *th = (char *)shairport_sync_get_disable_standby_mode(skeleton);
-  if ((strcasecmp(th, "no") == 0) || (strcasecmp(th, "off") == 0) ||
-      (strcasecmp(th, "never") == 0)) {
+  if ((strcasecmp(th, "no") == 0) || (strcasecmp(th, "off") == 0) || (strcasecmp(th, "never") == 0)) {
     config.disable_standby_mode = disable_standby_off;
     config.keep_dac_busy = 0;
-  } else if ((strcasecmp(th, "yes") == 0) || (strcasecmp(th, "on") == 0) ||
-             (strcasecmp(th, "always") == 0)) {
+  } else if ((strcasecmp(th, "yes") == 0) || (strcasecmp(th, "on") == 0) || (strcasecmp(th, "always") == 0)) {
     config.disable_standby_mode = disable_standby_always;
     config.keep_dac_busy = 1;
   } else if (strcasecmp(th, "while_active") == 0)
@@ -449,17 +446,17 @@ gboolean notify_disable_standby_mode_callback(ShairportSync *skeleton,
   else {
     warn("An unrecognised disable_standby_mode: \"%s\" was requested via D-Bus interface.", th);
     switch (config.disable_standby_mode) {
-    case disable_standby_off:
-      shairport_sync_set_disable_standby_mode(skeleton, "off");
-      break;
-    case disable_standby_always:
-      shairport_sync_set_disable_standby_mode(skeleton, "always");
-      break;
-    case disable_standby_while_active:
-      shairport_sync_set_disable_standby_mode(skeleton, "while_active");
-      break;
-    default:
-      break;
+      case disable_standby_off:
+        shairport_sync_set_disable_standby_mode(skeleton, "off");
+        break;
+      case disable_standby_always:
+        shairport_sync_set_disable_standby_mode(skeleton, "always");
+        break;
+      case disable_standby_while_active:
+        shairport_sync_set_disable_standby_mode(skeleton, "while_active");
+        break;
+      default:
+        break;
     }
   }
   return TRUE;
@@ -659,7 +656,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(notify_alacdecoder_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::disable-standby-mode",
                    G_CALLBACK(notify_disable_standby_mode_callback), NULL);
-  g_signal_connect(shairportSyncSkeleton, "notify::volume-control-profile",
+   g_signal_connect(shairportSyncSkeleton, "notify::volume-control-profile",
                    G_CALLBACK(notify_volume_control_profile_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::disable-standby",
                    G_CALLBACK(notify_disable_standby_callback), NULL);
@@ -747,21 +744,21 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   debug(1, ">> Active set to \"false\"");
 
   switch (config.disable_standby_mode) {
-  case disable_standby_off:
-    shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "off");
-    debug(1, ">> disable standby mode set to \"off\"");
-    break;
-  case disable_standby_always:
-    shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "always");
-    debug(1, ">> disable standby mode set to \"always\"");
-    break;
-  case disable_standby_while_active:
-    shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "while_active");
-    debug(1, ">> disable standby mode set to \"while_active\"");
-    break;
-  default:
-    debug(1, "invalid disable_standby mode!");
-    break;
+    case disable_standby_off:
+      shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "off");
+      debug(1, ">> disable standby mode set to \"off\"");
+      break;
+    case disable_standby_always:
+      shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "always");
+      debug(1, ">> disable standby mode set to \"always\"");
+      break;
+    case disable_standby_while_active:
+      shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "while_active");
+      debug(1, ">> disable standby mode set to \"while_active\"");
+      break;
+    default:
+      debug(1,"invalid disable_standby mode!");
+      break;
   }
 
 #ifdef CONFIG_SOXR
@@ -849,31 +846,6 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   service_is_running = 1;
 }
 
-// from http://www.ccp4.ac.uk/dist/checkout/glib-2.34.3/gio/tests/gdbus-tests.c
-/* ----------------------------------------------------------------------------------------------------
- */
-
-GDBusConnection *_g_bus_get_priv(GBusType bus_type, GCancellable *cancellable, GError **error) {
-  gchar *address;
-  GDBusConnection *ret;
-
-  ret = NULL;
-
-  address = g_dbus_address_get_for_bus_sync(bus_type, cancellable, error);
-  if (address == NULL)
-    goto out;
-
-  ret = g_dbus_connection_new_for_address_sync(address,
-                                               G_DBUS_CONNECTION_FLAGS_AUTHENTICATION_CLIENT |
-                                                   G_DBUS_CONNECTION_FLAGS_MESSAGE_BUS_CONNECTION,
-                                               NULL, /* GDBusAuthObserver */
-                                               cancellable, error);
-  g_free(address);
-
-out:
-  return ret;
-}
-
 static void on_dbus_name_lost_again(__attribute__((unused)) GDBusConnection *connection,
                                     __attribute__((unused)) const gchar *name,
                                     __attribute__((unused)) gpointer user_data) {
@@ -891,17 +863,13 @@ static void on_dbus_name_lost(__attribute__((unused)) GDBusConnection *connectio
   pid_t pid = getpid();
   char interface_name[256] = "";
   snprintf(interface_name, sizeof(interface_name), "org.gnome.ShairportSync.i%d", pid);
-  // GBusType dbus_bus_type = G_BUS_TYPE_SYSTEM;
-  // if (config.dbus_service_bus_type == DBT_session)
-  //  dbus_bus_type = G_BUS_TYPE_SESSION;
+  GBusType dbus_bus_type = G_BUS_TYPE_SYSTEM;
+  if (config.dbus_service_bus_type == DBT_session)
+    dbus_bus_type = G_BUS_TYPE_SESSION;
   // debug(1, "Looking for a Shairport Sync native D-Bus interface \"%s\" on the %s bus.",
   // interface_name,(config.dbus_service_bus_type == DBT_session) ? "session" : "system");
-  ownerID =
-      g_bus_own_name_on_connection(ourBusConnection, interface_name, G_BUS_NAME_OWNER_FLAGS_REPLACE,
-                                   on_dbus_name_acquired, on_dbus_name_lost_again, NULL, NULL);
-
-  // g_bus_own_name(dbus_bus_type, interface_name, G_BUS_NAME_OWNER_FLAGS_NONE, NULL,
-  //               on_dbus_name_acquired, on_dbus_name_lost_again, NULL, NULL);
+  g_bus_own_name(dbus_bus_type, interface_name, G_BUS_NAME_OWNER_FLAGS_NONE, NULL,
+                 on_dbus_name_acquired, on_dbus_name_lost_again, NULL, NULL);
 }
 
 int start_dbus_service() {
@@ -911,18 +879,8 @@ int start_dbus_service() {
     dbus_bus_type = G_BUS_TYPE_SESSION;
   // debug(1, "Looking for a Shairport Sync native D-Bus interface \"org.gnome.ShairportSync\" on
   // the %s bus.",(config.dbus_service_bus_type == DBT_session) ? "session" : "system");
-
-  ourBusConnection = _g_bus_get_priv(dbus_bus_type, NULL, NULL);
-  if (ourBusConnection) {
-    debug(1, "Got a connection to the bus.");
-    g_dbus_connection_set_exit_on_close(ourBusConnection, FALSE);
-    ownerID = g_bus_own_name_on_connection(ourBusConnection, "org.gnome.ShairportSync",
-                                           G_BUS_NAME_OWNER_FLAGS_REPLACE, on_dbus_name_acquired,
-                                           on_dbus_name_lost, NULL, NULL);
-  }
-
-  // ownerID = g_bus_own_name(dbus_bus_type, "org.gnome.ShairportSync", G_BUS_NAME_OWNER_FLAGS_NONE,
-  //                         NULL, on_dbus_name_acquired, on_dbus_name_lost, NULL, NULL);
+  ownerID = g_bus_own_name(dbus_bus_type, "org.gnome.ShairportSync", G_BUS_NAME_OWNER_FLAGS_NONE,
+                           NULL, on_dbus_name_acquired, on_dbus_name_lost, NULL, NULL);
   return 0; // this is just to quieten a compiler warning
 }
 
@@ -932,11 +890,9 @@ void stop_dbus_service() {
     g_bus_unown_name(ownerID);
   else
     debug(1, "Zero OwnerID for \"org.gnome.ShairportSync\".");
-  if (ourBusConnection)
-    g_object_unref(ourBusConnection);
-  else
-    debug(1, "NULL BusConnection for \"org.gnome.ShairportSync\".");
-  service_is_running = 0;
+  service_is_running  = 0;
 }
 
-int dbus_service_is_running() { return service_is_running; }
+int dbus_service_is_running() {
+  return service_is_running;
+}

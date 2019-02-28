@@ -187,7 +187,7 @@ int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
   int rc;
   if (the_queue) {
     if (block == 0) {
-      rc = pthread_mutex_trylock(&the_queue->pc_queue_lock);
+      rc = debug_mutex_lock(&the_queue->pc_queue_lock, 10000, 2);
       if (rc == EBUSY)
         return EBUSY;
     } else
@@ -787,7 +787,7 @@ int msg_write_response(int fd, rtsp_message *resp) {
     return -4;
   }
   if (reply != p - pkt) {
-    debug(1, "msg_write_response error -- requested bytes not fully written.");
+    debug(1, "msg_write_response error -- requested bytes: %d not fully written: %d.",p - pkt, reply);
     return -5;
   }
   return 0;
@@ -986,8 +986,10 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
             msg_add_header(resp, "Session", "1");
 
             resp->respcode = 200; // it all worked out okay
-            debug(1, "Connection %d: SETUP with UDP ports Control: %d, Timing: %d and Audio: %d.",
-                  conn->connection_number, conn->local_control_port, conn->local_timing_port,
+            debug(1, "Connection %d: SETUP DACP-ID \"%s\" from %s to %s with UDP ports Control: %d, Timing: %d and Audio: %d.",
+                  conn->connection_number, 
+                  conn->dacp_id, &conn->client_ip_string, &conn->self_ip_string,
+                  conn->local_control_port, conn->local_timing_port,
                   conn->local_audio_port);
 
           } else {
@@ -1716,7 +1718,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
   }
 
   if (have_the_player) {
-    debug(3, "RTSP conversation thread %d has acquired play lock.", conn->connection_number);
+    debug(3, "Connection %d: ANNOUNCE has acquired play lock.", conn->connection_number);
 
     // now, if this new session did not break in, then it's okay to reset the next UDP ports
     // to the start of the range
@@ -1882,7 +1884,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     resp->respcode = 200;
   } else {
     resp->respcode = 453;
-    debug(1, "Connection %d: failed because a connection is already playing.",
+    debug(1, "Connection %d: ANNOUNCE failed because another connection is already playing.",
           conn->connection_number);
   }
 
