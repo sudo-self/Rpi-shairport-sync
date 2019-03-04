@@ -147,7 +147,6 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
 }
 
 static void deinit(void) {
-  // debug(1, "pa deinit start");
   pa_threaded_mainloop_stop(mainloop);
   pa_threaded_mainloop_free(mainloop);
   // debug(1, "pa deinit done");
@@ -296,7 +295,7 @@ static void stop(void) {
   audio_umb = audio_lmb + audio_size;
   audio_occupancy = 0;
 
-  // debug(1, "finish with stream");
+  // debug(1,"pa stop");
   pa_stream_disconnect(stream);
 }
 

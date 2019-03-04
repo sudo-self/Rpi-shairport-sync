@@ -1,7 +1,7 @@
 /*
  * Apple RTP protocol handler. This file is part of Shairport.
  * Copyright (c) James Laird 2013
- * Copyright (c) Mike Brady 2014 -- 2018
+ * Copyright (c) Mike Brady 2014 -- 2019
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person

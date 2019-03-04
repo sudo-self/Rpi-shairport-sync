@@ -1443,6 +1443,7 @@ void *metadata_thread_function(__attribute__((unused)) void *ignore) {
 #ifdef CONFIG_METADATA_HUB
       metadata_hub_process_metadata(pack.type, pack.code, pack.data, pack.length);
 #endif
+
 #ifdef CONFIG_MQTT
       if (config.mqtt_enabled) {
         mqtt_process_metadata(pack.type, pack.code, pack.data, pack.length);
@@ -1749,20 +1750,10 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     char *pmaxlatency = NULL;
     char *cp = req->content;
     int cp_left = req->contentlength;
-    if (cp_left > 1024) {
-      debug(1, "Error -- RTSP conversation thread %d ANNOUNCE content length is strange, at %d.",
-            conn->connection_number, cp_left);
-      goto out;
-    }
     char *next;
     while (cp_left && cp) {
       next = nextline(cp, cp_left);
       cp_left -= next - cp;
-      if (cp_left < 0) {
-        debug(1, "Error -- RTSP conversation thread %d ANNOUNCE content remaining is negative.",
-              conn->connection_number);
-        goto out;
-      }
 
       if (!strncmp(cp, "o=iTunes", 7))
         pssid = cp + 8;
