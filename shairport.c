@@ -1692,10 +1692,10 @@ int main(int argc, char **argv) {
   if (config.mqtt_enabled) {
     initialise_mqtt();
   }
+#endif
 
   activity_monitor_start();
 
->>>>>>> development
   // daemon_log(LOG_INFO, "Successful Startup");
   rtsp_listen_loop();
 
