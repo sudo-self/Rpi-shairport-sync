@@ -45,17 +45,20 @@
 #include "dacp.h"
 #include "metadata_hub.h"
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
+#include <mbedtls/version.h>
 #include <mbedtls/md5.h>
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 #include <polarssl/md5.h>
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 #include <openssl/md5.h>
 #endif
+
+int metadata_hub_initialised = 0;
 
 pthread_rwlock_t metadata_hub_re_lock = PTHREAD_RWLOCK_INITIALIZER;
 struct track_metadata_bundle *track_metadata; // used for a temporary track metadata store
@@ -90,10 +93,31 @@ void metadata_hub_release_track_metadata(struct track_metadata_bundle *track_met
   }
 }
 
+void metadata_hub_release_track_artwork(void) {
+  // debug(1,"release track artwork");
+  release_char_string(&metadata_store.cover_art_pathname);
+}
+
 void metadata_hub_init(void) {
   // debug(1, "Metadata bundle initialisation.");
   memset(&metadata_store, 0, sizeof(metadata_store));
   track_metadata = NULL;
+  metadata_hub_initialised = 1;
+}
+
+void metadata_hub_stop(void) {
+  if (metadata_hub_initialised) {
+    debug(2, "metadata_hub_stop.");
+    metadata_hub_release_track_artwork();
+    if (metadata_store.track_metadata) {
+      metadata_hub_release_track_metadata(metadata_store.track_metadata);
+      metadata_store.track_metadata = NULL;
+    }
+    if (track_metadata) {
+      metadata_hub_release_track_metadata(track_metadata);
+      track_metadata = NULL;
+    }
+  }
 }
 
 void add_metadata_watcher(metadata_watcher fn, void *userdata) {
@@ -108,6 +132,26 @@ void add_metadata_watcher(metadata_watcher fn, void *userdata) {
   }
 }
 
+void metadata_hub_unlock_hub_mutex_cleanup(__attribute__((unused)) void *arg) {
+  // debug(1, "metadata_hub_unlock_hub_mutex_cleanup called.");
+  pthread_rwlock_unlock(&metadata_hub_re_lock);
+}
+
+void run_metadata_watchers(void) {
+  int i;
+  // debug(1, "locking metadata hub for reading");
+  pthread_rwlock_rdlock(&metadata_hub_re_lock);
+  pthread_cleanup_push(metadata_hub_unlock_hub_mutex_cleanup, NULL);
+  for (i = 0; i < number_of_watchers; i++) {
+    if (metadata_store.watchers[i]) {
+      metadata_store.watchers[i](&metadata_store, metadata_store.watchers_data[i]);
+    }
+  }
+  // debug(1, "unlocking metadata hub for reading");
+  // pthread_rwlock_unlock(&metadata_hub_re_lock);
+  pthread_cleanup_pop(1);
+}
+
 void metadata_hub_modify_prolog(void) {
   // always run this before changing an entry or a sequence of entries in the metadata_hub
   // debug(1, "locking metadata hub for writing");
@@ -116,24 +160,6 @@ void metadata_hub_modify_prolog(void) {
     pthread_rwlock_wrlock(&metadata_hub_re_lock);
     debug(2, "Okay -- acquired the metadata_hub write lock.");
   }
-}
-
-void metadata_hub_release_track_artwork(void) {
-  // debug(1,"release track artwork");
-  release_char_string(&metadata_store.cover_art_pathname);
-}
-
-void run_metadata_watchers(void) {
-  int i;
-  // debug(1, "locking metadata hub for reading");
-  pthread_rwlock_rdlock(&metadata_hub_re_lock);
-  for (i = 0; i < number_of_watchers; i++) {
-    if (metadata_store.watchers[i]) {
-      metadata_store.watchers[i](&metadata_store, metadata_store.watchers_data[i]);
-    }
-  }
-  // debug(1, "unlocking metadata hub for reading");
-  pthread_rwlock_unlock(&metadata_hub_re_lock);
 }
 
 void metadata_hub_modify_epilog(int modified) {
@@ -150,7 +176,7 @@ void metadata_hub_modify_epilog(int modified) {
 
   if ((metadata_store.dacp_server_active == 0) &&
       (metadata_store.dacp_server_has_been_active != 0)) {
-    debug(1, "dacp_scanner going inactive -- release track metadata and artwork");
+    debug(2, "dacp_scanner going inactive -- release track metadata and artwork");
     if (metadata_store.track_metadata) {
       m = 1;
       metadata_hub_release_track_metadata(metadata_store.track_metadata);
@@ -197,23 +223,30 @@ char *metadata_write_image_file(const char *buf, int len) {
   char *path = NULL; // this will be what is returned
 
   uint8_t img_md5[16];
-// uint8_t ap_md5[16];
+  // uint8_t ap_md5[16];
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
   MD5_Init(&ctx);
   MD5_Update(&ctx, buf, len);
   MD5_Final(img_md5, &ctx);
 #endif
 
-#ifdef HAVE_LIBMBEDTLS
-  mbedtls_md5_context tctx;
-  mbedtls_md5_starts(&tctx);
-  mbedtls_md5_update(&tctx, (const unsigned char *)buf, len);
-  mbedtls_md5_finish(&tctx, img_md5);
+#ifdef CONFIG_MBEDTLS
+  #if MBEDTLS_VERSION_MINOR >= 7
+    mbedtls_md5_context tctx;
+    mbedtls_md5_starts_ret(&tctx);
+    mbedtls_md5_update_ret(&tctx, (const unsigned char *)buf, len);
+    mbedtls_md5_finish_ret(&tctx, img_md5);
+  #else
+    mbedtls_md5_context tctx;
+    mbedtls_md5_starts(&tctx);
+    mbedtls_md5_update(&tctx, (const unsigned char *)buf, len);
+    mbedtls_md5_finish(&tctx, img_md5);
+  #endif
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
   md5_context tctx;
   md5_starts(&tctx);
   md5_update(&tctx, (const unsigned char *)buf, len);
@@ -469,27 +502,15 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       track_metadata = (struct track_metadata_bundle *)malloc(sizeof(struct track_metadata_bundle));
       if (track_metadata == NULL)
         die("Could not allocate memory for track metadata.");
-      memset(track_metadata, 0, sizeof(struct track_metadata_bundle)); // now we have a valid track
-                                                                       // metadata space, but the
-                                                                       // metadata itself
-      // might turin out to be invalid. Specifically, YouTube on iOS can generate a sequence of
-      // track metadata that is invalid.
-      // it is distinguished by having an item_id of zero.
+      memset(track_metadata, 0, sizeof(struct track_metadata_bundle));
       break;
     case 'mden':
       if (track_metadata) {
-        if ((track_metadata->item_id_received == 0) || (track_metadata->item_id != 0)) {
-          // i.e. it's only invalid if it has definitely been given an item_id of zero
-          metadata_hub_modify_prolog();
-          metadata_hub_release_track_metadata(metadata_store.track_metadata);
-          metadata_store.track_metadata = track_metadata;
-          track_metadata = NULL;
-          metadata_hub_modify_epilog(1);
-        } else {
-          debug(1, "The track information received is invalid -- dropping it");
-          metadata_hub_release_track_metadata(track_metadata);
-          track_metadata = NULL;
-        }
+        metadata_hub_modify_prolog();
+        metadata_hub_release_track_metadata(metadata_store.track_metadata);
+        metadata_store.track_metadata = track_metadata;
+        track_metadata = NULL;
+        metadata_hub_modify_epilog(1);
       }
       debug(2, "MH Metadata stream processing end.");
       break;
@@ -539,6 +560,18 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       break;
     // these could tell us about play / pause etc. but will only occur if metadata is enabled, so
     // we'll just ignore them
+    case 'abeg': {
+      metadata_hub_modify_prolog();
+      int changed = (metadata_store.active_state != AM_ACTIVE);
+      metadata_store.active_state = AM_ACTIVE;
+      metadata_hub_modify_epilog(changed);
+    } break;
+    case 'aend': {
+      metadata_hub_modify_prolog();
+      int changed = (metadata_store.active_state != AM_INACTIVE);
+      metadata_store.active_state = AM_INACTIVE;
+      metadata_hub_modify_epilog(changed);
+    } break;
     case 'pbeg': {
       metadata_hub_modify_prolog();
       int changed = (metadata_store.player_state != PS_PLAYING);

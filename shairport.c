@@ -2,7 +2,7 @@
  * Shairport, an Apple Airplay receiver
  * Copyright (c) James Laird 2013
  * All rights reserved.
- * Modifications (c) Mike Brady 2014--2018
+ * Modifications and additions (c) Mike Brady 2014--2019
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -31,99 +31,95 @@
 #include <libconfig.h>
 #include <libgen.h>
 #include <memory.h>
-#include <net/if.h>
 #include <popt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <net/if.h>
 #include <unistd.h>
 
 #include "config.h"
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 #include <mbedtls/md5.h>
+#include <mbedtls/version.h>
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 #include <polarssl/md5.h>
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 #include <openssl/md5.h>
 #endif
 
-#if defined(HAVE_DBUS)
+#if defined(CONFIG_DBUS_INTERFACE)
 #include <glib.h>
 #endif
 
-#if defined(HAVE_DACP_CLIENT)
-#include "dacp.h"
-#endif
-
-#if defined(HAVE_METADATA_HUB)
-#include "metadata_hub.h"
-#endif
-
-#ifdef HAVE_DBUS
-#include "dbus-service.h"
-#endif
-
-#ifdef HAVE_MPRIS
-#include "mpris-service.h"
-#endif
-
+#include "activity_monitor.h"
 #include "common.h"
-#include "mdns.h"
 #include "rtp.h"
 #include "rtsp.h"
 
+#if defined(CONFIG_DACP_CLIENT)
+#include "dacp.h"
+#endif
+
+#if defined(CONFIG_METADATA_HUB)
+#include "metadata_hub.h"
+#endif
+
+#ifdef CONFIG_DBUS_INTERFACE
+#include "dbus-service.h"
+#endif
+
+#ifdef CONFIG_MQTT
+#include "mqtt.h"
+#endif
+
+#ifdef CONFIG_MPRIS_INTERFACE
+#include "mpris-service.h"
+#endif
+
+#ifdef CONFIG_LIBDAEMON
 #include <libdaemon/dexec.h>
 #include <libdaemon/dfork.h>
 #include <libdaemon/dlog.h>
 #include <libdaemon/dpid.h>
 #include <libdaemon/dsignal.h>
+#else
+#include <syslog.h>
+#endif
 
 #ifdef CONFIG_CONVOLUTION
 #include <FFTConvolver/convolver.h>
 #endif
 
-static int shutting_down = 0;
+// static int shutting_down = 0;
 char configuration_file_path[4096 + 1];
 char actual_configuration_file_path[4096 + 1];
-
-void shairport_shutdown() {
-  if (shutting_down)
-    return;
-  shutting_down = 1;
-  mdns_unregister();
-  rtsp_request_shutdown_stream();
-  if (config.output)
-    config.output->deinit();
-}
 
 static void sig_ignore(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
                        __attribute__((unused)) void *baz) {}
 static void sig_shutdown(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
                          __attribute__((unused)) void *baz) {
-  debug(1, "shutdown requested...");
-  shairport_shutdown();
-  //  daemon_log(LOG_NOTICE, "exit...");
+  debug(2, "shutdown requested...");
+#ifdef CONFIG_LIBDAEMON
   daemon_retval_send(255);
   daemon_pid_file_remove();
+#endif
   exit(0);
 }
 
 static void sig_child(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
                       __attribute__((unused)) void *baz) {
+  // wait for child processes to exit
   pid_t pid;
   while ((pid = waitpid((pid_t)-1, 0, WNOHANG)) > 0) {
-    if (pid == mdns_pid && !shutting_down) {
-      die("MDNS child process died unexpectedly!");
-    }
   }
 }
 
@@ -157,12 +153,12 @@ void usage(char *progname) {
   printf("\n");
   printf("Options:\n");
   printf("    -h, --help              show this help.\n");
+#ifdef CONFIG_LIBDAEMON
   printf("    -d, --daemon            daemonise.\n");
   printf("    -j, --justDaemoniseNoPIDFile            daemonise without a PID file.\n");
-  printf("    -V, --version           show version information.\n");
   printf("    -k, --kill              kill the existing shairport daemon.\n");
-  printf("    -D, --disconnectFromOutput  disconnect immediately from the output device.\n");
-  printf("    -R, --reconnectToOutput  reconnect to the output device.\n");
+#endif
+  printf("    -V, --version           show version information.\n");
   printf("    -c, --configfile=FILE   read configuration settings from FILE. Default is "
          "/etc/shairport-sync.conf.\n");
 
@@ -174,7 +170,6 @@ void usage(char *progname) {
   printf("    -a, --name=NAME         set advertised name.\n");
   printf("    -L, --latency=FRAMES    [Deprecated] Set the latency for audio sent from an unknown "
          "device.\n");
-  printf("                            The default is to set it automatically.\n");
   printf("                            The default is to set it automatically.\n");
   printf("    -S, --stuffing=MODE set how to adjust current latency to match desired latency, "
          "where \n");
@@ -217,6 +212,7 @@ void usage(char *progname) {
   printf("                            The default is /tmp/shairport-sync-metadata.\n");
   printf("    --get-coverart          send cover art through the metadata pipe.\n");
 #endif
+  printf("    -u, --use-stderr          log messages through STDERR rather than syslog.\n");
   printf("\n");
   mdns_ls_backends();
   printf("\n");
@@ -233,15 +229,17 @@ int parse_options(int argc, char **argv) {
   int fResyncthreshold = (int)(config.resyncthreshold * 44100);
   int fTolerance = (int)(config.tolerance * 44100);
   poptContext optCon; /* context for parsing command-line options */
+#if CONFIG_LIBDAEMON      
   int daemonisewith = 0;
   int daemonisewithout = 0;
+#endif
   struct poptOption optionsTable[] = {
       {"verbose", 'v', POPT_ARG_NONE, NULL, 'v', NULL, NULL},
-      {"disconnectFromOutput", 'D', POPT_ARG_NONE, NULL, 0, NULL, NULL},
-      {"reconnectToOutput", 'R', POPT_ARG_NONE, NULL, 0, NULL, NULL},
+#if CONFIG_LIBDAEMON      
       {"kill", 'k', POPT_ARG_NONE, NULL, 0, NULL, NULL},
       {"daemon", 'd', POPT_ARG_NONE, &daemonisewith, 0, NULL, NULL},
       {"justDaemoniseNoPIDFile", 'j', POPT_ARG_NONE, &daemonisewithout, 0, NULL, NULL},
+#endif
       {"configfile", 'c', POPT_ARG_STRING, &config.configfile, 0, NULL, NULL},
       {"statistics", 0, POPT_ARG_NONE, &config.statistics_requested, 0, NULL, NULL},
       {"logOutputLevel", 0, POPT_ARG_NONE, &config.logOutputLevel, 0, NULL, NULL},
@@ -259,6 +257,7 @@ int parse_options(int argc, char **argv) {
       {"timeout", 't', POPT_ARG_INT, &config.timeout, 't', NULL, NULL},
       {"password", 0, POPT_ARG_STRING, &config.password, 0, NULL, NULL},
       {"tolerance", 'z', POPT_ARG_INT, &fTolerance, 0, NULL, NULL},
+      {"use-stderr", 'u', POPT_ARG_NONE, NULL, 'u', NULL, NULL},
 #ifdef CONFIG_METADATA
       {"metadata-pipename", 'M', POPT_ARG_STRING, &config.metadata_pipename, 'M', NULL, NULL},
       {"get-coverart", 'g', POPT_ARG_NONE, &config.get_coverart, 'g', NULL, NULL},
@@ -284,6 +283,9 @@ int parse_options(int argc, char **argv) {
     switch (c) {
     case 'v':
       debuglev++;
+      break;
+    case 'u':
+      log_to_stderr();
       break;
     case 'D':
       inform("Warning: the option -D or --disconnectFromOutput is deprecated.");
@@ -322,6 +324,7 @@ int parse_options(int argc, char **argv) {
 
   poptFreeContext(optCon);
 
+#ifdef CONFIG_LIBDAEMON
   if ((daemonisewith) && (daemonisewithout))
     die("Select either daemonize_with_pid_file or daemonize_without_pid_file -- you have selected "
         "both!");
@@ -330,6 +333,7 @@ int parse_options(int argc, char **argv) {
     if (daemonisewith)
       config.daemonise_store_pid = 1;
   };
+#endif
 
   config.resyncthreshold = 1.0 * fResyncthreshold / 44100;
   config.tolerance = 1.0 * fTolerance / 44100;
@@ -338,8 +342,13 @@ int parse_options(int argc, char **argv) {
                                  // nothing else comes in first.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
+  config.active_state_timeout = 10.0;
+  config.volume_range_hw_priority =
+      0; // if combining software and hardware volume control, give the software priority
+// i.e. when reducing volume, reduce the sw first before reducing the software.
+// this is because some hw mixers mute at the bottom of their range, and they don't always advertise this fact
 
-#ifdef HAVE_METADATA_HUB
+#ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
   config.scan_interval_when_active =
       1; // number of seconds between DACP server scans when playing something
@@ -370,12 +379,16 @@ int parse_options(int argc, char **argv) {
     debug(2, "Looking for configuration file at full path \"%s\"", config_file_real_path);
     /* Read the file. If there is an error, report it and exit. */
     if (config_read_file(&config_file_stuff, config_file_real_path)) {
+      free(config_file_real_path);
+      config_set_auto_convert(&config_file_stuff,
+                              1); // allow autoconversion from int/float to int/float
       // make config.cfg point to it
       config.cfg = &config_file_stuff;
       /* Get the Service Name. */
       if (config_lookup_string(config.cfg, "general.name", &str)) {
         raw_service_name = (char *)str;
       }
+#ifdef CONFIG_LIBDAEMON
       int daemonisewithout = 0;
       int daemonisewith = 0;
       /* Get the Daemonize setting. */
@@ -390,15 +403,9 @@ int parse_options(int argc, char **argv) {
       }
 
       /* Get the Just_Daemonize setting. */
-      if (config_lookup_string(config.cfg, "sessioncontrol.daemonize_without_pid_file", &str)) {
-        if (strcasecmp(str, "no") == 0)
-          daemonisewithout = 0;
-        else if (strcasecmp(str, "yes") == 0)
-          daemonisewithout = 1;
-        else
-          die("Invalid daemonize_without_pid_file option choice \"%s\". It should be \"yes\" or "
-              "\"no\"");
-      }
+      config_set_lookup_bool(config.cfg, "sessioncontrol.daemonize_without_pid_file",
+                             &daemonisewithout);
+
       if ((daemonisewith) && (daemonisewithout))
         die("Select either daemonize_with_pid_file or daemonize_without_pid_file -- you have "
             "selected both!");
@@ -410,7 +417,7 @@ int parse_options(int argc, char **argv) {
       /* Get the directory path for the pid file created when the program is daemonised. */
       if (config_lookup_string(config.cfg, "sessioncontrol.daemon_pid_dir", &str))
         config.piddir = (char *)str;
-
+#endif
       /* Get the mdns_backend setting. */
       if (config_lookup_string(config.cfg, "general.mdns_backend", &str))
         config.mdns_name = (char *)str;
@@ -440,8 +447,8 @@ int parse_options(int argc, char **argv) {
       /* Get the udp port range setting. This is number of ports that will be tried for free ports ,
        * starting at the port base. Only three ports are needed. */
       if (config_lookup_int(config.cfg, "general.udp_port_range", &value)) {
-        if ((value < 0) || (value > 65535))
-          die("Invalid port range  \"%sd\". It should be between 0 and 65535, default is 100",
+        if ((value < 3) || (value > 65535))
+          die("Invalid port range  \"%sd\". It should be between 3 and 65535, default is 10",
               value);
         else
           config.udp_port_range = value;
@@ -455,7 +462,7 @@ int parse_options(int argc, char **argv) {
         if (strcasecmp(str, "basic") == 0)
           config.packet_stuffing = ST_basic;
         else if (strcasecmp(str, "soxr") == 0)
-#ifdef HAVE_LIBSOXR
+#ifdef CONFIG_SOXR
           config.packet_stuffing = ST_soxr;
 #else
           die("The soxr option not available because this version of shairport-sync was built "
@@ -467,7 +474,8 @@ int parse_options(int argc, char **argv) {
       }
 
       /* Get the statistics setting. */
-      if (config_lookup_string(config.cfg, "general.statistics", &str)) {
+      if (config_set_lookup_bool(config.cfg, "general.statistics",
+                                 &(config.statistics_requested))) {
         warn("The \"general\" \"statistics\" setting is deprecated. Please use the \"diagnostics\" "
              "\"statistics\" setting instead.");
         if (strcasecmp(str, "no") == 0)
@@ -631,6 +639,9 @@ int parse_options(int argc, char **argv) {
               "or \"flat\"");
       }
 
+      config_set_lookup_bool(config.cfg, "general.volume_control_combined_hardware_priority",
+                             &config.volume_range_hw_priority);
+
       /* Get the interface to listen on, if specified Default is all interfaces */
       /* we keep the interface name and the index */
 
@@ -747,6 +758,30 @@ int parse_options(int argc, char **argv) {
         config.cmd_stop = (char *)str;
       }
 
+      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_before_entering_active_state",
+                               &str)) {
+        config.cmd_active_start = (char *)str;
+      }
+
+      if (config_lookup_string(config.cfg, "sessioncontrol.run_this_after_exiting_active_state",
+                               &str)) {
+        config.cmd_active_stop = (char *)str;
+      }
+
+      if (config_lookup_float(config.cfg, "sessioncontrol.active_state_timeout", &dvalue)) {
+        if (dvalue < 0.0)
+          warn("Invalid value \"%f\" for sessioncontrol.active_state_timeout. It must be positive. "
+               "The default of %f will be used instead.",
+               dvalue, config.active_state_timeout);
+        else
+          config.active_state_timeout = dvalue;
+      }
+
+      if (config_lookup_string(config.cfg,
+                               "sessioncontrol.run_this_if_an_unfixable_error_is_detected", &str)) {
+        config.cmd_unfixable = (char *)str;
+      }
+
       if (config_lookup_string(config.cfg, "sessioncontrol.wait_for_completion", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.cmd_blocking = 0;
@@ -846,14 +881,14 @@ int parse_options(int argc, char **argv) {
 
     } else {
       if (config_error_type(&config_file_stuff) == CONFIG_ERR_FILE_IO)
-        debug(1, "Error reading configuration file \"%s\": \"%s\".",
+        debug(2, "Error reading configuration file \"%s\": \"%s\".",
               config_error_file(&config_file_stuff), config_error_text(&config_file_stuff));
       else {
         die("Line %d of the configuration file \"%s\":\n%s", config_error_line(&config_file_stuff),
             config_error_file(&config_file_stuff), config_error_text(&config_file_stuff));
       }
     }
-#if defined(HAVE_DBUS)
+#if defined(CONFIG_DBUS_INTERFACE)
     /* Get the dbus service sbus setting. */
     if (config_lookup_string(config.cfg, "general.dbus_service_bus", &str)) {
       if (strcasecmp(str, "system") == 0)
@@ -866,7 +901,7 @@ int parse_options(int argc, char **argv) {
     }
 #endif
 
-#if defined(HAVE_MPRIS)
+#if defined(CONFIG_MPRIS_INTERFACE)
     /* Get the mpris service sbus setting. */
     if (config_lookup_string(config.cfg, "general.mpris_service_bus", &str)) {
       if (strcasecmp(str, "system") == 0)
@@ -879,7 +914,62 @@ int parse_options(int argc, char **argv) {
     }
 #endif
 
-    free(config_file_real_path);
+#ifdef CONFIG_MQTT
+    int tmpval = 0;
+    config_set_lookup_bool(config.cfg, "mqtt.enabled", &config.mqtt_enabled);
+    if (config.mqtt_enabled && !config.metadata_enabled) {
+      die("You need to have metadata enabled in order to use mqtt");
+    }
+    if (config_lookup_string(config.cfg, "mqtt.hostname", &str)) {
+      config.mqtt_hostname = (char *)str;
+      // TODO: Document that, if this is false, whole mqtt func is disabled
+    }
+    if (config_lookup_int(config.cfg, "mqtt.port", &tmpval)) {
+      config.mqtt_port = tmpval;
+    } else {
+      // TODO: Is this the correct way to set a default value?
+      config.mqtt_port = 1883;
+    }
+
+    if (config_lookup_string(config.cfg, "mqtt.username", &str)) {
+      config.mqtt_username = (char *)str;
+    }
+    if (config_lookup_string(config.cfg, "mqtt.password", &str)) {
+      config.mqtt_password = (char *)str;
+    }
+    int capath = 0;
+    if (config_lookup_string(config.cfg, "mqtt.capath", &str)) {
+      config.mqtt_capath = (char *)str;
+      capath = 1;
+    }
+    if (config_lookup_string(config.cfg, "mqtt.cafile", &str)) {
+      if (capath)
+        die("Supply either mqtt cafile or mqtt capath -- you have supplied both!");
+      config.mqtt_cafile = (char *)str;
+    }
+    int certkeynum = 0;
+    if (config_lookup_string(config.cfg, "mqtt.certfile", &str)) {
+      config.mqtt_certfile = (char *)str;
+      certkeynum++;
+    }
+    if (config_lookup_string(config.cfg, "mqtt.keyfile", &str)) {
+      config.mqtt_keyfile = (char *)str;
+      certkeynum++;
+    }
+    if (certkeynum != 0 && certkeynum != 2) {
+      die("If you want to use TLS Client Authentication, you have to specify "
+          "mqtt.certfile AND mqtt.keyfile.\nYou have supplied only one of them.\n"
+          "If you do not want to use TLS Client Authentication, leave both empty.");
+    }
+
+    if (config_lookup_string(config.cfg, "mqtt.topic", &str)) {
+      config.mqtt_topic = (char *)str;
+    }
+    config_set_lookup_bool(config.cfg, "mqtt.publish_raw", &config.mqtt_publish_raw);
+    config_set_lookup_bool(config.cfg, "mqtt.publish_parsed", &config.mqtt_publish_parsed);
+    config_set_lookup_bool(config.cfg, "mqtt.publish_cover", &config.mqtt_publish_cover);
+    config_set_lookup_bool(config.cfg, "mqtt.enable_remote", &config.mqtt_enable_remote);
+#endif
   }
 
   // now, do the command line options again, but this time do them fully -- it's a unix convention
@@ -925,7 +1015,7 @@ int parse_options(int argc, char **argv) {
       if (strcmp(stuffing, "basic") == 0)
         config.packet_stuffing = ST_basic;
       else if (strcmp(stuffing, "soxr") == 0)
-#ifdef HAVE_LIBSOXR
+#ifdef CONFIG_SOXR
         config.packet_stuffing = ST_soxr;
 #else
         die("The soxr option not available because this version of shairport-sync was built "
@@ -978,8 +1068,20 @@ int parse_options(int argc, char **argv) {
   free(i3);
   free(vs);
 
+#ifdef CONFIG_MQTT
+  // mqtt topic was not set. As we have the service name just now, set it
+  if (config.mqtt_topic == NULL) {
+    int topic_length = 1 + strlen(config.service_name) + 1;
+    char *topic = malloc(topic_length + 1);
+    snprintf(topic, topic_length, "/%s/", config.service_name);
+    config.mqtt_topic = topic;
+  }
+#endif
+
+#ifdef CONFIG_LIBDAEMON
+
 // now, check and calculate the pid directory
-#ifdef USE_CUSTOM_PID_DIR
+#ifdef DEFINED_CUSTOM_PID_DIR
   char *use_this_pid_dir = PIDDIR;
 #else
   char *use_this_pid_dir = "/var/run/shairport-sync";
@@ -989,18 +1091,19 @@ int parse_options(int argc, char **argv) {
     use_this_pid_dir = config.piddir;
   if (use_this_pid_dir)
     config.computed_piddir = strdup(use_this_pid_dir);
-
+#endif
   return optind + 1;
 }
 
-#if defined(HAVE_DBUS) || defined(HAVE_MPRIS)
-GMainLoop *loop;
+#if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
+static GMainLoop *g_main_loop = NULL;
 
 pthread_t dbus_thread;
 void *dbus_thread_func(__attribute__((unused)) void *arg) {
-  loop = g_main_loop_new(NULL, FALSE);
-  g_main_loop_run(loop);
-  return NULL;
+  g_main_loop = g_main_loop_new(NULL, FALSE);
+  g_main_loop_run(g_main_loop);
+  debug(2, "g_main_loop thread exit");
+  pthread_exit(NULL);
 }
 #endif
 
@@ -1044,14 +1147,7 @@ void signal_setup(void) {
   sigaction(SIGCHLD, &sa, NULL);
 }
 
-// forked daemon lets the spawner know it's up and running OK
-// should be called only once!
-void shairport_startup_complete(void) {
-  if (config.daemonise) {
-    //        daemon_ready();
-  }
-}
-
+#ifdef CONFIG_LIBDAEMON
 char pid_file_path_string[4096] = "\0";
 
 const char *pid_file_proc(void) {
@@ -1060,9 +1156,75 @@ const char *pid_file_proc(void) {
   // debug(1,"pid_file_path_string \"%s\".",pid_file_path_string);
   return pid_file_path_string;
 }
+#endif
+
+void main_cleanup_handler(__attribute__((unused)) void *arg) {
+  // it doesn't look like this is called when the main function is cancelled eith a pthread cancel.
+  debug(2, "main cleanup handler called.");
+#ifdef CONFIG_MQTT
+  if (config.mqtt_enabled) {
+    // terminate_mqtt();
+  }
+#endif
+
+#if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
+#ifdef CONFIG_MPRIS_INTERFACE
+// stop_mpris_service();
+#endif
+#ifdef CONFIG_DBUS_INTERFACE
+  stop_dbus_service();
+#endif
+  if (g_main_loop) {
+    debug(2, "Stopping DBUS Loop Thread");
+    g_main_loop_quit(g_main_loop);
+    pthread_join(dbus_thread, NULL);
+  }
+#endif
+
+#ifdef CONFIG_DACP_CLIENT
+  debug(2, "Stopping DACP Monitor");
+  dacp_monitor_stop();
+#endif
+
+#ifdef CONFIG_METADATA_HUB
+  debug(2, "Stopping metadata hub");
+  metadata_hub_stop();
+#endif
+
+#ifdef CONFIG_METADATA
+  metadata_stop(); // close down the metadata pipe
+#endif
+
+  activity_monitor_stop(0);
+
+  if ((config.output) && (config.output->deinit)) {
+    debug(2, "Deinitialise the audio backend.");
+    config.output->deinit();
+  }
+#ifdef CONFIG_LIBDAEMON
+  daemon_retval_send(0);
+  daemon_pid_file_remove();
+  daemon_signal_done();
+#endif  
+  debug(2, "Exit...");
+  exit(0);
+}
 
 void exit_function() {
-  // debug(1, "exit function called...");
+  debug(2, "exit function called...");
+  main_cleanup_handler(NULL);
+  if (conns)
+    free(conns); // make sure the connections have been deleted first
+  if (config.service_name)
+    free(config.service_name);
+  if (config.regtype)
+    free(config.regtype);
+#ifdef CONFIG_LIBDAEMON
+  if (config.computed_piddir)
+    free(config.computed_piddir);
+#endif
+  if (ranarray)
+    free((void *)ranarray);
   if (config.cfg)
     config_destroy(config.cfg);
   if (config.appName)
@@ -1071,14 +1233,12 @@ void exit_function() {
 }
 
 int main(int argc, char **argv) {
+  conns = NULL; // no connections active
+  memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
+  memset(&config, 0, sizeof(config)); // also clears all strings, BTW
   fp_time_at_startup = get_absolute_time_in_fp();
   fp_time_at_last_debug_message = fp_time_at_startup;
-  //  debug(1,"startup");
-  daemon_set_verbosity(LOG_DEBUG);
-  memset(&config, 0, sizeof(config)); // also clears all strings, BTW
-  atexit(exit_function);
-
-  // this is a bit weird, but apparently necessary
+  // this is a bit weird, but necessary -- basename() may modify the argument passed in
   char *basec = strdup(argv[0]);
   char *bname = basename(basec);
   config.appName = strdup(bname);
@@ -1086,9 +1246,18 @@ int main(int argc, char **argv) {
     die("can not allocate memory for the app name!");
   free(basec);
 
+  //  debug(1,"startup");
+#ifdef CONFIG_LIBDAEMON
+  daemon_set_verbosity(LOG_DEBUG);
+#else
+  setlogmask (LOG_UPTO (LOG_DEBUG));
+  openlog(NULL,0,LOG_DAEMON);
+#endif
+  atexit(exit_function);
+
   // set defaults
 
-  // get thje endianness
+  // get the endianness
   union {
     uint32_t u32;
     uint8_t arr[4];
@@ -1136,12 +1305,12 @@ int main(int argc, char **argv) {
       1); // we expect to be able to connect to the output device
   config.audio_backend_buffer_desired_length = 6615; // 0.15 seconds.
   config.udp_port_base = 6001;
-  config.udp_port_range = 100;
+  config.udp_port_range = 10;
   config.output_format = SPS_FORMAT_S16; // default
   config.output_rate = 44100;            // default
   config.decoders_supported =
       1 << decoder_hammerton; // David Hammerton's decoder supported by default
-#ifdef HAVE_APPLE_ALAC
+#ifdef CONFIG_APPLE_ALAC
   config.decoders_supported += 1 << decoder_apple_alac;
 #endif
 
@@ -1165,6 +1334,8 @@ int main(int argc, char **argv) {
     exit(1);
   }
 
+#ifdef CONFIG_LIBDAEMON
+
   pid_t pid;
 
   /* Reset signal handlers */
@@ -1183,45 +1354,23 @@ int main(int argc, char **argv) {
   daemon_pid_file_ident = daemon_log_ident = daemon_ident_from_argv0(argv[0]);
 
   daemon_pid_file_proc = pid_file_proc;
-  
-  /* Check if we are called with -D or --disconnectFromOutput parameter */
-  if (argc >= 2 &&
-      ((strcmp(argv[1], "-D") == 0) || (strcmp(argv[1], "--disconnectFromOutput") == 0))) {
-    if ((pid = daemon_pid_file_is_running()) >= 0) {
-      if (kill(pid, SIGUSR2) != 0) { // try to send the signal
-        daemon_log(LOG_WARNING,
-                   "Failed trying to send disconnectFromOutput command to daemon pid: %d: %s", pid,
-                   strerror(errno));
-      }
-    } else {
-      daemon_log(LOG_WARNING,
-                 "Can't send a disconnectFromOutput request -- Failed to find daemon: %s",
-                 strerror(errno));
-    }
-    exit(1);
-  }
 
-  /* Check if we are called with -R or --reconnectToOutput parameter */
-  if (argc >= 2 &&
-      ((strcmp(argv[1], "-R") == 0) || (strcmp(argv[1], "--reconnectToOutput") == 0))) {
-    if ((pid = daemon_pid_file_is_running()) >= 0) {
-      if (kill(pid, SIGHUP) != 0) { // try to send the signal
-        daemon_log(LOG_WARNING,
-                   "Failed trying to send reconnectToOutput command to daemon pid: %d: %s", pid,
-                   strerror(errno));
-      }
-    } else {
-      daemon_log(LOG_WARNING, "Can't send a reconnectToOutput request -- Failed to find daemon: %s",
-                 strerror(errno));
-    }
-    exit(1);
-  }
+#endif
+
 
   // parse arguments into config -- needed to locate pid_dir
   int audio_arg = parse_options(argc, argv);
 
+  // mDNS supports maximum of 63-character names (we append 13).
+  if (strlen(config.service_name) > 50) {
+    warn("Supplied name too long (max 50 characters)");
+    config.service_name[50] = '\0'; // truncate it and carry on...
+  }
+
   /* Check if we are called with -k or --kill parameter */
   if (argc >= 2 && ((strcmp(argv[1], "-k") == 0) || (strcmp(argv[1], "--kill") == 0))) {
+  
+#ifdef CONFIG_LIBDAEMON
     int ret;
 
     /* Kill daemon with SIGTERM */
@@ -1231,18 +1380,18 @@ int main(int argc, char **argv) {
     else
       daemon_pid_file_remove();
     return ret < 0 ? 1 : 0;
+#else
+    syslog(LOG_ERR, "shairport-sync was built without support for the -k or --kill option");
+    return 1;
+#endif
+
   }
 
+#ifdef CONFIG_LIBDAEMON
   /* If we are going to daemonise, check that the daemon is not running already.*/
   if ((config.daemonise) && ((pid = daemon_pid_file_is_running()) >= 0)) {
     daemon_log(LOG_ERR, "Daemon already running on PID file %u", pid);
     return 1;
-  }
-
-  // mDNS supports maximum of 63-character names (we append 13).
-  if (strlen(config.service_name) > 50) {
-    warn("Supplied name too long (max 50 characters)");
-    config.service_name[50] = '\0'; // truncate it and carry on...
   }
 
   /* here, daemonise with libdaemon */
@@ -1293,10 +1442,11 @@ int main(int argc, char **argv) {
       /* Close FDs */
       if (daemon_close_all(-1) < 0) {
         daemon_log(LOG_ERR, "Failed to close all file descriptors: %s", strerror(errno));
-
         /* Send the error condition to the parent process */
         daemon_retval_send(1);
-        goto finish;
+
+        daemon_signal_done();
+        return 0;
       }
 
       /* Create the PID file if required */
@@ -1307,12 +1457,16 @@ int main(int argc, char **argv) {
         if ((result != 0) && (result != -EEXIST)) {
           // error creating or accessing the PID file directory
           daemon_retval_send(3);
-          goto finish;
+
+          daemon_signal_done();
+          return 0;
         }
         if (daemon_pid_file_create() < 0) {
           daemon_log(LOG_ERR, "Could not create PID file (%s).", strerror(errno));
+
           daemon_retval_send(2);
-          goto finish;
+          daemon_signal_done();
+          return 0;
         }
       }
 
@@ -1321,6 +1475,12 @@ int main(int argc, char **argv) {
     }
     /* end libdaemon stuff */
   }
+
+#endif
+
+  main_thread_id = pthread_self();
+  if (!main_thread_id)
+    debug(1, "Main thread is set up to be NULL!");
 
   signal_setup();
 
@@ -1333,6 +1493,8 @@ int main(int argc, char **argv) {
     die("Invalid audio output specified!");
   }
   config.output->init(argc - audio_arg, argv + audio_arg);
+
+  pthread_cleanup_push(main_cleanup_handler, NULL);
 
   // daemon_log(LOG_NOTICE, "startup");
 
@@ -1374,25 +1536,36 @@ int main(int argc, char **argv) {
 
   char *version_dbs = get_version_string();
   if (version_dbs) {
-    debug(1, "Version: \"%s\"", version_dbs);
+    debug(1, "software version: \"%s\"", version_dbs);
     free(version_dbs);
   } else {
-    debug(1, "Can't print the version information!");
+    debug(1, "can't print the version information!");
   }
 
   /* Print out options */
+  debug(1, "log verbosity is %d.", debuglev);
+  debug(1, "disable resend requests is %s.", config.disable_resend_requests ? "on" : "off");
+  debug(1, "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
+           "deliberately.",
+        config.diagnostic_drop_packet_fraction);
   debug(1, "statistics_requester status is %d.", config.statistics_requested);
+#if CONFIG_LIBDAEMON
   debug(1, "daemon status is %d.", config.daemonise);
   debug(1, "deamon pid file path is \"%s\".", pid_file_proc());
+#endif
   debug(1, "rtsp listening port is %d.", config.port);
   debug(1, "udp base port is %d.", config.udp_port_base);
   debug(1, "udp port range is %d.", config.udp_port_range);
   debug(1, "player name is \"%s\".", config.service_name);
   debug(1, "backend is \"%s\".", config.output_name);
-  debug(1, "on-start action is \"%s\".", config.cmd_start);
-  debug(1, "on-stop action is \"%s\".", config.cmd_stop);
+  debug(1, "run_this_before_play_begins action is \"%s\".", config.cmd_start);
+  debug(1, "run_this_after_play_ends action is \"%s\".", config.cmd_stop);
   debug(1, "wait-cmd status is %d.", config.cmd_blocking);
-  debug(1, "on-start returns output is %d.", config.cmd_start_returns_output);
+  debug(1, "run_this_before_play_begins may return output is %d.", config.cmd_start_returns_output);
+  debug(1, "run_this_if_an_unfixable_error_is_detected action is \"%s\".", config.cmd_unfixable);
+  debug(1, "run_this_before_entering_active_state action is  \"%s\".", config.cmd_active_start);
+  debug(1, "run_this_after_exiting_active_state action is  \"%s\".", config.cmd_active_stop);
+  debug(1, "active_state_timeout is  %f seconds.", config.active_state_timeout);
   debug(1, "mdns backend \"%s\".", config.mdns_name);
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
   debug(1, "stuffing option is \"%d\" (0-basic, 1-soxr).", config.packet_stuffing);
@@ -1406,6 +1579,12 @@ int main(int argc, char **argv) {
     debug(1, "volume_max_db is %d.", config.volume_max_db);
   else
     debug(1, "volume_max_db is not set");
+  debug(1, "volume range in dB (zero means use the range specified by the mixer): %u.",
+        config.volume_range_db);
+  debug(
+      1,
+      "volume_range_combined_hardware_priority (1 means hardware mixer attenuation is used first) is %d.",
+      config.volume_range_hw_priority);
   debug(1, "playback_mode is %d (0-stereo, 1-mono, 1-reverse_stereo, 2-both_left, 3-both_right).",
         config.playback_mode);
   debug(1, "disable_synchronization is %d.", config.no_sync);
@@ -1419,8 +1598,6 @@ int main(int argc, char **argv) {
   debug(1, "audio backend latency offset is %f seconds.", config.audio_backend_latency_offset);
   debug(1, "audio backend silence lead-in time is %f seconds. A value -1.0 means use the default.",
         config.audio_backend_silent_lead_in_time);
-  debug(1, "volume range in dB (zero means use the range specified by the mixer): %u.",
-        config.volume_range_db);
   debug(1, "zeroconf regtype is \"%s\".", config.regtype);
   debug(1, "decoders_supported field is %d.", config.decoders_supported);
   debug(1, "use_apple_decoder is %d.", config.use_apple_decoder);
@@ -1454,28 +1631,31 @@ int main(int argc, char **argv) {
 #endif
   debug(1, "loudness is %d.", config.loudness);
   debug(1, "loudness reference level is %f", config.loudness_reference_volume_db);
-  debug(1, "disable resend requests is %s.", config.disable_resend_requests ? "on" : "off");
-  debug(1, "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
-           "deliberately.",
-        config.diagnostic_drop_packet_fraction);
 
   uint8_t ap_md5[16];
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
   MD5_Init(&ctx);
   MD5_Update(&ctx, config.service_name, strlen(config.service_name));
   MD5_Final(ap_md5, &ctx);
 #endif
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
+#if MBEDTLS_VERSION_MINOR >= 7
+  mbedtls_md5_context tctx;
+  mbedtls_md5_starts_ret(&tctx);
+  mbedtls_md5_update_ret(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
+  mbedtls_md5_finish_ret(&tctx, ap_md5);
+#else
   mbedtls_md5_context tctx;
   mbedtls_md5_starts(&tctx);
   mbedtls_md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
   mbedtls_md5_finish(&tctx, ap_md5);
 #endif
+#endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
   md5_context tctx;
   md5_starts(&tctx);
   md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
@@ -1486,36 +1666,44 @@ int main(int argc, char **argv) {
   metadata_init(); // create the metadata pipe if necessary
 #endif
 
-#ifdef HAVE_METADATA_HUB
+#ifdef CONFIG_METADATA_HUB
   // debug(1, "Initialising metadata hub");
   metadata_hub_init();
 #endif
 
-#ifdef HAVE_DACP_CLIENT
+#ifdef CONFIG_DACP_CLIENT
   // debug(1, "Requesting DACP Monitor");
   dacp_monitor_start();
 #endif
 
-#if defined(HAVE_DBUS) || defined(HAVE_MPRIS)
+#if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
   // Start up DBUS services after initial settings are all made
   // debug(1, "Starting up D-Bus services");
   pthread_create(&dbus_thread, NULL, &dbus_thread_func, NULL);
-#ifdef HAVE_DBUS
+#ifdef CONFIG_DBUS_INTERFACE
   start_dbus_service();
 #endif
-#ifdef HAVE_MPRIS
+#ifdef CONFIG_MPRIS_INTERFACE
   start_mpris_service();
 #endif
 #endif
 
+#ifdef CONFIG_MQTT
+  if (config.mqtt_enabled) {
+    initialise_mqtt();
+  }
+
+  activity_monitor_start();
+
+>>>>>>> development
   // daemon_log(LOG_INFO, "Successful Startup");
   rtsp_listen_loop();
 
   // should not reach this...
-  shairport_shutdown();
-finish:
-  daemon_log(LOG_NOTICE, "Unexpected exit...");
-  daemon_retval_send(255);
-  daemon_pid_file_remove();
-  return 1;
+  // daemon_log(LOG_NOTICE, "Unexpected exit...");
+  // daemon_retval_send(0);
+  // daemon_pid_file_remove();
+  pthread_cleanup_pop(1);
+  debug(1, "Odd exit point");
+  pthread_exit(NULL);
 }

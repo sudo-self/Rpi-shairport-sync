@@ -33,7 +33,7 @@ static int init(int, char **);
 static void onmove_cb(void *, int);
 static void deinit(void);
 static void start(int, int);
-static void play(void *, int);
+static int play(void *, int);
 static void stop(void);
 static void onmove_cb(void *, int);
 static int delay(long *);
@@ -45,6 +45,7 @@ audio_output audio_sndio = {.name = "sndio",
                             .deinit = &deinit,
                             .start = &start,
                             .stop = &stop,
+                            .is_running = NULL,
                             .flush = &flush,
                             .delay = &delay,
                             .play = &play,
@@ -64,20 +65,21 @@ struct sio_par par;
 struct sndio_formats {
   const char *name;
   enum sps_format_t fmt;
-
+  unsigned int rate;
   unsigned int bits;
   unsigned int bps;
   unsigned int sig;
   unsigned int le;
 };
 
-static struct sndio_formats formats[] = {{"S8", SPS_FORMAT_S8, 8, 1, 1, SIO_LE_NATIVE},
-                                         {"U8", SPS_FORMAT_U8, 8, 1, 0, SIO_LE_NATIVE},
-                                         {"S16", SPS_FORMAT_S16, 16, 2, 1, SIO_LE_NATIVE},
-                                         {"S24", SPS_FORMAT_S24, 24, 4, 1, SIO_LE_NATIVE},
-                                         {"S24_3LE", SPS_FORMAT_S24_3LE, 24, 3, 1, 1},
-                                         {"S24_3BE", SPS_FORMAT_S24_3BE, 24, 3, 1, 0},
-                                         {"S32", SPS_FORMAT_S32, 24, 4, 1, SIO_LE_NATIVE}};
+static struct sndio_formats formats[] = {{"S8", SPS_FORMAT_S8, 44100, 8, 1, 1, SIO_LE_NATIVE},
+                                         {"U8", SPS_FORMAT_U8, 44100, 8, 1, 0, SIO_LE_NATIVE},
+                                         {"S16", SPS_FORMAT_S16, 44100, 16, 2, 1, SIO_LE_NATIVE},
+                                         {"AUTOMATIC", SPS_FORMAT_S16, 44100, 16, 2, 1, SIO_LE_NATIVE}, // TODO: make this really automatic?
+                                         {"S24", SPS_FORMAT_S24, 44100, 24, 4, 1, SIO_LE_NATIVE},
+                                         {"S24_3LE", SPS_FORMAT_S24_3LE, 44100, 24, 3, 1, 1},
+                                         {"S24_3BE", SPS_FORMAT_S24_3BE, 44100, 24, 3, 1, 0},
+                                         {"S32", SPS_FORMAT_S32, 44100, 24, 4, 1, SIO_LE_NATIVE}};
 
 static void help() { printf("    -d output-device    set the output device [default*|...]\n"); }
 
@@ -98,6 +100,9 @@ static int init(int argc, char **argv) {
   devname = SIO_DEVANY;
 
   config.audio_backend_buffer_desired_length = 1.0;
+  config.audio_backend_buffer_interpolation_threshold_in_seconds =
+      0.25; // below this, soxr interpolation will not occur -- it'll be basic interpolation
+            // instead.
   config.audio_backend_latency_offset = 0;
 
   // get settings from settings file
@@ -142,7 +147,7 @@ static int init(int argc, char **argv) {
       }
       if (!found)
         die("Invalid output format \"%s\". Should be one of: S8, U8, S16, S24, "
-            "S24_3LE, S24_3BE, S32",
+            "S24_3LE, S24_3BE, S32, Automatic",
             tmp);
     }
   }
@@ -170,6 +175,7 @@ static int init(int argc, char **argv) {
   written = played = 0;
   time_of_last_onmove_cb = 0;
   at_least_one_onmove_cb_seen = 0;
+  
 
   for (i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (formats[i].fmt == config.output_format) {
@@ -180,19 +186,20 @@ static int init(int argc, char **argv) {
       break;
     }
   }
-
+  
   if (!sio_setpar(hdl, &par) || !sio_getpar(hdl, &par))
     die("sndio: failed to set audio parameters");
   for (i = 0, found = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (formats[i].bits == par.bits && formats[i].bps == par.bps && formats[i].sig == par.sig &&
-        formats[i].le == par.le) {
+        formats[i].le == par.le && formats[i].rate == par.rate) {
       config.output_format = formats[i].fmt;
       found = 1;
       break;
     }
   }
   if (!found)
-    die("sndio: failed to negotiate audio parameters");
+    die("sndio: could not set output device to the required format and rate.");
+  
 
   framesize = par.bps * par.pchan;
   config.output_rate = par.rate;
@@ -222,12 +229,13 @@ static void start(__attribute__((unused)) int sample_rate,
   pthread_mutex_unlock(&sndio_mutex);
 }
 
-static void play(void *buf, int frames) {
+static int play(void *buf, int frames) {
   if (frames > 0) {
     pthread_mutex_lock(&sndio_mutex);
     written += sio_write(hdl, buf, frames * framesize);
     pthread_mutex_unlock(&sndio_mutex);
   }
+  return 0;
 }
 
 static void stop() {

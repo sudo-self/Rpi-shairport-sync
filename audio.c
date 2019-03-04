@@ -1,6 +1,7 @@
 /*
  * Audio driver handler. This file is part of Shairport.
  * Copyright (c) James Laird 2013
+ * Modifications (c) Mike Brady 2014 -- 2018
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -30,6 +31,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef CONFIG_JACK
+extern audio_output audio_jack;
+#endif
 #ifdef CONFIG_SNDIO
 extern audio_output audio_sndio;
 #endif
@@ -65,6 +69,9 @@ static audio_output *outputs[] = {
 #ifdef CONFIG_PA
     &audio_pa,
 #endif
+#ifdef CONFIG_JACK
+    &audio_jack,
+#endif
 #ifdef CONFIG_AO
     &audio_ao,
 #endif
@@ -99,14 +106,18 @@ audio_output *audio_get_output(char *name) {
 void audio_ls_outputs(void) {
   audio_output **out;
 
-  printf("Available audio outputs:\n");
+  printf("Available audio backends:\n");
   for (out = outputs; *out; out++)
     printf("    %s%s\n", (*out)->name, out == outputs ? " (default)" : "");
 
   for (out = outputs; *out; out++) {
     printf("\n");
-    printf("Options for output %s:\n", (*out)->name);
-    (*out)->help();
+    if ((*out)->help) {
+      printf("Settings and options for the audio backend \"%s\":\n", (*out)->name);
+      (*out)->help();
+    } else {
+      printf("There are no settings or options for the audio backend \"%s\".\n", (*out)->name);    
+    }
   }
 }
 
@@ -146,6 +157,21 @@ void parse_general_audio_options(void) {
       }
     }
 
+    /* Get the minumum buffer size for fancy interpolation setting in seconds. */
+    if (config_lookup_float(config.cfg,
+                            "general.audio_backend_buffer_interpolation_threshold_in_seconds",
+                            &dvalue)) {
+      if ((dvalue < 0) || (dvalue > config.audio_backend_buffer_desired_length)) {
+        die("Invalid audio_backend_buffer_interpolation_threshold_in_seconds value: \"%f\". It "
+            "should be between 0 and "
+            "audio_backend_buffer_desired_length_in_seconds of %.3f, default is %.3f seconds",
+            dvalue, config.audio_backend_buffer_desired_length,
+            config.audio_backend_buffer_interpolation_threshold_in_seconds);
+      } else {
+        config.audio_backend_buffer_interpolation_threshold_in_seconds = dvalue;
+      }
+    }
+
     /* Get the latency offset (deprecated). */
     if (config_lookup_int(config.cfg, "general.audio_backend_latency_offset", &value)) {
       if ((value < -66150) || (value > 66150)) {
@@ -164,9 +190,9 @@ void parse_general_audio_options(void) {
     /* Get the latency offset in seconds. */
     if (config_lookup_float(config.cfg, "general.audio_backend_latency_offset_in_seconds",
                             &dvalue)) {
-      if ((dvalue < -1.0) || (dvalue > 1.5)) {
+      if ((dvalue < -1.75) || (dvalue > 1.75)) {
         die("Invalid audio_backend_latency_offset_in_seconds \"%f\". It "
-            "should be between -1.0 and +1.5, default is 0 seconds",
+            "should be between -1.75 and +1.75, default is 0 seconds",
             dvalue);
       } else {
         config.audio_backend_latency_offset = dvalue;

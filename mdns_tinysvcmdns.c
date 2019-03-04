@@ -164,5 +164,6 @@ static void mdns_tinysvcmdns_unregister(void) {
 mdns_backend mdns_tinysvcmdns = {.name = "tinysvcmdns",
                                  .mdns_register = mdns_tinysvcmdns_register,
                                  .mdns_unregister = mdns_tinysvcmdns_unregister,
-                                 .mdns_dacp_monitor = NULL,
-                                 .mdns_dacp_dont_monitor = NULL};
+                                 .mdns_dacp_monitor_start = NULL,
+                                 .mdns_dacp_monitor_set_id = NULL,
+                                 .mdns_dacp_monitor_stop = NULL};

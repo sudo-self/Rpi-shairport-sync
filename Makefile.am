@@ -1,19 +1,25 @@
 SUBDIRS = man
+ARFLAGS = cr
+lib_dbus_interface_a_CFLAGS = -pthread
+lib_mpris_interface_a_CFLAGS = -pthread
+
 
 bin_PROGRAMS = shairport-sync
 
 # See below for the flags for the test client program
 
-shairport_sync_SOURCES = shairport.c rtsp.c mdns.c mdns_external.c common.c rtp.c player.c alac.c audio.c loudness.c
+shairport_sync_SOURCES = shairport.c rtsp.c mdns.c common.c rtp.c player.c alac.c audio.c loudness.c activity_monitor.c
 
-AM_CFLAGS = -Wno-multichar -Wall -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
 if BUILD_FOR_FREEBSD
-  AM_CPPFLAGS = -I/usr/local/include -Wno-multichar -DSYSCONFDIR=\"$(sysconfdir)\" -O2
+  AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
+  AM_CFLAGS = -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
 else
 if BUILD_FOR_OPENBSD
-  AM_CPPFLAGS = -I/usr/local/include -Wno-multichar -DSYSCONFDIR=\"$(sysconfdir)\"
+  AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
+  AM_CFLAGS = -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
 else
-  AM_CPPFLAGS = -Wno-multichar -DSYSCONFDIR=\"$(sysconfdir)\"
+  AM_CXXFLAGS = -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
+  AM_CFLAGS = -Wno-multichar -Wall -Wextra -Wno-clobbered -Wno-psabi -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
 endif
 endif
 
@@ -34,8 +40,16 @@ if USE_TINYSVCMDNS
 shairport_sync_SOURCES += mdns_tinysvcmdns.c tinysvcmdns.c
 endif
 
+if USE_EXTERNAL_MDNS
+shairport_sync_SOURCES += mdns_external.c
+endif
+
 if USE_ALSA
 shairport_sync_SOURCES += audio_alsa.c
+endif
+
+if USE_JACK
+shairport_sync_SOURCES += audio_jack.c
 endif
 
 if USE_SNDIO
@@ -68,7 +82,7 @@ endif
 
 if USE_CONVOLUTION
 shairport_sync_SOURCES += FFTConvolver/AudioFFT.cpp FFTConvolver/FFTConvolver.cpp FFTConvolver/Utilities.cpp FFTConvolver/convolver.cpp
-AM_CXXFLAGS = -std=c++11
+AM_CXXFLAGS += -std=c++11
 endif
 
 if USE_DNS_SD
@@ -86,29 +100,41 @@ endif
 BUILT_SOURCES =
 noinst_HEADERS =
 CLEANFILES =
+shairport_sync_LDADD =
+noinst_LIBRARIES =
 
 if USE_DBUS
-shairport_sync_SOURCES += dbus-service.c dbus-interface.c
+shairport_sync_LDADD += lib_dbus_interface.a
+noinst_LIBRARIES += lib_dbus_interface.a
+lib_dbus_interface_a_SOURCES = dbus-interface.c
+shairport_sync_SOURCES += dbus-service.c
 BUILT_SOURCES += dbus-interface.h dbus-interface.c 
 # We don't want to install this header
 noinst_HEADERS += $(BUILT_SOURCES)
 # Correctly clean the generated headers, but keep the xml description
 CLEANFILES += $(BUILT_SOURCES)
 
-dbus-interface.h dbus-interface.c:  org.gnome.ShairportSync.xml
+dbus-interface.c:  org.gnome.ShairportSync.xml
 	gdbus-codegen --interface-prefix org.gnome --generate-c-code dbus-interface org.gnome.ShairportSync.xml
+dbus-interface.h: dbus-interface.c
+	touch dbus-interface.h
 endif
 
 if USE_MPRIS
-shairport_sync_SOURCES += mpris-service.c mpris-interface.c
+shairport_sync_LDADD += lib_mpris_interface.a
+noinst_LIBRARIES += lib_mpris_interface.a
+lib_mpris_interface_a_SOURCES = mpris-interface.c
+shairport_sync_SOURCES += mpris-service.c
 BUILT_SOURCES += mpris-interface.h mpris-interface.c
 # We don't want to install this header
 noinst_HEADERS += $(BUILT_SOURCES)
 # Correctly clean the generated headers, but keep the xml description
 CLEANFILES += $(BUILT_SOURCES)
 
-mpris-interface.h mpris-interface.c:  org.mpris.MediaPlayer2.xml
+mpris-interface.c:  org.mpris.MediaPlayer2.xml
 	gdbus-codegen --interface-prefix org.mpris --generate-c-code mpris-interface org.mpris.MediaPlayer2.xml
+mpris-interface.h: mpris-interface.c
+	touch mpris-interface.h
 endif
 
 noinst_PROGRAMS =
@@ -116,13 +142,15 @@ noinst_PROGRAMS =
 if USE_DBUS_CLIENT
  #Make it, but don't install it anywhere
 noinst_PROGRAMS += shairport-sync-dbus-test-client
-shairport_sync_dbus_test_client_SOURCES = dbus-interface.c dbus-interface.h shairport-sync-dbus-test-client.c
+shairport_sync_dbus_test_client_SOURCES = shairport-sync-dbus-test-client.c
+shairport_sync_dbus_test_client_LDADD = lib_dbus_interface.a
 endif
 
 if USE_MPRIS_CLIENT
  #Make it, but don't install it anywhere
 noinst_PROGRAMS += shairport-sync-mpris-test-client
-shairport_sync_mpris_test_client_SOURCES = mpris-interface.c mpris-interface.h shairport-sync-mpris-test-client.c
+shairport_sync_mpris_test_client_SOURCES = shairport-sync-mpris-test-client.c
+shairport_sync_mpris_test_client_LDADD = lib_mpris_interface.a
 endif
 
 install-exec-hook:
@@ -131,17 +159,23 @@ if INSTALL_CONFIG_FILES
 	cp scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf.sample
 	[ -f $(DESTDIR)$(sysconfdir)/shairport-sync.conf ] || cp scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf
 if USE_DBUS
+if INSTALL_CYGWIN_SERVICE
+	cp scripts/shairport-sync-dbus-policy-cygwin.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-dbus.conf
+else
 	cp scripts/shairport-sync-dbus-policy.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-dbus.conf
 endif
+endif
 if USE_MPRIS
+if INSTALL_CYGWIN_SERVICE
+	cp scripts/shairport-sync-mpris-policy-cygwin.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-dbus.conf
+else
 	cp scripts/shairport-sync-mpris-policy.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-mpris.conf
+endif
 endif
 endif
 if INSTALL_SYSTEMV
 	getent group shairport-sync &>/dev/null || groupadd -r shairport-sync >/dev/null
 	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/bin/nologin -G audio shairport-sync >/dev/null
-	[ -e /var/run/shairport-sync ] || mkdir -p /var/run/shairport-sync
-	chown shairport-sync:shairport-sync /var/run/shairport-sync
 	[ -e $(DESTDIR)$(sysconfdir)/init.d ] || mkdir -p $(DESTDIR)$(sysconfdir)/init.d
 	[ -f $(DESTDIR)$(sysconfdir)/init.d/shairport-sync ] || cp scripts/shairport-sync $(DESTDIR)$(sysconfdir)/init.d/
 endif
@@ -158,4 +192,7 @@ if INSTALL_FREEBSD_SERVICE
 	chown shairport-sync:shairport-sync /var/run/shairport-sync
 	[ -f /usr/local/etc/rc.d/shairport_sync ] || cp scripts/shairport-sync.freebsd /usr/local/etc/rc.d/shairport_sync
 	chmod 555 /usr/local/etc/rc.d/shairport_sync 
+endif
+if INSTALL_CYGWIN_SERVICE
+	cp scripts/shairport-sync-config /usr/local/bin
 endif

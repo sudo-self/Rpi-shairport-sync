@@ -54,7 +54,7 @@ static void start(__attribute__((unused)) int sample_rate,
   }
 }
 
-static void play(void *buf, int samples) {
+static int play(void *buf, int samples) {
   // if the file is not open, try to open it.
   char errorstring[1024];
   if (fd == -1) {
@@ -73,6 +73,7 @@ static void play(void *buf, int samples) {
     warn("Error %d opening the pipe named \"%s\": \"%s\".", errno, pipename, errorstring);
     warned = 1;
   }
+  return warned;
 }
 
 static void stop(void) {
@@ -126,7 +127,7 @@ static void deinit(void) {
     close(fd);
 }
 
-static void help(void) { printf("    pipe takes 1 argument: the name of the FIFO to write to.\n"); }
+static void help(void) { printf("    specify the pathname of the pipe to write to.\n"); }
 
 audio_output audio_pipe = {.name = "pipe",
                            .help = &help,
@@ -134,6 +135,7 @@ audio_output audio_pipe = {.name = "pipe",
                            .deinit = &deinit,
                            .start = &start,
                            .stop = &stop,
+                           .is_running = NULL,
                            .flush = NULL,
                            .delay = NULL,
                            .play = &play,

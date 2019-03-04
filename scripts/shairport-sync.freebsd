@@ -14,7 +14,7 @@ stop_cmd="${name}_stop"
 
 shairport_sync_start()
 {
-	checkyesno shairport_sync_enable && echo "Starting shairport-sync." && \
+    checkyesno shairport_sync_enable && echo "Starting shairport-sync." && \
     su -m shairport-sync -c "/usr/local/bin/shairport-sync -d"
 }
 

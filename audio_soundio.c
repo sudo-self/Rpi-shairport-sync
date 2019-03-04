@@ -27,8 +27,9 @@ static void write_callback(struct SoundIoOutStream *outstream, int frame_count_m
   int fill_bytes = soundio_ring_buffer_fill_count(ring_buffer);
   int fill_count = fill_bytes / outstream->bytes_per_frame;
 
-  debug(3, "[--->>] frame_count_min: %d , frame_count_max: %d , fill_bytes: %d , fill_count: %d , "
-           "outstream->bytes_per_frame: %d",
+  debug(3,
+        "[--->>] frame_count_min: %d , frame_count_max: %d , fill_bytes: %d , fill_count: %d , "
+        "outstream->bytes_per_frame: %d",
         frame_count_min, frame_count_max, fill_bytes, fill_count, outstream->bytes_per_frame);
 
   if (frame_count_min > fill_count) {
@@ -167,7 +168,7 @@ static void start(int sample_rate, int sample_format) {
   debug(1, "libsoundio output started\n");
 }
 
-static void play(void *buf, int samples) {
+static int play(void *buf, int samples) {
   // int err;
   int free_bytes = soundio_ring_buffer_free_count(ring_buffer);
   int written_bytes = 0;
@@ -186,6 +187,7 @@ static void play(void *buf, int samples) {
     soundio_ring_buffer_advance_write_ptr(ring_buffer, write_bytes);
     debug(3, "[<<---] Written to buffer : %d\n", written_bytes);
   }
+  return 0;
 }
 
 static void parameters(audio_parameters *info) {
@@ -216,6 +218,7 @@ audio_output audio_soundio = {.name = "soundio",
                               .deinit = &deinit,
                               .start = &start,
                               .stop = &stop,
+                              .is_running = NULL,
                               .flush = &flush,
                               .delay = NULL,
                               .play = &play,

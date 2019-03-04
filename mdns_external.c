@@ -24,8 +24,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "mdns.h"
 #include "common.h"
+#include "mdns.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -162,11 +162,13 @@ static void kill_mdns_child(void) {
 mdns_backend mdns_external_avahi = {.name = "external-avahi",
                                     .mdns_register = mdns_external_avahi_register,
                                     .mdns_unregister = kill_mdns_child,
-                                    .mdns_dacp_monitor = NULL,
-                                    .mdns_dacp_dont_monitor = NULL};
+                                    .mdns_dacp_monitor_start = NULL,
+                                    .mdns_dacp_monitor_set_id = NULL,
+                                    .mdns_dacp_monitor_stop = NULL};
 
 mdns_backend mdns_external_dns_sd = {.name = "external-dns-sd",
                                      .mdns_register = mdns_external_dns_sd_register,
                                      .mdns_unregister = kill_mdns_child,
-                                     .mdns_dacp_monitor = NULL,
-                                     .mdns_dacp_dont_monitor = NULL};
+                                     .mdns_dacp_monitor_start = NULL,
+                                     .mdns_dacp_monitor_set_id = NULL,
+                                     .mdns_dacp_monitor_stop = NULL};

@@ -12,6 +12,11 @@ enum play_status_type {
   PS_PLAYING,
 } play_status_type;
 
+enum active_state_type {
+  AM_INACTIVE = 0,
+  AM_ACTIVE,
+} active_state_type;
+
 enum shuffle_status_type {
   SS_NOT_AVAILABLE = 0,
   SS_OFF,
@@ -56,7 +61,7 @@ typedef struct metadata_bundle {
   char *client_ip; // IP number used by the audio source (i.e. the "client"), which is also the DACP
                    // server
   char *server_ip; // IP number used by Shairport Sync
-  char *progress_string; // progress string, emitted by the source from time to time
+  char *progress_string;    // progress string, emitted by the source from time to time
   int player_thread_active; // true if a play thread is running
   int dacp_server_active;   // true if there's a reachable DACP server (assumed to be the Airplay
                             // client) ; false otherwise
@@ -77,6 +82,7 @@ typedef struct metadata_bundle {
 
   enum play_status_type
       player_state; // this is the state of the actual player itself, which can be a bit noisy.
+  enum active_state_type active_state;
 
   int speaker_volume; // this is the actual speaker volume, allowing for the main volume and the
                       // speaker volume control
@@ -92,6 +98,7 @@ struct metadata_bundle metadata_store;
 void add_metadata_watcher(metadata_watcher fn, void *userdata);
 
 void metadata_hub_init(void);
+void metadata_hub_stop(void);
 void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t length);
 void metadata_hub_reset_track_metadata(void);
 void metadata_hub_release_track_artwork(void);

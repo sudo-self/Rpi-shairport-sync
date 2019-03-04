@@ -4,10 +4,9 @@
 #include <sndfile.h>
 #include "FFTConvolver.h"
 #include "Utilities.h"
-extern "C" {
-#include "../common.h"
-}
 
+extern "C" void die(const char *format, ...);
+extern "C" void debug(int level, const char *format, ...);
 
 static fftconvolver::FFTConvolver convolver_l;
 static fftconvolver::FFTConvolver convolver_r;
@@ -40,7 +39,7 @@ void convolver_init(const char* filename, int max_length)
     float buffer_l[size];
     float buffer_r[size];
     
-    int i;
+    unsigned int i;
     for (i=0; i<size; ++i)
     {
       buffer_l[i] = buffer[2*i+0];

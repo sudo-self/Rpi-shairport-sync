@@ -22,8 +22,12 @@ typedef struct {
   void (*start)(int sample_rate, int sample_format);
 
   // block of samples
-  void (*play)(void *buf, int samples);
+  int (*play)(void *buf, int samples);
   void (*stop)(void);
+
+  // may be null if no implemented
+  int (*is_running)(
+      void); // if implemented, will return 0 if everything is okay, non-zero otherwise
 
   // may be null if not implemented
   void (*flush)(void);
@@ -33,6 +37,8 @@ typedef struct {
   // will change dynamically, so keep watching it. Implemented in ALSA only.
   // returns a negative error code if there's a problem
   int (*delay)(long *the_delay); // snd_pcm_sframes_t is a signed long
+  int (*rate_info)(uint64_t *elapsed_time,
+                   uint64_t *frames_played); // use this to get the true rate of the DAC
 
   // may be NULL, in which case soft volume is applied
   void (*volume)(double vol);
@@ -41,7 +47,8 @@ typedef struct {
   void (*parameters)(audio_parameters *info);
 
   // may be NULL, in which case software muting is used.
-  void (*mute)(int do_mute);
+  // also, will return a 1 if it is actually using the mute facility, 0 otherwise
+  int (*mute)(int do_mute);
 
 } audio_output;
 

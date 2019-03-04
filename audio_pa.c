@@ -70,6 +70,10 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
 
   // set up default values first
   config.audio_backend_buffer_desired_length = 0.35;
+  config.audio_backend_buffer_interpolation_threshold_in_seconds =
+      0.02; // below this, soxr interpolation will not occur -- it'll be basic interpolation
+            // instead.
+
   config.audio_backend_latency_offset = 0;
 
   // get settings from settings file
@@ -84,6 +88,11 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
     /* Get the Application Name. */
     if (config_lookup_string(config.cfg, "pa.application_name", &str)) {
       config.pa_application_name = (char *)str;
+    }
+
+    /* Get the PulseAudio sink name. */
+    if (config_lookup_string(config.cfg, "pa.sink", &str)) {
+      config.pa_sink = (char *)str;
     }
   }
 
@@ -177,8 +186,19 @@ static void start(__attribute__((unused)) int sample_rate,
                  //        PA_STREAM_AUTO_TIMING_UPDATE;
                  PA_STREAM_AUTO_TIMING_UPDATE | PA_STREAM_ADJUST_LATENCY;
 
-  // Connect stream to the default audio output sink
-  if (pa_stream_connect_playback(stream, NULL, &buffer_attr, stream_flags, NULL, NULL) != 0)
+  int connect_result;
+
+  if (config.pa_sink) {
+    // Connect stream to the sink specified in the config
+    connect_result =
+        pa_stream_connect_playback(stream, config.pa_sink, &buffer_attr, stream_flags, NULL, NULL);
+  } else {
+    // Connect stream to the default audio output sink
+    connect_result =
+        pa_stream_connect_playback(stream, NULL, &buffer_attr, stream_flags, NULL, NULL);
+  }
+
+  if (connect_result != 0)
     die("could not connect to the pulseaudio playback stream -- the error message is \"%s\".",
         pa_strerror(pa_context_errno(context)));
 
@@ -197,7 +217,7 @@ static void start(__attribute__((unused)) int sample_rate,
   pa_threaded_mainloop_unlock(mainloop);
 }
 
-static void play(void *buf, int samples) {
+static int play(void *buf, int samples) {
   // debug(1,"pa_play of %d samples.",samples);
   // copy the samples into the queue
   size_t bytes_to_transfer = samples * 2 * 2;
@@ -223,6 +243,7 @@ static void play(void *buf, int samples) {
     pa_stream_cork(stream, 0, stream_success_cb, mainloop);
     pa_threaded_mainloop_unlock(mainloop);
   }
+  return 0;
 }
 
 int pa_delay(long *the_delay) {
@@ -278,14 +299,13 @@ static void stop(void) {
   pa_stream_disconnect(stream);
 }
 
-static void help(void) { printf(" no settings.\n"); }
-
 audio_output audio_pa = {.name = "pa",
-                         .help = &help,
+                         .help = NULL,
                          .init = &init,
                          .deinit = &deinit,
                          .start = &start,
                          .stop = &stop,
+                         .is_running = NULL,
                          .flush = &flush,
                          .delay = &pa_delay,
                          .play = &play,
