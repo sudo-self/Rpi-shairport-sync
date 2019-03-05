@@ -129,7 +129,6 @@ char *nlabel_to_str(const uint8_t *name) {
   const uint8_t *p;
   size_t buf_len = 256;
 
-  assert(name != NULL);
   if (name == NULL)
     return NULL;
   label = labelp = malloc(buf_len);
