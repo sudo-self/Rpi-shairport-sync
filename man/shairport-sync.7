@@ -2,30 +2,30 @@
 .SH NAME
 shairport-sync \- Synchronised Audio Player for iTunes / AirPlay
 .SH SYNOPSIS
-\fBshairport-sync [-djvw]\fB [-a \fB\fIname\fB]\fB [-A \fB\fIlatency\fB]\fB [-B \fB\fIcommand\fB]\fB [-c \fB\fIconfigurationfile\fB]\fB [-E \fB\fIcommand\fB]\fB [--get-cover-art]\fB [--logOutputLevel]\fB [-L \fB\fIlatency\fB]\fB [-m \fB\fIbackend\fB]\fB [--meta-dir=\fB\fIdirectory\fB]\fB [-o \fB\fIbackend\fB]\fB [--password=\fB\fIsecret\fB]\fB [-r \fB\fIthreshold\fB]\fB [--statistics]\fB [-S \fB\fImode\fB]\fB [-t \fB\fItimeout\fB]\fB [--tolerance=\fB\fIframes\fB]\fB [-- \fB\fIaudio_backend_options\fB]\fB
-
-shairport-sync -D\fB
+\fBshairport-sync [-djvuw]\fB [-a \fB\fIname\fB]\fB [-A \fB\fIlatency\fB]\fB [-B \fB\fIcommand\fB]\fB [-c \fB\fIconfigurationfile\fB]\fB [-E \fB\fIcommand\fB]\fB [--get-cover-art]\fB [--logOutputLevel]\fB [-L \fB\fIlatency\fB]\fB [-m \fB\fIbackend\fB]\fB [--meta-dir=\fB\fIdirectory\fB]\fB [-o \fB\fIbackend\fB]\fB [--password=\fB\fIsecret\fB]\fB [-r \fB\fIthreshold\fB]\fB [--statistics]\fB [-S \fB\fImode\fB]\fB [-t \fB\fItimeout\fB]\fB [--tolerance=\fB\fIframes\fB]\fB [-- \fB\fIaudio_backend_options\fB]\fB
 
 shairport-sync -k\fB
 
 shairport-sync -h\fB
 
-shairport-sync -R\fB
-
 shairport-sync -V\fB
 \f1
 .SH DESCRIPTION
-shairport-sync plays audio streamed from iTunes or from an AirPlay device to an ALSA compatible audio output device (available on Linux and FreeBSD) , to a "sndio" output device (available on OpenBSD, FreeBSD and Linux) or to a PulseAudio output stream (available on Linux).
+Shairport Sync plays audio streamed from iTunes or from an AirPlay device to an ALSA-compatible audio output device (available on Linux and FreeBSD), to a "sndio" output device (available on OpenBSD, FreeBSD and Linux), to a PulseAudio output stream or to Jack Audio.
 
-A feature of shairport-sync is that it offers full audio synchronisation. Full audio synchronisation means that audio is played on the output device at exactly the time specified by the audio source. This means that if many devices are playing the same stream at the same time, all the outputs will stay in step with one another. This allows multiple devices to play the same source without getting out of phase with one another, enabling, for example, simultaneous multi-room operation. 
+Shairport Sync offers full audio synchronisation. Full audio synchronisation means that audio is played on the output device at exactly the time specified by the audio source. This means that if many devices are playing the same stream at the same time, all the outputs will stay in synchrony with one another. This allows multiple devices to play the same source without getting out of step with one another, enabling, for example, simultaneous multi-room operation. 
 
-shairport-sync can be compiled to stream audio synchronised audio output to a unix pipe or to standard output, or to audio systems that do not provide timing information. This could perhaps be described as partial audio synchronisation, where synchronised audio is provided by shairport-sync, but what happens to it in the subsequent processing chain, before it reaches the listener's ear, is outside the control of shairport-sync.
+Shairport Sync can stream synchronised audio to a unix pipe or to standard output, or to audio systems that do not provide timing information. This could perhaps be described as partial audio synchronisation, where synchronised audio is provided by Shairport Sync, but what happens to it in the subsequent processing chain, before it reaches the listener's ear, is outside the control of shairport-sync.
 
-shairport-sync can be compiled to stream metadata to a pipe or socket.
+Shairport Sync can be compiled to stream metadata, including cover art, to a pipe or socket.
+
+Shairport Sync can be compiled to offer a standard MPRIS interface, a "native" D-Bus interface and an MQTT client interface. Through these interfaces, it can provide metadata, including cover art, and can offer remote control of the audio source.
 
 Settings can be made using the configuration file (recommended for all new installations) or by using command-line options.
+
+The name of the Shairport Sync executable is \fBshairport-sync\f1. Both names are used in these man pages.
 .SH CONFIGURATION FILE SETTINGS
-You should use the configuration file for setting up shairport-sync. This file is usually \fIshairport-sync.conf\f1 and is generally located in the System Configuration Directory, which is normally the \fI/etc\f1 directory in Linux or the \fI/usr/local/etc\f1 directory in BSD unixes. You may need to have root privileges to modify it.
+You should use the configuration file for setting up Shairport Sync. This file is usually \fIshairport-sync.conf\f1 and is generally located in the System Configuration Directory, which is normally the \fI/etc\f1 directory in Linux or the \fI/usr/local/etc\f1 directory in BSD unixes. You may need to have root privileges to modify it.
 
 (Note: Shairport Sync may have been compiled to use a different configuration directory. You can determine which by performing the command \fI$ shairport-sync -V\f1. One of the items in the output string is the value of the \fBsysconfdir\f1, i.e. the System Configuration Directory.)
 
@@ -77,14 +77,11 @@ Require the password \fIpassword\f1 to connect to the service. If you leave this
 \fBinterpolation=\f1\fI"mode"\f1\fB;\f1
 Interpolate, or "stuff", the audio stream using the \fImode\f1. Interpolation here refers to the process of adding or removing frames of audio to or from the stream sent to the output device to keep it exactly in synchrony with the player. The default mode, "basic", is normally almost completely inaudible. The alternative mode, "soxr", is even less obtrusive but requires much more processing power. For this mode, support for libsoxr, the SoX Resampler Library, must be selected when shairport-sync is compiled. 
 .TP
-\fBstatistics=\f1\fI"setting"\f1\fB;\f1
-Use this \fIsetting\f1 to enable ("yes") or disable ("no") the output of some statistical information on the console or in the log. The default is to disable statistics.
+\fBoutput_backend=\f1\fI"backend"\f1\fB;\f1
+shairport-sync has a number of modules of code ("backends") through which audio is output. Normally, the first audio backend that works is selected. This setting forces the selection of the specific audio \fIbackend\f1. Perform the command \fBshairport-sync -h\f1 to get a list of available audio backends -- the default is the first on this list. Only the "alsa", "sndio" and "pa" backends support synchronisation.
 .TP
 \fBmdns_backend=\f1\fI"backend"\f1\fB;\f1
 shairport-sync has a number of modules of code ("backends") for interacting with the mDNS service to be used to advertise itself. Normally, the first mDNS backend that works is selected. This setting forces the selection of the specific mDNS \fIbackend\f1. The default is "avahi". Perform the command \fBshairport-sync -h\f1 to get a list of available mDNS modules.
-.TP
-\fBoutput_backend=\f1\fI"backend"\f1\fB;\f1
-shairport-sync has a number of modules of code ("backends") through which audio is output. Normally, the first audio backend that works is selected. This setting forces the selection of the specific audio \fIbackend\f1. Perform the command \fBshairport-sync -h\f1 to get a list of available audio backends -- the default is the first on this list. Only the "alsa", "sndio" and "pa" backends support synchronisation.
 .TP
 \fBport=\f1\fIportnumber\f1\fB;\f1
 Use this to specify the \fIportnumber\f1 shairport-sync uses to listen for service requests from iTunes, etc. The default is port 5000.
@@ -101,14 +98,8 @@ Allow playback to drift up to \fIseconds\f1 out of exact synchronization before 
 \fBresync_threshold_in_seconds=\f1\fIthreshold\f1\fB;\f1
 Resynchronise if timings differ by more than \fIthreshold\f1 seconds. If the output timing differs from the source timing by more than the threshold, output will be muted and a full resynchronisation will occur. The default threshold is 0.050 seconds, i.e. 50 milliseconds. Specify 0.0 to disable resynchronisation. This setting replaces the deprecated \fBresync_threshold\f1 setting. 
 .TP
-\fBlog_verbosity=\f1\fI0\f1\fB;\f1
-Use this to specify how much debugging information should be output or logged. The value \fI0\f1 means no debug information, \fI3\f1 means most debug information. The default is \fI0\f1.
-.TP
 \fBignore_volume_control=\f1\fI"choice"\f1\fB;\f1
 Set this \fIchoice\f1 to \fI"yes"\f1 if you want the volume to be at 100% no matter what the source's volume control is set to. This might be useful if you want to set the volume on the output device, independently of the setting at the source. The default is \fI"no"\f1.
-.TP
-\fBvolume_max_db=\f1\fIdBvalue\f1\fB;\f1
-Specify the maximum output level to be used with the hardware mixer, if used. If no hardware mixed is used, this setting speciies the maximum setting permissible in the software mixer, which has an attenuation of from 0.0 dB down to -96.3 dB. 
 .TP
 \fBvolume_range_db=\f1\fIdBvalue\f1\fB;\f1
 Use this \fIdBvalue\f1 to reduce or increase the attenuation range, in decibels, between the minimum and maximum volume.
@@ -121,39 +112,98 @@ As a third example, you can actually extend the range provided by a mixer. Many 
 
 If you omit this setting, the native range of the mixer is used.
 .TP
+\fBvolume_max_db=\f1\fIdBvalue\f1\fB;\f1
+Specify the maximum output level to be used with the hardware mixer, if used. If no hardware mixed is used, this setting specifies the maximum setting permissible in the software mixer, which has an attenuation range from 0.0 dB down to -96.3 dB. 
+.TP
+\fBvolume_control_profile=\f1\fI"choice"\f1\fB;\f1
+Use this advanced setting to specify how the airplay volume is transferred to the mixer volume. The \fI"standard"\f1 profile, which is the default, makes the volume change more quickly at lower volumes and slower at higher volumes. Choose the \fI"flat"\f1 profile to makes the volume change at the same rate at all volume levels. 
+.TP
+\fBvolume_range_combined_hardware_priority=\f1 \fI"choice"\f1\fB;\f1
+Use this advanced setting to specify how to combine the hardware attenuator with software attenuation to provide a greater attenuation range than the hardware attenuator alone can provide. Choosing \fI"yes"\f1 means that when attenuation is required, the hardware attenuator will be used in preference. If more attenuation than it can provide is needed, the hardware attenuator is set to its greatest attenuation and software attenuation is added.
+
+For example, if 40 dB of attenuation is required and the hardware attenuator offers a maximum of 30 dB, then the hardware attenuator will be set to give 30 dB attenuation and 10 dB of software attenuation will be added.
+
+Unfortunately, certain hardware attenuators will mute at their greatest attenuation, so can't be combined with software attenuation in this way. Choosing \fI"no"\f1 means that software attenuation is used to bring the remaining attenuation required into the range offered by the hardware attenuator. This is the default. 
+.TP
+\fBrun_this_when_volume_is_set=\f1 \fI"/full/path/to/application/and/args"\f1\fB;\f1
+Here you can specify a program and its arguments that will be run when the volume is set or changed. Be careful to include the full path to the application. The application must be marked as executable and, if it is a script, its first line must begin with the standard shebang \fI#!/bin/...\f1 as appropriate.
+
+The desired AirPlay volume is appended to the end of the command line -- leave a space at the end of the command line you specify here if you want it treated as an extra argument. AirPlay volume goes from 0.0 to -30.0 and -144.0 means "mute".
+.TP
 \fBregtype=\f1\fI"regTypeString"\f1\fB;\f1
 Use this advanced setting to set the service type and transport to be advertised by Zeroconf/Bonjour. Default is \fI"_raop._tcp"\f1.
 .TP
 \fBplayback_mode=\f1\fI"mode"\f1\fB;\f1
-The \fImode\f1 can be "stereo", "mono", "reverse stereo", "both left" or "both right". Default is "stereo".
-.TP
-\fBinterface=\f1\fI"name"\f1\fB;\f1
-Use this advanced setting if you want to confine Shairport Sync to the named interface. Leave it commented out to get the default bahaviour.
+The \fImode\f1 can be "stereo", "mono", "reverse stereo", "both left" or "both right". Default is "stereo". Note that dither will be added to the signal in the mono mode.
 .TP
 \fBalac_decoder=\f1\fI"decodername"\f1\fB;\f1
 This can be "hammerton" or "apple". This advanced setting allows you to choose the original Shairport decoder by David Hammerton or the Apple Lossless Audio Codec (ALAC) decoder written by Apple. Shairport Sync must have been compiled with the configuration setting "--with-apple-alac" and the Apple ALAC decoder library must be present for this to work.
 .TP
-\fBaudio_backend_latency_offset_in_seconds=\f1\fIoffset_in_seconds\f1\fB;\f1
+\fBinterface=\f1\fI"name"\f1\fB;\f1
+Use this advanced setting if you want to confine Shairport Sync to the named interface. Leave it commented out to get the default bahaviour.
+.TP
+\fBaudio_backend_latency_offset_in_seconds=\f1 \fIoffset_in_seconds\f1\fB;\f1
 Set this \fIoffset_in_seconds\f1 to compensate for a fixed delay in the audio back end. For example, if the output device delays by 100 ms, set this to -0.1.
 .TP
-\fBaudio_backend_buffer_desired_length_in_seconds=\f1\fIlength_in_seconds\f1\fB;\f1
+\fBaudio_backend_buffer_desired_length_in_seconds=\f1 \fIlength_in_seconds\f1\fB;\f1
 Use this \fIlength_in_seconds\f1 to set the desired length of the queue of audio frames in the backend's output buffer.
 
 The default is 0.15 seconds for the ALSA backend, 0.35 seconds for the PA backend and one second for all other backends.
 
 If this value is set too small, underflow may occur on low-powered machines. If set too large, the response times to the volume control may become excessive, or it may exceed the backend's buffer size. It may need to be larger on low-powered machines that are also performing other tasks, such as processing metadata.
 .TP
-\fBaudio_backend_silent_lead_in_time=\f1\fIlead_in_time_in_seconds\f1\fB;\f1
+\fBaudio_backend_buffer_interpolation_threshold_in_seconds=\f1 \fItime_in_seconds\f1\fB;\f1
+This is an advanced feature. If the length of the audio backend buffer size drops below this, it's a sign that shairport sync can not process frames of audio quickly enough. It this threshold is reached, shairport sync will stop using time-consuming interpolation like soxr to avoid underruns.
+.TP
+\fBaudio_backend_silent_lead_in_time=\f1 \fIlead_in_time_in_seconds\f1\fB;\f1
 This is an advanced setting. Use the \fIlead_in_time_in_seconds\f1 to set the desired length of the period of silence (a "silent lead-in") played before a play session begins.
 
 The purpose of this silent lead-in is to give the backend sufficient time to prepare for operation and to make an estimate (and, importantly, to correct the estimate) of the exact time at which to begin playing audio to achieve initial synchronisation. The value can be from 0.0 up to a maximum of either 4.0 seconds. The actual duration will be close to the setting but can not exceed the latency set by the client, usually 2 seconds or a little more.
 
 If the value chosen is too short for synchronised backends such as the ALSA, sndio or PA backends, then audio will not be synchronised correctly at the start of play. The default is to have a silent lead-in of approximately the same time as the latency set by the client.
 .TP
-\fBrun_this_when_volume_is_set=\f1\fI"/full/path/to/application/and/args"\f1\fB;\f1
-Here you can specify a program and its arguments that will be run when the volume is set or changed. Be careful to include the full path to the application. The application must be marked as executable and, if it is a script, its first line must begin with the standard shebang \fI#!/bin/...\f1 as appropriate.
+\fBdbus_service_bus=\f1 \fI"bus_name"\f1\fB;\f1
+If shairport sync is compiled with the D-Bus interface, it can offer it on the \fI"system"\f1 or the \fI"session"\f1 D-Bus "bus". Use this to specify which. The default is to use the "system" bus.
+.TP
+\fBmpris_service_bus=\f1 \fI"bus_name"\f1\fB;\f1
+If shairport sync is compiled with the MPRIS interface, it can offer the service on the \fI"system"\f1 or the \fI"session"\f1 D-Bus "bus". Use this to specify which. The default is to use the "system" bus.
+.TP
+\fB"SESSIONCONTROL" SETTINGS\f1
+.TP
+\fBrun_this_before_play_begins=\f1\fI"/path/to/application and args"\f1\fB;\f1
+Here you can specify a program and its arguments that will be run just before a play session begins. Be careful to include the full path to the application. The application must be marked as executable and, if it is a script, its first line must begin with the standard shebang \fI#!/bin/...\f1 as appropriate.
+.TP
+\fBrun_this_after_play_ends=\f1\fI"/path/to/application and args"\f1\fB;\f1
+Here you can specify a program and its arguments that will be run just after a play session ends. Be careful to include the full path to the application. The application must be marked as executable and, if it is a script, its first line must begin with the standard shebang \fI#!/bin/...\f1 as appropriate.
+.TP
+\fBrun_this_before_entering_active_state=\f1\fI"/path/to/application and args"\f1\fB;\f1
+Here you can specify a program and its arguments that will be run just before shairport-sync goes active.
 
-The desired AirPlay volume is appended to the end of the command line - leave a space if you want it treated as an extra argument. AirPlay volume goes from 0.0 to -30.0 and -144.0 means "mute".
+Shairport Sync goes "active" when a play session starts. When the play session ends, the system will stay active until the time specified in the \fBactive_state_timeout\f1 setting elapses. If a new play session starts before that, the system will remain active. Otherwise, the system will go inactive. 
+
+Be careful to include the full path to the application. The application must be marked as executable and, if it is a script, its first line must begin with the standard shebang \fI#!/bin/...\f1 as appropriate.
+.TP
+\fBrun_this_after_exiting_active_state=\f1\fI"/path/to/application and args"\f1\fB;\f1
+Here you can specify a program and its arguments that will be run just after shairport-sync goes inactive (see the previous entry for an explanation of the idea). Be careful to include the full path to the application. The application must be marked as executable and, if it is a script, its first line must begin with the standard shebang \fI#!/bin/...\f1 as appropriate.
+.TP
+\fBactive_state_timeout=\f1\fIseconds\f1\fB;\f1
+After a play session has ended, the system will remain active for \fIseconds\f1 seconds. If a new play session starts before this time has elapsed, the system will remain active. However, if no new session starts in the interval, the system will go inactive at the end of it. The default is 10 seconds.
+.TP
+\fBrun_this_if_an_unfixable_error_is_detected=\f1\fI"/path/to/application and args"\f1\fB;\f1
+Here you can specify a program and its arguments that will be run if the system detects an unfixable error. At present, there are two types of unfixable errors. One is where a play session cannot be terminated. The second is if an output device has "stalled" -- that is, if an output device refuses to accept any more output frames.
+
+Although the first problem could, in principle, be fixed by restarting Shairport Sync, it is usually caused by a malfunctioning output device. Typically, the most reliable way to recover from either of these errors is to reboot the entire machine.
+
+Be careful to include the full path to the application. The application must be marked as executable and, if it is a script, its first line must begin with the standard shebang \fI#!/bin/...\f1 as appropriate.
+.TP
+\fBwait_for_completion=\f1\fI"choice"\f1\fB;\f1
+Set \fIchoice\f1 to "yes" to make shairport-sync wait until the programs specified in the \fBrun_this_...\f1 settings have completed execution before continuing. The default is "no".
+.TP
+\fBallow_session_interruption=\f1\fI"choice"\f1\fB;\f1
+If \fBchoice\f1 is set to "yes", then another source will be able to interrupt an existing play session and start a new one. When set to "no" (the default), other devices attempting to interrupt a session will fail, receiving a busy signal.
+.TP
+\fBsession_timeout=\f1\fIseconds\f1\fB;\f1
+If a play session has been established and the source disappears without warning (such as a device going out of range of a network) then wait for the number of seconds specified before ending the session. Once the session has terminated, other devices can use it. The default is 120 seconds.
 .TP
 \fB"ALSA" SETTINGS\f1
 These settings are for the ALSA back end, used to communicate with audio output devices in the ALSA system. (By the way, you can use tools such as \fBalsamixer\f1 or \fBaplay\f1 to discover what devices are available.) Use these settings to select the output device and the mixer control to be used to control the output volume. You can additionally set the desired size of the output buffer and you can adjust overall latency. Here are the \fBalsa\f1 group settings:
@@ -190,11 +240,21 @@ Use this optional advanced setting to set the alsa buffer size near to this valu
 Use this optional advanced setting to control whether MMAP-based output is used to communicate with the DAC. Default is \fI"yes"\f1.
 .TP
 \fBmute_using_playback_switch=\f1\fI"no"\f1\fB;\f1
-This is an advanced setting and the default is \fI"no"\f1. If it is set to \fI"yes"\f1, hardware mute will be implemented using a feature called a 'playback switch', where one is available. Set it to \fI"no"\f1 to prevent the playback switch being used.
+This is an advanced setting and the default is \fI"no"\f1. If it is set to \fI"yes"\f1, hardware mute will be used where it is available. Set it to \fI"no"\f1 to prevent the hardware mute being used.
 
 If Shairport Sync is sharing the output device with other applications, it is best to leave this set to \fI"no"\f1 for compatibility with those applications.
 
-Another motivation for this is to allow the alsa function call "snd_mixer_selem_set_playback_switch_all" to be avoided. It is incorrectly implemented on certain soundcards, including the emulated card in VMWare Fusion 8.5.
+Another motivation for this is to allow the ALSA function call "snd_mixer_selem_set_playback_switch_all" to be avoided. It is incorrectly implemented on certain soundcards, including the emulated card in VMWare Fusion 8.5.
+.TP
+\fBmaximum_stall_time=\f1\fIseconds\f1\fB;\f1
+If an output device fails to accept any audio frames for more than the time, in seconds, specified here (0.2 seconds by default), it is considered to have malfunctioned. It will result in the \fBrun_this_if_an_unfixable_error_is_detected\f1 program, if any, being called.
+
+Implemented for the ALSA back end only.
+.TP
+\fBdisable_standby_mode=\f1\fI"never"\f1\fB;\f1
+Shairport Sync has a "Disable Standby" feature to eliminate certain faint-but-annoying audible pops and clicks. When activsted, it prevents an output device from entering standby mode and thus it minimises standby/busy transitions, which can sometimes be heard. Use this setting to control when the Disable Standby feature is active: "never" means it will never be activated, "always" means it will be active as soon as shairport-sync starts running, and "while_active" means it will be active while shairport-sync is in the "active" state.
+
+Shairport Sync goes "active" when a play session starts. When the play session ends, the system will stay active until the time specified in the active_state_timeout setting elapses. If a new play session starts before that, the system will remain active. Otherwise, the system will go inactive. 
 .TP
 \fB"SNDIO" SETTINGS\f1
 These settings are for the SNDIO back end, used to communicate with audio output devices in the SNDIO system.
@@ -263,23 +323,13 @@ If \fBsocket_address\f1 is set, use \fIport\f1 to specify the port to send UDP p
 \fBsocket_msglength=\f1\fI65000\f1\fB;\f1
 The maximum packet size for any UDP metadata. This must be between 500 or 65000. The default is 500.
 .TP
-\fB"SESSIONCONTROL" SETTINGS\f1
-shairport-sync can run programs just before it starts to play an audio stream and just after it finishes. You specify them using the sessioncontrol group settings run_this_before_play_begins and run_this_after_play_ends.
+\fB"DIAGNOSTICS" SETTINGS\f1
 .TP
-\fBrun_this_before_play_begins=\f1\fI"/path/to/application and args"\f1\fB;\f1
-Here you can specify a program and its arguments that will be run just before a play session begins. Be careful to include the full path to the application. The application must be marked as executable and, if it is a script, its first line must begin with the standard shebang \fI#!/bin/...\f1 as appropriate.
+\fBstatistics=\f1\fI"setting"\f1\fB;\f1
+Use this \fIsetting\f1 to enable ("yes") or disable ("no") the output of some statistical information on the console or in the log. The default is to disable statistics.
 .TP
-\fBrun_this_after_play_ends=\f1\fI"/path/to/application and args"\f1\fB;\f1
-Here you can specify a program and its arguments that will be run just after a play session ends. Be careful to include the full path to the application. The application must be marked as executable and, if it is a script, its first line must begin with the standard shebang \fI#!/bin/...\f1 as appropriate.
-.TP
-\fBwait_for_completion=\f1\fI"choice"\f1\fB;\f1
-Set \fIchoice\f1 to "yes" to make shairport-sync wait until the programs specified in the \fBrun_this_before_play_begins\f1, \fBrun_this_after_play_ends\f1 and \fBrun_this_when_volume_is_set\f1 have completed execution before continuing. The default is "no".
-.TP
-\fBallow_session_interruption=\f1\fI"choice"\f1\fB;\f1
-If \fBchoice\f1 is set to "yes", then another source will be able to interrupt an existing play session and start a new one. When set to "no" (the default), other devices attempting to interrupt a session will fail, receiving a busy signal.
-.TP
-\fBsession_timeout=\f1\fIseconds\f1\fB;\f1
-If a play session has been established and the source disappears without warning (such as a device going out of range of a network) then wait for \fIseconds\f1 seconds before ending the session. Once the session has terminated, other devices can use it. The default is 120 seconds.
+\fBlog_verbosity=\f1\fI0\f1\fB;\f1
+Use this to specify how much debugging information should be output or logged. The value \fI0\f1 means no debug information, \fI3\f1 means most debug information. The default is \fI0\f1.
 .SH OPTIONS
 This section is about the command-line options available in shairport-sync.
 
@@ -306,13 +356,8 @@ If you want shairport-sync to wait until the command has completed before starti
 \fB-c \f1\fIfilename\f1\fB | --configfile=\f1\fIfilename\f1
 Read configuration settings from \fIfilename\f1. The default is to read them from the \fIshairport-sync.conf\f1 in the System Configuration Directory -- \fI/etc\f1 in Linux, \fI/usr/local/etc\f1 in BSD unixes. For information about configuration settings, see the "Configuration File Settings" section above. 
 .TP
-\fB-D | --disconnectFromOutput\f1
-Disconnect the shairport-sync daemon from the output device and exit. (Requires that the daemon has written its PID to an agreed file -- see the \fB-d\f1 option). 
-
-Please note that this feature is deprecated and will be removed in a future version of shairport-sync.
-.TP
 \fB-d | --daemon\f1
-Instruct shairport-sync to demonise itself. It will write its Process ID (PID) to a file, usually at \fI/var/run/shairport-sync/shairport-sync.pid\f1, which is used by the \fB-k\f1, \fB-D\f1 and \fB-R\f1 options to locate the daemon at a later time. See also the \fB-j\f1 option. 
+Instruct shairport-sync to demonise itself. It will write its Process ID (PID) to a file, usually at \fI/var/run/shairport-sync/shairport-sync.pid\f1, which is used by the \fB-k\f1, \fB-D\f1 and \fB-R\f1 options to locate the daemon at a later time. See also the \fB-j\f1 option. Only available if shaiport-sync has been compiled with libdaemon support. 
 .TP
 \fB-E \f1\fIprogram\f1\fB | --on-stop=\f1\fIprogram\f1
 Execute \fIprogram\f1 when playback has ended. Specify the full path to the program, e.g. \fI/usr/bin/logger\f1. Executable scripts can be used, but they must have the appropriate shebang (\fI#!/bin/sh\f1 in the headline.
@@ -328,10 +373,10 @@ Please note that cover art data may be very large, and may place too great a bur
 Print brief help message and exit. 
 .TP
 \fB-j\f1
-Instruct shairport-sync to demonise itself. Unlike the \fB-d\f1 option, it will not write a Process ID (PID) to a file -- it will just (hence the "j") demonise itself. 
+Instruct shairport-sync to demonise itself. Unlike the \fB-d\f1 option, it will not write a Process ID (PID) to a file -- it will just (hence the "j") demonise itself. Only available if shaiport-sync has been compiled with libdaemon support. 
 .TP
 \fB-k | --kill\f1
-Kill the shairport-sync daemon and exit. (Requires that the daemon has written its PID to an agreed file -- see the \fB-d\f1 option). 
+Kill the shairport-sync daemon and exit. (Requires that the daemon has written its PID to an agreed file -- see the \fB-d\f1 option. Only available if shaiport-sync has been compiled with libdaemon support.) 
 .TP
 \fB--logOutputLevel\f1
 Use this to log the volume level when the volume is changed. It may be useful if you are trying to determine a suitable value for the maximum volume level. Not available as a configuration file setting. 
@@ -356,11 +401,6 @@ Listen for play requests on \fIport\f1. The default is to use port 5000.
 \fB--password=\f1\fIsecret\f1
 Require the password \fIsecret\f1 to be able to connect and stream to the service. 
 .TP
-\fB-R | --reconnectToOutput\f1
-Reconnect the shairport-sync daemon to the output device and exit. It may take a few seconds to synchronise. (Requires that the daemon has written its PID to an agreed file -- see the \fB-d\f1 option). 
-
-Please note that this feature is deprecated and will be removed in a future version of shairport-sync.
-.TP
 \fB-r \f1\fIthreshold\f1\fB | --resync=\f1\fIthreshold\f1
 Resynchronise if timings differ by more than \fIthreshold\f1 frames. If the output timing differs from the source timing by more than the threshold, output will be muted and a full resynchronisation will occur. The default threshold is 2,205 frames, i.e. 50 milliseconds. Specify \fB0\f1 to disable resynchronisation. This setting is deprecated and will be removed in a future version of shairport-sync. 
 .TP
@@ -377,6 +417,9 @@ When shairport-sync plays an audio stream, it starts a play session and will ret
 .TP
 \fB--tolerance=\f1\fIframes\f1
 Allow playback to be up to \fIframes\f1 out of exact synchronization before attempting to correct it. The default is 88 frames, i.e. 2 ms. The smaller the tolerance, the more likely it is that overcorrection will occur. Overcorrection is when more corrections (insertions and deletions) are made than are strictly necessary to keep the stream in sync. Use the \fB--statistics\f1 option to monitor correction levels. Corrections should not greatly exceed net corrections. This setting is deprecated and will be removed in a future version of shairport-sync. 
+.TP
+\fB-u\f1
+If you are running shairport-sync from the command line and want logs to appear there, use this option. Otherwise, logs may go to the system log. 
 .TP
 \fB-V | --version\f1
 Print version information and exit. 
