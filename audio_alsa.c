@@ -700,7 +700,7 @@ int do_alsa_device_init_if_needed() {
                 debug(1, "Can't get dB value corresponding to a minimum volume "
                          "+ 1.");
             }
-            debug(1, "Hardware mixer has dB volume from %f to %f.", (1.0 * alsa_mix_mindb) / 100.0,
+            debug(3, "Hardware mixer has dB volume from %f to %f.", (1.0 * alsa_mix_mindb) / 100.0,
                   (1.0 * alsa_mix_maxdb) / 100.0);
           } else {
             // use the linear scale and do the db conversion ourselves

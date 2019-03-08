@@ -173,7 +173,7 @@ void usage(char *progname) {
   printf("                            The default is to set it automatically.\n");
   printf("    -S, --stuffing=MODE set how to adjust current latency to match desired latency, "
          "where \n");
-  printf("                            \"basic\" (default) inserts or deletes audio frames from "
+  printf("                            \"basic\" inserts or deletes audio frames from "
          "packet frames with low processor overhead, and \n");
   printf("                            \"soxr\" uses libsoxr to minimally resample packet frames -- "
          "moderate processor overhead.\n");
@@ -207,12 +207,13 @@ void usage(char *progname) {
   printf("    --logOutputLevel        log the output level setting -- useful for setting maximum "
          "volume.\n");
 #ifdef CONFIG_METADATA
+  printf("    -M, --metadata-enable   ask for metadata from the source and process it.\n");
   printf("    --metadata-pipename=PIPE send metadata to PIPE, e.g. "
          "--metadata-pipename=/tmp/shairport-sync-metadata.\n");
   printf("                            The default is /tmp/shairport-sync-metadata.\n");
   printf("    --get-coverart          send cover art through the metadata pipe.\n");
 #endif
-  printf("    -u, --use-stderr          log messages through STDERR rather than syslog.\n");
+  printf("    -u, --use-stderr        log messages through STDERR rather than syslog.\n");
   printf("\n");
   mdns_ls_backends();
   printf("\n");
@@ -259,7 +260,8 @@ int parse_options(int argc, char **argv) {
       {"tolerance", 'z', POPT_ARG_INT, &fTolerance, 0, NULL, NULL},
       {"use-stderr", 'u', POPT_ARG_NONE, NULL, 'u', NULL, NULL},
 #ifdef CONFIG_METADATA
-      {"metadata-pipename", 'M', POPT_ARG_STRING, &config.metadata_pipename, 'M', NULL, NULL},
+      {"metadata-enable", 'M', POPT_ARG_NONE, &config.metadata_enabled, 'M', NULL, NULL},
+      {"metadata-pipename", 0, POPT_ARG_STRING, &config.metadata_pipename, 0, NULL, NULL},
       {"get-coverart", 'g', POPT_ARG_NONE, &config.get_coverart, 'g', NULL, NULL},
 #endif
       POPT_AUTOHELP{NULL, 0, 0, NULL, 0, NULL, NULL}};
@@ -457,7 +459,7 @@ int parse_options(int argc, char **argv) {
 #ifdef CONFIG_SOXR
           config.packet_stuffing = ST_soxr;
 #else
-          die("The soxr option not available because this version of shairport-sync was built "
+          warn("The soxr option not available because this version of shairport-sync was built "
               "without libsoxr "
               "support. Change the \"general/interpolation\" setting in the configuration file.");
 #endif
@@ -700,6 +702,7 @@ int parse_options(int argc, char **argv) {
 
 #ifdef CONFIG_METADATA
       /* Get the metadata setting. */
+      config.metadata_enabled = 1; // if metadata support is included, then enable it by default
       if (config_lookup_string(config.cfg, "metadata.enabled", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.metadata_enabled = 0;
@@ -709,6 +712,7 @@ int parse_options(int argc, char **argv) {
           die("Invalid metadata enabled option choice \"%s\". It should be \"yes\" or \"no\"");
       }
 
+      config.get_coverart = 1; // if metadata support is included, then enable it by default
       if (config_lookup_string(config.cfg, "metadata.include_cover_art", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.get_coverart = 0;
@@ -1282,7 +1286,11 @@ int main(int argc, char **argv) {
       0.002; // this number of seconds of timing error before attempting to correct it.
   config.buffer_start_fill = 220;
   config.port = 5000;
+#ifdef CONFIG_SOXR
+  config.packet_stuffing = ST_soxr; // use soxr interpolation by default if support has been included
+#else
   config.packet_stuffing = ST_basic; // simple interpolation or deletion
+#endif
   // char hostname[100];
   // gethostname(hostname, 100);
   // config.service_name = malloc(20 + 100);
@@ -1298,6 +1306,7 @@ int main(int argc, char **argv) {
       1 << decoder_hammerton; // David Hammerton's decoder supported by default
 #ifdef CONFIG_APPLE_ALAC
   config.decoders_supported += 1 << decoder_apple_alac;
+  config.use_apple_decoder = 1; // use the ALAC decoder by default if support has been included
 #endif
 
   // initialise random number generator
