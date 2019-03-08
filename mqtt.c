@@ -157,6 +157,12 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
       case 'clip':
         mqtt_publish("client_ip", data, length);
         break;
+      case 'abeg':
+        mqtt_publish("active_start", data, length);
+        break;
+      case 'aend':
+        mqtt_publish("active_end", data, length);
+        break;
       case 'pbeg':
         mqtt_publish("play_start", data, length);
         break;
