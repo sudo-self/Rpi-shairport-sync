@@ -1,3 +1,15 @@
+**New Feature**
+
+* If support for soxr interpolation is included at configuration time, then "soxr" interpolation is made the default at run time.
+* If support for the Apple ALAC decoder is included at configuration time, then the Apple ALAC decoder is made the default at run time.
+* If support for metadata is included at configuration, then metadata and cover art are both enabled by default at run time.
+(Metadata is enabled if you configure support for metadata, the dbus interface, the MPRIS interface or the MQTT client.)
+
+Version 3.3rc0
+====
+
+Version 3.3rc0 is 3.3d56
+
 Version 3.3d56 to Version 3.3d40
 ====
 **New Features**
