@@ -1590,6 +1590,7 @@ int main(int argc, char **argv) {
         config.output_format);
   debug(1, "audio backend desired buffer length is %f seconds.",
         config.audio_backend_buffer_desired_length);
+  debug(1, "audio_backend_buffer_interpolation_threshold_in_seconds is %f seconds.", config.audio_backend_buffer_interpolation_threshold_in_seconds);
   debug(1, "audio backend latency offset is %f seconds.", config.audio_backend_latency_offset);
   debug(1, "audio backend silence lead-in time is %f seconds. A value -1.0 means use the default.",
         config.audio_backend_silent_lead_in_time);
