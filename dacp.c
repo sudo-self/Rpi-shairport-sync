@@ -1,6 +1,6 @@
 /*
  * DACP protocol handler. This file is part of Shairport Sync.
- * Copyright (c) Mike Brady 2017
+ * Copyright (c) Mike Brady 2017 -- 2019
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person

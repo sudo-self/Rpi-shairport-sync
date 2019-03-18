@@ -163,6 +163,7 @@ if INSTALL_CONFIG_FILES
 	cp scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf.sample
 	[ -f $(DESTDIR)$(sysconfdir)/shairport-sync.conf ] || cp scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf
 if USE_DBUS
+	[ -e $(DESTDIR)$(sysconfdir)/dbus-1/system.d ] || mkdir -p $(DESTDIR)$(sysconfdir)/dbus-1/system.d
 if INSTALL_CYGWIN_SERVICE
 	cp scripts/shairport-sync-dbus-policy-cygwin.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-dbus.conf
 else
@@ -170,6 +171,7 @@ else
 endif
 endif
 if USE_MPRIS
+	[ -e $(DESTDIR)$(sysconfdir)/dbus-1/system.d ] || mkdir -p $(DESTDIR)$(sysconfdir)/dbus-1/system.d
 if INSTALL_CYGWIN_SERVICE
 	cp scripts/shairport-sync-mpris-policy-cygwin.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-dbus.conf
 else
