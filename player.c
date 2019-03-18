@@ -215,7 +215,46 @@ void reset_input_flow_metrics(rtsp_conn_info *conn) {
   conn->initial_reference_timestamp = 0;
 }
 
-static int alac_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_conn_info *conn) {
+void unencrypted_packet_decode(unsigned char *packet, int length, short *dest, int *outsize,
+                               int size_limit, rtsp_conn_info *conn) {
+  if (conn->stream.type == ast_apple_lossless) {
+#ifdef CONFIG_APPLE_ALAC
+    if (config.use_apple_decoder) {
+      if (conn->decoder_in_use != 1 << decoder_apple_alac) {
+        debug(2, "Apple ALAC Decoder used on encrypted audio.");
+        conn->decoder_in_use = 1 << decoder_apple_alac;
+      }
+      apple_alac_decode_frame(packet, length, (unsigned char *)dest, outsize);
+      *outsize = *outsize * 4; // bring the size to bytes
+    } else
+#endif
+    {
+      if (conn->decoder_in_use != 1 << decoder_hammerton) {
+        debug(2, "Hammerton Decoder used on encrypted audio.");
+        conn->decoder_in_use = 1 << decoder_hammerton;
+      }
+      alac_decode_frame(conn->decoder_info, packet, (unsigned char *)dest, outsize);
+    }
+  } else if (conn->stream.type == ast_uncompressed) {
+    int length_to_use = length;
+    if (length_to_use > size_limit) {
+      warn("unencrypted_packet_decode: uncompressed audio packet too long (size: %d bytes) to "
+           "process -- truncated",
+           length);
+      length_to_use = size_limit;
+    }
+    int i;
+    short *source = (short *)packet;
+    for (i = 0; i < (length_to_use / 2); i++) {
+      *dest = ntohs(*source);
+      dest++;
+      source++;
+    }
+    *outsize = length_to_use;
+  }
+}
+
+int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_conn_info *conn) {
   // parameters: where the decoded stuff goes, its length in samples,
   // the incoming packet, the length of the incoming packet in bytes
   // destlen should contain the allowed max number of samples on entry
@@ -230,7 +269,7 @@ static int alac_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_co
   assert(len <= MAX_PACKET);
   int reply = 0;                                          // everything okay
   int outsize = conn->input_bytes_per_frame * (*destlen); // the size the output should be, in bytes
-  int toutsize = outsize;
+  int maximum_possible_outsize = outsize;
 
   if (conn->stream.encrypted) {
     unsigned char iv[16];
@@ -246,48 +285,16 @@ static int alac_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_co
     AES_cbc_encrypt(buf, packet, aeslen, &conn->aes, iv, AES_DECRYPT);
 #endif
     memcpy(packet + aeslen, buf + aeslen, len - aeslen);
-#ifdef CONFIG_APPLE_ALAC
-    if (config.use_apple_decoder) {
-      if (conn->decoder_in_use != 1 << decoder_apple_alac) {
-        debug(2, "Apple ALAC Decoder used on encrypted audio.");
-        conn->decoder_in_use = 1 << decoder_apple_alac;
-      }
-      apple_alac_decode_frame(packet, len, (unsigned char *)dest, &outsize);
-      outsize = outsize * 4; // bring the size to bytes
-    } else
-#endif
-    {
-      if (conn->decoder_in_use != 1 << decoder_hammerton) {
-        debug(2, "Hammerton Decoder used on encrypted audio.");
-        conn->decoder_in_use = 1 << decoder_hammerton;
-      }
-      alac_decode_frame(conn->decoder_info, packet, (unsigned char *)dest, &outsize);
-    }
+    unencrypted_packet_decode(packet, len, dest, &outsize, maximum_possible_outsize, conn);
   } else {
-// not encrypted
-#ifdef CONFIG_APPLE_ALAC
-    if (config.use_apple_decoder) {
-      if (conn->decoder_in_use != 1 << decoder_apple_alac) {
-        debug(2, "Apple ALAC Decoder used on unencrypted audio.");
-        conn->decoder_in_use = 1 << decoder_apple_alac;
-      }
-      apple_alac_decode_frame(buf, len, (unsigned char *)dest, &outsize);
-      outsize = outsize * 4; // bring the size to bytes
-    } else
-#endif
-    {
-      if (conn->decoder_in_use != 1 << decoder_hammerton) {
-        debug(2, "Hammerton Decoder used on unencrypted audio.");
-        conn->decoder_in_use = 1 << decoder_hammerton;
-      }
-      alac_decode_frame(conn->decoder_info, buf, dest, &outsize);
-    }
+    // not encrypted
+    unencrypted_packet_decode(buf, len, dest, &outsize, maximum_possible_outsize, conn);
   }
 
-  if (outsize > toutsize) {
+  if (outsize > maximum_possible_outsize) {
     debug(2, "Output from alac_decode larger (%d bytes, not frames) than expected (%d bytes) -- "
              "truncated, but buffer overflow possible! Encrypted = %d.",
-          outsize, toutsize, conn->stream.encrypted);
+          outsize, maximum_possible_outsize, conn->stream.encrypted);
     reply = -1; // output packet is the wrong size
   }
 
@@ -299,7 +306,7 @@ static int alac_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_co
   return reply;
 }
 
-static int init_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
+static int init_alac_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
 
   // This is a guess, but the format of the fmtp looks identical to the format of an
   // ALACSpecificCOnfig
@@ -379,14 +386,6 @@ static int init_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
   // We are going to go on that basis
 
   alac_file *alac;
-
-  conn->max_frames_per_packet = fmtp[1]; // number of audio frames per packet.
-
-  conn->input_rate = fmtp[11];
-  conn->input_num_channels = fmtp[7];
-  conn->input_bit_depth = fmtp[3];
-
-  conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
 
   alac = alac_create(conn->input_bit_depth,
                      conn->input_num_channels); // no pthread cancellation point in here
@@ -555,7 +554,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
 
       if (abuf) {
         int datalen = conn->max_frames_per_packet;
-        if (alac_decode(abuf->data, &datalen, data, len, conn) == 0) {
+        if (audio_packet_decode(abuf->data, &datalen, data, len, conn) == 0) {
           abuf->ready = 1;
           abuf->length = datalen;
           // abuf->timestamp = ltimestamp;
@@ -1485,7 +1484,8 @@ void player_thread_cleanup_handler(void *arg) {
     conn->tbuf = NULL;
   }
   free_audio_buffers(conn);
-  terminate_decoders(conn);
+  if (conn->stream.type == ast_apple_lossless)
+    terminate_decoders(conn);
 
   clear_reference_timestamp(conn);
   conn->rtp_running = 0;
@@ -1512,10 +1512,11 @@ void *player_thread_func(void *arg) {
     conn->latency = 88200;
   }
 
-  init_decoder((int32_t *)&conn->stream.fmtp,
-               conn); // this sets up incoming rate, bit depth, channels.
-                      // No pthread cancellation point in here
-  // This must be after init_decoder
+  if (conn->stream.type == ast_apple_lossless)
+    init_alac_decoder((int32_t *)&conn->stream.fmtp,
+                      conn); // this sets up incoming rate, bit depth, channels.
+                             // No pthread cancellation point in here
+  // This must be after init_alac_decoder
   init_buffer(conn); // will need a corresponding deallocation. No cancellation points in here
 
   if (conn->stream.encrypted) {
