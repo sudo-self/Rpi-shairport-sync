@@ -1386,7 +1386,7 @@ int main(int argc, char **argv) {
     if ((ret = daemon_pid_file_kill_wait(SIGTERM, 5)) < 0)
       daemon_log(LOG_WARNING, "Failed to kill daemon: %s", strerror(errno));
     else {
-      debug(1,"Successfully killed the shairport sync daemon.");
+      // debug(1,"Successfully killed the shairport sync daemon.");
     }
     return ret < 0 ? 1 : 0;
 #else
