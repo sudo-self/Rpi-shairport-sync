@@ -192,8 +192,9 @@ if INSTALL_SYSTEMD
 	[ -f $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service ] || cp scripts/shairport-sync.service $(DESTDIR)$(systemdsystemunitdir)
 endif
 if INSTALL_FREEBSD_SERVICE
-	pw showgroup shairport-sync > /dev/null 2>&1 || pw addgroup  shairport-sync > /dev/null 2>&1
-	pw showuser shairport-sync > /dev/null 2>&1 || pw adduser  shairport-sync > /dev/null 2>&1
+  # Choose a uid and gid of 801 completely arbitrarity, except that it should be below 1000. FreeBSD doesn't seem to allow you to say "an ID in the range of..."
+	pw showgroup shairport-sync > /dev/null 2>&1 || pw addgroup -n shairport-sync -g 801 > /dev/null 2>&1
+	pw showuser shairport-sync > /dev/null 2>&1 || pw adduser -c "shairport-sync unprivileged user" -n shairport-sync -u 801 -s /usr/sbin/nologin -d /nonexistent > /dev/null 2>&1
 	[ -e /var/run/shairport-sync ] || mkdir -p /var/run/shairport-sync
 	chown shairport-sync:shairport-sync /var/run/shairport-sync
 	[ -f /usr/local/etc/rc.d/shairport_sync ] || cp scripts/shairport-sync.freebsd /usr/local/etc/rc.d/shairport_sync
