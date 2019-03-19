@@ -99,6 +99,11 @@
 #include <FFTConvolver/convolver.h>
 #endif
 
+
+#ifdef CONFIG_LIBDAEMON
+pid_t pid;
+#endif
+
 // static int shutting_down = 0;
 char configuration_file_path[4096 + 1];
 char actual_configuration_file_path[4096 + 1];
@@ -109,8 +114,10 @@ static void sig_shutdown(__attribute__((unused)) int foo, __attribute__((unused)
                          __attribute__((unused)) void *baz) {
   debug(2, "shutdown requested...");
 #ifdef CONFIG_LIBDAEMON
-  daemon_retval_send(255);
-  daemon_pid_file_remove();
+  if (pid == 0) {
+    daemon_retval_send(255);
+    daemon_pid_file_remove();
+  }
 #endif
   exit(0);
 }
@@ -1191,11 +1198,16 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
     debug(2, "Deinitialise the audio backend.");
     config.output->deinit();
   }
+  
 #ifdef CONFIG_LIBDAEMON
-  daemon_retval_send(0);
-  daemon_pid_file_remove();
-  daemon_signal_done();
-#endif  
+// only do this if you are the daemon
+  if (pid == 0) {
+    daemon_retval_send(0);
+    daemon_pid_file_remove();
+    daemon_signal_done();
+  }  
+#endif
+ 
   debug(2, "Exit...");
   exit(0);
 }
@@ -1223,6 +1235,9 @@ void exit_function() {
 }
 
 int main(int argc, char **argv) {
+#ifdef CONFIG_LIBDAEMON
+  pid = getpid();
+#endif
   conns = NULL; // no connections active
   memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
   memset(&config, 0, sizeof(config)); // also clears all strings, BTW
@@ -1331,8 +1346,6 @@ int main(int argc, char **argv) {
 
 #ifdef CONFIG_LIBDAEMON
 
-  pid_t pid;
-
   /* Reset signal handlers */
   if (daemon_reset_sigs(-1) < 0) {
     daemon_log(LOG_ERR, "Failed to reset all signal handlers: %s", strerror(errno));
@@ -1372,8 +1385,9 @@ int main(int argc, char **argv) {
     /* Check if the new function daemon_pid_file_kill_wait() is available, if it is, use it. */
     if ((ret = daemon_pid_file_kill_wait(SIGTERM, 5)) < 0)
       daemon_log(LOG_WARNING, "Failed to kill daemon: %s", strerror(errno));
-    else
-      daemon_pid_file_remove();
+    else {
+      debug(1,"Successfully killed the shairport sync daemon.");
+    }
     return ret < 0 ? 1 : 0;
 #else
     syslog(LOG_ERR, "shairport-sync was built without support for the -k or --kill option");
@@ -1432,7 +1446,7 @@ int main(int argc, char **argv) {
         daemon_log(LOG_ERR, "daemon failed to launch, error %i.", ret);
       }
       return ret;
-    } else { /* The daemon */
+    } else { /* pid == 0 means we are the daemon */
 
       /* Close FDs */
       if (daemon_close_all(-1) < 0) {
@@ -1456,6 +1470,7 @@ int main(int argc, char **argv) {
           daemon_signal_done();
           return 0;
         }
+ 
         if (daemon_pid_file_create() < 0) {
           daemon_log(LOG_ERR, "Could not create PID file (%s).", strerror(errno));
 
@@ -1472,7 +1487,7 @@ int main(int argc, char **argv) {
   }
 
 #endif
-
+  debug(1,"Started!");
   main_thread_id = pthread_self();
   if (!main_thread_id)
     debug(1, "Main thread is set up to be NULL!");
@@ -1692,7 +1707,7 @@ int main(int argc, char **argv) {
 
   activity_monitor_start();
 
-  // daemon_log(LOG_INFO, "Successful Startup");
+  // debug(1, "Successful Startup");
   rtsp_listen_loop();
 
   // should not reach this...
