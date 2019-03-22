@@ -1,5 +1,11 @@
 Under Construction
 =====
+
+Getting the Best Audio
+===
+
+Configuration Flags
+===
 Configuration flags determine the features of Shairport Sync that are included. The idea is to have a compact core set of features, so that Shairport Sync can be installed in low-capacity devices. Extra features that take up extra space can be added using configuration flags.
 
 Back Ends
