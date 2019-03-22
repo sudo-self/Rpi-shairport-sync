@@ -7,4 +7,4 @@ Some advanced features allow you to get metadata about the material being played
 
 Configuration Options
 ------
-Please take a look at [CONFIGURATION_OPTIONS.md] for a discussion of the options you can use when configuring the building of Shairport Sync.
+Please take a look at [CONFIGURATION_OPTIONS.md](CONFIGURATION_OPTIONS.md) for a discussion of the options you can use when configuring the building of Shairport Sync.
