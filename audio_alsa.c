@@ -88,7 +88,7 @@ static pthread_mutex_t alsa_mixer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t alsa_buffer_monitor_thread;
 
-int delay_type_notifier = 0; // used to tell us whether the delay is being estimated from the last update or directly. 
+int delay_type_notifier = -1; // used to tell us whether the delay is being estimated from the last update or directly. 
 
 // for deciding when to activate mute
 // there are two sources of requests to mute -- the backend itself, e.g. when it
@@ -1149,6 +1149,11 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
       snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &update_timestamp);
 #endif
 
+  
+    *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
+
+    if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
+
       uint64_t update_timestamp_ns =
           update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
 
@@ -1168,13 +1173,6 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
           delay_type_notifier = 0;
         }
       }
-  
-  
-    *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
-
-    if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
-
-
        	
       if (delay_type_notifier == 1) {
         ret = snd_pcm_delay	(alsa_handle,delay);
