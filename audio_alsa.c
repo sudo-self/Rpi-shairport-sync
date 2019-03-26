@@ -88,6 +88,8 @@ static pthread_mutex_t alsa_mixer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t alsa_buffer_monitor_thread;
 
+int delay_type_notifier = 0; // used to tell us whether the delay is being estimated from the last update or directly. 
+
 // for deciding when to activate mute
 // there are two sources of requests to mute -- the backend itself, e.g. when it
 // is flushing
@@ -1139,67 +1141,90 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
 
   int ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
   if (ret == 0) {
-    *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
-
-    if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
-
-// must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
+ 
+ // must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
 #if SND_LIB_MINOR == 0
       snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
 #else
       snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &update_timestamp);
 #endif
 
-      *delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);
-
-      if (*state == SND_PCM_STATE_DRAINING)
-        debug(1, "alsa: draining with a delay of %d.", delay);
-
-// It seems that the alsa library uses CLOCK_REALTIME before 1.0.28, even though
-// the check for monotonic returns true. Might have to watch out for this.
-#if SND_LIB_MINOR == 0 && SND_LIB_SUBMINOR < 28
-      clock_gettime(CLOCK_REALTIME, &tn);
-#else
-      clock_gettime(CLOCK_MONOTONIC, &tn);
-#endif
-    
-      uint64_t time_now_ns = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
       uint64_t update_timestamp_ns =
           update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
 
-      // see if it's stalled
+      // if the update_timestamp is zero, we take this to mean that the device doesn't report
+      // interrupt timings -- it could be that it's not a real hardware device
+      // so we switch to getting the delay the regular way
+      // i.e. using snd_pcm_delay	()
 
-      if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == *delay)) {
-        // hasn't outputted anything since the last call to delay()
-
-        if (((update_timestamp_ns - stall_monitor_start_time) > stall_monitor_error_threshold) ||
-            ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
-          debug(2, "DAC seems to have stalled with time_now_ns: %" PRIX64
-                   ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
-                   ", stall_monitor_error_threshold %" PRIX64 ".",
-                time_now_ns, update_timestamp_ns, stall_monitor_start_time,
-                stall_monitor_error_threshold);
-          debug(2, "DAC seems to have stalled with time_now: %lx,%lx"
-                   ", update_timestamp: %lx,%lx, stall_monitor_start_time %" PRIX64
-                   ", stall_monitor_error_threshold %" PRIX64 ".",
-                tn.tv_sec, tn.tv_nsec, update_timestamp.tv_sec, update_timestamp.tv_nsec, stall_monitor_start_time,
-                stall_monitor_error_threshold);
-          ret = sps_extra_code_output_stalled;
+      if (update_timestamp_ns == 0) {
+        if (delay_type_notifier != 1) {
+          inform("Note: this output device does not provide timed delay updates via snd_pcm_status_get_*_htstamp(). Is it a virtual rather than a real device? Disable_standby is not available.");
+          delay_type_notifier = 1;
         }
       } else {
-        stall_monitor_start_time = update_timestamp_ns;
-        stall_monitor_frame_count = *delay;
+        if (delay_type_notifier != 0) {
+          debug(1,"ALSA: using snd_pcm_status_get_delay() to calculate delay");
+          delay_type_notifier = 0;
+        }
       }
+  
+  
+    *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
 
-      if (ret == 0) {
-        uint64_t delta = time_now_ns - update_timestamp_ns;
+    if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
 
-        uint64_t frames_played_since_last_interrupt =
-            ((uint64_t)desired_sample_rate * delta) / 1000000000;
-        snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
-            frames_played_since_last_interrupt;
 
-        *delay = *delay - frames_played_since_last_interrupt_sized;
+       	
+      if (delay_type_notifier == 1) {
+        ret = snd_pcm_delay	(alsa_handle,delay);
+      } else {
+        *delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);
+
+// It seems that the alsa library uses CLOCK_REALTIME before 1.0.28, even though
+// the check for monotonic returns true. Might have to watch out for this.
+  #if SND_LIB_MINOR == 0 && SND_LIB_SUBMINOR < 28
+        clock_gettime(CLOCK_REALTIME, &tn);
+  #else
+        clock_gettime(CLOCK_MONOTONIC, &tn);
+  #endif
+      
+        uint64_t time_now_ns = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
+
+        // see if it's stalled
+
+        if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == *delay)) {
+          // hasn't outputted anything since the last call to delay()
+
+          if (((update_timestamp_ns - stall_monitor_start_time) > stall_monitor_error_threshold) ||
+              ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
+            debug(2, "DAC seems to have stalled with time_now_ns: %" PRIX64
+                     ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
+                     ", stall_monitor_error_threshold %" PRIX64 ".",
+                  time_now_ns, update_timestamp_ns, stall_monitor_start_time,
+                  stall_monitor_error_threshold);
+            debug(2, "DAC seems to have stalled with time_now: %lx,%lx"
+                     ", update_timestamp: %lx,%lx, stall_monitor_start_time %" PRIX64
+                     ", stall_monitor_error_threshold %" PRIX64 ".",
+                  tn.tv_sec, tn.tv_nsec, update_timestamp.tv_sec, update_timestamp.tv_nsec, stall_monitor_start_time,
+                  stall_monitor_error_threshold);
+            ret = sps_extra_code_output_stalled;
+          }
+        } else {
+          stall_monitor_start_time = update_timestamp_ns;
+          stall_monitor_frame_count = *delay;
+        }
+
+        if (ret == 0) {
+          uint64_t delta = time_now_ns - update_timestamp_ns;
+
+          uint64_t frames_played_since_last_interrupt =
+              ((uint64_t)desired_sample_rate * delta) / 1000000000;
+          snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
+              frames_played_since_last_interrupt;
+
+          *delay = *delay - frames_played_since_last_interrupt_sized;
+        }
       }
     } else { // not running, thus no delay information, thus can't check for
              // stall
@@ -1590,48 +1615,51 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
       uint64_t present_time = get_absolute_time_in_fp();
       if ((most_recent_write_time == 0) || (present_time > most_recent_write_time)) {
         reply = delay_and_status(&state, &buffer_size);
-        if (reply != 0) {
-          buffer_size = 0;
-          char errorstring[1024];
-          strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
-          debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
-                (char *)errorstring);
-        }
-        long buffer_size_threshold =
-            (long)(config.audio_backend_silence_threshold * desired_sample_rate);
-        if (buffer_size < buffer_size_threshold) {
-          uint64_t sleep_time_in_fp = sleep_time_ms;
-          sleep_time_in_fp = sleep_time_in_fp << 32;
-          sleep_time_in_fp = sleep_time_in_fp / 1000;
-          // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp
-          // form.",sleep_time_ms,sleep_time_in_fp); int frames_of_silence =
-          // (desired_sample_rate *
-          // sleep_time_ms * 2) / 1000;
-          int frames_of_silence = 1024;
-          size_t size_of_silence_buffer = frames_of_silence * frame_size;
-          // debug(1, "alsa: alsa_buffer_monitor_thread_code -- silence buffer
-          // length: %u bytes.",
-          //      size_of_silence_buffer);
-          void *silence = malloc(size_of_silence_buffer);
-          if (silence == NULL) {
-            debug(1, "alsa: alsa_buffer_monitor_thread_code -- failed to "
-                     "allocate memory for a "
-                     "silent frame buffer.");
-          } else {
-            pthread_cleanup_push(malloc_cleanup, silence);
-            int use_dither = 0;
-            if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
-                (config.airplay_volume != 0.0))
-              use_dither = 1;
-            dither_random_number_store =
-                generate_zero_frames(silence, frames_of_silence, config.output_format,
-                                     use_dither, // i.e. with dither
-                                     dither_random_number_store);
-            // debug(1,"Play %d frames of silence with most_recent_write_time of
-            // %" PRIx64 ".",
-            //    frames_of_silence,most_recent_write_time);
-            do_play(silence, frames_of_silence);
-            pthread_cleanup_pop(1);
+        if (delay_type_notifier == 0) {
+          debug(1,"alsa_buffer_monitor_thread_code asking for delay and status with a delay of %ld and a reply of %d.",buffer_size, reply);
+          if (reply != 0) {
+            buffer_size = 0;
+            char errorstring[1024];
+            strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
+            debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
+                  (char *)errorstring);
+          }
+          long buffer_size_threshold =
+              (long)(config.audio_backend_silence_threshold * desired_sample_rate);
+          if (buffer_size < buffer_size_threshold) {
+            uint64_t sleep_time_in_fp = sleep_time_ms;
+            sleep_time_in_fp = sleep_time_in_fp << 32;
+            sleep_time_in_fp = sleep_time_in_fp / 1000;
+            // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp
+            // form.",sleep_time_ms,sleep_time_in_fp); int frames_of_silence =
+            // (desired_sample_rate *
+            // sleep_time_ms * 2) / 1000;
+            int frames_of_silence = 1024;
+            size_t size_of_silence_buffer = frames_of_silence * frame_size;
+            // debug(1, "alsa: alsa_buffer_monitor_thread_code -- silence buffer
+            // length: %u bytes.",
+            //      size_of_silence_buffer);
+            void *silence = malloc(size_of_silence_buffer);
+            if (silence == NULL) {
+              debug(1, "alsa: alsa_buffer_monitor_thread_code -- failed to "
+                       "allocate memory for a "
+                       "silent frame buffer.");
+            } else {
+              pthread_cleanup_push(malloc_cleanup, silence);
+              int use_dither = 0;
+              if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
+                  (config.airplay_volume != 0.0))
+                use_dither = 1;
+              dither_random_number_store =
+                  generate_zero_frames(silence, frames_of_silence, config.output_format,
+                                       use_dither, // i.e. with dither
+                                       dither_random_number_store);
+              // debug(1,"Play %d frames of silence with most_recent_write_time of
+              // %" PRIx64 ".",
+              //    frames_of_silence,most_recent_write_time);
+              do_play(silence, frames_of_silence);
+              pthread_cleanup_pop(1);
+            }
           }
         }
       }
