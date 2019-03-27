@@ -88,8 +88,6 @@ static pthread_mutex_t alsa_mixer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t alsa_buffer_monitor_thread;
 
-int delay_type_notifier = -1; // used to tell us whether the delay is being estimated from the last update or directly. 
-
 // for deciding when to activate mute
 // there are two sources of requests to mute -- the backend itself, e.g. when it
 // is flushing
@@ -115,6 +113,10 @@ int frame_size; // in bytes for interleaved stereo
 
 int alsa_device_initialised; // boolean to ensure the initialisation is only
                              // done once
+         
+                    
+enum yndk_type precision_delay_available_status = YNDK_DONT_KNOW; // initially, we don't know if the device can do precision delay
+                            
 snd_pcm_t *alsa_handle = NULL;
 static snd_pcm_hw_params_t *alsa_params = NULL;
 static snd_pcm_sw_params_t *alsa_swparams = NULL;
@@ -1132,9 +1134,12 @@ static void start(int i_sample_rate, int i_sample_format) {
   }
 }
 
-int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
+int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) {
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
+  
+  if (using_update_timestamps)
+    *using_update_timestamps = YNDK_DONT_KNOW;
 
   struct timespec tn;                // time now
   snd_htimestamp_t update_timestamp; // actually a struct timespec
@@ -1158,10 +1163,17 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
           update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
 
       // if the update_timestamp is zero, we take this to mean that the device doesn't report
-      // interrupt timings -- it could be that it's not a real hardware device
+      // interrupt timings. (It could be that it's not a real hardware device.)
       // so we switch to getting the delay the regular way
       // i.e. using snd_pcm_delay	()
-
+      if (using_update_timestamps) {
+        if (update_timestamp_ns == 0)
+          *using_update_timestamps = YNDK_NO;
+        else
+          *using_update_timestamps = YNDK_YES;
+      }
+      
+/*
       if (update_timestamp_ns == 0) {
         if (delay_type_notifier != 1) {
           inform("Note: this output device does not provide timed delay updates via snd_pcm_status_get_*_htstamp(). Is it a virtual rather than a real device? Disable_standby is not available.");
@@ -1173,8 +1185,9 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay) {
           delay_type_notifier = 0;
         }
       }
+*/
        	
-      if (delay_type_notifier == 1) {
+      if (update_timestamp_ns == 0) {
         ret = snd_pcm_delay	(alsa_handle,delay);
       } else {
         *delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);
@@ -1264,7 +1277,7 @@ int delay(long *the_delay) {
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
 
-    ret = delay_and_status(&state, &my_delay);
+    ret = delay_and_status(&state, &my_delay, NULL);
 
     debug_mutex_unlock(&alsa_mutex, 0);
     pthread_cleanup_pop(0);
@@ -1296,7 +1309,7 @@ int do_play(void *buf, int samples) {
 
   snd_pcm_state_t state;
   snd_pcm_sframes_t my_delay;
-  int ret = delay_and_status(&state, &my_delay);
+  int ret = delay_and_status(&state, &my_delay, NULL);
 
   if (ret == 0) { // will be non-zero if an error or a stall
 
@@ -1571,6 +1584,57 @@ void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
 }
 */
 
+// this will return true if the DAC can return precision delay information and false if not
+// if it is not yet known, it will test the output device to find out
+
+int precision_delay_available() {
+  if (precision_delay_available_status == YNDK_DONT_KNOW) {
+    debug(1,"alsa: precision_delay_available starting check...");
+    // At present, the only criterion as to whether precision delay is available
+    // is whether the device driver returns non-zero update timestamps
+    // If it does, it is considered precision delay is available
+    // Otherwise, it's considered to be unavailable
+    
+    // To test, we play a silence buffer (fairly large to avoid underflow)
+    // and then we check the delay return. It will tell us if it 
+    // was able to use the (non-zero) update timestamps
+        
+    int frames_of_silence = 4410;
+    size_t size_of_silence_buffer = frames_of_silence * frame_size;
+    void *silence = malloc(size_of_silence_buffer);
+    if (silence == NULL) {
+      debug(1, "alsa: precision_delay_available -- failed to "
+               "allocate memory for a "
+               "silent frame buffer.");
+    } else {
+      pthread_cleanup_push(malloc_cleanup, silence);
+      int use_dither = 0;
+      if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
+          (config.airplay_volume != 0.0))
+        use_dither = 1;
+      dither_random_number_store =
+          generate_zero_frames(silence, frames_of_silence, config.output_format,
+                               use_dither, // i.e. with dither
+                               dither_random_number_store);
+      // debug(1,"Play %d frames of silence with most_recent_write_time of
+      // %" PRIx64 ".",
+      //    frames_of_silence,most_recent_write_time);
+      do_play(silence, frames_of_silence);
+      pthread_cleanup_pop(1);
+      // now we can get the delay, and we'll note if it uses update timestamps
+      enum yndk_type uses_update_timestamps;
+      snd_pcm_state_t state;
+      snd_pcm_sframes_t delay;     
+      int ret = delay_and_status(&state, &delay, &uses_update_timestamps);
+      debug(1,"alsa: precision_delay_available asking for delay and status with a return status of %d, a delay of %ld and a uses_update_timestamps of %d.", ret, delay, uses_update_timestamps);     
+      if (ret == 0) {
+        precision_delay_available_status = uses_update_timestamps;
+      }
+    }
+  }
+  return (precision_delay_available_status == YNDK_YES);
+}
+
 void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
   int okb = -1;
   while (1) {
@@ -1605,59 +1669,56 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
     // and config.keep_dac_busy is true (at the present, this has to be the case
     // to be in the
     // abm_connected state in the first place...) then do the silence-filling
-    // thing, if needed
-    if ((alsa_backend_state != abm_disconnected) && (config.keep_dac_busy != 0)) {
+    // thing, if needed, and if the output device is capable of precision delay.
+    if ((alsa_backend_state != abm_disconnected) && (config.keep_dac_busy != 0) && precision_delay_available()) {
       int reply;
       long buffer_size = 0;
       snd_pcm_state_t state;
       uint64_t present_time = get_absolute_time_in_fp();
       if ((most_recent_write_time == 0) || (present_time > most_recent_write_time)) {
-        reply = delay_and_status(&state, &buffer_size);
-        if (delay_type_notifier == 0) {
-          debug(1,"alsa_buffer_monitor_thread_code asking for delay and status with a delay of %ld and a reply of %d.",buffer_size, reply);
-          if (reply != 0) {
-            buffer_size = 0;
-            char errorstring[1024];
-            strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
-            debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
-                  (char *)errorstring);
-          }
-          long buffer_size_threshold =
-              (long)(config.audio_backend_silence_threshold * desired_sample_rate);
-          if (buffer_size < buffer_size_threshold) {
-            uint64_t sleep_time_in_fp = sleep_time_ms;
-            sleep_time_in_fp = sleep_time_in_fp << 32;
-            sleep_time_in_fp = sleep_time_in_fp / 1000;
-            // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp
-            // form.",sleep_time_ms,sleep_time_in_fp); int frames_of_silence =
-            // (desired_sample_rate *
-            // sleep_time_ms * 2) / 1000;
-            int frames_of_silence = 1024;
-            size_t size_of_silence_buffer = frames_of_silence * frame_size;
-            // debug(1, "alsa: alsa_buffer_monitor_thread_code -- silence buffer
-            // length: %u bytes.",
-            //      size_of_silence_buffer);
-            void *silence = malloc(size_of_silence_buffer);
-            if (silence == NULL) {
-              debug(1, "alsa: alsa_buffer_monitor_thread_code -- failed to "
-                       "allocate memory for a "
-                       "silent frame buffer.");
-            } else {
-              pthread_cleanup_push(malloc_cleanup, silence);
-              int use_dither = 0;
-              if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
-                  (config.airplay_volume != 0.0))
-                use_dither = 1;
-              dither_random_number_store =
-                  generate_zero_frames(silence, frames_of_silence, config.output_format,
-                                       use_dither, // i.e. with dither
-                                       dither_random_number_store);
-              // debug(1,"Play %d frames of silence with most_recent_write_time of
-              // %" PRIx64 ".",
-              //    frames_of_silence,most_recent_write_time);
-              do_play(silence, frames_of_silence);
-              pthread_cleanup_pop(1);
-            }
+        reply = delay_and_status(&state, &buffer_size, NULL);
+        if (reply != 0) {
+          buffer_size = 0;
+          char errorstring[1024];
+          strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
+          debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
+                (char *)errorstring);
+        }
+        long buffer_size_threshold =
+            (long)(config.audio_backend_silence_threshold * desired_sample_rate);
+        if (buffer_size < buffer_size_threshold) {
+          uint64_t sleep_time_in_fp = sleep_time_ms;
+          sleep_time_in_fp = sleep_time_in_fp << 32;
+          sleep_time_in_fp = sleep_time_in_fp / 1000;
+          // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp
+          // form.",sleep_time_ms,sleep_time_in_fp); int frames_of_silence =
+          // (desired_sample_rate *
+          // sleep_time_ms * 2) / 1000;
+          int frames_of_silence = 1024;
+          size_t size_of_silence_buffer = frames_of_silence * frame_size;
+          // debug(1, "alsa: alsa_buffer_monitor_thread_code -- silence buffer
+          // length: %u bytes.",
+          //      size_of_silence_buffer);
+          void *silence = malloc(size_of_silence_buffer);
+          if (silence == NULL) {
+            debug(1, "alsa: alsa_buffer_monitor_thread_code -- failed to "
+                     "allocate memory for a "
+                     "silent frame buffer.");
+          } else {
+            pthread_cleanup_push(malloc_cleanup, silence);
+            int use_dither = 0;
+            if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
+                (config.airplay_volume != 0.0))
+              use_dither = 1;
+            dither_random_number_store =
+                generate_zero_frames(silence, frames_of_silence, config.output_format,
+                                     use_dither, // i.e. with dither
+                                     dither_random_number_store);
+            // debug(1,"Play %d frames of silence with most_recent_write_time of
+            // %" PRIx64 ".",
+            //    frames_of_silence,most_recent_write_time);
+            do_play(silence, frames_of_silence);
+            pthread_cleanup_pop(1);
           }
         }
       }
