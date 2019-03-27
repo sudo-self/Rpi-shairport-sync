@@ -33,6 +33,12 @@ enum dbus_session_type {
 #define sps_extra_code_output_stalled 32768
 #define sps_extra_code_output_state_cannot_make_ready 32769
 
+enum yndk_type {
+  YNDK_DONT_KNOW = -1,
+  YNDK_NO = 0,
+  YNDK_YES = 1
+} yndk_type;
+
 enum endian_type {
   SS_LITTLE_ENDIAN = 0,
   SS_PDP_ENDIAN,
