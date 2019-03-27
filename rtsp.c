@@ -51,8 +51,8 @@
 #endif
 
 #ifdef CONFIG_MBEDTLS
-#include <mbedtls/version.h>
 #include <mbedtls/md5.h>
+#include <mbedtls/version.h>
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -292,9 +292,8 @@ void *player_watchdog_thread_code(void *arg) {
           conn->watchdog_barks++;
           if (conn->watchdog_barks == 1) {
             // debuglev = 3; // tell us everything.
-            debug(1,
-                  "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
-                  "of the heart\".",
+            debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
+                     "of the heart\".",
                   conn->connection_number);
             conn->stop = 1;
             pthread_cancel(conn->thread);
@@ -580,12 +579,12 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
-  int release_buffer = 0; // on exit, don't deallocate the buffer if everything was okay
+  int release_buffer = 0;         // on exit, don't deallocate the buffer if everything was okay
   char *buf = malloc(buflen + 1); // add a NUL at the end
   if (!buf) {
     warn("rtsp_read_request: can't get a buffer.");
-    return(rtsp_read_request_response_error);
-  }  
+    return (rtsp_read_request_response_error);
+  }
   pthread_cleanup_push(malloc_cleanup, buf);
   ssize_t nread;
   ssize_t inbuf = 0;
@@ -619,6 +618,10 @@ do {
     if (nread < 0) {
       if (errno == EINTR)
         continue;
+      if (errno == EAGAIN) {
+        debug(1, "Getting Error 11 -- EAGAIN from a blocking read!");
+        continue;
+      }
       if (errno != ECONNRESET) {
         char errorstring[1024];
         strerror_r(errno, (char *)errorstring, sizeof(errorstring));
@@ -787,7 +790,8 @@ int msg_write_response(int fd, rtsp_message *resp) {
     return -4;
   }
   if (reply != p - pkt) {
-    debug(1, "msg_write_response error -- requested bytes: %d not fully written: %d.",p - pkt, reply);
+    debug(1, "msg_write_response error -- requested bytes: %d not fully written: %d.", p - pkt,
+          reply);
     return -5;
   }
   return 0;
@@ -842,10 +846,9 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
                     rtsp_message *resp) {
   debug(3, "Connection %d: OPTIONS", conn->connection_number);
   resp->respcode = 200;
-  msg_add_header(resp, "Public",
-                 "ANNOUNCE, SETUP, RECORD, "
-                 "PAUSE, FLUSH, TEARDOWN, "
-                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
+  msg_add_header(resp, "Public", "ANNOUNCE, SETUP, RECORD, "
+                                 "PAUSE, FLUSH, TEARDOWN, "
+                                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
 }
 
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
@@ -986,10 +989,10 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
             msg_add_header(resp, "Session", "1");
 
             resp->respcode = 200; // it all worked out okay
-            debug(1, "Connection %d: SETUP DACP-ID \"%s\" from %s to %s with UDP ports Control: %d, Timing: %d and Audio: %d.",
-                  conn->connection_number, 
-                  conn->dacp_id, &conn->client_ip_string, &conn->self_ip_string,
-                  conn->local_control_port, conn->local_timing_port,
+            debug(1, "Connection %d: SETUP DACP-ID \"%s\" from %s to %s with UDP ports Control: "
+                     "%d, Timing: %d and Audio: %d.",
+                  conn->connection_number, conn->dacp_id, &conn->client_ip_string,
+                  &conn->self_ip_string, conn->local_control_port, conn->local_timing_port,
                   conn->local_audio_port);
 
           } else {
@@ -1582,7 +1585,7 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
   char *ct = msg_get_header(req, "Content-Type");
 
   if (ct) {
-    // debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
+// debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
 
 #ifdef CONFIG_METADATA
     // It seems that the rtptime of the message is used as a kind of an ID that
@@ -1741,6 +1744,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     }
 */
 
+    conn->stream.type = ast_unknown;
     resp->respcode = 456; // 456 - Header Field Not Valid for Resource
     char *pssid = NULL;
     char *paesiv = NULL;
@@ -1748,6 +1752,8 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     char *pfmtp = NULL;
     char *pminlatency = NULL;
     char *pmaxlatency = NULL;
+    //    char *pAudioMediaInfo = NULL;
+    char *pUncompressedCDAudio = NULL;
     char *cp = req->content;
     int cp_left = req->contentlength;
     char *next;
@@ -1755,25 +1761,60 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
       next = nextline(cp, cp_left);
       cp_left -= next - cp;
 
-      if (!strncmp(cp, "o=iTunes", 7))
-        pssid = cp + 8;
+      if (!strncmp(cp, "a=rtpmap:96 L16/44100/2", strlen("a=rtpmap:96 L16/44100/2")))
+        pUncompressedCDAudio = cp + strlen("a=rtpmap:96 L16/44100/2");
 
-      if (!strncmp(cp, "a=fmtp:", 7))
-        pfmtp = cp + 7;
+      //      if (!strncmp(cp, "m=audio", strlen("m=audio")))
+      //        pAudioMediaInfo = cp + strlen("m=audio");
 
-      if (!strncmp(cp, "a=aesiv:", 8))
-        paesiv = cp + 8;
+      if (!strncmp(cp, "o=iTunes", strlen("o=iTunes")))
+        pssid = cp + strlen("o=iTunes");
 
-      if (!strncmp(cp, "a=rsaaeskey:", 12))
-        prsaaeskey = cp + 12;
+      if (!strncmp(cp, "a=fmtp:", strlen("a=fmtp:")))
+        pfmtp = cp + strlen("a=fmtp:");
 
-      if (!strncmp(cp, "a=min-latency:", 14))
-        pminlatency = cp + 14;
+      if (!strncmp(cp, "a=aesiv:", strlen("a=aesiv:")))
+        paesiv = cp + strlen("a=aesiv:");
 
-      if (!strncmp(cp, "a=max-latency:", 14))
-        pmaxlatency = cp + 14;
+      if (!strncmp(cp, "a=rsaaeskey:", strlen("a=rsaaeskey:")))
+        prsaaeskey = cp + strlen("a=rsaaeskey:");
+
+      if (!strncmp(cp, "a=min-latency:", strlen("a=min-latency:")))
+        pminlatency = cp + strlen("a=min-latency:");
+
+      if (!strncmp(cp, "a=max-latency:", strlen("a=max-latency:")))
+        pmaxlatency = cp + strlen("a=max-latency:");
 
       cp = next;
+    }
+
+    if (pUncompressedCDAudio) {
+      debug(1, "An uncompressed PCM stream has been detected.");
+      conn->stream.type = ast_uncompressed;
+      conn->max_frames_per_packet = 352; // number of audio frames per packet.
+      conn->input_rate = 44100;
+      conn->input_num_channels = 2;
+      conn->input_bit_depth = 16;
+      conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
+
+      /*
+      int y = strlen(pAudioMediaInfo);
+      if (y > 0) {
+        char obf[4096];
+        if (y > 4096)
+          y = 4096;
+        char *p = pAudioMediaInfo;
+        char *obfp = obf;
+        int obfc;
+        for (obfc = 0; obfc < y; obfc++) {
+          snprintf(obfp, 3, "%02X", (unsigned int)*p);
+          p++;
+          obfp += 2;
+        };
+        *obfp = 0;
+        debug(1, "AudioMediaInfo: \"%s\".", obf);
+      }
+      */
     }
 
     if (pssid) {
@@ -1799,22 +1840,6 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
       // debug(1,"Encrypted session requested");
     }
 
-    if (!pfmtp) {
-      warn("FMTP params missing from the following ANNOUNCE message:");
-      // print each line of the request content
-      // the problem is that nextline has replace all returns, newlines, etc. by
-      // NULLs
-      char *cp = req->content;
-      int cp_left = req->contentlength;
-      while (cp_left > 1) {
-        if (strlen(cp) != 0)
-          warn("    %s", cp);
-        cp += strlen(cp) + 1;
-        cp_left -= strlen(cp) + 1;
-      }
-      goto out;
-    }
-
     if (conn->stream.encrypted) {
       int len, keylen;
       uint8_t *aesiv = base64_dec(paesiv, &len);
@@ -1837,12 +1862,41 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
       memcpy(conn->stream.aeskey, aeskey, 16);
       free(aeskey);
     }
-    unsigned int i;
-    for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
-      conn->stream.fmtp[i] = atoi(strsep(&pfmtp, " \t"));
-    // here we should check the sanity ot the fmtp values
-    // for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
-    //  debug(1,"  fmtp[%2d] is: %10d",i,conn->stream.fmtp[i]);
+
+    if (pfmtp) {
+      conn->stream.type = ast_apple_lossless;
+      debug(1, "An ALAC stream has been detected.");
+      unsigned int i;
+      for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
+        conn->stream.fmtp[i] = atoi(strsep(&pfmtp, " \t"));
+      // here we should check the sanity ot the fmtp values
+      // for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
+      //  debug(1,"  fmtp[%2d] is: %10d",i,conn->stream.fmtp[i]);
+
+      // set the parameters of the player (as distinct from the parameters of the decoder -- that's
+      // done later).
+      conn->max_frames_per_packet = conn->stream.fmtp[1]; // number of audio frames per packet.
+      conn->input_rate = conn->stream.fmtp[11];
+      conn->input_num_channels = conn->stream.fmtp[7];
+      conn->input_bit_depth = conn->stream.fmtp[3];
+      conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
+    }
+
+    if (conn->stream.type == ast_unknown) {
+      warn("Can not process the following ANNOUNCE message:");
+      // print each line of the request content
+      // the problem is that nextline has replace all returns, newlines, etc. by
+      // NULLs
+      char *cp = req->content;
+      int cp_left = req->contentlength;
+      while (cp_left > 1) {
+        if (strlen(cp) != 0)
+          warn("    %s", cp);
+        cp += strlen(cp) + 1;
+        cp_left -= strlen(cp) + 1;
+      }
+      goto out;
+    }
 
     char *hdr = msg_get_header(req, "X-Apple-Client-Name");
     if (hdr) {
@@ -2038,7 +2092,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
 #endif
 
 #ifdef CONFIG_MBEDTLS
-  #if MBEDTLS_VERSION_MINOR >= 7
+#if MBEDTLS_VERSION_MINOR >= 7
   mbedtls_md5_context tctx;
   mbedtls_md5_starts_ret(&tctx);
   mbedtls_md5_update_ret(&tctx, (const unsigned char *)username, strlen(username));
@@ -2052,7 +2106,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
   mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
   mbedtls_md5_update_ret(&tctx, (const unsigned char *)uri, strlen(uri));
   mbedtls_md5_finish_ret(&tctx, digest_mu);
-  #else
+#else
   mbedtls_md5_context tctx;
   mbedtls_md5_starts(&tctx);
   mbedtls_md5_update(&tctx, (const unsigned char *)username, strlen(username));
@@ -2066,7 +2120,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
   mbedtls_md5_update(&tctx, (unsigned char *)":", 1);
   mbedtls_md5_update(&tctx, (const unsigned char *)uri, strlen(uri));
   mbedtls_md5_finish(&tctx, digest_mu);
-  #endif
+#endif
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -2105,7 +2159,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
 #endif
 
 #ifdef CONFIG_MBEDTLS
-  #if MBEDTLS_VERSION_MINOR >= 7
+#if MBEDTLS_VERSION_MINOR >= 7
   mbedtls_md5_starts_ret(&tctx);
   mbedtls_md5_update_ret(&tctx, buf, 32);
   mbedtls_md5_update_ret(&tctx, (unsigned char *)":", 1);
@@ -2115,7 +2169,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
     snprintf((char *)buf + 2 * i, 3, "%02x", digest_mu[i]);
   mbedtls_md5_update_ret(&tctx, buf, 32);
   mbedtls_md5_finish_ret(&tctx, digest_total);
-  #else
+#else
   mbedtls_md5_starts(&tctx);
   mbedtls_md5_update(&tctx, buf, 32);
   mbedtls_md5_update(&tctx, (unsigned char *)":", 1);
@@ -2125,7 +2179,7 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
     snprintf((char *)buf + 2 * i, 3, "%02x", digest_mu[i]);
   mbedtls_md5_update(&tctx, buf, 32);
   mbedtls_md5_finish(&tctx, digest_total);
-  #endif
+#endif
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -2194,7 +2248,8 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   // remove flow control and mutexes
   int rc = pthread_mutex_destroy(&conn->volume_control_mutex);
   if (rc)
-    debug(1, "Connection %d: error %d destroying volume_control_mutex.", conn->connection_number, rc);
+    debug(1, "Connection %d: error %d destroying volume_control_mutex.", conn->connection_number,
+          rc);
   rc = pthread_cond_destroy(&conn->flowcontrol);
   if (rc)
     debug(1, "Connection %d: error %d destroying flow control condition variable.",
@@ -2285,9 +2340,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (strcmp(req->method, "OPTIONS") !=
           0) // the options message is very common, so don't log it until level 3
         debug_level = 2;
-      debug(debug_level,
-            "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
-            req->method),
+      debug(debug_level, "Connection %d: Received an RTSP Packet of type \"%s\":",
+            conn->connection_number, req->method),
           debug_print_msg_headers(debug_level, req);
 
       apple_challenge(conn->fd, req, resp);
@@ -2346,9 +2400,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
-          debug(1,
-                "Connection %d: Unable to write an RTSP message response. Terminating the "
-                "connection.",
+          debug(1, "Connection %d: Unable to write an RTSP message response. Terminating the "
+                   "connection.",
                 conn->connection_number);
           struct linger so_linger;
           so_linger.l_onoff = 1; // "true"

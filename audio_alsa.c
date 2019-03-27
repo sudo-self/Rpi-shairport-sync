@@ -1587,9 +1587,14 @@ void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
 // this will return true if the DAC can return precision delay information and false if not
 // if it is not yet known, it will test the output device to find out
 
+// note -- once it has done the test, it decides -- even if the delay comes back with
+// "don't know", it will take that as a "No" and remember it.
+// If you want it to check again, set precision_delay_available_status to YNDK_DONT_KNOW
+// first.
+
+
 int precision_delay_available() {
   if (precision_delay_available_status == YNDK_DONT_KNOW) {
-    debug(1,"alsa: precision_delay_available starting check...");
     // At present, the only criterion as to whether precision delay is available
     // is whether the device driver returns non-zero update timestamps
     // If it does, it is considered precision delay is available
@@ -1626,9 +1631,17 @@ int precision_delay_available() {
       snd_pcm_state_t state;
       snd_pcm_sframes_t delay;     
       int ret = delay_and_status(&state, &delay, &uses_update_timestamps);
-      debug(1,"alsa: precision_delay_available asking for delay and status with a return status of %d, a delay of %ld and a uses_update_timestamps of %d.", ret, delay, uses_update_timestamps);     
+      // debug(3,"alsa: precision_delay_available asking for delay and status with a return status of %d, a delay of %ld and a uses_update_timestamps of %d.", ret, delay, uses_update_timestamps);     
       if (ret == 0) {
-        precision_delay_available_status = uses_update_timestamps;
+        if (uses_update_timestamps == YNDK_YES) {
+          precision_delay_available_status = YNDK_YES;
+          debug(2,"alsa: precision delay timing available.");
+        } else {
+          precision_delay_available_status = YNDK_NO;
+          inform("Note: the alsa output device \"%s\" is not capable of precision delay timing. Could it be a virtual device?", snd_pcm_name(alsa_handle));
+          if (config.disable_standby_mode != disable_standby_off)
+            inform("Note: disable_standby_mode has been turned off because the output device is not capable of precision delay timing.");
+        }
       }
     }
   }
@@ -1639,7 +1652,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
   int okb = -1;
   while (1) {
     if (okb != config.keep_dac_busy) {
-      debug(1,"keep_dac_busy is now \"%s\"",config.keep_dac_busy == 0 ? "no" : "yes");
+      debug(2,"keep_dac_busy is now \"%s\"",config.keep_dac_busy == 0 ? "no" : "yes");
       okb = config.keep_dac_busy;
     }
     if ((config.keep_dac_busy != 0) && (alsa_device_initialised == 0)) {

@@ -48,7 +48,7 @@ typedef struct audio_buffer_entry { // decoded audio packets
 } abuf_t;
 
 // default buffer size
-// This eeds to be a power of 2 because of the way BUFIDX(seqno) works.
+// This needs to be a power of 2 because of the way BUFIDX(seqno) works.
 // 512 is the minimum for normal operation -- it gives 512*352/44100 or just over 4 seconds of
 // buffers.
 // For at least 10 seconds, you need to go to 2048.
@@ -61,10 +61,17 @@ typedef struct audio_buffer_entry { // decoded audio packets
 
 #define BUFFER_FRAMES 1024
 
+enum audio_stream_type {
+  ast_unknown,
+  ast_uncompressed, // L16/44100/2
+  ast_apple_lossless,
+} ast_type;
+
 typedef struct {
   int encrypted;
   uint8_t aesiv[16], aeskey[16];
   int32_t fmtp[12];
+  enum audio_stream_type type;
 } stream_cfg;
 
 typedef struct {
