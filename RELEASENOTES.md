@@ -1,4 +1,14 @@
 
+Version 3.3rc2
+====
+
+**New Feature**
+* Shairport Sync can now accept AirPlay streams containing uncompressed PCM -- specifically, 16-bit network-endian interleaved stereo, 44,100 frames per second. There is a restricton -- the packets of audio must be 352 frames long.
+
+**Bug Fix**
+* Compatibility has been restored with virtual ALSA devices. Sometimes, an ALSA output device isn't actually a real hardware device -- for example, if PulseAudio is installed in your system, the "default" ALSA output device may in fact a virtual device that provides a route into the PulseAudio sound server for audio from ALSA-compatible applications. Such virtual devices don't always provide the precise delay timing that Shairport Sync uses. The bug fix is to fall back to the standard calls when precise delay timing is not available.
+* If precise delay timing data is not available, the disable_standby_mode is turned off, as it relies on high precise timing. 
+
 Version 3.3rc1
 ====
 
