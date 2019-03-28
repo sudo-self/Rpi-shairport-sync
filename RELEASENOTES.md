@@ -7,7 +7,7 @@ Version 3.3rc2
 
 **Bug Fix**
 * Compatibility has been restored with virtual ALSA devices. Sometimes, an ALSA output device isn't actually a real hardware device -- for example, if PulseAudio is installed in your system, the "default" ALSA output device may in fact a virtual device that provides a route into the PulseAudio sound server for audio from ALSA-compatible applications. Such virtual devices don't always provide the precise delay timing that Shairport Sync uses. The bug fix is to fall back to the standard calls when precise delay timing is not available.
-* If precise delay timing data is not available, the disable_standby_mode is turned off, as it relies on high precise timing. 
+* If precise delay timing data is not available, the disable_standby_mode is turned off, as it relies on high precision timing. 
 
 Version 3.3rc1
 ====
