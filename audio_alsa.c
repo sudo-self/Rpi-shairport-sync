@@ -1177,19 +1177,20 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk
 // user information
       if (update_timestamp_ns == 0) {
         if (delay_type_notified != 1) {
-          inform("Note: the alsa output device \"%s\" is not capable of precision delay timing. Could it be a virtual device?", snd_pcm_name(alsa_handle));
-          delay_type_notified = 1;
+          inform("Note: the alsa output device \"%s\" is not capable of high precision delay timing.", snd_pcm_name(alsa_handle));
+          debug(2,"alsa: delay_and_status must use snd_pcm_delay() to calculate delay");
         }
       } else {
 // diagnostic
         if (delay_type_notified != 0) {
-          debug(1,"alsa: delay_and_status using snd_pcm_status_get_delay() to calculate delay");
+          debug(2,"alsa: delay_and_status using snd_pcm_status_get_delay() to calculate delay");
           delay_type_notified = 0;
         }
       }
 
       if (update_timestamp_ns == 0) {
         ret = snd_pcm_delay	(alsa_handle,delay);
+        measurement_data_is_valid = 0; // can't really check frame rates
       } else {
         *delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);
 
