@@ -968,7 +968,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             // to compensate for delays due to paging, etc.
             // The suggestion is that it should be at least 100 ms less than the lead-in time.
 
-            int64_t max_dac_delay = config.output_rate / 10; // so the lead-in time must be greater
+            int64_t max_dac_delay = config.output_rate / 5; // so the lead-in time must be greater
                                                              // than this, say 0.2 sec, to allow for
                                                              // dynamic adjustment
             int64_t filler_size = max_dac_delay;
