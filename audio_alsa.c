@@ -65,6 +65,7 @@ static void parameters(audio_parameters *info);
 int mute(int do_mute); // returns true if it actually is allowed to use the mute
 static double set_volume;
 static int output_method_signalled = 0; // for reporting whether it's using mmap or not
+int delay_type_notified = -1; // for controlling the reporting of whether the output device can do precison delays (e.g. alsa->pulsaudio virtual devices can't)
 
 audio_output audio_alsa = {
     .name = "alsa",
@@ -1173,20 +1174,20 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk
           *using_update_timestamps = YNDK_YES;
       }
       
-/*
+// user information
       if (update_timestamp_ns == 0) {
-        if (delay_type_notifier != 1) {
-          inform("Note: this output device does not provide timed delay updates via snd_pcm_status_get_*_htstamp(). Is it a virtual rather than a real device? Disable_standby is not available.");
-          delay_type_notifier = 1;
+        if (delay_type_notified != 1) {
+          inform("Note: the alsa output device \"%s\" is not capable of precision delay timing. Could it be a virtual device?", snd_pcm_name(alsa_handle));
+          delay_type_notified = 1;
         }
       } else {
-        if (delay_type_notifier != 0) {
-          debug(1,"ALSA: using snd_pcm_status_get_delay() to calculate delay");
-          delay_type_notifier = 0;
+// diagnostic
+        if (delay_type_notified != 0) {
+          debug(1,"alsa: delay_and_status using snd_pcm_status_get_delay() to calculate delay");
+          delay_type_notified = 0;
         }
       }
-*/
-       	
+
       if (update_timestamp_ns == 0) {
         ret = snd_pcm_delay	(alsa_handle,delay);
       } else {
@@ -1352,16 +1353,16 @@ int do_play(void *buf, int samples) {
           }
         }
       } else {
-
-        debug(1, "alsa: error %d writing %d samples to alsa device.", ret, samples);
         frame_index = 0;
         measurement_data_is_valid = 0;
         if (ret == -EPIPE) { /* underrun */
+          debug(1, "alsa: underrun while writing %d samples to alsa device.", samples);
           ret = snd_pcm_recover(alsa_handle, ret, debuglev > 0 ? 1 : 0);
           if (ret < 0) {
             warn("alsa: can't recover from SND_PCM_STATE_XRUN: %s.", snd_strerror(ret));
           }
         } else if (ret == -ESTRPIPE) { /* suspended */
+          debug(1, "alsa: suspended while writing %d samples to alsa device.", samples);
           while ((ret = snd_pcm_resume(alsa_handle)) == -EAGAIN) {
             sleep(1); /* wait until the suspend flag is released */
             if (ret < 0) {
@@ -1371,7 +1372,12 @@ int do_play(void *buf, int samples) {
                    snd_strerror(ret));
             }
           }
+        } else {
+          char errorstring[1024];
+          strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
+          debug(1, "alsa: error %d (\"%s\") writing %d samples to alsa device.", ret, (char *)errorstring, samples);
         }
+
       }
     }
   } else {
@@ -1404,6 +1410,7 @@ int do_open() {
                           // set accordingly
         // do_mute(0); // complete unmute
       }
+      
       alsa_backend_state = abm_connected; // only do this if it really opened it.
     }
   } else {
@@ -1638,7 +1645,7 @@ int precision_delay_available() {
           debug(2,"alsa: precision delay timing available.");
         } else {
           precision_delay_available_status = YNDK_NO;
-          inform("Note: the alsa output device \"%s\" is not capable of precision delay timing. Could it be a virtual device?", snd_pcm_name(alsa_handle));
+          debug(2,"alsa: precision delay timing not available.");
           if (config.disable_standby_mode != disable_standby_off)
             inform("Note: disable_standby_mode has been turned off because the output device is not capable of precision delay timing.");
         }

@@ -961,16 +961,21 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                                 conn);
 
             conn->first_packet_time_to_play = should_be_time;
+            
+            // we want the frames of silence sent at the start to be fairly large in case the output
+            // device's minimum buffer size is large. But they can't be greater than the silent lead_in time
+            // which is either the agreed latency or the silent lead-in time specified by the setting
+            // In fact, if should be some fraction of them, to allow for adjustment.
+            
+            int64_t max_dac_delay = conn->latency;
+            if (config.audio_backend_silent_lead_in_time >= 0)
+              max_dac_delay =
+                (int64_t)(config.audio_backend_silent_lead_in_time * conn->input_rate);
+            
+            max_dac_delay = max_dac_delay / 4;
+            
+            // debug(1,"max_dac_delay is %" PRIu64 " frames.", max_dac_delay);           
 
-            // now, the size of the initial silence must be affected by the lead-in time.
-            // it must be somewhat less than the lead-in time so that dynamic adjustments can be
-            // made
-            // to compensate for delays due to paging, etc.
-            // The suggestion is that it should be at least 100 ms less than the lead-in time.
-
-            int64_t max_dac_delay = config.output_rate / 10; // so the lead-in time must be greater
-                                                             // than this, say 0.2 sec, to allow for
-                                                             // dynamic adjustment
             int64_t filler_size = max_dac_delay;
 
             if (local_time_now > conn->first_packet_time_to_play) {
