@@ -382,7 +382,7 @@ void *rtp_control_receiver(void *arg) {
             debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
 
             if (conn->initial_reference_time == 0) {
-              if (conn->packet_count_since_flush > 50) {
+              if (conn->packet_count_since_flush > 0) {
                 conn->initial_reference_time = remote_time_of_sync;
                 conn->initial_reference_timestamp = sync_rtp_timestamp;
               }
