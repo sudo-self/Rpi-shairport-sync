@@ -2,7 +2,7 @@
 Version 3.3rc3
 ====
 **Minor Enhancement**
-* Calculate the length of the first sequence of frames of silence preceding the audio at the start of a play session a little more carefully to make it somewhat longer. This should make output devices that operate with a fairly large buffer a little more comfortable
+* Calculate the length of the first sequence of frames of silence preceding the audio at the start of a play session a little more carefully to make it somewhat longer. This should make output devices that operate with a fairly large buffer a little less likely to underrun at the start of a session.
 
 Version 3.3rc2
 ====
