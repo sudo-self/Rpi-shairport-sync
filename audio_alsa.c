@@ -1179,6 +1179,7 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk
         if (delay_type_notified != 1) {
           inform("Note: the alsa output device \"%s\" is not capable of high precision delay timing.", snd_pcm_name(alsa_handle));
           debug(2,"alsa: delay_and_status must use snd_pcm_delay() to calculate delay");
+          delay_type_notified = 1;
         }
       } else {
 // diagnostic
