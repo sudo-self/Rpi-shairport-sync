@@ -202,9 +202,6 @@ typedef struct {
   uint32_t reference_timestamp;
   uint64_t remote_reference_timestamp_time;
 
-  int packet_stream_established; // true if a stream of packets is flowing, made true by a first
-                                 // packet, false by a flush
-
   // used as the initials values for calculating the rate at which the source thinks it's sending
   // frames
   uint32_t initial_reference_timestamp;

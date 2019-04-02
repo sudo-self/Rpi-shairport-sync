@@ -209,7 +209,6 @@ static inline seq_t seq_sum(seq_t a, seq_t b) {
 void reset_input_flow_metrics(rtsp_conn_info *conn) {
   conn->play_number_after_flush = 0;
   conn->packet_count_since_flush = 0;
-  conn->packet_stream_established = 0;
   conn->input_frame_rate_starting_point_is_valid = 0;
   conn->initial_reference_time = 0;
   conn->initial_reference_timestamp = 0;
@@ -892,8 +891,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                   curframe->given_timestamp; // we will keep buffering until we are
                                              // supposed to start playing this
               have_sent_prefiller_silence = 0;
-              conn->packet_stream_established = 1;
-
+ 
 // debug(1, "First packet timestamp is %" PRId64 ".", conn->first_packet_timestamp);
 
 // say we have started playing here

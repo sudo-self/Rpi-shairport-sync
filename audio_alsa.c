@@ -1191,7 +1191,7 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk
 
       if (update_timestamp_ns == 0) {
         ret = snd_pcm_delay	(alsa_handle,delay);
-        measurement_data_is_valid = 0; // can't really check frame rates
+        measurement_data_is_valid = 0; // frame rates are likely to be very unreliable if it can't set the update_timestamp, so don't publish them.
       } else {
         *delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);
 

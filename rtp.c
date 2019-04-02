@@ -381,28 +381,26 @@ void *rtp_control_receiver(void *arg) {
 
             debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
 
-            if (conn->packet_stream_established) {
-              if (conn->initial_reference_time == 0) {
-                conn->initial_reference_time = remote_time_of_sync;
-                conn->initial_reference_timestamp = sync_rtp_timestamp;
+            if (conn->initial_reference_time == 0) {
+              conn->initial_reference_time = remote_time_of_sync;
+              conn->initial_reference_timestamp = sync_rtp_timestamp;
+            } else {
+              uint64_t remote_frame_time_interval =
+                  conn->remote_reference_timestamp_time -
+                  conn->initial_reference_time; // here, this should never be zero
+              if (remote_frame_time_interval) {
+                conn->remote_frame_rate =
+                    (1.0 * (conn->reference_timestamp - conn->initial_reference_timestamp)) /
+                    remote_frame_time_interval; // an IEEE double calculation with a 32-bit
+                                                // numerator and 64-bit denominator
+                                                // integers
+                conn->remote_frame_rate = conn->remote_frame_rate *
+                                          (uint64_t)0x100000000; // this should just change the
+                                                                 // [binary] exponent in the IEEE
+                                                                 // FP representation; the
+                                                                 // mantissa should be unaffected.
               } else {
-                uint64_t remote_frame_time_interval =
-                    conn->remote_reference_timestamp_time -
-                    conn->initial_reference_time; // here, this should never be zero
-                if (remote_frame_time_interval) {
-                  conn->remote_frame_rate =
-                      (1.0 * (conn->reference_timestamp - conn->initial_reference_timestamp)) /
-                      remote_frame_time_interval; // an IEEE double calculation with a 32-bit
-                                                  // numerator and 64-bit denominator
-                                                  // integers
-                  conn->remote_frame_rate = conn->remote_frame_rate *
-                                            (uint64_t)0x100000000; // this should just change the
-                                                                   // [binary] exponent in the IEEE
-                                                                   // FP representation; the
-                                                                   // mantissa should be unaffected.
-                } else {
-                  conn->remote_frame_rate = 0.0; // use as a flag.
-                }
+                conn->remote_frame_rate = 0.0; // use as a flag.
               }
             }
 
@@ -1088,8 +1086,7 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_con
   *frames = fs;
   uint64_t one_fp = (uint64_t)(0x100000000); // one second in fp form
   *time = one_fp;
-  if ((conn->packet_stream_established) && (conn->initial_reference_time) &&
-      (conn->initial_reference_timestamp)) {
+  if ((conn->initial_reference_time) && (conn->initial_reference_timestamp)) {
     //    uint32_t local_frames = conn->reference_timestamp - conn->initial_reference_timestamp;
     uint32_t local_frames =
         modulo_32_offset(conn->initial_reference_timestamp, conn->reference_timestamp);
