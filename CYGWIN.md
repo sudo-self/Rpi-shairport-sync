@@ -67,7 +67,7 @@ $ cd shairport-sync
 $ git checkout development // this is temporary
 $ autoreconf -fi
 $ PKG_CONFIG_PATH=/usr/local/lib/pkgconfig ./configure --with-ao --with-ssl=openssl \
-    --with-avahi --with-dbus-interface --sysconfdir=/etc --with-cygwin-service
+    --with-avahi --with-dbus-interface --with-libdaemon --sysconfdir=/etc --with-cygwin-service
 $ make
 $ make install
 ```
