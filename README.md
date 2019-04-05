@@ -117,12 +117,16 @@ The following libraries are required:
 * OpenSSL or  mbed TLS (PolarSSL is supported but deprecated)
 * Avahi
 * ALSA and/or PulseAudio
-* libdaemon
 * autoconf
 * automake
 * libtool
 * libpopt
 * libconfig
+
+If you are building for a system that needs to be able to daemonise Shairport Sync with the `-d` option and to kill the daemon with the `-k` option, you need to include the `libdaemon` library:
+* libdaemon
+
+Most current releases of Linuxes use the `systemd` startup and system manager, and this daemonises applicationa differently, so the `libdaemon` library can be omitted.
 
 Optional:
 * libsoxr
@@ -134,7 +138,8 @@ Many Linux distributions have Avahi and OpenSSL already in place, so normally it
 Debian, Ubuntu and Raspbian users can get the basics with:
 
 - `# apt-get install build-essential git xmltoman` – these may already be installed.
-- `# apt-get install autoconf automake libtool libdaemon-dev libpopt-dev libconfig-dev`
+- `# apt-get install autoconf automake libtool libpopt-dev libconfig-dev`
+- `# apt-get install libdaemon-dev` – if you need libdaemon support.
 - `# apt-get install libasound2-dev` for the ALSA libraries
 - `# apt-get install libpulse-dev` for the PulseAudio libraries
 - `# apt-get install avahi-daemon libavahi-client-dev` if you want to use Avahi (recommended).
@@ -175,12 +180,13 @@ $ autoreconf -i -f
 - `--with-pkg-config` to use pkg-config to find libraries. Default is to use pkg-config — this option is for special purpose use.
 - `--with-apple-alac` to include the Apple ALAC Decoder.
 - `--with-convolution` to include a convolution filter that can be used to apply effects such as frequency and phase correction, and a loudness filter that compensates for human ear non-linearity. Requires `libsndfile`.
+- `--with-libdaemon` to allow Shairport Sync to daemonise itself.
 - `--with-systemd` to include a script to create a Shairport Sync service that can optionally launch automatically at startup on `systemd`-based Linuxes. Default is not to to install.
 - `--with-systemv` to include a script to create a Shairport Sync service that can optionally launch automatically at startup on System V based Linuxes. Default is not to to install.
 
 **Determine if it's a `systemd` or a "System V" installation:**
 
-If you wish to have Shairport Sync start automatically when your system boots, you need to figure out what so-called "init system" your system is using. (If you are using Shairport Sync with PulseAudio, as installed in many desktop systems, this section doesn't apply.) 
+If you wish to have Shairport Sync start automatically when your system boots or to daemonise itself and run in the background, you need to figure out what so-called "init system" your system is using. (If you are using Shairport Sync with PulseAudio, as installed in many desktop systems, this section doesn't apply.) 
 
 There are a number of init systems in use: `systemd`, `upstart` and "System V" among others, and it's actually difficult to be certain which one your system is using. Fortunately, for Shairport Sync, all you have to do is figure out if it's a `systemd` init system or not. If it is not a `systemd` init system, you can assume that it is either a System V init system or else it is compatible with a System V init system. Recent systems tend to use `systemd`, whereas older systems use `upstart` or the earlier System V init system. 
 
@@ -236,8 +242,8 @@ Here is a recommended set of configuration options suitable for Linux installati
 `$ ./configure --sysconfdir=/etc --with-alsa --with-pa --with-avahi --with-ssl=openssl --with-metadata --with-soxr --with-systemd`
 
 * Omit the `--with-soxr` if the libsoxr library is not available.
-* For installation into a System V system, replace the `--with-systemd` with `--with-systemv`.
-* If you intend to use Shairport Sync with PulseAudio in the standard user mode, it can not be a system service, so you should omit both `--with-systemd` and `--with-systemv`.
+* For installation into a System V system, add `--with-libdaemon` and replace the `--with-systemd` with `--with-systemv`.
+* If you intend to use Shairport Sync with PulseAudio in the standard user mode, it can not be a system service, so you should omit both `--with-systemd` and `--with-systemv`. If you want to be able to daemonise Shairport Sync without installing it as a service, include the `--with-libdaemon` flag. 
 
 **Build and Install the Application:**
 
@@ -272,6 +278,17 @@ If you have chosen the `--with-systemv` configuration option, enter:
 $ sudo update-rc.d shairport-sync defaults 90 10
 ```
 
+**Identifying the configuration of an installed Shairport Sync
+
+To find out what configuration Shairport Sync was built with, enter:
+```
+$ shairport-sync -V
+```
+This will return something like the following:
+```
+3.3-OpenSSL-Avahi-ALSA-sndio-stdout-pipe-metadata-dbus-sysconfdir:/etc
+```
+This information may be useful when [troubleshooting](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md) or [reporting issues](https://github.com/mikebrady/shairport-sync/blob/master/CONTRIBUTING.md).
 **Man Page**
 
 You can view the man page here: http://htmlpreview.github.io/?https://github.com/mikebrady/shairport-sync/blob/development/man/shairport-sync.html
@@ -350,16 +367,11 @@ Note: Shairport Sync can take configuration settings from command line options. 
 
 **Raspberry Pi**
 
-The Raspberry Pi has a built-in audio DAC that is connected to the device's headphone jack. An updated audio driver has greatly improved the quality of the output – see [#525](https://github.com/mikebrady/shairport-sync/issues/525) for details. To activate the updated driver, add the line:
-```
-audio_pwm_mode=2
-```
-to `/boot/config.txt` and reboot.
+The Raspberry Pi has a built-in audio DAC that is connected to the device's headphone jack. An updated audio driver has greatly improved the quality of the output – see [#525](https://github.com/mikebrady/shairport-sync/issues/525) for details. 
+
 Apart from a loud click when used for the first time after power-up, it is quite adequate for casual listening. A problem is that it declares itself to have a very large mixer volume control range – all the way from -102.38dB up to +4dB, a range of 106.38 dB. In reality, only the top 50 dB of it is in any way usable. To help get the most from the DAC, consider using the `volume_range_db` setting in the `general` group to instruct Shairport Sync to use the top of the DAC mixer's declared range. For example, if you set the `volume_range_db` figure to 50, the top 50 dB of the range will the used. With this setting on the Raspberry Pi, maximum volume will be +4dB and minimum volume will be -46dB, below which muting will occur.
 
 From a user's point of view, the effect of using this setting is to move the minimum usable volume all the way down to the bottom of the user's volume control, rather than have the minimum usable volume concentrated very close to the maximum volume.
-
-Another setting to consider is the `general` `drift_tolerance_in_seconds` setting: you should set it to a larger tolerance, say 10 milliseconds – `drift_tolerance_in_seconds=0.010;` – to reduce the amount of overcorrection that seems to occur when using the Raspberry Pi's built-in DAC. 
 
 *Command Line Arguments*
 
@@ -369,8 +381,8 @@ Apart from the following options, all command line options can be replaced by se
 
 * The `-c` option allows you to specify the location of the configuration file.
 * The `-V` option gives you version information about  Shairport Sync and then quits.
-* The `-d` option causes Shairport Sync to properly daemonise itself, that is, to run in the background. You may need sudo privileges for this.
-* The `-k` option causes Shairport Sync to kill an existing Shairport Sync daemon. You may need to have sudo privileges for this.
+* The `-d` option causes Shairport Sync to properly daemonise itself, that is, to run in the background. You may need sudo privileges for this. This is available if Shairport Sync is built with the `--with-libdaemon` configuration flag.
+* The `-k` option causes Shairport Sync to kill an existing Shairport Sync daemon. You may need to have sudo privileges for this. This is available if Shairport Sync is built with the `--with-libdaemon` configuration flag.
 
 The System V init script at `/etc/init.d/shairport-sync` has a bare minimum :
 `-d`. Basically all it does is put the program in daemon mode. The program will read its settings from the configuration file.
