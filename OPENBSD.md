@@ -54,7 +54,7 @@ $ ./shairport-sync -V
 ```
 This will execute the application and it will return its version information and terminate, for example:
 ```
-3.2-OpenSSL-Avahi-sndio-sysconfdir:/etc
+3.2-libdaemon-OpenSSL-Avahi-sndio-sysconfdir:/etc
 ```
 There is no make install yet -- you're on your own.
 
