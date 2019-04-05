@@ -286,7 +286,7 @@ $ shairport-sync -V
 ```
 This will return something like the following:
 ```
-3.3-OpenSSL-Avahi-ALSA-sndio-stdout-pipe-metadata-dbus-sysconfdir:/etc
+3.3-libdaemon-OpenSSL-Avahi-ALSA-sndio-stdout-pipe-metadata-dbus-sysconfdir:/etc
 ```
 This information may be useful when [troubleshooting](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md) or [reporting issues](https://github.com/mikebrady/shairport-sync/blob/master/CONTRIBUTING.md).
 **Man Page**
