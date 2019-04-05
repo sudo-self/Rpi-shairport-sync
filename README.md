@@ -73,9 +73,9 @@ You should check to see if `shairport-sync` is already installed – you can use
 
 You should also remove the initialisation script files `/etc/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed in necessary.
 
-**FreeBSD**
+**FreeBSD, OpenBSD, CYGWIN**
 
-To build Shairport Sync from sources on FreeBSD please refer to [FREEBSD.md](https://github.com/mikebrady/shairport-sync/blob/master/FREEBSD.md).
+Please refer to the relevant pages for building for the above systems.
 
 **Determine The Configuration Needed**
 
@@ -126,7 +126,7 @@ The following libraries are required:
 If you are building for a system that needs to be able to daemonise Shairport Sync with the `-d` option and to kill the daemon with the `-k` option, you need to include the `libdaemon` library:
 * libdaemon
 
-Most current releases of Linuxes use the `systemd` startup and system manager, and this daemonises applicationa differently, so the `libdaemon` library can be omitted.
+Most current releases of Linuxes use the `systemd` startup and system manager, and this daemonises applications differently, so the `libdaemon` library can be omitted.
 
 Optional:
 * libsoxr
