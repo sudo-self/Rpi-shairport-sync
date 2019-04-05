@@ -104,6 +104,10 @@
 pid_t pid;
 #endif
 
+int killOption = 0;
+int daemonisewith = 0;
+int daemonisewithout = 0;
+
 // static int shutting_down = 0;
 char configuration_file_path[4096 + 1];
 char actual_configuration_file_path[4096 + 1];
@@ -237,17 +241,11 @@ int parse_options(int argc, char **argv) {
   int fResyncthreshold = (int)(config.resyncthreshold * 44100);
   int fTolerance = (int)(config.tolerance * 44100);
   poptContext optCon; /* context for parsing command-line options */
-#if CONFIG_LIBDAEMON      
-  int daemonisewith = 0;
-  int daemonisewithout = 0;
-#endif
   struct poptOption optionsTable[] = {
       {"verbose", 'v', POPT_ARG_NONE, NULL, 'v', NULL, NULL},
-#if CONFIG_LIBDAEMON      
-      {"kill", 'k', POPT_ARG_NONE, NULL, 0, NULL, NULL},
+      {"kill", 'k', POPT_ARG_NONE, &killOption, 0, NULL, NULL},
       {"daemon", 'd', POPT_ARG_NONE, &daemonisewith, 0, NULL, NULL},
       {"justDaemoniseNoPIDFile", 'j', POPT_ARG_NONE, &daemonisewithout, 0, NULL, NULL},
-#endif
       {"configfile", 'c', POPT_ARG_STRING, &config.configfile, 0, NULL, NULL},
       {"statistics", 0, POPT_ARG_NONE, &config.statistics_requested, 0, NULL, NULL},
       {"logOutputLevel", 0, POPT_ARG_NONE, &config.logOutputLevel, 0, NULL, NULL},
@@ -398,8 +396,6 @@ int parse_options(int argc, char **argv) {
         raw_service_name = (char *)str;
       }
 #ifdef CONFIG_LIBDAEMON
-      int daemonisewithout = 0;
-      int daemonisewith = 0;
       /* Get the Daemonize setting. */
       config_set_lookup_bool(config.cfg, "sessioncontrol.daemonize_with_pid_file", &daemonisewith);
 
@@ -407,18 +403,11 @@ int parse_options(int argc, char **argv) {
       config_set_lookup_bool(config.cfg, "sessioncontrol.daemonize_without_pid_file",
                              &daemonisewithout);
 
-      if ((daemonisewith) && (daemonisewithout))
-        die("Select either daemonize_with_pid_file or daemonize_without_pid_file -- you have "
-            "selected both!");
-      if ((daemonisewith) || (daemonisewithout)) {
-        config.daemonise = 1;
-        if (daemonisewith)
-          config.daemonise_store_pid = 1;
-      }
       /* Get the directory path for the pid file created when the program is daemonised. */
       if (config_lookup_string(config.cfg, "sessioncontrol.daemon_pid_dir", &str))
         config.piddir = (char *)str;
 #endif
+
       /* Get the mdns_backend setting. */
       if (config_lookup_string(config.cfg, "general.mdns_backend", &str))
         config.mdns_name = (char *)str;
@@ -819,7 +808,6 @@ int parse_options(int argc, char **argv) {
       }
 
 #ifdef CONFIG_CONVOLUTION
-
       if (config_lookup_string(config.cfg, "dsp.convolution", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.convolution = 0;
@@ -853,7 +841,6 @@ int parse_options(int argc, char **argv) {
         die("Convolution enabled but no convolution_ir_file provided");
       }
 #endif
-
       if (config_lookup_string(config.cfg, "dsp.loudness", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.loudness = 0;
@@ -1029,6 +1016,28 @@ int parse_options(int argc, char **argv) {
   }
 
   poptFreeContext(optCon);
+
+// here, we are finally finished reading the options
+
+
+#ifdef CONFIG_LIBDAEMON
+  if ((daemonisewith) && (daemonisewithout))
+    die("Select either daemonize_with_pid_file or daemonize_without_pid_file -- you have selected "
+        "both!");
+  if ((daemonisewith) || (daemonisewithout)) {
+    config.daemonise = 1;
+    if (daemonisewith)
+      config.daemonise_store_pid = 1;
+  };
+#else
+  /* Check if we are called with -d or --daemon or -j or justDaemoniseNoPIDFile options*/
+  if ((daemonisewith != 0) || (daemonisewithout != 0)) {
+    fprintf(stderr,"%s was built without libdaemon, so does not support daemonisation using the -d, --deamon, -j or --justDaemoniseNoPIDFile options\n",config.appName);
+    exit(1);
+  }
+
+#endif
+
 #ifdef CONFIG_METADATA
   if ((config.metadata_enabled == 1) && (config.metadata_pipename == NULL))
     config.metadata_pipename = strdup("/tmp/shairport-sync-metadata");
@@ -1295,6 +1304,8 @@ int main(int argc, char **argv) {
 
   // config.statistics_requested = 0; // don't print stats in the log
   // config.userSuppliedLatency = 0; // zero means none supplied
+  
+  config.debugger_show_relative_time = 1; // by default, log the  time back to the previous debug message
   config.resyncthreshold = 0.05; // 50 ms
   config.timeout = 120; // this number of seconds to wait for [more] audio before switching to idle.
   config.tolerance =
@@ -1375,9 +1386,8 @@ int main(int argc, char **argv) {
     config.service_name[50] = '\0'; // truncate it and carry on...
   }
 
-  /* Check if we are called with -k or --kill parameter */
-  if (argc >= 2 && ((strcmp(argv[1], "-k") == 0) || (strcmp(argv[1], "--kill") == 0))) {
-  
+  /* Check if we are called with -k or --kill option */
+  if (killOption != 0) {  
 #ifdef CONFIG_LIBDAEMON
     int ret;
 
@@ -1390,10 +1400,9 @@ int main(int argc, char **argv) {
     }
     return ret < 0 ? 1 : 0;
 #else
-    syslog(LOG_ERR, "shairport-sync was built without support for the -k or --kill option");
+    fprintf(stderr,"%s was built without libdaemon, so does not support the -k or --kill option\n",config.appName);
     return 1;
 #endif
-
   }
 
 #ifdef CONFIG_LIBDAEMON

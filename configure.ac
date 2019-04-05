@@ -44,36 +44,6 @@ AM_CONDITIONAL([BUILD_FOR_OPENBSD], [test "x${with_os}" = xopenbsd ])
 AC_ARG_WITH([pkg_config],
 [  --with-pkg-config = use pkg-config to find libraries], ,[with_pkg_config=yes])
 
-# Look for libdaemon
-AC_ARG_WITH(libdaemon, [  --with-libdaemon = include support for daemonising in older non-systemd systems],
-  if test "x${with_libdaemon}" = xyes ; then
-    [AC_MSG_RESULT(>>Including libdaemon support for older systems)
-    AC_DEFINE([CONFIG_LIBDAEMON], 1, [Include libdaemon])
-    REQUESTED_LIBDAEMON=1
-    if  test "x${with_pkg_config}" = xyes ; then
-      PKG_CHECK_MODULES(
-          [DAEMON], [libdaemon],
-          [LIBS="${DAEMON_LIBS} ${LIBS}"])
-    else
-      AC_CHECK_LIB([daemon],[daemon_fork], , AC_MSG_ERROR(libdaemon needed))
-    fi
-   ]
-  fi,
-    #default is to include libdaemon
-    [AC_MSG_RESULT(>>Including libdaemon support for older systems)
-    AC_DEFINE([CONFIG_LIBDAEMON], 1, [Include libdaemon])
-    REQUESTED_LIBDAEMON=1
-    if  test "x${with_pkg_config}" = xyes ; then
-      PKG_CHECK_MODULES(
-          [DAEMON], [libdaemon],
-          [LIBS="${DAEMON_LIBS} ${LIBS}"])
-    else
-      AC_CHECK_LIB([daemon],[daemon_fork], , AC_MSG_ERROR(libdaemon needed))
-    fi
-   ]
-  )
-AM_CONDITIONAL([USE_LIBDAEMON], [test "x$REQUESTED_LIBDAEMON" = "x1"])
-
 ##### The following check for the pthreads library doesn't put the compiler into the correct pthread mode
 ##### so we add the -pthread compilation flag in AMFLAGS in the Makefile.am as well.
 
@@ -161,6 +131,22 @@ AC_ARG_WITH(piddir, [ --with-piddir=<pathname> Specify a pathname to a directory
   AC_SUBST(CUSTOM_PID_DIR,["${with_piddir}"])
   AC_DEFINE([DEFINED_CUSTOM_PID_DIR],1,[Hook up special proc to libdaemon to point to this directory])], )
 AM_CONDITIONAL([USE_CUSTOMPIDDIR], [test "x$REQUESTED_CUSTOMPIDDIR" = "x1"])
+
+
+# Look for libdaemon
+AC_ARG_WITH(libdaemon, [--with-libdaemon = include support for daemonising in non-systemd systems], REQUESTED_LIBDAEMON=1, )
+if test "x$REQUESTED_LIBDAEMON" = "x1"; then
+	AC_MSG_RESULT(>>Including libdaemon support for older systems)
+	AC_DEFINE([CONFIG_LIBDAEMON], 1, [Include libdaemon])
+	if  test "x${with_pkg_config}" = xyes ; then
+		PKG_CHECK_MODULES(
+				[DAEMON], [libdaemon],
+				[LIBS="${DAEMON_LIBS} ${LIBS}"])
+	else
+		AC_CHECK_LIB([daemon],[daemon_fork], , AC_MSG_ERROR(libdaemon needed))
+	fi
+fi
+AM_CONDITIONAL([USE_LIBDAEMON], [test "x$REQUESTED_LIBDAEMON" = "x1"])
 
 # Check --with-ssl=argument
 AC_ARG_WITH(ssl, [ choose --with-ssl=openssl, --with-ssl=mbedtls or --with-ssl=polarssl (deprecated) for encryption services  ], [
