@@ -1136,6 +1136,28 @@ static void start(int i_sample_rate, int i_sample_format) {
 }
 
 int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) {
+  int ret = 0;
+  if (using_update_timestamps)
+    *using_update_timestamps = YNDK_NO;
+  *state = snd_pcm_state(alsa_handle);
+  if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
+    ret = snd_pcm_delay(alsa_handle,delay);
+  } else {
+    *delay = 0;  
+  }
+    
+  stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
+  stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
+
+  // not running, thus no delay information, thus can't check for frame
+  // rates
+  frame_index = 0; // we'll be starting over...
+  measurement_data_is_valid = 0;
+  return ret;
+}
+
+
+int real_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) {
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
   
