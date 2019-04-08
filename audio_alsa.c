@@ -1142,7 +1142,7 @@ static void start(int i_sample_rate, int i_sample_format) {
   }
 }
 
-int simple_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) {
+int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) {
   int ret = 0;
   if (using_update_timestamps)
     *using_update_timestamps = YNDK_NO;
@@ -1164,7 +1164,7 @@ int simple_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, en
 }
 
 
-int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) {
+int real_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) {
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
   
@@ -1184,9 +1184,7 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk
       snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &update_timestamp);
 #endif
 
-  
-    *state = snd_pcm_state(alsa_handle);
-    //*state = snd_pcm_status_get_state(alsa_snd_pcm_status);
+    *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
 
     if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
 
