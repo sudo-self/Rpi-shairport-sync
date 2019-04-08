@@ -489,6 +489,13 @@ int actual_open_alsa_device(void) {
          snd_strerror(ret));
     return ret;
   }
+  
+  ret = snd_pcm_prepare(alsa_handle);
+  if (ret < 0) {
+    warn("audio_alsa: Unable to prepare the device: \"%s\": %s.", alsa_out_dev,
+         snd_strerror(ret));
+    return ret;
+  }
 
   if (actual_buffer_length < config.audio_backend_buffer_desired_length + minimal_buffer_headroom) {
     /*
