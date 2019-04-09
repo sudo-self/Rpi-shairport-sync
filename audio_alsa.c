@@ -313,7 +313,7 @@ int actual_open_alsa_device(void) {
 
   ret = snd_pcm_hw_params_any(alsa_handle, alsa_params);
   if (ret < 0) {
-    warn("audio_alsa: Broken configuration for device \"%s\": no configurations "
+    die("audio_alsa: Broken configuration for device \"%s\": no configurations "
          "available",
          alsa_out_dev);
     return ret;
@@ -339,7 +339,7 @@ int actual_open_alsa_device(void) {
 
   ret = snd_pcm_hw_params_set_access(alsa_handle, alsa_params, access);
   if (ret < 0) {
-    warn("audio_alsa: Access type not available for device \"%s\": %s", alsa_out_dev,
+    die("audio_alsa: Access type not available for device \"%s\": %s", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
@@ -347,14 +347,14 @@ int actual_open_alsa_device(void) {
 
   ret = snd_pcm_hw_params_set_channels(alsa_handle, alsa_params, 2);
   if (ret < 0) {
-    warn("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
+    die("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
 
   ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &my_sample_rate, &dir);
   if (ret < 0) {
-    warn("audio_alsa: Rate %iHz not available for playback: %s", desired_sample_rate,
+    die("audio_alsa: Rate %iHz not available for playback: %s", desired_sample_rate,
          snd_strerror(ret));
     return ret;
   }
@@ -398,7 +398,7 @@ int actual_open_alsa_device(void) {
 
   ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
   if (ret < 0) {
-    warn("audio_alsa: Sample format %d not available for device \"%s\": %s", sample_format,
+    die("audio_alsa: Sample format %d not available for device \"%s\": %s", sample_format,
          alsa_out_dev, snd_strerror(ret));
     return ret;
   }
@@ -443,7 +443,7 @@ int actual_open_alsa_device(void) {
 
   ret = snd_pcm_hw_params(alsa_handle, alsa_params);
   if (ret < 0) {
-    warn("audio_alsa: Unable to set hw parameters for device \"%s\": %s.", alsa_out_dev,
+    die("audio_alsa: Unable to set hw parameters for device \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
@@ -471,7 +471,7 @@ int actual_open_alsa_device(void) {
   }
 
   if (my_sample_rate != desired_sample_rate) {
-    warn("Can't set the D/A converter to %d.", desired_sample_rate);
+    warn("Can't set the D/A converter to sample rate %d.", desired_sample_rate);
     return -EINVAL;
   }
 
@@ -500,14 +500,14 @@ int actual_open_alsa_device(void) {
   /* write the sw parameters */
   ret = snd_pcm_sw_params(alsa_handle, alsa_swparams);
   if (ret < 0) {
-    warn("audio_alsa: Unable to set software parameters of device: \"%s\": %s.", alsa_out_dev,
+    die("audio_alsa: Unable to set software parameters of device: \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
   
   ret = snd_pcm_prepare(alsa_handle);
   if (ret < 0) {
-    warn("audio_alsa: Unable to prepare the device: \"%s\": %s.", alsa_out_dev,
+    die("audio_alsa: Unable to prepare the device: \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
