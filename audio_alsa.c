@@ -533,6 +533,17 @@ int actual_open_alsa_device(void) {
              "length (%ld) you have chosen.",
           actual_buffer_length, config.audio_backend_buffer_desired_length);
   }
+  
+  
+  if (config.use_precision_timing == YNA_YES) 
+    delay_and_status = precision_delay_and_status;
+  else if (config.use_precision_timing == YNA_AUTO) {
+    const char *output_device_name = snd_pcm_name(alsa_handle);
+    if (strstr(output_device_name,"hw:") == output_device_name) {
+      delay_and_status = precision_delay_and_status;
+      debug(1,"alsa: using precision timing");
+    }
+  }
 
   if (alsa_characteristics_already_listed == 0) {
     alsa_characteristics_already_listed = 1;
@@ -1702,7 +1713,7 @@ int precision_delay_available() {
           precision_delay_available_status = YNDK_NO;
           debug(2,"alsa: precision delay timing not available.");
           if (config.disable_standby_mode != disable_standby_off)
-            inform("Note: disable_standby_mode has been turned off because the output device \"%s\" does not support precision delay timing.", snd_pcm_name(alsa_handle));
+            inform("Note: disable_standby_mode has been turned off because precision timing is not available.", snd_pcm_name(alsa_handle));
         }
       }
     }
