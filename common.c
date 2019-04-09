@@ -176,7 +176,7 @@ void die(const char *format, ...) {
   else
     sps_log(LOG_ERR, "fatal error: %s", s);  
   pthread_setcancelstate(oldState, NULL);
-  exit(1);
+  abort();
 }
 
 void warn(const char *format, ...) {
