@@ -298,8 +298,14 @@ int actual_open_alsa_device(void) {
   // ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK,
   // SND_PCM_NONBLOCK);
   ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK, 0);
-  if (ret < 0)
-    return ret;
+  if (ret < 0) {
+    if (ret == -ENOENT)
+      die("alsa: can't find output device \"%s\".", alsa_out_dev);
+    } else {
+      char errorstring[1024];
+      strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
+      die("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring, alsa_out_dev);
+  }
 
   snd_pcm_hw_params_alloca(&alsa_params);
   snd_pcm_sw_params_alloca(&alsa_swparams);
