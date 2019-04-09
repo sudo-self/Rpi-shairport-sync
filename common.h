@@ -33,6 +33,14 @@ enum dbus_session_type {
 #define sps_extra_code_output_stalled 32768
 #define sps_extra_code_output_state_cannot_make_ready 32769
 
+// yeah/no/auto
+enum yna_type {
+  YNA_AUTO = -1,
+  YNA_NO = 0,
+  YNA_YES = 1
+} yna_type;
+
+// yeah/no/dont-care
 enum yndk_type {
   YNDK_DONT_KNOW = -1,
   YNDK_NO = 0,
@@ -215,6 +223,7 @@ typedef struct {
   double alsa_maximum_stall_time;
   enum disable_standby_mode_type disable_standby_mode;
   volatile int keep_dac_busy;
+  enum yna_type use_precision_timing; // defaults to no
 
 #if defined(CONFIG_DBUS_INTERFACE)
   enum dbus_session_type dbus_service_bus_type;

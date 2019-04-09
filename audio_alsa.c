@@ -148,8 +148,16 @@ long alsa_mix_mute;                      // setting the volume to this value mut
 int volume_based_mute_is_active =
     0; // set when muting is being done by a setting the volume to a magic value
 
-static snd_pcm_sframes_t (*alsa_pcm_write)(snd_pcm_t *, const void *,
+// use this to allow the use of snd_pcm_writei or snd_pcm_mmap_writei
+snd_pcm_sframes_t (*alsa_pcm_write)(snd_pcm_t *, const void *,
                                            snd_pcm_uframes_t) = snd_pcm_writei;
+
+
+int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps);
+int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps);
+
+// use this to allow the use of standard or precision delay calculations, with standard the, uh, standard.
+int (*delay_and_status)(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) = standard_delay_and_status;
 
 // static int play_number;
 // static int64_t accumulated_delay, accumulated_da_delay;
@@ -819,6 +827,10 @@ static int init(int argc, char **argv) {
 
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
+  
+  config.disable_standby_mode = disable_standby_off;
+  config.keep_dac_busy = 0;
+  config.use_precision_timing = YNA_AUTO;
 
   // get settings from settings file first, allow them to be overridden by
   // command line options
@@ -997,8 +1009,6 @@ static int init(int argc, char **argv) {
 
 
     /* Get the optional disable_standby_mode setting. */
-    config.disable_standby_mode = disable_standby_off;
-    config.keep_dac_busy = 0;
     if (config_lookup_string(config.cfg, "alsa.disable_standby_mode", &str)) {
       if ((strcasecmp(str, "no") == 0) || (strcasecmp(str, "off") == 0) || (strcasecmp(str, "never") == 0))
         config.disable_standby_mode = disable_standby_off;
@@ -1011,6 +1021,22 @@ static int init(int argc, char **argv) {
         warn("Invalid disable_standby_mode option choice \"%s\". It should be "
              "\"always\", \"while_active\" or \"never\". "
              "It is set to \"never\".");
+      }
+    }
+
+    
+    if (config_lookup_string(config.cfg, "alsa.use_precision_timing", &str)) {
+      if ((strcasecmp(str, "no") == 0) || (strcasecmp(str, "off") == 0) || (strcasecmp(str, "never") == 0))
+        config.use_precision_timing = YNA_NO;
+      else if ((strcasecmp(str, "yes") == 0) || (strcasecmp(str, "on") == 0) || (strcasecmp(str, "always") == 0)) {
+        config.use_precision_timing = YNA_YES;
+        config.keep_dac_busy = 1;
+      } else if (strcasecmp(str, "auto") == 0)
+        config.use_precision_timing = YNA_AUTO;
+      else {
+        warn("Invalid use_precision_timing option choice \"%s\". It should be "
+             "\"yes\", \"auto\" or \"no\". "
+             "It is set to \"auto\".");
       }
     }
 
@@ -1142,7 +1168,7 @@ static void start(int i_sample_rate, int i_sample_format) {
   }
 }
 
-int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) {
+int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) {
   int ret = 0;
   if (using_update_timestamps)
     *using_update_timestamps = YNDK_NO;
@@ -1150,21 +1176,20 @@ int delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk
   if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
     ret = snd_pcm_delay(alsa_handle,delay);
   } else {
+  // not running, thus no delay information, thus can't check for frame
+  // rates
+    frame_index = 0; // we'll be starting over...
+    measurement_data_is_valid = 0;
     *delay = 0;  
   }
     
   stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
   stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
 
-  // not running, thus no delay information, thus can't check for frame
-  // rates
-  frame_index = 0; // we'll be starting over...
-  measurement_data_is_valid = 0;
   return ret;
 }
 
-
-int real_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) {
+int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) {
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
   
@@ -1677,7 +1702,7 @@ int precision_delay_available() {
           precision_delay_available_status = YNDK_NO;
           debug(2,"alsa: precision delay timing not available.");
           if (config.disable_standby_mode != disable_standby_off)
-            inform("Note: disable_standby_mode has been turned off because the output device is not capable of precision delay timing.");
+            inform("Note: disable_standby_mode has been turned off because the output device \"%s\" does not support precision delay timing.", snd_pcm_name(alsa_handle));
         }
       }
     }
