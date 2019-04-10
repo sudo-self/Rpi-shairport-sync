@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 
   if (argc > 2) {
     poptPrintHelp(optCon, stderr, 0);
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   /* Now do options processing */

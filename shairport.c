@@ -123,7 +123,7 @@ static void sig_shutdown(__attribute__((unused)) int foo, __attribute__((unused)
     daemon_pid_file_remove();
   }
 #endif
-  exit(0);
+  exit(EXIT_SUCCESS);
 }
 
 static void sig_child(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
@@ -1033,7 +1033,7 @@ int parse_options(int argc, char **argv) {
   /* Check if we are called with -d or --daemon or -j or justDaemoniseNoPIDFile options*/
   if ((daemonisewith != 0) || (daemonisewithout != 0)) {
     fprintf(stderr,"%s was built without libdaemon, so does not support daemonisation using the -d, --deamon, -j or --justDaemoniseNoPIDFile options\n",config.appName);
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
 #endif
@@ -1218,7 +1218,7 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
 #endif
  
   debug(2, "Exit...");
-  exit(0);
+  exit(EXIT_SUCCESS);
 }
 
 void exit_function() {
@@ -1346,13 +1346,13 @@ int main(int argc, char **argv) {
   /* Check if we are called with -V or --version parameter */
   if (argc >= 2 && ((strcmp(argv[1], "-V") == 0) || (strcmp(argv[1], "--version") == 0))) {
     print_version();
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
   /* Check if we are called with -h or --help parameter */
   if (argc >= 2 && ((strcmp(argv[1], "-h") == 0) || (strcmp(argv[1], "--help") == 0))) {
     usage(argv[0]);
-    exit(1);
+    exit(EXIT_FAILURE);
   }
 
 #ifdef CONFIG_LIBDAEMON

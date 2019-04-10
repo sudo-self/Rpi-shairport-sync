@@ -92,8 +92,7 @@ void response_body(void *opaque, const char *data, int size) {
     if (t)
       response->body = t;
     else {
-      debug(1, "Can't allocate any more space for parser.\n");
-      exit(-1);
+      die("dacp: can't allocate any more space for parser.");
     }
   }
   memcpy(response->body + response->size, data, size);

@@ -65,9 +65,8 @@ static int fork_execvp(const char *file, char *const argv[]) {
     // Write erno's value into the pipe and exit.
     if (write(execpipe[1], &errno, sizeof(errno)) != sizeof(errno))
       debug(1, "Execve has failed and there was a further error writing an error message, duh.");
-    debug(1, "execve has failed.");
-    _exit(-1);
-    return 0;           // Just to make the compiler happy.
+    die("mdns_external: execve has failed.");
+    // return 0;           // Just to make the compiler happy.
   } else {              // Parent
     close(execpipe[1]); // Close the write end
 
