@@ -891,7 +891,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                   curframe->given_timestamp; // we will keep buffering until we are
                                              // supposed to start playing this
               have_sent_prefiller_silence = 0;
- 
+
 // debug(1, "First packet timestamp is %" PRId64 ".", conn->first_packet_timestamp);
 
 // say we have started playing here
@@ -959,20 +959,22 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                                 conn);
 
             conn->first_packet_time_to_play = should_be_time;
-            
+
             // we want the frames of silence sent at the start to be fairly large in case the output
-            // device's minimum buffer size is large. But they can't be greater than the silent lead_in time
-            // which is either the agreed latency or the silent lead-in time specified by the setting
+            // device's minimum buffer size is large. But they can't be greater than the silent
+            // lead_in time
+            // which is either the agreed latency or the silent lead-in time specified by the
+            // setting
             // In fact, if should be some fraction of them, to allow for adjustment.
-            
+
             int64_t max_dac_delay = conn->latency;
             if (config.audio_backend_silent_lead_in_time >= 0)
               max_dac_delay =
-                (int64_t)(config.audio_backend_silent_lead_in_time * conn->input_rate);
-            
+                  (int64_t)(config.audio_backend_silent_lead_in_time * conn->input_rate);
+
             max_dac_delay = max_dac_delay / 4;
-            
-            // debug(1,"max_dac_delay is %" PRIu64 " frames.", max_dac_delay);           
+
+            // debug(1,"max_dac_delay is %" PRIu64 " frames.", max_dac_delay);
 
             int64_t filler_size = max_dac_delay;
 
@@ -1333,12 +1335,19 @@ static int stuff_buffer_basic_32(int32_t *inptr, int length, enum sps_format_t l
 // (d) outputs the result in the approprate format
 // formats accepted so far include U8, S8, S16, S24, S24_3LE, S24_3BE and S32
 
+int32_t stat_n = 0;
+double stat_mean = 0.0;
+double stat_M2 = 0.0;
+double longest_soxr_execution_time_us = 0.0;
+int64_t packets_processed = 0;
+
 int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
                          enum sps_format_t l_output_format, char *outptr, int stuff, int dither,
                          rtsp_conn_info *conn) {
   if (scratchBuffer == NULL) {
     die("soxr scratchBuffer not initialised.");
   }
+  packets_processed++;
   int tstuff = stuff;
   if ((stuff > 1) || (stuff < -1) || (length < 100)) {
     // debug(1, "Stuff argument to stuff_buffer must be from -1 to +1 and length >100.");
@@ -1357,6 +1366,8 @@ int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
 
     size_t odone;
 
+    uint64_t soxr_start_time = get_absolute_time_in_fp();
+
     soxr_error_t error = soxr_oneshot(length, length + tstuff, 2, // Rates and # of chans.
                                       inptr, length, NULL,        // Input.
                                       scratchBuffer, length + tstuff, &odone, // Output.
@@ -1368,6 +1379,18 @@ int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
 
     if (odone > (size_t)(length + 1))
       die("odone = %u!\n", odone);
+
+    // mean and variance calculations from "online_variance" algorithm at
+    // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm
+
+    double soxr_execution_time_us =
+        (((get_absolute_time_in_fp() - soxr_start_time) * 1000000) >> 32) * 1.0;
+    if (soxr_execution_time_us > longest_soxr_execution_time_us)
+      longest_soxr_execution_time_us = soxr_execution_time_us;
+    stat_n += 1;
+    double stat_delta = soxr_execution_time_us - stat_mean;
+    stat_mean += stat_delta / stat_n;
+    stat_M2 += stat_delta * (soxr_execution_time_us - stat_mean);
 
     int i;
     int32_t *ip, *op;
@@ -1411,6 +1434,18 @@ int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
       process_sample(*ip++, &l_outptr, l_output_format, conn->fix_volume, dither, conn);
     };
   }
+
+  if (packets_processed % 2500 == 0) {
+    debug(1, "soxr_oneshot execution time in microseconds: mean, standard deviation and max "
+             "for %" PRId32 " interpolations in the last "
+             "2500 packets. %10.1f, %10.1f, %10.1f.",
+          stat_n, stat_mean, sqrtf(stat_M2 / (stat_n - 1)), longest_soxr_execution_time_us);
+    stat_n = 0;
+    stat_mean = 0.0;
+    stat_M2 = 0.0;
+    longest_soxr_execution_time_us = 0.0;
+  }
+
   conn->amountStuffed = tstuff;
   return length + tstuff;
 }
