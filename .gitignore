@@ -33,6 +33,7 @@ shairport-sync.core
 /dbus-interface.*
 /mpris-interface.*
 /lib_*.*
+build_details.h
 
 # Some eclipse project files
 .cproject
