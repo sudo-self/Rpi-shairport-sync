@@ -83,6 +83,8 @@
 #include <syslog.h>
 #endif
 
+#include "build_details.h"
+
 #ifdef CONFIG_ALSA
 void set_alsa_out_dev(char *);
 #endif
@@ -1282,11 +1284,15 @@ char *get_version_string() {
   char *version_string = malloc(1024);
   if (version_string) {
     strcpy(version_string, PACKAGE_VERSION);
+    if (strlen(GITDESCRIPTION)) {
+      strcat(version_string, "-");
+      strcat(version_string, GITDESCRIPTION);
+    }
 #ifdef CONFIG_LIBDAEMON
-    strcat(version_string, "-libdaemon");
+  strcat(version_string, "-libdaemon");
 #endif
 #ifdef CONFIG_MBEDTLS
-    strcat(version_string, "-mbedTLS");
+  strcat(version_string, "-mbedTLS");
 #endif
 #ifdef CONFIG_POLARSSL
     strcat(version_string, "-PolarSSL");

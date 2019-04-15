@@ -1510,6 +1510,19 @@ int main(int argc, char **argv) {
   // make sure the program can create files that group and world can read
   umask(S_IWGRP | S_IWOTH);
 
+
+  /* print out version */
+
+  char *version_dbs = get_version_string();
+  if (version_dbs) {
+    debug(1, "software version: \"%s\"", version_dbs);
+    free(version_dbs);
+  } else {
+    debug(1, "can't print the version information!");
+  }
+  
+  debug(1, "log verbosity is %d.", debuglev);
+
   config.output = audio_get_output(config.output_name);
   if (!config.output) {
     audio_ls_outputs();
@@ -1555,18 +1568,7 @@ int main(int argc, char **argv) {
           BUFFER_FRAMES * 352 - 22050);
   }
 
-  /* print out version */
-
-  char *version_dbs = get_version_string();
-  if (version_dbs) {
-    debug(1, "software version: \"%s\"", version_dbs);
-    free(version_dbs);
-  } else {
-    debug(1, "can't print the version information!");
-  }
-
   /* Print out options */
-  debug(1, "log verbosity is %d.", debuglev);
   debug(1, "disable resend requests is %s.", config.disable_resend_requests ? "on" : "off");
   debug(1, "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
            "deliberately.",
