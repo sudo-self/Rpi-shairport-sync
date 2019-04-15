@@ -184,8 +184,8 @@ AC_ARG_WITH(ssl, [ choose --with-ssl=openssl, --with-ssl=mbedtls or --with-ssl=p
 # Look for soxr flag
 AC_ARG_WITH(soxr, [  --with-soxr = choose libsoxr for high-quality interpolation], [
   AC_MSG_RESULT(>>Including support for soxr-based interpolation)
+  AC_DEFINE([CONFIG_SOXR], 1, [Include support for using the SoX Resampler library for interpolation])
   if  test "x${with_pkg_config}" = xyes ; then
-    AC_DEFINE([CONFIG_SOXR], 1, [Include support for using the SoX Resampler library for interpolation])
     PKG_CHECK_MODULES(
         [SOXR], [soxr],
         [LIBS="${SOXR_LIBS} ${LIBS}"],
