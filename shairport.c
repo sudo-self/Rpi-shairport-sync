@@ -1312,11 +1312,15 @@ int main(int argc, char **argv) {
       0.002; // this number of seconds of timing error before attempting to correct it.
   config.buffer_start_fill = 220;
   config.port = 5000;
+
+/*
 #ifdef CONFIG_SOXR
   config.packet_stuffing = ST_soxr; // use soxr interpolation by default if support has been included
 #else
   config.packet_stuffing = ST_basic; // simple interpolation or deletion
 #endif
+*/
+
   // char hostname[100];
   // gethostname(hostname, 100);
   // config.service_name = malloc(20 + 100);
