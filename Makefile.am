@@ -8,8 +8,12 @@ bin_PROGRAMS = shairport-sync
 
 # See below for the flags for the test client program
 
-shairport_sync_SOURCES = shairport.c rtsp.c mdns.c common.c rtp.c player.c alac.c audio.c loudness.c activity_monitor.c
+shairport_sync_SOURCES = build_details.h shairport.c rtsp.c mdns.c common.c rtp.c player.c alac.c audio.c loudness.c activity_monitor.c
 
+
+# from Stack Overflow, with thanks: https://stackoverflow.com/questions/54303270/how-to-execute-shell-commands-in-automake-makefile-am
+build_details.h:
+	echo "#define GITDESCRIPTION \"`git describe --dirty --always 2>/dev/null`\"" >$@
 if BUILD_FOR_FREEBSD
   AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
   AM_CFLAGS = -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
@@ -101,9 +105,9 @@ if USE_DACP_CLIENT
 shairport_sync_SOURCES += dacp.c tinyhttp/chunk.c tinyhttp/header.c tinyhttp/http.c 
 endif
 
-BUILT_SOURCES =
-noinst_HEADERS =
-CLEANFILES =
+BUILT_SOURCES = build_details.h
+noinst_HEADERS = build_details.h
+CLEANFILES = build_details.h
 shairport_sync_LDADD =
 noinst_LIBRARIES =
 
