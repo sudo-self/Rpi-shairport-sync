@@ -1284,10 +1284,12 @@ char *get_version_string() {
   char *version_string = malloc(1024);
   if (version_string) {
     strcpy(version_string, PACKAGE_VERSION);
+#ifdef GITDESCRIPTION
     if (strlen(GITDESCRIPTION)) {
       strcat(version_string, "-");
       strcat(version_string, GITDESCRIPTION);
     }
+#endif
 #ifdef CONFIG_LIBDAEMON
   strcat(version_string, "-libdaemon");
 #endif

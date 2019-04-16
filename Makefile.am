@@ -12,8 +12,10 @@ shairport_sync_SOURCES = build_details.h shairport.c rtsp.c mdns.c common.c rtp.
 
 
 # from Stack Overflow, with thanks: https://stackoverflow.com/questions/54303270/how-to-execute-shell-commands-in-automake-makefile-am
-build_details.h:
-	echo "#define GITDESCRIPTION \"`git describe --dirty --always 2>/dev/null`\"" >$@
+build_details.h: FORCE
+	( [ -e $(CURDIR)/.git ] && echo "#define GITDESCRIPTION \"`git describe --dirty --always 2>/dev/null`\"" >$@ ) || echo "" >$@
+FORCE:
+
 if BUILD_FOR_FREEBSD
   AM_CXXFLAGS = -I/usr/local/include -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
   AM_CFLAGS = -Wno-multichar -Wall -Wextra -pthread -DSYSCONFDIR=\"$(sysconfdir)\"
