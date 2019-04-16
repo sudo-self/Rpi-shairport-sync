@@ -179,14 +179,14 @@ void* soxr_time_check(__attribute__((unused)) void *arg) {
   
   int i;
      
-  const int number_of_iterations = 100;
+  int number_of_iterations = 0;
   uint64_t soxr_start_time = get_absolute_time_in_fp();
-  int j;
-  for (j = 0; j < number_of_iterations; j++) {
+  uint64_t loop_until_time = (uint64_t)0x100000000 + soxr_start_time; // loop for a second, max
+  while (get_absolute_time_in_fp() < loop_until_time) {
   
-  
+    number_of_iterations++;
     for (i = 0; i < buffer_length ; i++) {
-      double w = sin(i * (frequency + j * 2) * 2 * M_PI/44100);
+      double w = sin(i * (frequency + number_of_iterations * 2) * 2 * M_PI/44100);
       int32_t wint = (int32_t)(w * INT32_MAX);
       inbuffer[i * 2] = wint;
       inbuffer[i * 2 + 1] = wint;
@@ -227,8 +227,8 @@ void* soxr_time_check(__attribute__((unused)) void *arg) {
   // free(inbuffer);
   config.soxr_delay_index = (int)(0.9 + soxr_execution_time_us/(number_of_iterations *1000));
   if ((config.soxr_delay_index > config.soxr_delay_threshold) && (config.packet_stuffing == ST_soxr))
-  	inform("this device is probably too slow to do \"soxr\"-based interpolation. Consider choosing the \'basic\" setting.");
-  debug(1,"soxr_delay_index: %d, soxr_delay_threshold: %d, thus probably %scapable of doing \"soxr\" interpolation. Interpolation setting is %d (0-basic, 1-soxr, 2-auto).", config.soxr_delay_index, config.soxr_delay_threshold, config.soxr_delay_index <= config.soxr_delay_threshold ? "" : "not ", config.packet_stuffing);
+  	inform("this device is probably too slow to do \"soxr\" based interpolation. Consider choosing the \"basic\" or \"auto\" interpolation setting.");
+  debug(1,"this device is probably %scapable of doing \"soxr\" interpolation. The soxr_delay_index is %d (lower is better) and the soxr_delay_threshold is %d. Interpolation setting is %d (0-basic, 1-soxr, 2-auto).", config.soxr_delay_index <= config.soxr_delay_threshold ? "" : "not ", config.soxr_delay_index, config.soxr_delay_threshold, config.packet_stuffing);
 	pthread_exit(NULL);
 }
 
