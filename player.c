@@ -2282,15 +2282,19 @@ void *player_thread_func(void *arg) {
                 }
               }
 
+#ifdef CONFIG_SOXR
               if ((current_delay < conn->dac_buffer_queue_minimum_length) ||
-                  (config.packet_stuffing == ST_basic)) {
+                  (config.packet_stuffing == ST_basic) ||
+                  (config.soxr_delay_index == 0) || // not computed yet
+                  ((config.packet_stuffing == ST_auto) && (config.soxr_delay_index > config.soxr_delay_threshold)) // if the CPU is deemed too slow
+                  ) {
+#endif
                 play_samples =
                     stuff_buffer_basic_32((int32_t *)conn->tbuf, inbuflength, config.output_format,
                                           conn->outbuf, amount_to_stuff, conn->enable_dither, conn);
-              }
 #ifdef CONFIG_SOXR
-              else if (config.packet_stuffing == ST_soxr) {
-                //                if (amount_to_stuff) debug(1,"Soxr stuff...");
+              }
+              else { // soxr requested or auto requested with the index less or equal to the threshold
                 play_samples = stuff_buffer_soxr_32((int32_t *)conn->tbuf, (int32_t *)conn->sbuf,
                                                     inbuflength, config.output_format, conn->outbuf,
                                                     amount_to_stuff, conn->enable_dither, conn);

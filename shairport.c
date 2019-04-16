@@ -165,14 +165,14 @@ void print_version(void) {
 }
 
 #ifdef CONFIG_SOXR
-
-void soxr_time_check() {
+pthread_t	soxr_time_check_thread;
+void* soxr_time_check(__attribute__((unused)) void *arg) {
   const int buffer_length = 352;
-  //int32_t inbuffer[buffer_length*2];
-  //int32_t outbuffer[(buffer_length+1)*2];
+  int32_t inbuffer[buffer_length*2];
+  int32_t outbuffer[(buffer_length+1)*2];
   
-  int32_t *outbuffer = (int32_t*)malloc((buffer_length+1)*2*sizeof(int32_t));
-  int32_t *inbuffer = (int32_t*)malloc((buffer_length)*2*sizeof(int32_t));
+  //int32_t *outbuffer = (int32_t*)malloc((buffer_length+1)*2*sizeof(int32_t));
+  //int32_t *inbuffer = (int32_t*)malloc((buffer_length)*2*sizeof(int32_t));
   
   // generate a sample signal
   const double frequency = 440; // 
@@ -192,8 +192,6 @@ void soxr_time_check() {
       inbuffer[i * 2 + 1] = wint;
     }
   
-  
-  
     soxr_io_spec_t io_spec;
     io_spec.itype = SOXR_INT32_I;
     io_spec.otype = SOXR_INT32_I;
@@ -208,7 +206,7 @@ void soxr_time_check() {
                                       outbuffer, buffer_length + 1, &odone, // Output.
                                       &io_spec,    // Input, output and transfer spec.
                                       NULL, NULL); // Default configuration.
-                                      /*
+                                     
     io_spec.itype = SOXR_INT32_I;
     io_spec.otype = SOXR_INT32_I;
     io_spec.scale = 1.0; // this seems to crash if not = 1.0
@@ -220,15 +218,18 @@ void soxr_time_check() {
                                       outbuffer, buffer_length - 1, &odone, // Output.
                                       &io_spec,    // Input, output and transfer spec.
                                       NULL, NULL); // Default configuration.
-    */
+  	
   }
 
- 
   double soxr_execution_time_us =
     (((get_absolute_time_in_fp() - soxr_start_time) * 1000000) >> 32) * 1.0;
-  free(outbuffer);
-  free(inbuffer);
-  debug(1,"Execution time for %d soxr interpolations: %10.1f microseconds.", number_of_iterations, soxr_execution_time_us);
+  // free(outbuffer);
+  // free(inbuffer);
+  config.soxr_delay_index = (int)(0.9 + soxr_execution_time_us/(number_of_iterations *1000));
+  if ((config.soxr_delay_index > config.soxr_delay_threshold) && (config.packet_stuffing == ST_soxr))
+  	inform("this device is probably too slow to do \"soxr\"-based interpolation. Consider choosing the \'basic\" setting.");
+  debug(1,"soxr_delay_index: %d, soxr_delay_threshold: %d, thus probably %scapable of doing \"soxr\" interpolation. Interpolation setting is %d (0-basic, 1-soxr, 2-auto).", config.soxr_delay_index, config.soxr_delay_threshold, config.soxr_delay_index <= config.soxr_delay_threshold ? "" : "not ", config.packet_stuffing);
+	pthread_exit(NULL);
 }
 
 #endif
@@ -425,8 +426,8 @@ int parse_options(int argc, char **argv) {
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
   config.active_state_timeout = 10.0;
-  config.volume_range_hw_priority =
-      0; // if combining software and hardware volume control, give the software priority
+  config.soxr_delay_threshold = 30; // the soxr measurement time (milliseconds) of two oneshots must not exceed this if soxr interpolation is to be chosen automatically.
+  config.volume_range_hw_priority = 0; // if combining software and hardware volume control, give the software priority
 // i.e. when reducing volume, reduce the sw first before reducing the software.
 // this is because some hw mixers mute at the bottom of their range, and they don't always advertise this fact
 
@@ -526,6 +527,8 @@ int parse_options(int argc, char **argv) {
       if (config_lookup_string(config.cfg, "general.interpolation", &str)) {
         if (strcasecmp(str, "basic") == 0)
           config.packet_stuffing = ST_basic;
+        else if (strcasecmp(str, "auto") == 0)
+          config.packet_stuffing = ST_auto;
         else if (strcasecmp(str, "soxr") == 0)
 #ifdef CONFIG_SOXR
           config.packet_stuffing = ST_soxr;
@@ -535,8 +538,21 @@ int parse_options(int argc, char **argv) {
               "support. Change the \"general/interpolation\" setting in the configuration file.");
 #endif
         else
-          die("Invalid interpolation option choice. It should be \"basic\" or \"soxr\"");
+          die("Invalid interpolation option choice. It should be \"auto\", \"basic\" or \"soxr\"");
       }
+      
+#ifdef CONFIG_SOXR
+      /* Get the soxr_delay_threshold setting. */
+      if (config_lookup_int(config.cfg, "general.soxr_delay_threshold", &value)) {
+        if ((value >= 0) && (value <= 100))
+          config.soxr_delay_threshold = value;
+        else
+          warn("Invalid general soxr_delay_threshold setting option choice \"%d\". It should be "
+              "between 0 and 100, "
+              "inclusive. Default is %d (milliseconds).",
+              value, config.soxr_delay_threshold);
+      }
+#endif
 
       /* Get the statistics setting. */
       if (config_set_lookup_bool(config.cfg, "general.statistics",
@@ -1073,6 +1089,8 @@ int parse_options(int argc, char **argv) {
     case 'S':
       if (strcmp(stuffing, "basic") == 0)
         config.packet_stuffing = ST_basic;
+      else if (strcmp(stuffing, "auto") == 0)
+        config.packet_stuffing = ST_auto;
       else if (strcmp(stuffing, "soxr") == 0)
 #ifdef CONFIG_SOXR
         config.packet_stuffing = ST_soxr;
@@ -1388,13 +1406,13 @@ int main(int argc, char **argv) {
   config.buffer_start_fill = 220;
   config.port = 5000;
 
-/*
+
 #ifdef CONFIG_SOXR
-  config.packet_stuffing = ST_soxr; // use soxr interpolation by default if support has been included
+  config.packet_stuffing = ST_auto; // use soxr interpolation by default if support has been included and if the CPU is fast enough
 #else
   config.packet_stuffing = ST_basic; // simple interpolation or deletion
 #endif
-*/
+
 
   // char hostname[100];
   // gethostname(hostname, 100);
@@ -1668,7 +1686,8 @@ int main(int argc, char **argv) {
   debug(1, "active_state_timeout is  %f seconds.", config.active_state_timeout);
   debug(1, "mdns backend \"%s\".", config.mdns_name);
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
-  debug(1, "stuffing option is \"%d\" (0-basic, 1-soxr).", config.packet_stuffing);
+  debug(1, "interpolation setting is \"%d\" (0-basic, 1-soxr, 2-auto).", config.packet_stuffing);
+  debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
   debug(1, "resync time is %f seconds.", config.resyncthreshold);
   debug(1, "allow a session to be interrupted: %d.", config.allow_session_interruption);
   debug(1, "busy timeout time is %d.", config.timeout);
@@ -1735,6 +1754,10 @@ int main(int argc, char **argv) {
 
   uint8_t ap_md5[16];
 
+#ifdef CONFIG_SOXR
+	pthread_create(&soxr_time_check_thread, NULL, &soxr_time_check, NULL);
+#endif
+
 #ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
   MD5_Init(&ctx);
@@ -1793,10 +1816,6 @@ int main(int argc, char **argv) {
   if (config.mqtt_enabled) {
     initialise_mqtt();
   }
-#endif
-
-#ifdef CONFIG_SOXR
-	soxr_time_check();
 #endif
 
   activity_monitor_start();
