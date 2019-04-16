@@ -432,72 +432,6 @@ static void free_audio_buffers(rtsp_conn_info *conn) {
     free(conn->audio_buffer[i].data);
 }
 
-
-void soxr_time_check() {
-  const int buffer_length = 352;
-  //int32_t inbuffer[buffer_length*2];
-  //int32_t outbuffer[(buffer_length+1)*2];
-  
-  int32_t *outbuffer = (int32_t*)malloc((buffer_length+1)*2*sizeof(int32_t));
-  int32_t *inbuffer = (int32_t*)malloc((buffer_length)*2*sizeof(int32_t));
-  
-  // generate a sample signal
-  const double frequency = 440; // 
-  
-  int i;
-     
-  const int number_of_iterations = 100;
-  uint64_t soxr_start_time = get_absolute_time_in_fp();
-  int j;
-  for (j = 0; j < number_of_iterations; j++) {
-  
-  
-    for (i = 0; i < buffer_length ; i++) {
-      double w = sin(i * (frequency + j * 2) * 2 * M_PI/44100);
-      int32_t wint = (int32_t)(w * INT32_MAX);
-      inbuffer[i * 2] = wint;
-      inbuffer[i * 2 + 1] = wint;
-    }
-  
-  
-  
-    soxr_io_spec_t io_spec;
-    io_spec.itype = SOXR_INT32_I;
-    io_spec.otype = SOXR_INT32_I;
-    io_spec.scale = 1.0; // this seems to crash if not = 1.0
-    io_spec.e = NULL;
-    io_spec.flags = 0;
-
-    size_t odone;
-
-    soxr_oneshot(buffer_length, buffer_length + 1, 2, // Rates and # of chans.
-                                      inbuffer, buffer_length, NULL,        // Input.
-                                      outbuffer, buffer_length + 1, &odone, // Output.
-                                      &io_spec,    // Input, output and transfer spec.
-                                      NULL, NULL); // Default configuration.
-                                      /*
-    io_spec.itype = SOXR_INT32_I;
-    io_spec.otype = SOXR_INT32_I;
-    io_spec.scale = 1.0; // this seems to crash if not = 1.0
-    io_spec.e = NULL;
-    io_spec.flags = 0;
-
-    soxr_oneshot(buffer_length, buffer_length - 1, 2, // Rates and # of chans.
-                                      inbuffer, buffer_length, NULL,        // Input.
-                                      outbuffer, buffer_length - 1, &odone, // Output.
-                                      &io_spec,    // Input, output and transfer spec.
-                                      NULL, NULL); // Default configuration.
-    */
-  }
-
- 
-  double soxr_execution_time_us =
-    (((get_absolute_time_in_fp() - soxr_start_time) * 1000000) >> 32) * 1.0;
-  free(outbuffer);
-  free(inbuffer);
-  debug(1,"Execution time for %d soxr interpolations: %10.1f microseconds.", number_of_iterations, soxr_execution_time_us);
-}
-
 void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, int len,
                        rtsp_conn_info *conn) {
 
@@ -1502,10 +1436,10 @@ int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
     };
   }
 
-  if (packets_processed % 500 == 0) {
+  if (packets_processed % 1250 == 0) {
     debug(1, "soxr_oneshot execution time in microseconds: mean, standard deviation and max "
              "for %" PRId32 " interpolations in the last "
-             "500 packets. %10.1f, %10.1f, %10.1f.",
+             "1250 packets. %10.1f, %10.1f, %10.1f.",
           stat_n, stat_mean, sqrtf(stat_M2 / (stat_n - 1)), longest_soxr_execution_time_us);
     stat_n = 0;
     stat_mean = 0.0;
@@ -1598,7 +1532,6 @@ void player_thread_cleanup_handler(void *arg) {
 }
 
 void *player_thread_func(void *arg) {
-  soxr_time_check();
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   // pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
   conn->packet_count = 0;

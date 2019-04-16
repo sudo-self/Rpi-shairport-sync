@@ -41,6 +41,7 @@
 #include <net/if.h>
 #include <unistd.h>
 
+
 #include "config.h"
 
 #ifdef CONFIG_MBEDTLS
@@ -93,6 +94,11 @@
 #include <libdaemon/dsignal.h>
 #else
 #include <syslog.h>
+#endif
+
+#ifdef CONFIG_SOXR
+#include <soxr.h>
+#include <math.h>
 #endif
 
 #ifdef CONFIG_CONVOLUTION
@@ -157,6 +163,75 @@ void print_version(void) {
     debug(1, "Can't print version string!");
   }
 }
+
+#ifdef CONFIG_SOXR
+
+void soxr_time_check() {
+  const int buffer_length = 352;
+  //int32_t inbuffer[buffer_length*2];
+  //int32_t outbuffer[(buffer_length+1)*2];
+  
+  int32_t *outbuffer = (int32_t*)malloc((buffer_length+1)*2*sizeof(int32_t));
+  int32_t *inbuffer = (int32_t*)malloc((buffer_length)*2*sizeof(int32_t));
+  
+  // generate a sample signal
+  const double frequency = 440; // 
+  
+  int i;
+     
+  const int number_of_iterations = 100;
+  uint64_t soxr_start_time = get_absolute_time_in_fp();
+  int j;
+  for (j = 0; j < number_of_iterations; j++) {
+  
+  
+    for (i = 0; i < buffer_length ; i++) {
+      double w = sin(i * (frequency + j * 2) * 2 * M_PI/44100);
+      int32_t wint = (int32_t)(w * INT32_MAX);
+      inbuffer[i * 2] = wint;
+      inbuffer[i * 2 + 1] = wint;
+    }
+  
+  
+  
+    soxr_io_spec_t io_spec;
+    io_spec.itype = SOXR_INT32_I;
+    io_spec.otype = SOXR_INT32_I;
+    io_spec.scale = 1.0; // this seems to crash if not = 1.0
+    io_spec.e = NULL;
+    io_spec.flags = 0;
+
+    size_t odone;
+
+    soxr_oneshot(buffer_length, buffer_length + 1, 2, // Rates and # of chans.
+                                      inbuffer, buffer_length, NULL,        // Input.
+                                      outbuffer, buffer_length + 1, &odone, // Output.
+                                      &io_spec,    // Input, output and transfer spec.
+                                      NULL, NULL); // Default configuration.
+                                      /*
+    io_spec.itype = SOXR_INT32_I;
+    io_spec.otype = SOXR_INT32_I;
+    io_spec.scale = 1.0; // this seems to crash if not = 1.0
+    io_spec.e = NULL;
+    io_spec.flags = 0;
+
+    soxr_oneshot(buffer_length, buffer_length - 1, 2, // Rates and # of chans.
+                                      inbuffer, buffer_length, NULL,        // Input.
+                                      outbuffer, buffer_length - 1, &odone, // Output.
+                                      &io_spec,    // Input, output and transfer spec.
+                                      NULL, NULL); // Default configuration.
+    */
+  }
+
+ 
+  double soxr_execution_time_us =
+    (((get_absolute_time_in_fp() - soxr_start_time) * 1000000) >> 32) * 1.0;
+  free(outbuffer);
+  free(inbuffer);
+  debug(1,"Execution time for %d soxr interpolations: %10.1f microseconds.", number_of_iterations, soxr_execution_time_us);
+}
+
+#endif
 
 void usage(char *progname) {
   printf("Usage: %s [options...]\n", progname);
@@ -1718,6 +1793,10 @@ int main(int argc, char **argv) {
   if (config.mqtt_enabled) {
     initialise_mqtt();
   }
+#endif
+
+#ifdef CONFIG_SOXR
+	soxr_time_check();
 #endif
 
   activity_monitor_start();
