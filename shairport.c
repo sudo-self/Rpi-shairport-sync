@@ -181,7 +181,7 @@ void* soxr_time_check(__attribute__((unused)) void *arg) {
      
   int number_of_iterations = 0;
   uint64_t soxr_start_time = get_absolute_time_in_fp();
-  uint64_t loop_until_time = (uint64_t)0x100000000 + soxr_start_time; // loop for a second, max
+  uint64_t loop_until_time = (uint64_t)0x180000000 + soxr_start_time; // loop for a second and a half, max
   while (get_absolute_time_in_fp() < loop_until_time) {
   
     number_of_iterations++;
@@ -226,9 +226,11 @@ void* soxr_time_check(__attribute__((unused)) void *arg) {
   // free(outbuffer);
   // free(inbuffer);
   config.soxr_delay_index = (int)(0.9 + soxr_execution_time_us/(number_of_iterations *1000));
-  if ((config.soxr_delay_index > config.soxr_delay_threshold) && (config.packet_stuffing == ST_soxr))
-  	inform("this device is probably too slow to do \"soxr\" based interpolation. Consider choosing the \"basic\" or \"auto\" interpolation setting.");
-  debug(1,"this device is probably %scapable of doing \"soxr\" interpolation. The soxr_delay_index is %d (lower is better) and the soxr_delay_threshold is %d. Interpolation setting is %d (0-basic, 1-soxr, 2-auto).", config.soxr_delay_index <= config.soxr_delay_threshold ? "" : "not ", config.soxr_delay_index, config.soxr_delay_threshold, config.packet_stuffing);
+  debug(1,"soxr_delay_index: %d.", config.soxr_delay_index);
+  if ((config.packet_stuffing == ST_soxr) && (config.soxr_delay_index > config.soxr_delay_threshold))
+  	inform("Note: this device may be too slow for \"soxr\" interpolation. Consider choosing the \"basic\" or \"auto\" interpolation setting.");
+  if (config.packet_stuffing == ST_auto)
+    debug(1,"\"%s\" interpolation has been chosen.", config.soxr_delay_index <= config.soxr_delay_threshold ? "soxr" : "basic");
 	pthread_exit(NULL);
 }
 
@@ -1686,7 +1688,7 @@ int main(int argc, char **argv) {
   debug(1, "active_state_timeout is  %f seconds.", config.active_state_timeout);
   debug(1, "mdns backend \"%s\".", config.mdns_name);
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
-  debug(1, "interpolation setting is \"%d\" (0-basic, 1-soxr, 2-auto).", config.packet_stuffing);
+  debug(1, "interpolation setting is \"%s\".", config.packet_stuffing == ST_basic ? "basic" : config.packet_stuffing == ST_soxr ? "soxr" : "auto");
   debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
   debug(1, "resync time is %f seconds.", config.resyncthreshold);
   debug(1, "allow a session to be interrupted: %d.", config.allow_session_interruption);
