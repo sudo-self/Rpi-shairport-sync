@@ -46,9 +46,16 @@ int warned = 0;
 
 static void start(__attribute__((unused)) int sample_rate,
                   __attribute__((unused)) int sample_format) {
-  // this will leave fd as -1 if a reader hasn't been attached
+  
+  
+  // this will leave fd as -1 if a reader hasn't been attached to the pipe
+  // we check that it's not a "real" error though. From the "man 2 open" page:
+  // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO open for reading."
   fd = open(pipename, O_WRONLY | O_NONBLOCK);
-  if ((fd < -1) && (warned == 0)) {
+  if ((fd == -1) && (errno != ENXIO) && (warned == 0)) {
+    char errorstring[1024];
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    debug(1, "pipe: start -- error %d (\"%s\") opening the pipe named \"%s\".", errno, (char*)errorstring, pipename);
     warn("Error %d opening the pipe named \"%s\".", errno, pipename);
     warned = 1;
   }
@@ -68,7 +75,7 @@ static int play(void *buf, int samples) {
       warn("Error %d writing to the pipe named \"%s\": \"%s\".", errno, pipename, errorstring);
       warned = 1;
     }
-  } else if ((fd == -1) && (warned == 0)) {
+  } else if ((fd == -1) && (errno != ENXIO) && (warned == 0)) {
     strerror_r(errno, (char *)errorstring, 1024);
     warn("Error %d opening the pipe named \"%s\": \"%s\".", errno, pipename, errorstring);
     warned = 1;
