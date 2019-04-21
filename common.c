@@ -1282,11 +1282,12 @@ char *get_version_string() {
   char *version_string = malloc(1024);
   if (version_string) {
     strcpy(version_string, PACKAGE_VERSION);
+
 #ifdef CONFIG_LIBDAEMON
-    strcat(version_string, "-libdaemon");
+  strcat(version_string, "-libdaemon");
 #endif
 #ifdef CONFIG_MBEDTLS
-    strcat(version_string, "-mbedTLS");
+  strcat(version_string, "-mbedTLS");
 #endif
 #ifdef CONFIG_POLARSSL
     strcat(version_string, "-PolarSSL");

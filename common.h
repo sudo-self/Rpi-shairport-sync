@@ -56,6 +56,7 @@ enum endian_type {
 enum stuffing_type {
   ST_basic = 0, // straight deletion or insertion of a frame in a 352-frame packet
   ST_soxr,      // use libsoxr to make a 352 frame packet one frame longer or shorter
+  ST_auto,			// use soxr if compiled for it and if the soxr_index is low enough
 } s_type;
 
 enum playback_mode_type {
@@ -179,6 +180,8 @@ typedef struct {
   int cmd_blocking, cmd_start_returns_output;
   double tolerance; // allow this much drift before attempting to correct it
   enum stuffing_type packet_stuffing;
+  int soxr_delay_index;
+  int soxr_delay_threshold; // the soxr delay must be less or equal to this for soxr interpolation to be enabled under the auto setting
   int decoders_supported;
   int use_apple_decoder; // set to 1 if you want to use the apple decoder instead of the original by
                          // David Hammerton
