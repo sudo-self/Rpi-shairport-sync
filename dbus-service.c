@@ -501,6 +501,8 @@ gboolean notify_interpolation_callback(ShairportSync *skeleton,
     config.packet_stuffing = ST_basic;
   else if (strcasecmp(th, "soxr") == 0)
     config.packet_stuffing = ST_soxr;
+  else if (strcasecmp(th, "auto") == 0)
+    config.packet_stuffing = ST_auto;
   else {
     warn("An unrecognised interpolation method: \"%s\" was requested via the D-Bus interface.", th);
     switch (config.packet_stuffing) {
@@ -509,6 +511,9 @@ gboolean notify_interpolation_callback(ShairportSync *skeleton,
       break;
     case ST_soxr:
       shairport_sync_set_interpolation(skeleton, "soxr");
+      break;
+    case ST_auto:
+      shairport_sync_set_interpolation(skeleton, "auto");
       break;
     default:
       debug(1, "This should never happen!");
@@ -765,14 +770,21 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   if (config.packet_stuffing == ST_basic) {
     shairport_sync_set_interpolation(SHAIRPORT_SYNC(shairportSyncSkeleton), "basic");
     debug(1, ">> interpolation set to \"basic\" (soxr support built in)");
+  } else if (config.packet_stuffing == ST_auto) {
+    shairport_sync_set_interpolation(SHAIRPORT_SYNC(shairportSyncSkeleton), "auto");
+    debug(1, ">> interpolation set to \"auto\" (soxr support built in)");
   } else {
     shairport_sync_set_interpolation(SHAIRPORT_SYNC(shairportSyncSkeleton), "soxr");
     debug(1, ">> interpolation set to \"soxr\"");
   }
 #else
-  shairport_sync_set_interpolation(SHAIRPORT_SYNC(shairportSyncSkeleton), "basic");
-  debug(1, ">> interpolation set to \"basic\" (no soxr support)");
-
+  if (config.packet_stuffing == ST_basic) {
+    shairport_sync_set_interpolation(SHAIRPORT_SYNC(shairportSyncSkeleton), "basic");
+    debug(1, ">> interpolation set to \"basic\" (no soxr support)");
+  } else if (config.packet_stuffing == ST_auto) {
+    shairport_sync_set_interpolation(SHAIRPORT_SYNC(shairportSyncSkeleton), "auto");
+    debug(1, ">> interpolation set to \"auto\" (no soxr support)");
+  }
 #endif
 
   if (config.volume_control_profile == VCP_standard)
