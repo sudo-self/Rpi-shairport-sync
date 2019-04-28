@@ -1,4 +1,9 @@
 
+Version 3.3rc4
+====
+**New Feature**
+* Support is now included for the automatic selection of the interpolation method. If support for `soxr` interpolation is included at configuration time (using the `--with-soxr` at the `./configuration...` step), then `auto` interpolation is made the default interpolation mode. During startup, the time it takes to do two `soxr` interpolations is calculated -- this, in milliseconds, becomes the `soxr_delay_index`. If the `soxr_delay_index` is less than or equal to a new `general` group setting called `soxr_delay_threshold` (default 30), then `soxr` interpolation will be chosen in `auto` mode; otherwise, `basic` interpolation will be chosen.
+
 Version 3.3rc3
 ====
 **Minor Enhancement**
@@ -12,13 +17,13 @@ Version 3.3rc2
 
 **Bug Fix**
 * Compatibility has been restored with virtual ALSA devices. Sometimes, an ALSA output device isn't actually a real hardware device -- for example, if PulseAudio is installed in your system, the "default" ALSA output device may in fact a virtual device that provides a route into the PulseAudio sound server for audio from ALSA-compatible applications. Such virtual devices don't always provide the precise delay timing that Shairport Sync uses. The bug fix is to fall back to the standard calls when precise delay timing is not available.
-* If precise delay timing data is not available, the disable_standby_mode is turned off, as it relies on high precision timing. 
+* If precise delay timing data is not available, the `disable_standby_mode` is turned off, as it relies on high precision timing. 
 
 Version 3.3rc1
 ====
 
 **New Feature**
-* If support for `soxr` interpolation is included at configuration time, then `soxr` interpolation is made the default at run time.
+* If support for `soxr` interpolation is included at configuration time, then `soxr` interpolation is made the default at run time. (This was later changed -- see 3.3rc4.)
 * If support for the Apple ALAC decoder is included at configuration time, then the Apple ALAC decoder is made the default at run time.
 * If support for metadata is included at configuration, then metadata and cover art are both enabled by default at run time.
 (Metadata is enabled if you configure support for metadata, the dbus interface, the MPRIS interface or the MQTT client.)
