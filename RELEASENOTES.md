@@ -1,4 +1,12 @@
 
+
+Version 3.3rc5
+====
+**Minor Enhancement**
+* Improve support for big-endian devices.
+* Add support for `S16_LE`, `S16_BE`, `S24_LE`, `S24_BE`, `S32_LE` and `S32_BE` formats.
+* Make the default format `S16_LE`, i.e. Signed 16-bit little-endian interleaved stereo (this is the default even on big-endian devices).
+
 Version 3.3rc4
 ====
 **New Feature**
