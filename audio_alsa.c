@@ -66,6 +66,7 @@ int mute(int do_mute); // returns true if it actually is allowed to use the mute
 static double set_volume;
 static int output_method_signalled = 0; // for reporting whether it's using mmap or not
 int delay_type_notified = -1; // for controlling the reporting of whether the output device can do precison delays (e.g. alsa->pulsaudio virtual devices can't)
+int use_monotonic_clock = 0; // this value will be set when the hardware is initialised
 
 audio_output audio_alsa = {
     .name = "alsa",
@@ -115,9 +116,6 @@ int frame_size; // in bytes for interleaved stereo
 int alsa_device_initialised; // boolean to ensure the initialisation is only
                              // done once
          
-                    
-enum yndk_type precision_delay_available_status = YNDK_DONT_KNOW; // initially, we don't know if the device can do precision delay
-                            
 snd_pcm_t *alsa_handle = NULL;
 static snd_pcm_hw_params_t *alsa_params = NULL;
 static snd_pcm_sw_params_t *alsa_swparams = NULL;
@@ -158,6 +156,12 @@ int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, 
 
 // use this to allow the use of standard or precision delay calculations, with standard the, uh, standard.
 int (*delay_and_status)(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) = standard_delay_and_status;
+
+int precision_delay_available() {
+  // this is very crude -- if the device is a hardware device, then it's assumed the delay is precise
+  const char *output_device_name = snd_pcm_name(alsa_handle);
+  return (strstr(output_device_name,"hw:") == output_device_name);
+}
 
 // static int play_number;
 // static int64_t accumulated_delay, accumulated_da_delay;
@@ -295,17 +299,16 @@ int actual_open_alsa_device(void) {
   if (config.no_sync != 0)
     audio_alsa.delay = NULL;
 
-  // ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK,
-  // SND_PCM_NONBLOCK);
   ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK, 0);
   if (ret < 0) {
     if (ret == -ENOENT) {
-      die("the alsa output_device \"%s\" can not be found.", alsa_out_dev);
+      warn("the alsa output_device \"%s\" can not be found.", alsa_out_dev);
     } else {
       char errorstring[1024];
       strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
-      die("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring, alsa_out_dev);
+      warn("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring, alsa_out_dev);
     }
+    return ret;
   }
 
   snd_pcm_hw_params_alloca(&alsa_params);
@@ -339,7 +342,7 @@ int actual_open_alsa_device(void) {
 
   ret = snd_pcm_hw_params_set_access(alsa_handle, alsa_params, access);
   if (ret < 0) {
-    die("audio_alsa: Access type not available for device \"%s\": %s", alsa_out_dev,
+    warn("audio_alsa: Access type not available for device \"%s\": %s", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
@@ -347,14 +350,14 @@ int actual_open_alsa_device(void) {
 
   ret = snd_pcm_hw_params_set_channels(alsa_handle, alsa_params, 2);
   if (ret < 0) {
-    die("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
+    warn("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
 
   ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &my_sample_rate, &dir);
   if (ret < 0) {
-    die("audio_alsa: Rate %iHz not available for playback: %s", desired_sample_rate,
+    warn("audio_alsa: Rate %iHz not available for playback: %s", desired_sample_rate,
          snd_strerror(ret));
     return ret;
   }
@@ -373,8 +376,24 @@ int actual_open_alsa_device(void) {
     sf = SND_PCM_FORMAT_S16;
     frame_size = 4;
     break;
+  case SPS_FORMAT_S16_LE:
+    sf = SND_PCM_FORMAT_S16_LE;
+    frame_size = 4;
+    break;
+  case SPS_FORMAT_S16_BE:
+    sf = SND_PCM_FORMAT_S16_BE;
+    frame_size = 4;
+    break;
   case SPS_FORMAT_S24:
     sf = SND_PCM_FORMAT_S24;
+    frame_size = 8;
+    break;
+  case SPS_FORMAT_S24_LE:
+    sf = SND_PCM_FORMAT_S24_LE;
+    frame_size = 8;
+    break;
+  case SPS_FORMAT_S24_BE:
+    sf = SND_PCM_FORMAT_S24_BE;
     frame_size = 8;
     break;
   case SPS_FORMAT_S24_3LE:
@@ -389,8 +408,16 @@ int actual_open_alsa_device(void) {
     sf = SND_PCM_FORMAT_S32;
     frame_size = 8;
     break;
+  case SPS_FORMAT_S32_LE:
+    sf = SND_PCM_FORMAT_S32_LE;
+    frame_size = 8;
+    break;
+  case SPS_FORMAT_S32_BE:
+    sf = SND_PCM_FORMAT_S32_BE;
+    frame_size = 8;
+    break;
   default:
-    sf = SND_PCM_FORMAT_S16; // this is just to quieten a compiler warning
+    sf = SND_PCM_FORMAT_S16_LE; // this is just to quieten a compiler warning
     frame_size = 4;
     debug(1, "Unsupported output format at audio_alsa.c");
     return -EINVAL;
@@ -398,7 +425,7 @@ int actual_open_alsa_device(void) {
 
   ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
   if (ret < 0) {
-    die("audio_alsa: Sample format %d not available for device \"%s\": %s", sample_format,
+    warn("audio_alsa: Sample format %d not available for device \"%s\": %s", sample_format,
          alsa_out_dev, snd_strerror(ret));
     return ret;
   }
@@ -443,7 +470,7 @@ int actual_open_alsa_device(void) {
 
   ret = snd_pcm_hw_params(alsa_handle, alsa_params);
   if (ret < 0) {
-    die("audio_alsa: Unable to set hw parameters for device \"%s\": %s.", alsa_out_dev,
+    warn("audio_alsa: Unable to set hw parameters for device \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
@@ -474,6 +501,8 @@ int actual_open_alsa_device(void) {
     warn("Can't set the D/A converter to sample rate %d.", desired_sample_rate);
     return -EINVAL;
   }
+  
+  use_monotonic_clock =  snd_pcm_hw_params_is_monotonic(alsa_params);
 
   ret = snd_pcm_hw_params_get_buffer_size(alsa_params, &actual_buffer_length);
   if (ret < 0) {
@@ -500,14 +529,14 @@ int actual_open_alsa_device(void) {
   /* write the sw parameters */
   ret = snd_pcm_sw_params(alsa_handle, alsa_swparams);
   if (ret < 0) {
-    die("audio_alsa: Unable to set software parameters of device: \"%s\": %s.", alsa_out_dev,
+    warn("audio_alsa: Unable to set software parameters of device: \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
   
   ret = snd_pcm_prepare(alsa_handle);
   if (ret < 0) {
-    die("audio_alsa: Unable to prepare the device: \"%s\": %s.", alsa_out_dev,
+    warn("audio_alsa: Unable to prepare the device: \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
@@ -545,10 +574,9 @@ int actual_open_alsa_device(void) {
   if (config.use_precision_timing == YNA_YES) 
     delay_and_status = precision_delay_and_status;
   else if (config.use_precision_timing == YNA_AUTO) {
-    const char *output_device_name = snd_pcm_name(alsa_handle);
-    if (strstr(output_device_name,"hw:") == output_device_name) {
+    if (precision_delay_available()) {
       delay_and_status = precision_delay_and_status;
-      debug(1,"alsa: using precision timing");
+      debug(1,"alsa: precision timing selected for \"auto\" mode");
     }
   }
 
@@ -932,25 +960,36 @@ static int init(int argc, char **argv) {
     if (config_lookup_string(config.cfg, "alsa.output_format", &str)) {
       if (strcasecmp(str, "S16") == 0)
         config.output_format = SPS_FORMAT_S16;
+      else if (strcasecmp(str, "S16_LE") == 0)
+        config.output_format = SPS_FORMAT_S16_LE;
+      else if (strcasecmp(str, "S16_BE") == 0)
+        config.output_format = SPS_FORMAT_S16_BE;
       else if (strcasecmp(str, "S24") == 0)
         config.output_format = SPS_FORMAT_S24;
+      else if (strcasecmp(str, "S24_LE") == 0)
+        config.output_format = SPS_FORMAT_S24_LE;
+      else if (strcasecmp(str, "S24_BE") == 0)
+        config.output_format = SPS_FORMAT_S24_BE;
       else if (strcasecmp(str, "S24_3LE") == 0)
         config.output_format = SPS_FORMAT_S24_3LE;
       else if (strcasecmp(str, "S24_3BE") == 0)
         config.output_format = SPS_FORMAT_S24_3BE;
       else if (strcasecmp(str, "S32") == 0)
         config.output_format = SPS_FORMAT_S32;
+      else if (strcasecmp(str, "S32_LE") == 0)
+        config.output_format = SPS_FORMAT_S32_LE;
+      else if (strcasecmp(str, "S32_BE") == 0)
+        config.output_format = SPS_FORMAT_S32_BE;
       else if (strcasecmp(str, "U8") == 0)
         config.output_format = SPS_FORMAT_U8;
       else if (strcasecmp(str, "S8") == 0)
         config.output_format = SPS_FORMAT_S8;
       else {
         warn("Invalid output format \"%s\". It should be \"U8\", \"S8\", "
-             "\"S16\", \"S24\", "
+             "\"S16\", \"S24\", \"S24_LE\", \"S24_BE\", "
              "\"S24_3LE\", \"S24_3BE\" or "
-             "\"S32\". It is set to \"S16\".",
-             str);
-        config.output_format = SPS_FORMAT_S16;
+             "\"S32\", \"S32_LE\", \"S32_BE\". It is set to \"%s\".",
+             sps_format_description_string(config.output_format));
       }
     }
 
@@ -1249,23 +1288,23 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
       if (update_timestamp_ns == 0) {
         if (delay_type_notified != 1) {
           inform("Note: the alsa output device \"%s\" is not capable of high precision delay timing.", snd_pcm_name(alsa_handle));
-          debug(2,"alsa: delay_and_status must use snd_pcm_delay() to calculate delay");
+          debug(1,"alsa: delay_and_status must use snd_pcm_delay() to calculate delay");
           delay_type_notified = 1;
         }
       } else {
 // diagnostic
         if (delay_type_notified != 0) {
-          debug(2,"alsa: delay_and_status using snd_pcm_status_get_delay() to calculate delay");
+          debug(1,"alsa: delay_and_status using snd_pcm_status_get_delay() to calculate delay");
           delay_type_notified = 0;
         }
       }
 
       if (update_timestamp_ns == 0) {
         ret = snd_pcm_delay	(alsa_handle,delay);
-        measurement_data_is_valid = 0; // frame rates are likely to be very unreliable if it can't set the update_timestamp, so don't publish them.
       } else {
         *delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);
 
+/*
 // It seems that the alsa library uses CLOCK_REALTIME before 1.0.28, even though
 // the check for monotonic returns true. Might have to watch out for this.
   #if SND_LIB_MINOR == 0 && SND_LIB_SUBMINOR < 28
@@ -1273,7 +1312,13 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
   #else
         clock_gettime(CLOCK_MONOTONIC, &tn);
   #endif
-      
+*/
+
+        if (use_monotonic_clock)
+          clock_gettime(CLOCK_MONOTONIC, &tn);
+        else
+          clock_gettime(CLOCK_REALTIME, &tn);
+  
         uint64_t time_now_ns = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
 
         // see if it's stalled
@@ -1663,70 +1708,6 @@ void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
   debug(1, "alsa: alsa_buffer_monitor_thread_cleanup_function called.");
 }
 */
-
-// this will return true if the DAC can return precision delay information and false if not
-// if it is not yet known, it will test the output device to find out
-
-// note -- once it has done the test, it decides -- even if the delay comes back with
-// "don't know", it will take that as a "No" and remember it.
-// If you want it to check again, set precision_delay_available_status to YNDK_DONT_KNOW
-// first.
-
-
-int precision_delay_available() {
-  if (precision_delay_available_status == YNDK_DONT_KNOW) {
-    // At present, the only criterion as to whether precision delay is available
-    // is whether the device driver returns non-zero update timestamps
-    // If it does, it is considered precision delay is available
-    // Otherwise, it's considered to be unavailable
-    
-    // To test, we play a silence buffer (fairly large to avoid underflow)
-    // and then we check the delay return. It will tell us if it 
-    // was able to use the (non-zero) update timestamps
-        
-    int frames_of_silence = 4410;
-    size_t size_of_silence_buffer = frames_of_silence * frame_size;
-    void *silence = malloc(size_of_silence_buffer);
-    if (silence == NULL) {
-      debug(1, "alsa: precision_delay_available -- failed to "
-               "allocate memory for a "
-               "silent frame buffer.");
-    } else {
-      pthread_cleanup_push(malloc_cleanup, silence);
-      int use_dither = 0;
-      if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
-          (config.airplay_volume != 0.0))
-        use_dither = 1;
-      dither_random_number_store =
-          generate_zero_frames(silence, frames_of_silence, config.output_format,
-                               use_dither, // i.e. with dither
-                               dither_random_number_store);
-      // debug(1,"Play %d frames of silence with most_recent_write_time of
-      // %" PRIx64 ".",
-      //    frames_of_silence,most_recent_write_time);
-      do_play(silence, frames_of_silence);
-      pthread_cleanup_pop(1);
-      // now we can get the delay, and we'll note if it uses update timestamps
-      enum yndk_type uses_update_timestamps;
-      snd_pcm_state_t state;
-      snd_pcm_sframes_t delay;     
-      int ret = delay_and_status(&state, &delay, &uses_update_timestamps);
-      // debug(3,"alsa: precision_delay_available asking for delay and status with a return status of %d, a delay of %ld and a uses_update_timestamps of %d.", ret, delay, uses_update_timestamps);     
-      if (ret == 0) {
-        if (uses_update_timestamps == YNDK_YES) {
-          precision_delay_available_status = YNDK_YES;
-          debug(2,"alsa: precision delay timing available.");
-        } else {
-          precision_delay_available_status = YNDK_NO;
-          debug(2,"alsa: precision delay timing not available.");
-          if (config.disable_standby_mode != disable_standby_off)
-            inform("Note: disable_standby_mode has been turned off because precision timing is not available.", snd_pcm_name(alsa_handle));
-        }
-      }
-    }
-  }
-  return (precision_delay_available_status == YNDK_YES);
-}
 
 void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
   int okb = -1;

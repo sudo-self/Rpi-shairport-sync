@@ -87,6 +87,15 @@
 void set_alsa_out_dev(char *);
 #endif
 
+const char * sps_format_description_string_array[] = {"unknown", "S8", "U8" ,"S16", "S16_LE", "S16_BE", "S24", "S24_LE", "S24_BE", "S24_3LE", "S24_3BE", "S32", "S32_LE", "S32_BE", "invalid" };
+
+const char * sps_format_description_string(enum sps_format_t format) {
+  if ((format >= SPS_FORMAT_UNKNOWN) && (format < SPS_FORMAT_INVALID))
+    return sps_format_description_string_array[format];
+  else
+    return sps_format_description_string_array[SPS_FORMAT_INVALID];
+}
+
 // true if Shairport Sync is supposed to be sending output to the output device, false otherwise
 
 static volatile int requested_connection_state_to_output = 1;
@@ -1381,14 +1390,20 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
     int64_t dither_mask = 0;
     switch (format) {
     case SPS_FORMAT_S32:
+    case SPS_FORMAT_S32_LE:
+    case SPS_FORMAT_S32_BE:
       dither_mask = (int64_t)1 << (64 + 1 - 32);
       break;
     case SPS_FORMAT_S24:
+    case SPS_FORMAT_S24_LE:
+    case SPS_FORMAT_S24_BE:
     case SPS_FORMAT_S24_3LE:
     case SPS_FORMAT_S24_3BE:
       dither_mask = (int64_t)1 << (64 + 1 - 24);
       break;
     case SPS_FORMAT_S16:
+    case SPS_FORMAT_S16_LE:
+    case SPS_FORMAT_S16_BE:
       dither_mask = (int64_t)1 << (64 + 1 - 16);
       break;
     case SPS_FORMAT_S8:
@@ -1397,6 +1412,9 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
       break;
     case SPS_FORMAT_UNKNOWN:
       die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
+      break;
+    case SPS_FORMAT_INVALID:
+      die("Unexpected SPS_FORMAT_INVALID while calculating dither mask.");
       break;
     }
     dither_mask -= 1;
@@ -1445,6 +1463,22 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
       hyper_sample >>= (64 - 24);
       *(int32_t *)op = hyper_sample;
       result = 4;
+      break;
+    case SPS_FORMAT_S16_LE:
+      hyper_sample >>= (64 - 16);
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      result = 2;
+      break;
+    case SPS_FORMAT_S16_BE:
+      hyper_sample >>= (64 - 16);
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      result = 2;
       break;
     case SPS_FORMAT_S16:
       hyper_sample >>= (64 - 16);

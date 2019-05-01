@@ -91,14 +91,24 @@ enum sps_format_t {
   SPS_FORMAT_S8,
   SPS_FORMAT_U8,
   SPS_FORMAT_S16,
+  SPS_FORMAT_S16_LE,
+  SPS_FORMAT_S16_BE,
   SPS_FORMAT_S24,
+  SPS_FORMAT_S24_LE,
+  SPS_FORMAT_S24_BE,  
   SPS_FORMAT_S24_3LE,
   SPS_FORMAT_S24_3BE,
   SPS_FORMAT_S32,
+  SPS_FORMAT_S32_LE,
+  SPS_FORMAT_S32_BE,
+  SPS_FORMAT_INVALID,
 } sps_format_t;
+
+const char * sps_format_description_string(enum sps_format_t format);
 
 typedef struct {
   config_t *cfg;
+  int endianness;
   double airplay_volume; // stored here for reloading when necessary
   char *appName;         // normally the app is called shairport-syn, but it may be symlinked
   char *password;
@@ -330,7 +340,6 @@ uint64_t fp_time_at_startup, fp_time_at_last_debug_message;
 
 // this is for reading an unsigned 32 bit number, such as an RTP timestamp
 
-long endianness;
 uint32_t uatoi(const char *nptr);
 
 // this is for allowing us to cancel the whole program

@@ -664,14 +664,20 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
     int64_t dither_mask = 0;
     switch (format) {
     case SPS_FORMAT_S32:
+    case SPS_FORMAT_S32_LE:
+    case SPS_FORMAT_S32_BE:
       dither_mask = (int64_t)1 << (64 + 1 - 32);
       break;
     case SPS_FORMAT_S24:
+    case SPS_FORMAT_S24_LE:
+    case SPS_FORMAT_S24_BE:
     case SPS_FORMAT_S24_3LE:
     case SPS_FORMAT_S24_3BE:
       dither_mask = (int64_t)1 << (64 + 1 - 24);
       break;
     case SPS_FORMAT_S16:
+    case SPS_FORMAT_S16_LE:
+    case SPS_FORMAT_S16_BE:
       dither_mask = (int64_t)1 << (64 + 1 - 16);
       break;
     case SPS_FORMAT_S8:
@@ -680,6 +686,9 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
       break;
     case SPS_FORMAT_UNKNOWN:
       die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
+      break;
+    case SPS_FORMAT_INVALID:
+      die("Unexpected SPS_FORMAT_INVALID while calculating dither mask.");
       break;
     }
     dither_mask -= 1;
@@ -709,6 +718,30 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
   char *op = *outp;
   uint8_t byt;
   switch (format) {
+  case SPS_FORMAT_S32_LE:
+    hyper_sample >>= (64 - 32);
+    byt = (uint8_t)hyper_sample;
+    *op++ = byt;
+    byt = (uint8_t)(hyper_sample >> 8);
+    *op++ = byt;
+    byt = (uint8_t)(hyper_sample >> 16);
+    *op++ = byt;
+    byt = (uint8_t)(hyper_sample >> 24);
+    *op++ = byt;
+    result = 4;
+    break;
+  case SPS_FORMAT_S32_BE:
+    hyper_sample >>= (64 - 32);
+    byt = (uint8_t)(hyper_sample >> 24);
+    *op++ = byt;
+    byt = (uint8_t)(hyper_sample >> 16);
+    *op++ = byt;
+    byt = (uint8_t)(hyper_sample >> 8);
+    *op++ = byt;
+    byt = (uint8_t)hyper_sample;
+    *op++ = byt;
+    result = 4;
+    break;
   case SPS_FORMAT_S32:
     hyper_sample >>= (64 - 32);
     *(int32_t *)op = hyper_sample;
@@ -734,10 +767,48 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
     *op++ = byt;
     result = 3;
     break;
+  case SPS_FORMAT_S24_LE:
+    hyper_sample >>= (64 - 24);
+    byt = (uint8_t)hyper_sample;
+    *op++ = byt;
+    byt = (uint8_t)(hyper_sample >> 8);
+    *op++ = byt;
+    byt = (uint8_t)(hyper_sample >> 16);
+    *op++ = byt;
+    *op++ = 0;
+    result = 4;
+    break;
+  case SPS_FORMAT_S24_BE:
+    hyper_sample >>= (64 - 24);
+    *op++ = 0;
+    byt = (uint8_t)(hyper_sample >> 16);
+    *op++ = byt;
+    byt = (uint8_t)(hyper_sample >> 8);
+    *op++ = byt;
+    byt = (uint8_t)hyper_sample;
+    *op++ = byt;
+    result = 4;
+    break;
   case SPS_FORMAT_S24:
     hyper_sample >>= (64 - 24);
     *(int32_t *)op = hyper_sample;
     result = 4;
+    break;
+  case SPS_FORMAT_S16_LE:
+    hyper_sample >>= (64 - 16);
+    byt = (uint8_t)hyper_sample;
+    *op++ = byt;
+    byt = (uint8_t)(hyper_sample >> 8);
+    *op++ = byt;
+    result = 2;
+    break;
+  case SPS_FORMAT_S16_BE:
+    hyper_sample >>= (64 - 16);
+    byt = (uint8_t)(hyper_sample >> 8);
+    *op++ = byt;
+    byt = (uint8_t)hyper_sample;
+    *op++ = byt;
+    result = 2;
     break;
   case SPS_FORMAT_S16:
     hyper_sample >>= (64 - 16);
@@ -757,6 +828,9 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
     break;
   case SPS_FORMAT_UNKNOWN:
     die("Unexpected SPS_FORMAT_UNKNOWN while outputting samples");
+    break;
+  case SPS_FORMAT_INVALID:
+    die("Unexpected SPS_FORMAT_INVALID while outputting samples");
     break;
   }
 
@@ -1674,18 +1748,27 @@ void *player_thread_func(void *arg) {
     output_bit_depth = 8;
     break;
   case SPS_FORMAT_S16:
+  case SPS_FORMAT_S16_LE:
+  case SPS_FORMAT_S16_BE:
     output_bit_depth = 16;
     break;
   case SPS_FORMAT_S24:
+  case SPS_FORMAT_S24_LE:
+  case SPS_FORMAT_S24_BE:
   case SPS_FORMAT_S24_3LE:
   case SPS_FORMAT_S24_3BE:
     output_bit_depth = 24;
     break;
   case SPS_FORMAT_S32:
+  case SPS_FORMAT_S32_LE:
+  case SPS_FORMAT_S32_BE:
     output_bit_depth = 32;
     break;
   case SPS_FORMAT_UNKNOWN:
     die("Unknown format choosing output bit depth");
+    break;
+  case SPS_FORMAT_INVALID:
+    die("Invalid format choosing output bit depth");
     break;
   }
 
