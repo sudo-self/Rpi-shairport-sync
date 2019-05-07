@@ -11,7 +11,7 @@ Version 3.3rc6
 
 Version 3.3rc5
 ====
-* Had a bug, sorry -- please got to 3.3rc6 or later.
+* Had a bug, sorry -- please go to 3.3rc6 or later.
 
 Version 3.3rc4
 ====
