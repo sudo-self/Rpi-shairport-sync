@@ -1,6 +1,6 @@
 
 
-Version 3.3rc5
+Version 3.3rc6
 ====
 **Pesky Change You Can't Ignore**
 * The `while_active` setting in the new `disable_standby_mode` has been renamed to `auto`.
@@ -8,6 +8,10 @@ Version 3.3rc5
 **Enhancements**
 * Automatic bit-depth and speed selection for `alsa` output devices has been added and is the default. The greatest bit depth available is selected, and the lowest multiple of 44,100 frames per second is chosen.
 * Improve support for big-endian devices by adding support for `S16_LE`, `S16_BE`, `S24_LE`, `S24_BE`, `S32_LE` and `S32_BE` formats.
+
+Version 3.3rc5
+====
+* Had a bug, sorry -- please got to 3.3rc6 or later.
 
 Version 3.3rc4
 ====
