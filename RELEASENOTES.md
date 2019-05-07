@@ -2,9 +2,12 @@
 
 Version 3.3rc5
 ====
-**Minor Enhancement**
-* Improve support for big-endian devices.
-* Add support for `S16_LE`, `S16_BE`, `S24_LE`, `S24_BE`, `S32_LE` and `S32_BE` formats.
+**Pesky Change You Can't Ignore**
+* The `while_active` setting in the new `disable_standby_mode` has been renamed to `auto`.
+
+**Enhancements**
+* Automatic bit-depth and speed selection for alsa output devices has been added. The greatest bit depth available is selected, and the lowest multiple of 44,100 frames per second is chosen.
+* Improve support for big-endian devices by adding support for `S16_LE`, `S16_BE`, `S24_LE`, `S24_BE`, `S32_LE` and `S32_BE` formats.
 * Make the default format `S16_LE`, i.e. Signed 16-bit little-endian interleaved stereo (this is the default even on big-endian devices).
 
 Version 3.3rc4
