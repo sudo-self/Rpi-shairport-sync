@@ -225,7 +225,7 @@ typedef struct {
 	int output_format_auto_requested; // true if the configuration requests auto configuration
   enum sps_format_t output_format;
 	int output_rate_auto_requested; // true if the configuration requests auto configuration
-  int output_rate;
+  unsigned int output_rate;
 
 #ifdef CONFIG_CONVOLUTION
   int convolution;

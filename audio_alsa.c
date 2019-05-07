@@ -116,8 +116,6 @@ uint64_t stall_monitor_error_threshold; // if the time is longer than this, it's
                                         // an error
 
 static snd_output_t *output = NULL;
-static unsigned int desired_sample_rate;
-static enum sps_format_t sample_format;
 int frame_size; // in bytes for interleaved stereo
 
 int alsa_device_initialised; // boolean to ensure the initialisation is only
@@ -352,7 +350,7 @@ int actual_open_alsa_device(int do_auto_setup) {
                */
 
   int ret, dir = 0;
-  unsigned int my_sample_rate = desired_sample_rate;
+  unsigned int actual_sample_rate; // this will be given the rate requested and will be given the actual rate
   // snd_pcm_uframes_t frames = 441 * 10;
   snd_pcm_uframes_t actual_buffer_length;
   snd_pcm_access_t access;
@@ -428,16 +426,18 @@ int actual_open_alsa_device(int do_auto_setup) {
   snd_pcm_format_t sf;
  
   if ((do_auto_setup == 0) || (config.output_format_auto_requested == 0)) { // no auto format
-  	if ((sample_format > SPS_FORMAT_UNKNOWN) && (sample_format < SPS_FORMAT_AUTO)) {
-  		sf = fr[sample_format].alsa_code;
-  		frame_size = fr[sample_format].frame_size;
+  	if ((config.output_format > SPS_FORMAT_UNKNOWN) && (config.output_format < SPS_FORMAT_AUTO)) {
+  		sf = fr[config.output_format].alsa_code;
+  		frame_size = fr[config.output_format].frame_size;
   	} else {
-  		warn("alsa: unexpected output format %d",sample_format);
-  		sf = config.output_format;
+  		warn("alsa: unexpected output format %d. Set to S16_LE.",config.output_format);
+  		config.output_format = SPS_FORMAT_S16_LE;
+  		sf = fr[config.output_format].alsa_code;
+  		frame_size = fr[config.output_format].frame_size;
   	} 
 		ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
 		if (ret < 0) {
-			warn("audio_alsa: Sample format %d not available for device \"%s\": %s", sample_format,
+			warn("audio_alsa: Alsa sample format %d not available for device \"%s\": %s", sf,
 					 alsa_out_dev, snd_strerror(ret));
 			return ret;
 		}
@@ -470,7 +470,8 @@ int actual_open_alsa_device(int do_auto_setup) {
   }
   
   if ((do_auto_setup == 0) || (config.output_rate_auto_requested == 0)) { // no auto format
-		ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &my_sample_rate, &dir);
+    actual_sample_rate = config.output_rate; // this is the requested rate -- it'll be changed to the actual rate
+		ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &actual_sample_rate, &dir);
 		if (ret < 0) {
 			warn("audio_alsa: Rate %iHz not available for playback: %s", config.output_rate,
 					 snd_strerror(ret));
@@ -487,18 +488,18 @@ int actual_open_alsa_device(int do_auto_setup) {
 		int speed_found = 0;
 		
 		while ((i < number_of_speeds_to_try) && (speed_found == 0)) {
-  		my_sample_rate = speeds[i];
-  		ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &my_sample_rate, &dir);
+  		actual_sample_rate = speeds[i];
+  		ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &actual_sample_rate, &dir);
   		if (ret == 0) {
   			speed_found = 1;
-  			if (my_sample_rate != speeds[i])
-  				warn("Speed requested: %d. Speed available: %d.",speeds[i],my_sample_rate);
+  			if (actual_sample_rate != speeds[i])
+  				warn("Speed requested: %d. Speed available: %d.",speeds[i],actual_sample_rate);
   		} else {
   			i++;
   		}
   	}
 		if (ret == 0) {
-			config.output_rate = my_sample_rate;
+			config.output_rate = actual_sample_rate;
 			debug(1,"alsa: output speed chosen is %d.",config.output_rate);
 		} else {
 			warn("audio_alsa: Could not automatically set the output rate for device \"%s\": %s",
@@ -573,8 +574,8 @@ int actual_open_alsa_device(int do_auto_setup) {
              buffer_size_requested, actual_buffer_size);
   }
 
-  if (my_sample_rate != desired_sample_rate) {
-    warn("Can't set the D/A converter to sample rate %d.", desired_sample_rate);
+  if (actual_sample_rate != config.output_rate) {
+    warn("Can't set the D/A converter to sample rate %d.", config.output_rate);
     return -EINVAL;
   }
   
@@ -1228,9 +1229,6 @@ static int init(int argc, char **argv) {
   // length of the queue
   // if the queue gets too short, stuff it with silence
 
-  desired_sample_rate = config.output_rate;
-  sample_format = config.output_format;
-
   most_recent_write_time = 0; // could be used by the alsa_buffer_monitor_thread_code
   pthread_create(&alsa_buffer_monitor_thread, NULL, &alsa_buffer_monitor_thread_code, NULL);
 
@@ -1288,18 +1286,6 @@ int set_mute_state() {
 
 static void start(__attribute__((unused)) int i_sample_rate, __attribute__((unused)) int i_sample_format) {
   debug(3, "audio_alsa start called.");
-  
-  /*
-  if (i_sample_rate == 0)
-    desired_sample_rate = 44100; // default
-  else
-    desired_sample_rate = i_sample_rate; // must be a variable
-
-  if (i_sample_format == 0)
-    sample_format = SPS_FORMAT_S16; // default
-  else
-    sample_format = i_sample_format;
-  */
   
   frame_index = 0;
   measurement_data_is_valid = 0;
@@ -1436,7 +1422,7 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
           uint64_t delta = time_now_ns - update_timestamp_ns;
 
           uint64_t frames_played_since_last_interrupt =
-              ((uint64_t)desired_sample_rate * delta) / 1000000000;
+              ((uint64_t)config.output_rate * delta) / 1000000000;
           snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
               frames_played_since_last_interrupt;
 
@@ -1864,14 +1850,14 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
                 (char *)errorstring);
         }
         long buffer_size_threshold =
-            (long)(config.audio_backend_silence_threshold * desired_sample_rate);
+            (long)(config.audio_backend_silence_threshold * config.output_rate);
         if (buffer_size < buffer_size_threshold) {
           uint64_t sleep_time_in_fp = sleep_time_ms;
           sleep_time_in_fp = sleep_time_in_fp << 32;
           sleep_time_in_fp = sleep_time_in_fp / 1000;
           // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp
           // form.",sleep_time_ms,sleep_time_in_fp); int frames_of_silence =
-          // (desired_sample_rate *
+          // (config.output_rate *
           // sleep_time_ms * 2) / 1000;
           int frames_of_silence = 1024;
           size_t size_of_silence_buffer = frames_of_silence * frame_size;
