@@ -71,7 +71,7 @@ void going_active(int block) {
     shairport_sync_set_active(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
 #endif
 
-  if (config.disable_standby_mode == disable_standby_while_active) {
+  if (config.disable_standby_mode == disable_standby_auto) {
 #ifdef CONFIG_DBUS_INTERFACE
   if (dbus_service_is_running())
     shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
@@ -98,7 +98,7 @@ void going_inactive(int block) {
     shairport_sync_set_active(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
 #endif
 
-  if (config.disable_standby_mode == disable_standby_while_active) {
+  if (config.disable_standby_mode == disable_standby_auto) {
 #ifdef CONFIG_DBUS_INTERFACE
   if (dbus_service_is_running())
     shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);

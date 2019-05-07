@@ -226,7 +226,7 @@ void* soxr_time_check(__attribute__((unused)) void *arg) {
   // free(outbuffer);
   // free(inbuffer);
   config.soxr_delay_index = (int)(0.9 + soxr_execution_time_us/(number_of_iterations *1000));
-  debug(1,"soxr_delay_index: %d.", config.soxr_delay_index);
+  debug(2,"soxr_delay_index: %d.", config.soxr_delay_index);
   if ((config.packet_stuffing == ST_soxr) && (config.soxr_delay_index > config.soxr_delay_threshold))
   	inform("Note: this device may be too slow for \"soxr\" interpolation. Consider choosing the \"basic\" or \"auto\" interpolation setting.");
   if (config.packet_stuffing == ST_auto)
@@ -1426,7 +1426,9 @@ int main(int argc, char **argv) {
   config.udp_port_base = 6001;
   config.udp_port_range = 10;
   config.output_format = SPS_FORMAT_S16_LE; // default
+  config.output_format_auto_requested = 1;  // default auto select format
   config.output_rate = 44100;               // default
+  config.output_rate_auto_requested = 1;    // default auto select format
   config.decoders_supported =
       1 << decoder_hammerton; // David Hammerton's decoder supported by default
 #ifdef CONFIG_APPLE_ALAC
@@ -1710,10 +1712,14 @@ int main(int argc, char **argv) {
         config.playback_mode);
   debug(1, "disable_synchronization is %d.", config.no_sync);
   debug(1, "use_mmap_if_available is %d.", config.no_mmap ? 0 : 1);
-  debug(1, "output_rate is %d.", config.output_rate);
-  debug(1,
+  debug(1, "output_format automatic selection is %sabled.", config.output_format_auto_requested ? "en" : "dis");
+  if (config.output_format_auto_requested == 0)
+  	debug(1,
         "output_format is \"%s\".",
         sps_format_description_string(config.output_format));
+  debug(1, "output_rate automatic selection is %sabled.", config.output_rate_auto_requested ? "en" : "dis");
+  if (config.output_rate_auto_requested == 0)
+  	debug(1, "output_rate is %d.", config.output_rate);
   debug(1, "audio backend desired buffer length is %f seconds.",
         config.audio_backend_buffer_desired_length);
   debug(1, "audio_backend_buffer_interpolation_threshold_in_seconds is %f seconds.", config.audio_backend_buffer_interpolation_threshold_in_seconds);

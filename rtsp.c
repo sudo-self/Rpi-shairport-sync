@@ -1789,7 +1789,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     }
 
     if (pUncompressedCDAudio) {
-      debug(1, "An uncompressed PCM stream has been detected.");
+      debug(2, "An uncompressed PCM stream has been detected.");
       conn->stream.type = ast_uncompressed;
       conn->max_frames_per_packet = 352; // number of audio frames per packet.
       conn->input_rate = 44100;
@@ -1865,7 +1865,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 
     if (pfmtp) {
       conn->stream.type = ast_apple_lossless;
-      debug(1, "An ALAC stream has been detected.");
+      debug(3, "An ALAC stream has been detected.");
       unsigned int i;
       for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
         conn->stream.fmtp[i] = atoi(strsep(&pfmtp, " \t"));

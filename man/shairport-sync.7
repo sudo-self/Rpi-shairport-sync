@@ -252,7 +252,7 @@ If an output device fails to accept any audio frames for more than the time, in 
 Implemented for the ALSA back end only.
 .TP
 \fBdisable_standby_mode=\f1\fI"never"\f1\fB;\f1
-Shairport Sync has a "Disable Standby" feature to eliminate certain faint-but-annoying audible pops and clicks. When activsted, it prevents an output device from entering standby mode and thus it minimises standby/busy transitions, which can sometimes be heard. Use this setting to control when the Disable Standby feature is active: "never" means it will never be activated, "always" means it will be active as soon as shairport-sync starts running, and "while_active" means it will be active while shairport-sync is in the "active" state.
+Shairport Sync has a "Disable Standby" feature to eliminate certain faint-but-annoying audible pops and clicks. When activsted, it prevents an output device from entering standby mode and thus it minimises standby/busy transitions, which can sometimes be heard. Use this setting to control when the Disable Standby feature is active: "never" means it will never be activated, "always" means it will be active as soon as shairport-sync starts running, and "auto" means it will be active while shairport-sync is in the "active" state.
 
 Shairport Sync goes "active" when a play session starts. When the play session ends, the system will stay active until the time specified in the active_state_timeout setting elapses. If a new play session starts before that, the system will remain active. Otherwise, the system will go inactive. 
 .TP

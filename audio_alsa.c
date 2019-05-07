@@ -47,6 +47,11 @@ enum alsa_backend_mode {
   abm_playing
 } alsa_backend_state; // under the control of alsa_mutex
 
+typedef struct {
+	snd_pcm_format_t alsa_code;
+	int frame_size;
+} format_record;
+
 static void help(void);
 static int init(int argc, char **argv);
 static void deinit(void);
@@ -60,6 +65,7 @@ void *alsa_buffer_monitor_thread_code(void *arg);
 
 static void volume(double vol);
 void do_volume(double vol);
+int prepare(void);
 
 static void parameters(audio_parameters *info);
 int mute(int do_mute); // returns true if it actually is allowed to use the mute
@@ -73,6 +79,7 @@ audio_output audio_alsa = {
     .help = &help,
     .init = &init,
     .deinit = &deinit,
+    .prepare = &prepare,
     .start = &start,
     .stop = &stop,
     .is_running = NULL,
@@ -268,8 +275,71 @@ void actual_close_alsa_device() {
   }
 }
 
+// This array is a sequence of the output rates to be tried if automatic speed selection is requested.
+// There is no benefit to upconverting the frame rate, other than for compatibility.
+// The lowest rate that the DAC is capable of is chosen.
+
+unsigned int auto_speed_output_rates[] = {
+	44100,
+	88200,
+	176400,
+	352800,
+};
+
+// This array is of all the formats known to Shairport Sync, in order of the SPS_FORMAT definitions, with their equivalent alsa codes and their frame sizes.
+// If just one format is requested, then its entry is searched for in the array and checked on the device
+// If auto format is requested, then each entry in turn is tried until a working format is found.
+// So, it should be in the search order.
+  
+  format_record fr[] = {
+    {SND_PCM_FORMAT_UNKNOWN,0}, // unknown
+    {SND_PCM_FORMAT_S8,2},
+    {SND_PCM_FORMAT_U8,2},
+    {SND_PCM_FORMAT_S16,4},
+    {SND_PCM_FORMAT_S16_LE,4},
+    {SND_PCM_FORMAT_S16_BE,4},
+    {SND_PCM_FORMAT_S24,4},
+    {SND_PCM_FORMAT_S24_LE,8},
+    {SND_PCM_FORMAT_S24_BE,8},
+    {SND_PCM_FORMAT_S24_3LE,6},
+    {SND_PCM_FORMAT_S24_3BE,6},
+    {SND_PCM_FORMAT_S32,8},
+    {SND_PCM_FORMAT_S32_LE,8},
+    {SND_PCM_FORMAT_S32_BE,8},
+    {SND_PCM_FORMAT_UNKNOWN,0}, // auto
+    {SND_PCM_FORMAT_UNKNOWN,0}, // illegal
+  };
+  
+  // This array is the sequence of formats to be tried if automatic selection of the format is requested.
+  // Ideally, audio should pass through Shairport Sync unaltered, apart from occasional interpolation.
+  // If the user chooses a hardware mixer, then audio could go straight through, unaltered, as signed 16 bit stereo.
+  // However, the user might, at any point, select an option that requires modification, such as stereo to mono mixing,
+  // additional volume attenuation, convolution, and so on. For this reason,
+  // we look for the greatest depth the DAC is capable of, since upconverting it is completely lossless.
+  // If audio processing is required, then the dither that must be added will
+  // be added at the lowest possible level.
+  // Hence, selecting the greatest bit depth is always either beneficial or neutral.
+  
+  enum sps_format_t auto_format_check_sequence[] = {
+    SPS_FORMAT_S32,
+    SPS_FORMAT_S32_LE,
+    SPS_FORMAT_S32_BE,
+    SPS_FORMAT_S24,
+    SPS_FORMAT_S24_LE,
+    SPS_FORMAT_S24_BE,  
+    SPS_FORMAT_S24_3LE,
+    SPS_FORMAT_S24_3BE,
+    SPS_FORMAT_S16,
+    SPS_FORMAT_S16_LE,
+    SPS_FORMAT_S16_BE,
+    SPS_FORMAT_S8,
+    SPS_FORMAT_U8,
+  };
+
 // assuming pthread cancellation is disabled
-int actual_open_alsa_device(void) {
+// if do_auto_setting is true and auto format or auto speed has been requested,
+// select the settings as appropriate and store them
+int actual_open_alsa_device(int do_auto_setup) {
   // the alsa mutex is already acquired when this is called
   const snd_pcm_uframes_t minimal_buffer_headroom =
       352 * 2; // we accept this much headroom in the hardware buffer, but we'll
@@ -355,82 +425,88 @@ int actual_open_alsa_device(void) {
     return ret;
   }
 
-  ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &my_sample_rate, &dir);
-  if (ret < 0) {
-    warn("audio_alsa: Rate %iHz not available for playback: %s", desired_sample_rate,
-         snd_strerror(ret));
-    return ret;
-  }
-  
   snd_pcm_format_t sf;
-  switch (sample_format) {
-  case SPS_FORMAT_S8:
-    sf = SND_PCM_FORMAT_S8;
-    frame_size = 2;
-    break;
-  case SPS_FORMAT_U8:
-    sf = SND_PCM_FORMAT_U8;
-    frame_size = 2;
-    break;
-  case SPS_FORMAT_S16:
-    sf = SND_PCM_FORMAT_S16;
-    frame_size = 4;
-    break;
-  case SPS_FORMAT_S16_LE:
-    sf = SND_PCM_FORMAT_S16_LE;
-    frame_size = 4;
-    break;
-  case SPS_FORMAT_S16_BE:
-    sf = SND_PCM_FORMAT_S16_BE;
-    frame_size = 4;
-    break;
-  case SPS_FORMAT_S24:
-    sf = SND_PCM_FORMAT_S24;
-    frame_size = 8;
-    break;
-  case SPS_FORMAT_S24_LE:
-    sf = SND_PCM_FORMAT_S24_LE;
-    frame_size = 8;
-    break;
-  case SPS_FORMAT_S24_BE:
-    sf = SND_PCM_FORMAT_S24_BE;
-    frame_size = 8;
-    break;
-  case SPS_FORMAT_S24_3LE:
-    sf = SND_PCM_FORMAT_S24_3LE;
-    frame_size = 6;
-    break;
-  case SPS_FORMAT_S24_3BE:
-    sf = SND_PCM_FORMAT_S24_3BE;
-    frame_size = 6;
-    break;
-  case SPS_FORMAT_S32:
-    sf = SND_PCM_FORMAT_S32;
-    frame_size = 8;
-    break;
-  case SPS_FORMAT_S32_LE:
-    sf = SND_PCM_FORMAT_S32_LE;
-    frame_size = 8;
-    break;
-  case SPS_FORMAT_S32_BE:
-    sf = SND_PCM_FORMAT_S32_BE;
-    frame_size = 8;
-    break;
-  default:
-    sf = SND_PCM_FORMAT_S16_LE; // this is just to quieten a compiler warning
-    frame_size = 4;
-    debug(1, "Unsupported output format at audio_alsa.c");
-    return -EINVAL;
-  }
-
-  ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
-  if (ret < 0) {
-    warn("audio_alsa: Sample format %d not available for device \"%s\": %s", sample_format,
-         alsa_out_dev, snd_strerror(ret));
-    return ret;
+ 
+  if ((do_auto_setup == 0) || (config.output_format_auto_requested == 0)) { // no auto format
+  	if ((sample_format > SPS_FORMAT_UNKNOWN) && (sample_format < SPS_FORMAT_AUTO)) {
+  		sf = fr[sample_format].alsa_code;
+  		frame_size = fr[sample_format].frame_size;
+  	} else {
+  		warn("alsa: unexpected output format %d",sample_format);
+  		sf = config.output_format;
+  	} 
+		ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
+		if (ret < 0) {
+			warn("audio_alsa: Sample format %d not available for device \"%s\": %s", sample_format,
+					 alsa_out_dev, snd_strerror(ret));
+			return ret;
+		}
+  } else { // auto format
+  	int number_of_formats_to_try;
+  	enum sps_format_t *formats;
+  		formats = auto_format_check_sequence;
+  		number_of_formats_to_try = sizeof(auto_format_check_sequence)/sizeof(sps_format_t);  	
+  	int i = 0;
+  	int format_found = 0;
+  	enum sps_format_t trial_format = SPS_FORMAT_UNKNOWN;
+  	while ((i < number_of_formats_to_try) && (format_found == 0)) {
+  		trial_format = formats[i];
+  		sf = fr[trial_format].alsa_code;
+  		frame_size = fr[trial_format].frame_size;
+  		ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
+  		if (ret == 0)
+  			format_found = 1;
+  		else
+  			i++;
+  	}
+		if (ret == 0) {
+			config.output_format = trial_format;
+			debug(1,"alsa: output format chosen is \"%s\".",sps_format_description_string(config.output_format));
+		} else {
+			warn("audio_alsa: Could not automatically set the output format for device \"%s\": %s",
+					 alsa_out_dev, snd_strerror(ret));
+			return ret;
+		} 	  
   }
   
-
+  if ((do_auto_setup == 0) || (config.output_rate_auto_requested == 0)) { // no auto format
+		ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &my_sample_rate, &dir);
+		if (ret < 0) {
+			warn("audio_alsa: Rate %iHz not available for playback: %s", config.output_rate,
+					 snd_strerror(ret));
+			return ret;
+		}
+	} else {
+		int number_of_speeds_to_try;
+		unsigned int *speeds;
+		
+		speeds = auto_speed_output_rates;
+		number_of_speeds_to_try = sizeof(auto_speed_output_rates)/sizeof(int);
+		
+		int i = 0;
+		int speed_found = 0;
+		
+		while ((i < number_of_speeds_to_try) && (speed_found == 0)) {
+  		my_sample_rate = speeds[i];
+  		ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &my_sample_rate, &dir);
+  		if (ret == 0) {
+  			speed_found = 1;
+  			if (my_sample_rate != speeds[i])
+  				warn("Speed requested: %d. Speed available: %d.",speeds[i],my_sample_rate);
+  		} else {
+  			i++;
+  		}
+  	}
+		if (ret == 0) {
+			config.output_rate = my_sample_rate;
+			debug(1,"alsa: output speed chosen is %d.",config.output_rate);
+		} else {
+			warn("audio_alsa: Could not automatically set the output rate for device \"%s\": %s",
+					 alsa_out_dev, snd_strerror(ret));
+			return ret;
+		}	
+	}
+  
   if (set_period_size_request != 0) {
     debug(1, "Attempting to set the period size");
     ret = snd_pcm_hw_params_set_period_size_near(alsa_handle, alsa_params, &period_size_requested,
@@ -576,7 +652,7 @@ int actual_open_alsa_device(void) {
   else if (config.use_precision_timing == YNA_AUTO) {
     if (precision_delay_available()) {
       delay_and_status = precision_delay_and_status;
-      debug(1,"alsa: precision timing selected for \"auto\" mode");
+      debug(2,"alsa: precision timing selected for \"auto\" mode");
     }
   }
 
@@ -713,11 +789,11 @@ int actual_open_alsa_device(void) {
   return 0;
 }
 
-int open_alsa_device(void) {
+int open_alsa_device(int do_auto_setup) {
   int result;
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
-  result = actual_open_alsa_device();
+  result = actual_open_alsa_device(do_auto_setup);
   pthread_setcancelstate(oldState, NULL);
   return result;
 }
@@ -955,6 +1031,7 @@ static int init(int argc, char **argv) {
         config.alsa_use_hardware_mute = 0;
       }
     }
+        
 
     /* Get the output format, using the same names as aplay does*/
     if (config_lookup_string(config.cfg, "alsa.output_format", &str)) {
@@ -984,6 +1061,8 @@ static int init(int argc, char **argv) {
         config.output_format = SPS_FORMAT_U8;
       else if (strcasecmp(str, "S8") == 0)
         config.output_format = SPS_FORMAT_S8;
+      else if (strcasecmp(str, "auto") == 0)
+        config.output_format_auto_requested = 1;
       else {
         warn("Invalid output format \"%s\". It should be \"U8\", \"S8\", "
              "\"S16\", \"S24\", \"S24_LE\", \"S24_BE\", "
@@ -993,23 +1072,28 @@ static int init(int argc, char **argv) {
       }
     }
 
-    /* Get the output rate, which must be a multiple of 44,100*/
-    if (config_lookup_int(config.cfg, "alsa.output_rate", &value)) {
-      debug(1, "alsa output rate is %d frames per second", value);
-      switch (value) {
-      case 44100:
-      case 88200:
-      case 176400:
-      case 352800:
-        config.output_rate = value;
-        break;
-      default:
-        warn("Invalid output rate \"%d\". It should be a multiple of 44,100 up "
-             "to 352,800. It is "
-             "set to 44,100",
-             value);
-        config.output_rate = 44100;
-      }
+    if (config_lookup_string(config.cfg, "alsa.output_rate", &str)) {
+			if (strcasecmp(str, "auto") == 0) {
+				config.output_rate_auto_requested = 1;
+			} else {
+				/* Get the output rate, which must be a multiple of 44,100*/
+				if (config_lookup_int(config.cfg, "alsa.output_rate", &value)) {
+					debug(1, "alsa output rate is %d frames per second", value);
+					switch (value) {
+					case 44100:
+					case 88200:
+					case 176400:
+					case 352800:
+						config.output_rate = value;
+						break;
+					default:
+						warn("Invalid output rate \"%d\". It should be \"auto\" or a multiple of 44,100 up "
+								 "to 352,800. It is "
+								 "set to %d.",
+								 value,config.output_rate);
+					}
+				}
+			}
     }
 
     /* Get the use_mmap_if_available setting. */
@@ -1072,11 +1156,11 @@ static int init(int argc, char **argv) {
       else if ((strcasecmp(str, "yes") == 0) || (strcasecmp(str, "on") == 0) || (strcasecmp(str, "always") == 0)) {
         config.disable_standby_mode = disable_standby_always;
         config.keep_dac_busy = 1;
-      } else if (strcasecmp(str, "while_active") == 0)
-        config.disable_standby_mode = disable_standby_while_active;
+      } else if (strcasecmp(str, "auto") == 0)
+        config.disable_standby_mode = disable_standby_auto;
       else {
         warn("Invalid disable_standby_mode option choice \"%s\". It should be "
-             "\"always\", \"while_active\" or \"never\". "
+             "\"always\", \"auto\" or \"never\". "
              "It is set to \"never\".");
       }
     }
@@ -1097,7 +1181,7 @@ static int init(int argc, char **argv) {
       }
     }
 
-    debug(1, "alsa: disable_standby_mode is \"%s\".", config.disable_standby_mode == disable_standby_off ? "never" : config.disable_standby_mode == disable_standby_always ? "always" : "while_active");
+    debug(1, "alsa: disable_standby_mode is \"%s\".", config.disable_standby_mode == disable_standby_off ? "never" : config.disable_standby_mode == disable_standby_always ? "always" : "auto");
   }
 
   optind = 1; // optind=0 is equivalent to optind=1 plus special behaviour
@@ -1202,8 +1286,10 @@ int set_mute_state() {
   return response;
 }
 
-static void start(int i_sample_rate, int i_sample_format) {
+static void start(__attribute__((unused)) int i_sample_rate, __attribute__((unused)) int i_sample_format) {
   debug(3, "audio_alsa start called.");
+  
+  /*
   if (i_sample_rate == 0)
     desired_sample_rate = 44100; // default
   else
@@ -1213,7 +1299,8 @@ static void start(int i_sample_rate, int i_sample_format) {
     sample_format = SPS_FORMAT_S16; // default
   else
     sample_format = i_sample_format;
-
+  */
+  
   frame_index = 0;
   measurement_data_is_valid = 0;
 
@@ -1294,7 +1381,7 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
       } else {
 // diagnostic
         if (delay_type_notified != 0) {
-          debug(1,"alsa: delay_and_status using snd_pcm_status_get_delay() to calculate delay");
+          debug(2,"alsa: delay_and_status using snd_pcm_status_get_delay() to calculate delay");
           delay_type_notified = 0;
         }
       }
@@ -1510,14 +1597,14 @@ int do_play(void *buf, int samples) {
   return ret;
 }
 
-int do_open() {
+int do_open(int do_auto_setup) {
   int ret = 0;
   if (alsa_backend_state != abm_disconnected)
     debug(1, "alsa: do_open() -- opening the output device when it is already "
              "connected");
   if (alsa_handle == NULL) {
     // debug(1,"alsa: do_open() -- opening the output device");
-    ret = open_alsa_device();
+    ret = open_alsa_device(do_auto_setup);
     if (ret == 0) {
       mute_requested_internally = 0;
       if (audio_alsa.volume)
@@ -1574,7 +1661,7 @@ int play(void *buf, int samples) {
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 50000, 0);
 
   if (alsa_backend_state == abm_disconnected) {
-    ret = do_open();
+    ret = do_open(0); // don't try to auto setup
     if (ret == 0)
       debug(2, "alsa: play() -- opened output device");
   }
@@ -1591,6 +1678,24 @@ int play(void *buf, int samples) {
       // do_mute(0); // unmute for backend's reason
     }
     ret = do_play(buf, samples);
+  }
+
+  debug_mutex_unlock(&alsa_mutex, 0);
+  pthread_cleanup_pop(0); // release the mutex
+  return ret;
+}
+
+int prepare(void) {
+	// this will leave the DAC open / connected.
+  int ret = 0;
+
+  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 50000, 0);
+
+  if (alsa_backend_state == abm_disconnected) {
+    ret = do_open(1); // do auto setup 
+    if (ret == 0)
+      debug(2, "alsa: prepare() -- opened output device");
+    
   }
 
   debug_mutex_unlock(&alsa_mutex, 0);
@@ -1726,7 +1831,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
     // check possible state transitions here
     if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
       // open the dac and move to abm_connected mode
-      if (do_open() == 0)
+      if (do_open(1) == 0) // no automatic setup of rate and speed if necessary
         debug(2, "alsa: alsa_buffer_monitor_thread_code() -- output device opened; "
                  "alsa_backend_state => abm_connected");
     } else if ((alsa_backend_state == abm_connected) && (config.keep_dac_busy == 0)) {

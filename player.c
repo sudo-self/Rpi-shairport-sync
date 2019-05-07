@@ -687,6 +687,9 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
     case SPS_FORMAT_UNKNOWN:
       die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
       break;
+    case SPS_FORMAT_AUTO:
+      die("Unexpected SPS_FORMAT_AUTO while calculating dither mask.");
+      break;
     case SPS_FORMAT_INVALID:
       die("Unexpected SPS_FORMAT_INVALID while calculating dither mask.");
       break;
@@ -828,6 +831,9 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
     break;
   case SPS_FORMAT_UNKNOWN:
     die("Unexpected SPS_FORMAT_UNKNOWN while outputting samples");
+    break;
+  case SPS_FORMAT_AUTO:
+    die("Unexpected SPS_FORMAT_AUTO while outputting samples");
     break;
   case SPS_FORMAT_INVALID:
     die("Unexpected SPS_FORMAT_INVALID while outputting samples");
@@ -1767,8 +1773,11 @@ void *player_thread_func(void *arg) {
   case SPS_FORMAT_UNKNOWN:
     die("Unknown format choosing output bit depth");
     break;
+  case SPS_FORMAT_AUTO:
+    die("Invalid format -- SPS_FORMAT_AUTO -- choosing output bit depth");
+    break;
   case SPS_FORMAT_INVALID:
-    die("Invalid format choosing output bit depth");
+    die("Invalid format -- SPS_FORMAT_INVALID -- choosing output bit depth");
     break;
   }
 
@@ -1785,6 +1794,7 @@ void *player_thread_func(void *arg) {
   if ((config.output->parameters == NULL) || (conn->input_bit_depth > output_bit_depth) ||
       (config.playback_mode == ST_mono))
     conn->enable_dither = 1;
+  
 
   // remember, the output device may never have been initialised prior to this call
   config.output->start(config.output_rate, config.output_format); // will need a corresponding stop
@@ -2924,6 +2934,10 @@ int player_play(rtsp_conn_info *conn) {
   activity_monitor_signify_activity(
       1); // active, and should be before play's command hook, command_start()
   command_start();
+  // call on the output device to prepare itself
+  if ((config.output) && (config.output->prepare))
+  	config.output->prepare();
+  
   pthread_t *pt = malloc(sizeof(pthread_t));
   if (pt == NULL)
     die("Couldn't allocate space for pthread_t");

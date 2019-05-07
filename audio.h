@@ -18,6 +18,8 @@ typedef struct {
   int (*init)(int argc, char **argv);
   // at end of program
   void (*deinit)(void);
+  
+  int (*prepare)(void); // looks and sets stuff in the config data structure
 
   void (*start)(int sample_rate, int sample_format);
 

@@ -441,8 +441,8 @@ gboolean notify_disable_standby_mode_callback(ShairportSync *skeleton,
   } else if ((strcasecmp(th, "yes") == 0) || (strcasecmp(th, "on") == 0) || (strcasecmp(th, "always") == 0)) {
     config.disable_standby_mode = disable_standby_always;
     config.keep_dac_busy = 1;
-  } else if (strcasecmp(th, "while_active") == 0)
-    config.disable_standby_mode = disable_standby_while_active;
+  } else if (strcasecmp(th, "auto") == 0)
+    config.disable_standby_mode = disable_standby_auto;
   else {
     warn("An unrecognised disable_standby_mode: \"%s\" was requested via D-Bus interface.", th);
     switch (config.disable_standby_mode) {
@@ -452,8 +452,8 @@ gboolean notify_disable_standby_mode_callback(ShairportSync *skeleton,
       case disable_standby_always:
         shairport_sync_set_disable_standby_mode(skeleton, "always");
         break;
-      case disable_standby_while_active:
-        shairport_sync_set_disable_standby_mode(skeleton, "while_active");
+      case disable_standby_auto:
+        shairport_sync_set_disable_standby_mode(skeleton, "auto");
         break;
       default:
         break;
@@ -757,9 +757,9 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
       shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "always");
       debug(1, ">> disable standby mode set to \"always\"");
       break;
-    case disable_standby_while_active:
-      shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "while_active");
-      debug(1, ">> disable standby mode set to \"while_active\"");
+    case disable_standby_auto:
+      shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "auto");
+      debug(1, ">> disable standby mode set to \"auto\"");
       break;
     default:
       debug(1,"invalid disable_standby mode!");

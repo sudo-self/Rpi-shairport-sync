@@ -87,10 +87,10 @@
 void set_alsa_out_dev(char *);
 #endif
 
-const char * sps_format_description_string_array[] = {"unknown", "S8", "U8" ,"S16", "S16_LE", "S16_BE", "S24", "S24_LE", "S24_BE", "S24_3LE", "S24_3BE", "S32", "S32_LE", "S32_BE", "invalid" };
+const char * sps_format_description_string_array[] = {"unknown", "S8", "U8" ,"S16", "S16_LE", "S16_BE", "S24", "S24_LE", "S24_BE", "S24_3LE", "S24_3BE", "S32", "S32_LE", "S32_BE", "auto", "invalid" };
 
 const char * sps_format_description_string(enum sps_format_t format) {
-  if ((format >= SPS_FORMAT_UNKNOWN) && (format < SPS_FORMAT_INVALID))
+  if ((format >= SPS_FORMAT_UNKNOWN) && (format <= SPS_FORMAT_AUTO))
     return sps_format_description_string_array[format];
   else
     return sps_format_description_string_array[SPS_FORMAT_INVALID];
@@ -1412,6 +1412,9 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
       break;
     case SPS_FORMAT_UNKNOWN:
       die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
+      break;
+    case SPS_FORMAT_AUTO:
+      die("Unexpected SPS_FORMAT_AUTO while calculating dither mask.");
       break;
     case SPS_FORMAT_INVALID:
       die("Unexpected SPS_FORMAT_INVALID while calculating dither mask.");

@@ -79,7 +79,7 @@ enum decoders_supported_type {
 
 enum disable_standby_mode_type {
   disable_standby_off = 0,
-  disable_standby_while_active,
+  disable_standby_auto,
   disable_standby_always
 };
 
@@ -101,6 +101,7 @@ enum sps_format_t {
   SPS_FORMAT_S32,
   SPS_FORMAT_S32_LE,
   SPS_FORMAT_S32_BE,
+  SPS_FORMAT_AUTO,
   SPS_FORMAT_INVALID,
 } sps_format_t;
 
@@ -219,8 +220,11 @@ typedef struct {
                               // native range.
   int volume_range_hw_priority; // when extending the volume range by combining sw and hw attenuators, lowering the volume, use all the hw attenuation before using
                                 // sw attenuation
-  enum sps_format_t output_format;
   enum volume_control_profile_type volume_control_profile;
+
+	int output_format_auto_requested; // true if the configuration requests auto configuration
+  enum sps_format_t output_format;
+	int output_rate_auto_requested; // true if the configuration requests auto configuration
   int output_rate;
 
 #ifdef CONFIG_CONVOLUTION
