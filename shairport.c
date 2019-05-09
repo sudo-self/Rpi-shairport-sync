@@ -1045,7 +1045,17 @@ int parse_options(int argc, char **argv) {
     config_set_lookup_bool(config.cfg, "mqtt.publish_raw", &config.mqtt_publish_raw);
     config_set_lookup_bool(config.cfg, "mqtt.publish_parsed", &config.mqtt_publish_parsed);
     config_set_lookup_bool(config.cfg, "mqtt.publish_cover", &config.mqtt_publish_cover);
+    if (config.mqtt_publish_cover && !config.get_coverart) {
+      die("You need to have metadata.include_cover_art enabled in order to use mqtt.publish_cover");
+    }
     config_set_lookup_bool(config.cfg, "mqtt.enable_remote", &config.mqtt_enable_remote);
+#ifndef CONFIG_AVAHI
+        if (config.mqtt_enable_remote) {
+          die("You have enabled MQTT remote control which requires shairport-sync to be built with "
+              "Avahi, but your installation is not using avahi. Please reinstall/recompile with "
+              "avahi enabled, or disable remote control.");
+        }
+#endif
 #endif
   }
 
@@ -1749,6 +1759,15 @@ int main(int argc, char **argv) {
         config.metadata_sockport);
   debug(1, "metadata socket packet size is \"%d\".", config.metadata_sockmsglength);
   debug(1, "get-coverart is %d.", config.get_coverart);
+#endif
+#ifdef CONFIG_MQTT
+  debug(1, "mqtt is %sabled.", config.mqtt_enabled ? "en" : "dis");
+  debug(1, "mqtt hostname is %s, port is %d.", config.mqtt_hostname, config.mqtt_port);
+  debug(1, "mqtt topic is %s.", config.mqtt_topic);
+  debug(1, "mqtt will%s publish raw metadata.", config.mqtt_publish_raw ? "" : " NOT");
+  debug(1, "mqtt will%s publish parsed metadata.", config.mqtt_publish_parsed ? "" : " NOT");
+  debug(1, "mqtt will%s publish cover Art.", config.mqtt_publish_cover ? "" : " NOT");
+  debug(1, "mqtt remote control is %sabled.", config.mqtt_enable_remote ? "en" : "dis");
 #endif
 
 #ifdef CONFIG_CONVOLUTION
