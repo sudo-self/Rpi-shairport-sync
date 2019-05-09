@@ -352,6 +352,9 @@ AC_ARG_WITH(mqtt-client, [  --with-mqtt-client = include a client for MQTT -- th
   ],)
 AM_CONDITIONAL([USE_MQTT], [test "x$REQUESTED_MQTT" = "x1"])
 
+if test "x$REQUESTED_MQTT" = "x1" && test "x$REQUESTED_AVAHI" != "x1"; then
+  AC_MSG_WARN([>>MQTT needs Avahi to allow remote control functionality. Only Metadata publishing will be supported])
+fi
 
 if test "x$REQUESTED_MPRIS" = "x1" || test "x$REQUESTED_DBUS" = "x1" || test "x$REQUESTED_MQTT" = "x1"; then
   AC_MSG_RESULT(>>Including extended metadata and DACP client support)

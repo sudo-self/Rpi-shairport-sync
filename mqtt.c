@@ -176,7 +176,7 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
         mqtt_publish("play_resume", data, length);
         break;
       case 'PICT':
-        if (config.mqtt_publish_parsed) {
+        if (config.mqtt_publish_cover) {
           mqtt_publish("cover", data, length);
         }
         break;
