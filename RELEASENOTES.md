@@ -1,4 +1,7 @@
-
+Version 3.3rc7
+====
+**Ehnancements**
+* Improvements to the `MQTT` client -- extra diagnostic messages at run time and at configuration time.
 
 Version 3.3rc6
 ====
