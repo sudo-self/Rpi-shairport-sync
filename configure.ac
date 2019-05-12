@@ -33,8 +33,8 @@ if test "x${with_os}" = xopenbsd ; then
  AC_CHECK_LIB([c],[clock_gettime], , AC_MSG_ERROR(libc needed))
 fi
 
+AM_CONDITIONAL([BUILD_FOR_LINUX], [test "x${with_os}" = xlinux ])
 AM_CONDITIONAL([BUILD_FOR_FREEBSD], [test "x${with_os}" = xfreebsd ])
-
 AM_CONDITIONAL([BUILD_FOR_OPENBSD], [test "x${with_os}" = xopenbsd ])
 
 

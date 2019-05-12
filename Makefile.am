@@ -158,24 +158,29 @@ shairport_sync_mpris_test_client_LDADD = lib_mpris_interface.a
 endif
 
 install-exec-hook:
+if BUILD_FOR_LINUX
+DBUS_POLICY_DIR=$(DESTDIR)/etc/dbus-1/system.d
+else
+DBUS_POLICY_DIR=$(DESTDIR)$(sysconfdir)/dbus-1/system.d
+endif
 if INSTALL_CONFIG_FILES
 	[ -e $(DESTDIR)$(sysconfdir) ] || mkdir $(DESTDIR)$(sysconfdir)
 	cp scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf.sample
 	[ -f $(DESTDIR)$(sysconfdir)/shairport-sync.conf ] || cp scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf
 if USE_DBUS
-	[ -e $(DESTDIR)$(sysconfdir)/dbus-1/system.d ] || mkdir -p $(DESTDIR)$(sysconfdir)/dbus-1/system.d
+	[ -e $(DBUS_POLICY_DIR) ] || mkdir -p $(DBUS_POLICY_DIR)
 if INSTALL_CYGWIN_SERVICE
-	cp scripts/shairport-sync-dbus-policy-cygwin.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-dbus.conf
+	cp scripts/shairport-sync-dbus-policy-cygwin.conf $(DBUS_POLICY_DIR)/shairport-sync-dbus.conf
 else
-	cp scripts/shairport-sync-dbus-policy.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-dbus.conf
+	cp scripts/shairport-sync-dbus-policy.conf $(DBUS_POLICY_DIR)/shairport-sync-dbus.conf
 endif
 endif
 if USE_MPRIS
-	[ -e $(DESTDIR)$(sysconfdir)/dbus-1/system.d ] || mkdir -p $(DESTDIR)$(sysconfdir)/dbus-1/system.d
+	[ -e $(DBUS_POLICY_DIR) ] || mkdir -p $(DBUS_POLICY_DIR)
 if INSTALL_CYGWIN_SERVICE
-	cp scripts/shairport-sync-mpris-policy-cygwin.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-dbus.conf
+	cp scripts/shairport-sync-mpris-policy-cygwin.conf $(DBUS_POLICY_DIR)/shairport-sync-mpris.conf
 else
-	cp scripts/shairport-sync-mpris-policy.conf $(DESTDIR)$(sysconfdir)/dbus-1/system.d/shairport-sync-mpris.conf
+	cp scripts/shairport-sync-mpris-policy.conf $(DBUS_POLICY_DIR)/shairport-sync-mpris.conf
 endif
 endif
 endif
