@@ -68,6 +68,8 @@ alsa =
 };
 
 ```
+The `volume_range_db = 60;` setting makes Shairport Sync use only the usable part of the built-in audio card mixer's attenuation range.
+
 The next step is to enable Shairport Sync to start automatically on boot up:
 ```
 # systemctl enable shairport-sync
