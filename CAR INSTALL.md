@@ -48,18 +48,18 @@ The first thing to do on a Pi would be to use the `raspi-config` tool to expand 
 ### Shairport Sync
 First, install the packages needed by Shairport Sync:
 ```
-# apt-get install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev
+# apt-get install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
 ```
 Next, download Shairport Sync, configure it, compile and install it:
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
 $ autoreconf -fi
-$ ./configure --sysconfdir=/etc --with-alsa --with-avahi --with-ssl=openssl --with-systemd
+$ ./configure --sysconfdir=/etc --with-alsa --with-avahi --with-ssl=openssl --with-soxr --with-systemd
 $ make
 $ sudo make install
 ```
-SoX interpolaton is not included, as the Pi Zero would not be fast enough. *Do not* enable Shairport Sync to automatically start at boot time -- startup is organised differently.
+*Do not* enable Shairport Sync to automatically start at boot time -- startup is organised differently.
 
 Third, finish by configuring Shairport Sync.
 Here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`:
@@ -75,14 +75,13 @@ general =
 alsa =
 {
 	output_device = "hw:1"; // the name of the alsa output device. Use "alsamixer" or "aplay" to find out the names of devices, mixers, etc.
-	output_format = "S32"; // can be "U8", "S8", "S16", "S24" or "S32", with be LE or BE depending on the processor, but the device must be capable of it
 };
 
 ```
 Two `general` settings are worth noting. First, the option to ignore the sending device's volume control is enabled -- this means that the car audio's volume control is the only one that affects the audio volume. Of course this is a matter of personal preference.
 Second, the maximum output offered by the DAC to the AUX port of the car audio can be reduced if it is overloading the input circuits. Again, that's a matter for personal selection and adjustment.
 
-The `alsa` settings are specific to the Pimoroni PHAT -- it does not have a hardware mixer and it does have a 32-bit capability which is worth enabling.
+The `alsa` settings are for the Pimoroni PHAT -- it does not have a hardware mixer, so bo `mixer_name` is specified. The DAC's 32-bit capability is automatically selected, so there is no need to set it here.
 
 ### Extra Packages
 A number of packages to enable the Pi to work as a WiFi base station are needed:
