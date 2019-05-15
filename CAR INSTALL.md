@@ -81,7 +81,7 @@ alsa =
 Two `general` settings are worth noting. First, the option to ignore the sending device's volume control is enabled -- this means that the car audio's volume control is the only one that affects the audio volume. Of course this is a matter of personal preference.
 Second, the maximum output offered by the DAC to the AUX port of the car audio can be reduced if it is overloading the input circuits. Again, that's a matter for personal selection and adjustment.
 
-The `alsa` settings are for the Pimoroni PHAT -- it does not have a hardware mixer, so no `mixer_name` is given.
+The `alsa` settings are for the Pimoroni PHAT -- it does not have a hardware mixer, so no `mixer_control_name` is given.
 
 Note that the DAC's 32-bit capability is automatically selected if available, so there is no need to set it here. Similarly, since `soxr` support is included in the build, `soxr` interpolation will be automatically enabled if the device is fast enough.
 
