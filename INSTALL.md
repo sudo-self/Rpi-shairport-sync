@@ -13,12 +13,6 @@ Do the usual update and upgrade:
 ``` 
 (Separately, if you haven't done so already, consider using the `raspi-config` tool to expand the file system to use the entire card.)
 
-### Activate the Improved Audio Driver
-Check the file `/boot/config.txt` and, if it's not there already, add the following line:
-```
-audio_pwm_mode=2
-```
-
 ### Turn Off WiFi Power Management
 If you are using WiFi, you should turn off WiFi Power Management:
 ```
@@ -46,14 +40,14 @@ Okay, now let's get the tools and sources for building and installing Shairport 
 First, install the packages needed by Shairport Sync:
 ```
 # apt-get install build-essential git xmltoman autoconf automake libtool \
-    libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev
+    libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
 ```
 Next, download Shairport Sync, configure it, compile and install it:
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
 $ autoreconf -fi
-$ ./configure --sysconfdir=/etc --with-alsa --with-avahi --with-ssl=openssl --with-systemd
+$ ./configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-systemd
 $ make
 $ sudo make install
 ```
@@ -64,8 +58,7 @@ Now to configure Shairport Sync. Here are the important options for the Shairpor
 // Sample Configuration File for Shairport Sync on a Raspberry Pi using the built-in audio DAC
 general =
 {
-  drift_tolerance_in_seconds = 0.010;
-  volume_range_db = 50;
+  volume_range_db = 60; 
 };
 
 alsa =
