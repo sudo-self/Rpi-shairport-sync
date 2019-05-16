@@ -37,7 +37,7 @@ Please review the release notes to see if any configuration settings have been c
 $ ./configure --with-alsa --with-avahi --with-ssl=openssl --with-metadata --with-soxr --with-systemd --sysconfdir=/etc
 #OR
 #The following is the standard configuration for a Linux that uses the alsa backend and the older System V initialisation system:
-$ ./configure --with-alsa --with-avahi --with-ssl=openssl --with-metadata --with-soxr --with-systemv --sysconfdir=/etc
+$ ./configure --with-libdaemon --with-alsa --with-avahi --with-ssl=openssl --with-metadata --with-soxr --with-systemv --sysconfdir=/etc
 
 $ make
 $ sudo make install
