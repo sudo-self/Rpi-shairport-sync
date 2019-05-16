@@ -49,7 +49,7 @@ Install the packages that are needed for Shairport Sync to be downloaded and bui
 ```
 # pkg install git autotools pkgconf popt libconfig openssl sndio alsa-utils
 ```
-Omit `alsa-utils` if you're not using ALSA. Likewise, omit `sndio` if you don't intend to use the `sndio` subsystem.
+Add `alsa-utils` if you're wish to use ALSA. Omit `sndio` if you don't intend to use the `sndio` subsystem.
 
 Now, download Shairport Sync from GitHub:
 ```
@@ -60,10 +60,10 @@ Next, configure the build and compile it:
 
 ```
 $ autoreconf -i -f
-./configure  --with-avahi --with-ssl=openssl --with-alsa --with-sndio --with-libdaemon --with-os=freebsd --with-freebsd-service
+./configure  --with-avahi --with-ssl=openssl  --with-sndio --with-libdaemon --with-os=freebsd --with-freebsd-service
 $ make
 ```
-Omit `--with-alsa` if you don't want to include the ALSA back end. Omit the `--with-sndio` if you don't want the `sndio` back end. Omit the `--with-freebsd-service` if you don't want to install a FreeBSD startup script, runtime folder and user and group -- see below for more details.
+Add `--with-alsa` if you wish to include the ALSA back end. Omit the `--with-sndio` if you don't want the `sndio` back end. Omit the `--with-freebsd-service` if you don't want to install a FreeBSD startup script, runtime folder and user and group -- see below for more details.
 
 Installation
 ----
