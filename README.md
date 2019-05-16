@@ -34,9 +34,11 @@ What else?
 * Hardware Mute — Shairport Sync can mute properly if the hardware supports it.
 * Support for the Apple ALAC decoder.
 * Output bit depths of 8, 16, 24 and 32 bits, rather than the standard 16 bits.
-* Fast Response — With hardware volume control, response is instantaneous; otherwise the response time is 0.15 seconds with `alsa`, 0.35 seconds with `sndio`.
+* Fast Response — With hardware volume control, response is instantaneous; otherwise the response time is 0.2 seconds with `alsa`, 0.35 seconds with `sndio`.
 * Non-Interruptible — Shairport Sync sends back a "busy" signal if it's already playing audio from another source, so other sources can't disrupt an existing Shairport Sync session. (If a source disappears without warning, the session automatically terminates after two minutes and the device becomes available again.)
 * Metadata — Shairport Sync can deliver metadata supplied by the source, such as Album Name, Artist Name, Cover Art, etc. through a pipe or UDP socket to a recipient application program — see https://github.com/mikebrady/shairport-sync-metadata-reader for a sample recipient. Sources that supply metadata include iTunes and the Music app in iOS.
+* Support for the [MPRIS](https://specifications.freedesktop.org/mpris-spec/2.2/) protocol with some support for remote control of the source.
+* A native D-Bus IPC interface with access to metadata and with some support for remote control of the source.
 * A native [MQTT](https://en.wikipedia.org/wiki/MQTT) interface for metadata and/or controls.
 * Raw Audio — Shairport Sync can deliver raw PCM audio to standard output or to a pipe. This output is delivered synchronously with the source after the appropriate latency and is not interpolated or "stuffed" on its way through Shairport Sync.
 * Autotools and Libtool Support — the Shairport Sync build process uses GNU `autotools` and `libtool` to examine and configure the build environment — important for portability and for cross compilation. Previous versions of Shairport looked at the current system to determine which packages were available, instead of looking at the target system for what packages were available.
@@ -47,15 +49,15 @@ Shairport Sync is a substantial rewrite of the fantastic work done in Shairport 
 
 Status
 ------
-Shairport Sync works on a wide variety of Linux devices and FreeBSD. It works on standard Ubuntu laptops, on the Raspberry Pi with Raspbian Stretch, Jessie and Wheezy, Arch Linux and OpenWrt, and it runs on a Linksys NSLU2 and a TP-Link 710N using OpenWrt. It works with built-in audio and with a variety of USB-connected audio amplifiers and DACs, including a cheapo USB "3D Sound" dongle, a first generation iMic and a Topping TP30 amplifier with a USB DAC input.
+Shairport Sync works on a wide variety of Linux distributions including Debian, Ubuntu, Fedora asnd OpenWrt and works on FreeBSD and on OpenBSD. It works with built-in audio and with a variety of USB-connected sound cards, audio amplifiers and DACs, and works with I2S sound cards.
+
+Shairport Sync runs well on the Raspberry Pi -- including the original Raspberry Pi B -- using the built-in sound card or on USB and I2S cards.
 
 Shairport Sync will work with PulseAudio, which is installed in many desktop Linuxes. PulseAudio normally runs in the *user mode* but can be configured to run in *system mode*, though this is not recommended. Shairport Sync can work with it in either mode.
 
-Shairport Sync runs well on the Raspberry Pi on USB and I2S cards. It can drive the built-in sound card – see the note below on configuring the Raspberry Pi to make best use of it. It runs well on the Raspberry Pi Zero W with a suitable USB or I2S card. 
+Shairport Sync runs natively on FreeBSD and OpenBSD using the `sndio` sound system.
 
-Shairport Sync runs natively on FreeBSD using the `sndio` sound system.
-
-Shairport Sync runs on Ubuntu, OpenWrt, Debian, Arch Linux, Fedora and FreeBSD inside VMWare Fusion on a Mac, but synchronisation is inaccurate — possibly because the sound card is being emulated.
+Shairport Sync runs on Linuxes and the BSDs inside VMWare Fusion on a Mac, but synchronisation is inaccurate — possibly because the sound card is being emulated.
 
 In addition, Shairport Sync can output to standard output, pipes, `soundio` and `ao` devices using appropriate backends.
 
@@ -69,7 +71,7 @@ The following procedures will build and install the `shairport-sync` application
 
 **Remove Old Versions of Shairport Sync and its Startup Scripts**
 
-You should check to see if `shairport-sync` is already installed – you can use the command `$ which shairport-sync` to find where it is located, if installed. If it is installed you should delete it – you may need superuser privileges. After deleting, check again in case further copies are installed elsewhere. 
+You should check to see if `shairport-sync` is already installed – you can use the command `$ which -a shairport-sync` to find where it is located, if installed. If it is installed you should delete it – you may need superuser privileges. After deleting, check again in case further copies are installed elsewhere. 
 
 You should also remove the initialisation script files `/etc/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed in necessary.
 
@@ -309,7 +311,7 @@ If you are using PulseAudio in the standard "user" mode, you can not start Shair
 **(2) Settings:**
 To get the best from Shairport Sync, you’ll need to (a) give Shairport Sync a service name by which it will be seen in iTunes etc. and (b) specify the backend you wish to use - `alsa` for the ALSA backend, or `pa` for the PulseAudio back end. If only one backend is included at compilation, or if the backend is ALSA, there is no need to explicitly specify the backend.
 
-For the ALSA backend you may need to (c) specify the output device to use and (d) specify the name of the mixer volume control to use to control the output level. To get values for (b) and (c) you might need to explore the ALSA output devices with a program like `alsamixer` or similar.
+For the ALSA backend you may need to (c) specify the output device to use and (d) specify the name of the mixer volume control, if any, to use to control the output level. To get values for (b) and (c) you might need to explore the ALSA output devices with a program like `alsamixer` or similar.
 
 Shairport Sync reads settings from a configuration file at `/etc/shairport-sync.conf` (note that in FreeBSD it will be at `/usr/local/etc/shairport-sync.conf`). When you run `$sudo make install`, a sample configuration file is installed or updated at `/etc/shairport-sync.conf.sample` (`/usr/local/etc/shairport-sync.conf.sample` in FreeBSD). This contains all the setting groups and all the settings available, but they all are commented out (comments begin with `//`) so that default values are used. The file contains explanations of the settings, useful hints and suggestions. In addition, if the file doesn't already exist, a default configuration is installed, which should work in almost any system with a sound card.
 
@@ -371,9 +373,7 @@ Note: Shairport Sync can take configuration settings from command line options. 
 
 **Raspberry Pi**
 
-The Raspberry Pi has a built-in audio DAC that is connected to the device's headphone jack. An updated audio driver has greatly improved the quality of the output – see [#525](https://github.com/mikebrady/shairport-sync/issues/525) for details. 
-
-Apart from a loud click when used for the first time after power-up, it is quite adequate for casual listening. A problem is that it declares itself to have a very large mixer volume control range – all the way from -102.38dB up to +4dB, a range of 106.38 dB. In reality, only the top 50 dB of it is in any way usable. To help get the most from the DAC, consider using the `volume_range_db` setting in the `general` group to instruct Shairport Sync to use the top of the DAC mixer's declared range. For example, if you set the `volume_range_db` figure to 50, the top 50 dB of the range will the used. With this setting on the Raspberry Pi, maximum volume will be +4dB and minimum volume will be -46dB, below which muting will occur.
+The Raspberry Pi has a built-in audio DAC that is connected to the device's headphone jack. Apart from a loud click when used for the first time after power-up, it is quite adequate for casual listening. A problem is that it declares itself to have a very large mixer volume control range – all the way from -102.38dB up to +4dB, a range of 106.38 dB. In reality, only the top 50 dB of it is in any way usable. To help get the most from the DAC, consider using the `volume_range_db` setting in the `general` group to instruct Shairport Sync to use the top of the DAC mixer's declared range. For example, if you set the `volume_range_db` figure to 50, the top 50 dB of the range will the used. With this setting on the Raspberry Pi, maximum volume will be +4dB and minimum volume will be -46dB, below which muting will occur.
 
 From a user's point of view, the effect of using this setting is to move the minimum usable volume all the way down to the bottom of the user's volume control, rather than have the minimum usable volume concentrated very close to the maximum volume.
 
@@ -459,9 +459,7 @@ alsa = {
 };
 ```
 
-For an NSLU2, which has no internal sound card, there appears to be a bug in ALSA — you can not specify a device other than "default". Thus:
-
-On an NSLU2, to drive a first generation Griffin iMic:
+For an NSLU2, to drive a first generation Griffin iMic, a USB sound card:
 ```
 general = {
   name = "Den";
@@ -529,31 +527,57 @@ Some Statistics
 ---------------
 If you turn on the `general`  `statistics` setting, a heading like this will be output to the console or log file:
 ```
-sync error in milliseconds, net correction in ppm, corrections in ppm, total packets, missing packets, late packets, too late packets, resend requests, min DAC queue size, min buffer occupancy, max buffer occupancy
+sync error in milliseconds, net correction in ppm, corrections in ppm, total packets, missing packets, late packets, too late packets, resend requests, min DAC queue size, min buffer occupancy, max buffer occupancy, source nominal frames per second, source actual frames per second, output frames per second, source clock drift in ppm, source clock drift sample count, rough calculated correction in ppm
 ```
 This will be followed by the statistics themselves at regular intervals, for example:
 ```
-      -1.3,      25.9,      25.9,        3758,      0,      0,      0,      0,   4444,  263,  270
-      -2.0,      96.0,      96.0,        7516,      0,      0,      0,      0,   5357,  260,  267
-      -2.0,      96.0,      96.0,       11274,      0,      0,      0,      0,   4956,  262,  268
-      -2.0,      94.5,      94.5,       15032,      0,      0,      0,      0,   5430,  263,  267
-      -2.0,      99.8,      99.8,       18790,      0,      0,      0,      0,   5047,  261,  268
-      -2.0,      91.5,      91.5,       22548,      0,      0,      0,      0,   5258,  260,  267
-      -2.0,      90.7,      90.7,       26306,      0,      0,      0,      0,   5279,  262,  267
-      -2.0,      96.0,      96.0,       30064,      0,      0,      0,      0,   5551,  260,  266
+1.04,       0.0,       0.0,        5015,      0,      2,      0,      2,   7847,  202,  226,   44099.99,   44103.19,   44100.30,      0.00,     0,      7.16
+1.00,       0.0,       0.0,        6018,      0,      2,      0,      2,   8375,  215,  226,   44099.99,   44106.36,   44100.32,      0.00,     0,      7.43
+0.84,       0.0,       0.0,        7021,      0,      2,      0,      2,   8453,  217,  226,   44099.99,   44102.16,   44100.23,      0.00,     0,      5.51
+0.79,       0.0,       0.0,        8024,      0,      2,      0,      2,   8215,  216,  226,   44100.00,   44098.16,   44100.31,      0.00,     0,      7.22
+0.83,       2.8,       2.8,        9027,      0,      2,      0,      2,   8078,  217,  226,   44099.99,   44105.64,   44100.31,      0.00,     0,      7.37
+1.09,       2.8,       2.8,       10030,      0,      2,      0,      2,   8117,  215,  226,   44099.99,   44100.59,   44100.31,      0.00,     0,      7.25
+1.37,       0.0,       0.0,       11033,      0,      2,      0,      2,   8429,  217,  226,   44099.99,   44081.51,   44100.32,     19.27,    10,    -11.87
+1.49,       0.0,       0.0,       12036,      0,      2,      0,      2,   8423,  215,  226,   44099.99,   44095.55,   44100.31,     25.43,    12,    -18.13
+1.46,       2.8,       2.8,       13039,      0,      2,      0,      2,   8064,  217,  226,   44099.99,   44097.07,   44100.31,     22.39,    14,    -15.16
+1.77,       2.8,       2.8,       14042,      0,      2,      0,      2,   8195,  216,  226,   44100.00,   44095.31,   44100.32,     22.96,    16,    -15.76
+1.88,       0.0,       5.7,       15045,      0,      2,      0,      2,   8054,  215,  226,   44100.00,   44100.36,   44100.32,     24.36,    18,    -17.18
+2.01,     -39.7,      45.3,       16048,      0,      2,      0,      2,   8138,  217,  226,   44099.99,   44098.67,   44100.32,     25.23,    19,    -17.71
+1.85,      -5.7,      17.0,       17051,      0,      2,      0,      2,   8063,  218,  226,   44100.00,   44100.22,   44100.32,     25.43,    22,    -18.15
+1.92,       0.0,       0.0,       18054,      0,      2,      0,      2,   8381,  217,  226,   44100.00,   44101.46,   44100.31,     24.62,    23,    -17.42
+1.96,     -17.0,      17.0,       19057,      0,      2,      0,      2,   8479,  216,  226,   44099.99,   44098.06,   44100.32,     24.19,    24,    -16.82
+2.02,     -90.6,      90.6,       20060,      0,      2,      0,      2,   8438,  217,  226,   44100.00,   44097.24,   44100.33,     26.16,    26,    -18.73
+2.01,     -25.5,      25.5,       21063,      0,      2,      0,      2,   8417,  216,  226,   44100.00,   44103.05,   44100.31,     26.16,    26,    -18.97
+2.00,     -19.8,      25.5,       22066,      0,      5,      0,      5,   8121,  217,  226,   44100.00,   44101.97,   44100.32,     26.12,    27,    -18.83
+1.44,       0.0,       0.0,       23069,      0,      5,      0,      5,   8451,  216,  226,   44100.00,   44102.68,   44100.31,     25.49,    30,    -18.37
+1.47,       0.0,       0.0,       24072,      0,      5,      0,      5,   8439,  217,  226,   44100.00,   44102.03,   44100.31,     24.92,    33,    -17.75
+1.50,       0.0,       0.0,       25075,      0,      5,      0,      5,   8401,  214,  226,   44100.00,   44102.00,   44100.32,     24.92,    33,    -17.66
+1.86,       2.8,       8.5,       26078,      0,      5,      0,      5,   7778,  215,  227,   44100.00,   44103.63,   44100.31,     24.66,    35,    -17.62
+1.87,     -17.0,      17.0,       27081,      0,      5,      0,      5,   8489,  217,  226,   44100.00,   44100.92,   44100.32,     24.15,    37,    -16.98
+1.92,      -5.7,      17.0,       28084,      0,      5,      0,      5,   8172,  217,  226,   44100.00,   44100.05,   44100.31,     24.10,    39,    -16.95
+2.00,     -36.8,      36.8,       29087,      0,      5,      0,      5,   8468,  216,  226,   44100.00,   44100.87,   44100.32,     23.94,    41,    -16.64
+1.62,     -11.3,      11.3,       30090,      0,      5,      0,      5,   8433,  218,  226,   44100.00,   44097.75,   44100.28,     23.34,    43,    -16.91
+1.75,       2.8,       2.8,       31093,      0,      5,      0,      5,   8224,  215,  226,   44100.00,   44101.39,   44100.31,     23.21,    44,    -16.05
+1.95,      -2.8,       2.8,       32096,      0,      5,      0,      5,   8472,  216,  226,   44100.00,   44101.39,   44100.31,     22.79,    46,    -15.71
+1.83,    -102.0,     102.0,       33099,      0,      5,      0,      5,   8411,  214,  226,   44100.00,   44100.58,   44100.31,     23.00,    49,    -15.95
+1.48,       0.0,       0.0,       34102,      0,      5,      0,      5,   8419,  209,  226,   44100.00,   44101.87,   44100.31,     23.00,    49,    -15.87
+1.62,       2.8,       2.8,       35105,      0,     11,      0,     11,   8074,  216,  226,   44100.00,   44102.71,   44100.31,     23.07,    50,    -15.92
+1.71,      -2.8,       8.5,       36108,      0,     11,      0,     11,   7835,  216,  227,   44100.00,   44102.47,   44100.32,     23.27,    51,    -15.92
+1.94,      -5.7,       5.7,       37111,      0,     11,      0,     11,   8470,  217,  226,   44100.00,   44102.54,   44100.31,     23.73,    53,    -16.54
+1.95,      -2.8,       2.8,       38114,      0,     11,      0,     11,   8461,  217,  226,   44100.00,   44102.93,   44100.32,     23.78,    54,    -16.56
 ```
 
-"Sync error in milliseconds" is the average deviation from exact synchronisation. The first line of the example above indicates that the output is on average 1.3 milliseconds behind exact synchronisation. Sync is allowed to drift by the `general` `drift_tolerance_in_seconds` setting — (± 0.002 seconds) by default — before a correction will be made.
+"Sync error in milliseconds" is the average deviation from exact synchronisation. The first line of the example above indicates that the output drifts to 1.95 milliseconds behind exact synchronisation. Sync is allowed to drift by the `general` `drift_tolerance_in_seconds` setting — (± 0.002 seconds) by default — before a correction will be made.
 
 "Net correction in ppm" is actually the net sum of corrections — the number of frame insertions less the number of frame deletions — given as a moving average in parts per million. After an initial settling period, it represents the drift — the divergence between the rate at which frames are generated at the source and the rate at which the output device consumes them. The first line of the example above indicates that the output device is consuming frames 25.9 ppm faster than the source is generating them. The subsequent lines indicate that the stable actual difference in the clocks is around 95 ppm.
 
 "Corrections in ppm" is the number of frame insertions plus the number of frame deletions (i.e. the total number of corrections), given as a moving average in parts per million. The closer this is to the net corrections, the fewer "unnecessary" corrections that are being made. Third party programs tend to have much larger levels of corrections.
 
-For reference, a drift of one second per day is approximately 11.57 ppm. Left uncorrected, even a drift this small between two audio outputs will be audible after a short time. The above sample is from an Ethernet-connected iMac driving a WiFi-connected Raspberry Pi 3 using an IQaudIO Pi-DigiAMP+.
+For reference, a drift of one second per day is approximately 11.57 ppm. Left uncorrected, even a drift this small between two audio outputs will be audible after a short time. The above sample is from a MAc Pro driving a WiFi-connected Raspberry Pi Zero W using an Pimoroni pHAT DAC.
 
 It's not unusual to have resend requests, late packets and even missing packets if some part of the connection to the Shairport Sync device is over WiFi. Late packets can sometimes be asked for and received multiple times. Sometimes late packets are sent and arrive too late, but have already been sent and received in time, so weren't needed anyway...
 
-"Min DAC queue size" is the minimum size the queue of samples in the output device's hardware buffer was measured at. It is meant to stand at 0.15 seconds = 6,615 frames at 44,100 frames per second, and will go low if the processor is very busy. If it goes below about 2,000 then it's an indication that the processor can't really keep up.
+"Min DAC queue size" is the minimum size the queue of samples in the output device's hardware buffer was measured at. It is meant to stand at 0.20 seconds = 8,820 frames at 44,100 frames per second, and will go low if the processor is very busy. If it goes below about 2,000 then it's an indication that the processor can't really keep up.
 
 WiFi Issues
 ---------
