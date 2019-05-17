@@ -377,7 +377,7 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
 
   if ((conn->dacp_id == NULL) || (strcmp(conn->dacp_id, dacp_server.dacp_id) != 0)) {
     if (conn->dacp_id)
-      strncpy(dacp_server.dacp_id, conn->dacp_id, sizeof(dacp_server.dacp_id));
+      strncpy(dacp_server.dacp_id, conn->dacp_id, sizeof(dacp_server.dacp_id)-1);
     else
       dacp_server.dacp_id[0] = '\0';
     dacp_server.port = 0;
