@@ -1,6 +1,11 @@
+**Enhancements**
+* Add a list of alsa hardware devices found to the alsa backend help section in the `shairport-sync -h` text. (Doesn't work for alsa on FreeBSD/OpenBSD.)
+* Always place D-Bus access policy documents in `/etc/dbus-1/system.d` in Linux, but adhere to the standard for FreeBSD/OpenBSD.
+
+
 Version 3.3rc7
 ====
-**Ehnancements**
+**Enhancements**
 * Improvements to the `MQTT` client -- extra diagnostic messages at run time and at configuration time.
 
 Version 3.3rc6
