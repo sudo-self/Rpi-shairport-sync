@@ -820,7 +820,12 @@ void *rtp_timing_receiver(void *arg) {
                   mbl = mbl + xid * xid;
                 }
               conn->local_to_remote_time_gradient_sample_count = sample_count;
-              conn->local_to_remote_time_gradient = (1.0 * mtl) / mbl;
+              if (mbl)
+                conn->local_to_remote_time_gradient = (1.0 * mtl) / mbl;
+              else {
+                conn->local_to_remote_time_gradient = 1.0;
+                debug(1,"rtp_timing_receiver: mbl is 0");
+              }
             } else {
               conn->local_to_remote_time_gradient = 1.0;
             }
@@ -1096,8 +1101,12 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_con
     if ((local_frames == 0) || (local_time == 0) || (use_nominal_rate)) {
       result = 1;
     } else {
-      double calculated_frame_rate = ((1.0 * local_frames) / local_time) * one_fp;
-      if (((calculated_frame_rate / conn->input_rate) > 1.002) ||
+      double calculated_frame_rate = conn->input_rate;
+      if (local_time)
+        calculated_frame_rate = ((1.0 * local_frames) / local_time) * one_fp;
+      else
+        debug(1,"sanitised_source_rate_information: local_time is zero");
+      if ((local_time == 0) || ((calculated_frame_rate / conn->input_rate) > 1.002) ||
           ((calculated_frame_rate / conn->input_rate) < 0.998)) {
         debug(3, "input frame rate out of bounds at %.2f fps.", calculated_frame_rate);
         result = 1;
@@ -1175,7 +1184,11 @@ int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
 
   // now, convert the remote time interval into frames using the frame rate we have observed or
   // which has been nominated
-  uint32_t frame_interval = (time_interval * frame_difference) / time_difference;
+  uint32_t frame_interval = 0;
+  if (time_difference)
+    frame_interval = (time_interval * frame_difference) / time_difference;
+  else
+    debug(1,"local_time_to_frame: time_difference is zero");
   if (reference_time_was_earlier) {
     // debug(1,"Frame interval is %" PRId64 " frames.",frame_interval);
     *frame = (conn->reference_timestamp + frame_interval);

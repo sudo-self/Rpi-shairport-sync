@@ -1764,9 +1764,9 @@ int main(int argc, char **argv) {
   debug(1, "mqtt is %sabled.", config.mqtt_enabled ? "en" : "dis");
   debug(1, "mqtt hostname is %s, port is %d.", config.mqtt_hostname, config.mqtt_port);
   debug(1, "mqtt topic is %s.", config.mqtt_topic);
-  debug(1, "mqtt will%s publish raw metadata.", config.mqtt_publish_raw ? "" : " NOT");
-  debug(1, "mqtt will%s publish parsed metadata.", config.mqtt_publish_parsed ? "" : " NOT");
-  debug(1, "mqtt will%s publish cover Art.", config.mqtt_publish_cover ? "" : " NOT");
+  debug(1, "mqtt will%s publish raw metadata.", config.mqtt_publish_raw ? "" : " not");
+  debug(1, "mqtt will%s publish parsed metadata.", config.mqtt_publish_parsed ? "" : " not");
+  debug(1, "mqtt will%s publish cover Art.", config.mqtt_publish_cover ? "" : " not");
   debug(1, "mqtt remote control is %sabled.", config.mqtt_enable_remote ? "en" : "dis");
 #endif
 
