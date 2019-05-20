@@ -1520,7 +1520,7 @@ int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
     debug(2, "soxr_oneshot execution time in microseconds: mean, standard deviation and max "
              "for %" PRId32 " interpolations in the last "
              "1250 packets. %10.1f, %10.1f, %10.1f.",
-          stat_n, stat_mean, sqrtf(stat_M2 / (stat_n - 1)), longest_soxr_execution_time_us);
+          stat_n, stat_mean, stat_n <= 1 ? 0.0 : sqrtf(stat_M2 / (stat_n - 1)), longest_soxr_execution_time_us);
     stat_n = 0;
     stat_mean = 0.0;
     stat_M2 = 0.0;
