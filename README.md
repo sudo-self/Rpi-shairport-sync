@@ -4,9 +4,9 @@ Shairport Sync is an AirPlay audio player – it plays audio streamed from iTune
 
 Audio played by a Shairport Sync-powered device stays synchronised with the source and hence with similar devices playing the same source. In this way, synchronised multi-room audio is possible for players that support it, such as iTunes.
 
-Shairport Sync runs on Linux and FreeBSD. It does not support AirPlay video or photo streaming.
+Shairport Sync runs on Linux, FreeBSD and OpenBSD. It does not support AirPlay video or photo streaming.
 
-This is the unstable "development" branch. Changes and updates are incorporated into this branch quickly. To access the stable version, where changes are made after due time, please switch to the "master" branch.
+This is the stable "master" branch. Changes and updates are incorporated into this branch relatively slowly. To access the development version, where all the latest changes are made first, please switch to the "development" branch.
 
 More Information
 ----------
@@ -34,50 +34,69 @@ What else?
 * Hardware Mute — Shairport Sync can mute properly if the hardware supports it.
 * Support for the Apple ALAC decoder.
 * Output bit depths of 8, 16, 24 and 32 bits, rather than the standard 16 bits.
-* Fast Response — With hardware volume control, response is instantaneous; otherwise the response time is 0.2 seconds with `alsa`, 0.35 seconds with `sndio`.
+* Fast Response — With hardware volume control, response is instantaneous; otherwise the response time is 0.15 seconds with `alsa`, 0.35 seconds with `sndio`.
 * Non-Interruptible — Shairport Sync sends back a "busy" signal if it's already playing audio from another source, so other sources can't disrupt an existing Shairport Sync session. (If a source disappears without warning, the session automatically terminates after two minutes and the device becomes available again.)
 * Metadata — Shairport Sync can deliver metadata supplied by the source, such as Album Name, Artist Name, Cover Art, etc. through a pipe or UDP socket to a recipient application program — see https://github.com/mikebrady/shairport-sync-metadata-reader for a sample recipient. Sources that supply metadata include iTunes and the Music app in iOS.
-* Support for the [MPRIS](https://specifications.freedesktop.org/mpris-spec/2.2/) protocol with some support for remote control of the source.
-* A native D-Bus IPC interface with access to metadata and with some support for remote control of the source.
-* A native [MQTT](https://en.wikipedia.org/wiki/MQTT) interface for metadata and/or controls.
 * Raw Audio — Shairport Sync can deliver raw PCM audio to standard output or to a pipe. This output is delivered synchronously with the source after the appropriate latency and is not interpolated or "stuffed" on its way through Shairport Sync.
 * Autotools and Libtool Support — the Shairport Sync build process uses GNU `autotools` and `libtool` to examine and configure the build environment — important for portability and for cross compilation. Previous versions of Shairport looked at the current system to determine which packages were available, instead of looking at the target system for what packages were available.
-
+* Compiles on Linux, FreeBSD, OpenBSD.
+* An MPRIS interface, partially complete and very functional.
+* A native D-Bus interface.
+ 
 Heritage
 -------
-Shairport Sync is a substantial rewrite of the fantastic work done in Shairport 1.0 by James Laird and others — please see https://github.com/abrasive/shairport/blob/development/README.md#contributors-to-version-1x for a list of the contributors to Shairport 1.x and Shairport 0.x. From a "heritage" point of view, Shairport Sync is a fork of Shairport 1.0.
+Shairport Sync is a substantial rewrite of the fantastic work done in Shairport 1.0 by James Laird and others — please see https://github.com/abrasive/shairport/blob/master/README.md#contributors-to-version-1x for a list of the contributors to Shairport 1.x and Shairport 0.x. From a "heritage" point of view, Shairport Sync is a fork of Shairport 1.0.
 
 Status
 ------
-Shairport Sync works on a wide variety of Linux distributions including Debian, Ubuntu, Fedora asnd OpenWrt and works on FreeBSD and on OpenBSD. It works with built-in audio and with a variety of USB-connected sound cards, audio amplifiers and DACs, and works with I2S sound cards.
-
-Shairport Sync runs well on the Raspberry Pi -- including the original Raspberry Pi B -- using the built-in sound card or on USB and I2S cards.
+Shairport Sync works on a wide variety of Linux devices, FreeBSD and OpenBSD. It works on standard Ubuntu laptops, on the Raspberry Pi with Raspbian Stretch, Jessie and Wheezy, Arch Linux and OpenWrt, and it runs on a Linksys NSLU2 and a TP-Link 710N using OpenWrt. It works with built-in audio and with a variety of USB-connected audio amplifiers and DACs, including a cheapo USB "3D Sound" dongle, a first generation iMic and a Topping TP30 amplifier with a USB DAC input.
 
 Shairport Sync will work with PulseAudio, which is installed in many desktop Linuxes. PulseAudio normally runs in the *user mode* but can be configured to run in *system mode*, though this is not recommended. Shairport Sync can work with it in either mode.
 
+Shairport Sync runs well on the Raspberry Pi on USB and I2S cards. It can drive the built-in sound card – see the note below on configuring the Raspberry Pi to make best use of it. It runs well on the Raspberry Pi Zero W with a suitable USB or I2S card.
+
 Shairport Sync runs natively on FreeBSD and OpenBSD using the `sndio` sound system.
 
-Shairport Sync runs on Linuxes and the BSDs inside VMWare Fusion on a Mac, but synchronisation is inaccurate — possibly because the sound card is being emulated.
+Shairport Sync runs on Ubuntu, OpenWrt, Debian, Arch Linux, Fedora, FreeBSD and OpenBSD inside VMWare Fusion on a Mac, but synchronisation in inaccurate — possibly because the sound card is being emulated.
 
 In addition, Shairport Sync can output to standard output, pipes, `soundio` and `ao` devices using appropriate backends.
 
 For information about changes and updates, please refer to the RELEASENOTES.md file in the distribution.
 
-Building And Installing the Development Version
+Building And Installing
 ---------------------
-See [here](https://github.com/mikebrady/shairport-sync/blob/development/INSTALL.md) for simple installation instructions for modern Linux systems like Rapsberry Pis.
+See [here](https://github.com/mikebrady/shairport-sync/blob/master/INSTALL.md) for simple installation instructions for modern Linux systems like Rapsberry Pis.
 
-The following procedures will build and install the `shairport-sync` application into your system.
+Shairport Sync may already be available as a package in your Linux distribution (search for `shairport-sync` – the package named `shairport` is a different program). Packages are available on recent versions of Debian, Ubuntu, Arch, OpenWrt and possibly more:
+
+**Ubuntu:** A `shairport-sync` installer package is available for Ubuntu. Additionally, a Personal Package Archives for Shairport Sync master and development branches are available at https://launchpad.net/~dantheperson. 
+
+**Debian:** shairport-sync is in the Debian archive.
+
+**OpenWrt:** There is a Shairport Sync package in OpenWrt trunk. Also, there's an OpenWrt package at https://github.com/mikebrady/shairport-sync-for-openwrt, including one that builds back to Barrier Breaker.
+
+**Arch Linux:** Shairport Sync is available for x86_64 and i686 platforms in the Arch Linux Community Repository -- search for `shairport-sync`. See also https://www.archlinux.org/packages/.
+An Arch Linux installation package, suitable for compilation on any platform, is also available at [EliaCereda/shairport-sync-PKGBUILD](https://github.com/EliaCereda/shairport-sync-PKGBUILD).
+
+**Mac OS X:** A HomeBrew package exists for Shairport Sync. With HomeBrew installed, Shairport Sync can be installed using the command: 
+```
+$brew install shairport-sync
+```
+Note that the installation uses the libao library and so synchronisation is not available — playback glitches will occur occasionally, when the ao system's buffers overflow or underflow.
+
+**Fedora:** Please see the guide at [FEDORA.md](https://github.com/mikebrady/shairport-sync/blob/master/FEDORA.md).
+
+**Cygwin:** Please see the guide at [CYGWIN.md](https://github.com/mikebrady/shairport-sync/blob/master/CYGWIN.md).
+
+Sincere thanks to all package contributors!
+
+If you wish to build and install the latest version of Shairport Sync on Debian, Ubuntu, Fedora or Arch platforms, please continue to follow these instructions. When the program has been compiled and installed, refer to the section on Configuring Shairport Sync that follows. To build Shairport Sync from sources on FreeBSD please refer to [FREEBSD.md](https://github.com/mikebrady/shairport-sync/blob/master/FREEBSD.md).
 
 **Remove Old Versions of Shairport Sync and its Startup Scripts**
 
-You should check to see if `shairport-sync` is already installed – you can use the command `$ which -a shairport-sync` to find where it is located, if installed. If it is installed you should delete it – you may need superuser privileges. After deleting, check again in case further copies are installed elsewhere. 
+You should check to see if `shairport-sync` is already installed – you can use the command `$ which shairport-sync` to find where it is located, if installed. If it is installed you should delete it – you may need superuser privileges. After deleting, check again in case further copies are installed elsewhere. 
 
 You should also remove the initialisation script files `/etc/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed in necessary.
-
-**FreeBSD, OpenBSD, CYGWIN**
-
-Please refer to the relevant pages for building for the above systems.
 
 **Determine The Configuration Needed**
 
@@ -119,39 +138,30 @@ The following libraries are required:
 * OpenSSL or  mbed TLS (PolarSSL is supported but deprecated)
 * Avahi
 * ALSA and/or PulseAudio
+* libdaemon
 * autoconf
 * automake
 * libtool
 * libpopt
 * libconfig
 
-If you are building for a system that needs to be able to daemonise Shairport Sync with the `-d` option and to kill the daemon with the `-k` option, you need to include the `libdaemon` library:
-* libdaemon
-
-Most current releases of Linuxes use the `systemd` startup and system manager, and this daemonises applications differently, so the `libdaemon` library can be omitted.
-
 Optional:
 * libsoxr
 * libalac (This is a library containing the Apple ALAC decoder.)
-* libmosquitto (This is to enable the mqtt-metadata-interface.)
 
 Many Linux distributions have Avahi and OpenSSL already in place, so normally it probably makes sense to choose those options rather than tinysvcmdns or mbed TLS. The `libsoxr` library is available in recent Linux distributions, but it requires lots of processor power — chances are an embedded processor won't be able to keep up.
 
 Debian, Ubuntu and Raspbian users can get the basics with:
 
-- `# apt-get install build-essential git xmltoman` – these may already be installed.
-- `# apt-get install autoconf automake libtool libpopt-dev libconfig-dev`
-- `# apt-get install libdaemon-dev` – if you need libdaemon support.
-- `# apt-get install libasound2-dev` for the ALSA libraries
-- `# apt-get install libpulse-dev` for the PulseAudio libraries
-- `# apt-get install avahi-daemon libavahi-client-dev` if you want to use Avahi (recommended).
-- `# apt-get install libssl-dev` if you want to use OpenSSL and libcrypto, or use mbed TLS otherwise.
-- `# apt-get install libmbedtls-dev` if you want to use mbed TLS, or use OpenSSL/libcrypto otherwise. You can still use PolarSSL with `apt-get install libpolarssl-dev` if you want to use PolarSSL, but it is deprecated as it's not longer being supported.
-- `# apt-get install libsoxr-dev` if you want support for libsoxr-based resampling. This library is in many recent distributions; if not, instructions for how to build it from source for Rasbpian/Debian Wheezy are available at [LIBSOXR.md](https://github.com/mikebrady/shairport-sync/blob/master/LIBSOXR.md).
-- `# apt-get install libmosquitto-dev` if you want to use the mqtt client
-
-If you just want to have the default configuration options (systemd):
-- `# apt-get install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev libpulse-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev` 
+- `# apt install build-essential git xmltoman` – these may already be installed.
+- `# apt install autoconf automake libtool libdaemon-dev libpopt-dev libconfig-dev`
+- `# apt install libasound2-dev` for the ALSA libraries
+- `# apt install libpulse-dev` for the PulseAudio libraries
+- `# apt install avahi-daemon libavahi-client-dev` if you want to use Avahi (recommended).
+- `# apt install libssl-dev` if you want to use OpenSSL and libcrypto, or use mbed TLS otherwise.
+- `# apt install libmbedtls-dev` if you want to use mbed TLS, or use OpenSSL/libcrypto otherwise. You can still use PolarSSL with `apt install libpolarssl-dev` if you want to use PolarSSL, but it is deprecated as it's not longer being supported.
+- `# apt install libsoxr-dev` if you want support for libsoxr-based resampling. This library is in many recent distributions; if not, instructions for how to build it from source for Rasbpian/Debian Wheezy are available at [LIBSOXR.md](https://github.com/mikebrady/shairport-sync/blob/master/LIBSOXR.md).
+- `# apt install libsndfile1-dev` if you want to use the convolution filter.
 
 If you wish to include the Apple ALAC decoder, you need install it first – please refer to the [ALAC](https://github.com/mikebrady/alac) repository for more information.
 
@@ -162,7 +172,6 @@ $ git clone https://github.com/mikebrady/shairport-sync.git
 
 Next, `cd` into the shairport-sync directory and execute the following commands:
 ```
-$ git checkout development
 $ autoreconf -i -f
 ```
 (Note that the `autoreconf...` step may take some time on less powerful machines.)
@@ -181,22 +190,20 @@ $ autoreconf -i -f
 - `--with-soxr` for libsoxr-based resampling.
 - `--with-piddir` for specifying where the PID file should be stored. This directory is normally chosen automatically. The directory must be writable. If you use this option, you may have to edit the init script to search for the PID file in your new location.
 - `--with-metadata` to add support for Shairport Sync to pipe metadata to a compatible application of your choice. See https://github.com/mikebrady/shairport-sync-metadata-reader for a sample metadata reader.
-- `--with-mqtt-client` to add support for publishing metadata and remote control via [MQTT](https://en.wikipedia.org/wiki/MQTT).
 - `--with-configfiles` to install a configuration file and a separate sample file at the `make install` stage. Default is to install. An existing `/etc/shairport-sync.conf` will not be overwritten.
 - `--with-pkg-config` to use pkg-config to find libraries. Default is to use pkg-config — this option is for special purpose use.
 - `--with-apple-alac` to include the Apple ALAC Decoder.
 - `--with-convolution` to include a convolution filter that can be used to apply effects such as frequency and phase correction, and a loudness filter that compensates for human ear non-linearity. Requires `libsndfile`.
-- `--with-libdaemon` to allow Shairport Sync to daemonise itself.
 - `--with-systemd` to include a script to create a Shairport Sync service that can optionally launch automatically at startup on `systemd`-based Linuxes. Default is not to to install.
 - `--with-systemv` to include a script to create a Shairport Sync service that can optionally launch automatically at startup on System V based Linuxes. Default is not to to install.
 
 **Determine if it's a `systemd` or a "System V" installation:**
 
-If you wish to have Shairport Sync start automatically when your system boots or to daemonise itself and run in the background, you need to figure out what so-called "init system" your system is using. (If you are using Shairport Sync with PulseAudio, as installed in many desktop systems, this section doesn't apply.) 
+If you wish to have Shairport Sync start automatically when your system boots, you need to figure out what so-called "init system" your system is using. (If you are using Shairport Sync with PulseAudio, as installed in many desktop systems, this section doesn't apply.) 
 
 There are a number of init systems in use: `systemd`, `upstart` and "System V" among others, and it's actually difficult to be certain which one your system is using. Fortunately, for Shairport Sync, all you have to do is figure out if it's a `systemd` init system or not. If it is not a `systemd` init system, you can assume that it is either a System V init system or else it is compatible with a System V init system. Recent systems tend to use `systemd`, whereas older systems use `upstart` or the earlier System V init system. 
 
-The easiest way to look at the first few lines of the `init` manual. Enter the command:
+The easiest way is to look at the first few lines of the `init` manual. Enter the command:
 
 ```
 $ man init
@@ -248,8 +255,8 @@ Here is a recommended set of configuration options suitable for Linux installati
 `$ ./configure --sysconfdir=/etc --with-alsa --with-pa --with-avahi --with-ssl=openssl --with-metadata --with-soxr --with-systemd`
 
 * Omit the `--with-soxr` if the libsoxr library is not available.
-* For installation into a System V system, add `--with-libdaemon` and replace the `--with-systemd` with `--with-systemv`.
-* If you intend to use Shairport Sync with PulseAudio in the standard user mode, it can not be a system service, so you should omit both `--with-systemd` and `--with-systemv`. If you want to be able to daemonise Shairport Sync without installing it as a service, include the `--with-libdaemon` flag. 
+* For installation into a System V system, replace the `--with-systemd` with `--with-systemv`.
+* If you intend to use Shairport Sync with PulseAudio in the standard user mode, it can not be a system service, so you should omit both `--with-systemd` and `--with-systemv`.
 
 **Build and Install the Application:**
 
@@ -279,25 +286,15 @@ $ sudo systemctl enable shairport-sync
 
 **Complete installation into a System V system**
 
-If you have chosen the `--with-systemv` configuration option, enter:
+If you have chosen the `--with-systemv` configuration option, then, to enable Shairport Sync to start automatically at system startup, enter:
 ```
 $ sudo update-rc.d shairport-sync defaults 90 10
+$ sudo update-rc.d shairport-sync enable
 ```
 
-**Identifying the configuration of an installed Shairport Sync
-
-To find out what configuration Shairport Sync was built with, enter:
-```
-$ shairport-sync -V
-```
-This will return something like the following:
-```
-3.3-libdaemon-OpenSSL-Avahi-ALSA-sndio-stdout-pipe-metadata-dbus-sysconfdir:/etc
-```
-This information may be useful when [troubleshooting](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md) or [reporting issues](https://github.com/mikebrady/shairport-sync/blob/master/CONTRIBUTING.md).
 **Man Page**
 
-You can view the man page here: http://htmlpreview.github.io/?https://github.com/mikebrady/shairport-sync/blob/development/man/shairport-sync.html
+You can view the man page here: http://htmlpreview.github.io/?https://github.com/mikebrady/shairport-sync/blob/master/man/shairport-sync.html
 
 Configuring Shairport Sync
 --------
@@ -306,12 +303,12 @@ There are two logically distinct parts to getting Shairport Sync to run properly
 **(1) Starting and Stopping:**
 Starting and stopping Shairport Sync automatically is taken care of differently in different versions of Linux – see the previous section for an example of installing into a `systemd` or a System V based system.
 
-If you are using PulseAudio in the standard "user" mode, you can not start Shairport Sync automatically at boot time – it must be started when the user logs in to a GUI session. Various GUI tools exist to enable you to build a Startup Application. However, there does not appear to be a similar tool for terminating the program when you log out. Also, it the GUI switches to another user, the user's PulseAudio session is disconnected from the output device.
+If you are using PulseAudio in the standard "user" mode, you can not start Shairport Sync automatically at boot time – it must be started when the user logs in to a GUI session. Various GUI tools exist to enable you to build a Startup Application. However, there does not appear to be a similar tool for terminating the program when you log out. Also, if the GUI switches to another user, the user's PulseAudio session is disconnected from the output device.
 
 **(2) Settings:**
 To get the best from Shairport Sync, you’ll need to (a) give Shairport Sync a service name by which it will be seen in iTunes etc. and (b) specify the backend you wish to use - `alsa` for the ALSA backend, or `pa` for the PulseAudio back end. If only one backend is included at compilation, or if the backend is ALSA, there is no need to explicitly specify the backend.
 
-For the ALSA backend you may need to (c) specify the output device to use and (d) specify the name of the mixer volume control, if any, to use to control the output level. To get values for (b) and (c) you might need to explore the ALSA output devices with a program like `alsamixer` or similar.
+For the ALSA backend you may need to (c) specify the output device to use and (d) specify the name of the mixer volume control to use to control the output level. To get values for (c) and (d) you might need to explore the ALSA output devices with a program like `alsamixer` or similar.
 
 Shairport Sync reads settings from a configuration file at `/etc/shairport-sync.conf` (note that in FreeBSD it will be at `/usr/local/etc/shairport-sync.conf`). When you run `$sudo make install`, a sample configuration file is installed or updated at `/etc/shairport-sync.conf.sample` (`/usr/local/etc/shairport-sync.conf.sample` in FreeBSD). This contains all the setting groups and all the settings available, but they all are commented out (comments begin with `//`) so that default values are used. The file contains explanations of the settings, useful hints and suggestions. In addition, if the file doesn't already exist, a default configuration is installed, which should work in almost any system with a sound card.
 
@@ -335,7 +332,7 @@ No backend is specified here, so it will default to the `alsa` backend if more t
 ```
   output_backend = "pa";
 ```
-to the `general` stanza.
+to the `general` group.
 
 The `alsa` group is used to specify properties of the output device. The most obvious setting is the name of the output device which you can set using the `output_device` tag.
 
@@ -353,40 +350,51 @@ alsa =
 };
 ```
 
-The `pa` group is used to specify settings relevant to the PulseAudio backend. You can set the "Application Name" that will appear in the "Sound" control panel. You can also set the sink name that audio will be pushed to. Here's an example `pa` group configuration:
-
-```
-pa = 
-{
-  application_name = "Shairport Sync - Bedroom";
-  sink = "server_bedroom"; // Sink name or ID. If not specified, the default sink will be used.
-};
-```
+The `pa` group is used to specify settings relevant to the PulseAudio backend. You can set the "Application Name" that will appear in the "Sound" control panel.
 
 Shairport Sync can run programs just before it starts to play an audio stream and just after it finishes. You specify them using the `sessioncontrol` group settings `run_this_before_play_begins` and `run_this_after_play_ends`. This is to facilitate situations where something has to be done before and after playing, e.g. switching on an amplifier beforehand and switching it off afterwards. Set the `wait_for_completion` value to `"yes"` for Shairport Sync to wait until the respective commands have been completed before continuing.
 
 Note that the full path to the programs must be specified, and script files will not be executed unless they are marked as executable and have the appropriate shebang `#!/bin/...` as the first line. (This behaviour may be different from other Shairports.)
 
-Shairport Sync can run a program whenever the volume is set or changed. You specify them using the `general` group settings `run_this_when_volume_changes`. This is to facilitate situations where something has to be done when the volume changes, e.g. adjust an external mixer value. Set the `wait_for_completion` value to `"yes"` for Shairport Sync to wait until the command has been completed before continuing. Again, please note that the full path to the program must be specified, and script files will not be executed unless they are marked as executable and have the appropriate shebang `#!/bin/...` as the first line.
+Shairport Sync can run a program whenever the volume is set or changed. You specify it using the `general` group setting `run_this_when_volume_changes`. This is to facilitate situations where something has to be done when the volume changes, e.g. adjust an external mixer value. Set the `wait_for_completion` value to `"yes"` for Shairport Sync to wait until the command has been completed before continuing. Again, please note that the full path to the program must be specified, and script files will not be executed unless they are marked as executable and have the appropriate shebang `#!/bin/...` as the first line.
 
 Note: Shairport Sync can take configuration settings from command line options. This is mainly for backward compatibility, but sometimes still useful. For normal use, it is strongly recommended that you use the configuration file method.
 
 **Raspberry Pi**
 
-The Raspberry Pi has a built-in audio DAC that is connected to the device's headphone jack. Apart from a loud click when used for the first time after power-up, it is quite adequate for casual listening. A problem is that it declares itself to have a very large mixer volume control range – all the way from -102.38dB up to +4dB, a range of 106.38 dB. In reality, only the top 50 dB of it is in any way usable. To help get the most from the DAC, consider using the `volume_range_db` setting in the `general` group to instruct Shairport Sync to use the top of the DAC mixer's declared range. For example, if you set the `volume_range_db` figure to 50, the top 50 dB of the range will the used. With this setting on the Raspberry Pi, maximum volume will be +4dB and minimum volume will be -46dB, below which muting will occur.
+The Raspberry Pi Models A and B have a built-in audio DAC that is connected to the device's headphone jack. Apart from a loud click when used for the first time after power-up, it is now quite adequate for casual listening. 
+
+To get the benefits of improvements in the Pi's software and firmware, you should update to the Raspian release of October 2018 or later, as a number of improvements have been made to the built-in DAC.
+
+Do the usual update and upgrade:
+```
+# apt update
+# apt upgrade
+```
+To make Shairport Sync output to the built-in audio DAC and use its hardware mixer, in the `alsa` section of the configuration file, set the output device and mixer as follows:
+```
+alsa =
+{
+  output_device = "hw:0"; // the name of the alsa output device. Use "alsamixer" or "aplay" to find out the names of devices, mixers, etc.
+  mixer_control_name = "PCM"; // the name of the mixer to use to adjust output volume. If not specified, volume in adjusted in software.
+  // ... other alsa settings
+```
+(Remember to uncomment the lines by removing the `//` at the start of each.) When these changes have been made, reboot the machine.
+
+A problem with the built-in DAC that it declares itself to have a very large mixer volume control range – all the way from -102.38dB up to +4dB, a range of 106.38 dB. In reality, only the top 60 dB of it is in any way usable. To help get the most from it, consider using the `volume_range_db` setting in the `general` group to instruct Shairport Sync to use the top of the DAC mixer's declared range. For example, if you set the `volume_range_db` figure to 60, the top 60 dB of the range will the used. With this setting on the Raspberry Pi, maximum volume will be +4dB and minimum volume will be -56dB, below which muting will occur.
 
 From a user's point of view, the effect of using this setting is to move the minimum usable volume all the way down to the bottom of the user's volume control, rather than have the minimum usable volume concentrated very close to the maximum volume.
 
 *Command Line Arguments*
 
-As previously mentioned, you can use command line arguments to provide settings to Shairport Sync as before, though newer settings will only be available via the configuration file. For full information, please read the Shairport Sync `man` page, also available at  http://htmlpreview.github.io/?https://github.com/mikebrady/shairport-sync/blob/development/man/shairport-sync.html.
+As previously mentioned, you can use command line arguments to provide settings to Shairport Sync as before, though newer settings will only be available via the configuration file. For full information, please read the Shairport Sync `man` page, also available at  http://htmlpreview.github.io/?https://github.com/mikebrady/shairport-sync/blob/master/man/shairport-sync.html.
 
 Apart from the following options, all command line options can be replaced by settings in the configuration file. Here is a brief description of command line options that are not replicated by settings in the settings file.
 
 * The `-c` option allows you to specify the location of the configuration file.
 * The `-V` option gives you version information about  Shairport Sync and then quits.
-* The `-d` option causes Shairport Sync to properly daemonise itself, that is, to run in the background. You may need sudo privileges for this. This is available if Shairport Sync is built with the `--with-libdaemon` configuration flag.
-* The `-k` option causes Shairport Sync to kill an existing Shairport Sync daemon. You may need to have sudo privileges for this. This is available if Shairport Sync is built with the `--with-libdaemon` configuration flag.
+* The `-d` option causes Shairport Sync to properly daemonise itself, that is, to run in the background. You may need sudo privileges for this.
+* The `-k` option causes Shairport Sync to kill an existing Shairport Sync daemon. You may need to have sudo privileges for this.
 
 The System V init script at `/etc/init.d/shairport-sync` has a bare minimum :
 `-d`. Basically all it does is put the program in daemon mode. The program will read its settings from the configuration file.
@@ -459,7 +467,9 @@ alsa = {
 };
 ```
 
-For an NSLU2, to drive a first generation Griffin iMic, a USB sound card:
+For an NSLU2, which has no internal sound card, there appears to be a bug in ALSA — you can not specify a device other than "default". Thus:
+
+On an NSLU2, to drive a first generation Griffin iMic:
 ```
 general = {
   name = "Den";
@@ -527,63 +537,56 @@ Some Statistics
 ---------------
 If you turn on the `general`  `statistics` setting, a heading like this will be output to the console or log file:
 ```
-sync error in milliseconds, net correction in ppm, corrections in ppm, total packets, missing packets, late packets, too late packets, resend requests, min DAC queue size, min buffer occupancy, max buffer occupancy, source nominal frames per second, source actual frames per second, output frames per second, source clock drift in ppm, source clock drift sample count, rough calculated correction in ppm
+sync error in milliseconds, net correction in ppm, corrections in ppm, total packets, missing packets, late packets, too late packets, resend requests, min DAC queue size, min buffer occupancy, max buffer occupancy
 ```
 This will be followed by the statistics themselves at regular intervals, for example:
 ```
-1.04,       0.0,       0.0,        5015,      0,      2,      0,      2,   7847,  202,  226,   44099.99,   44103.19,   44100.30,      0.00,     0,      7.16
-1.00,       0.0,       0.0,        6018,      0,      2,      0,      2,   8375,  215,  226,   44099.99,   44106.36,   44100.32,      0.00,     0,      7.43
-0.84,       0.0,       0.0,        7021,      0,      2,      0,      2,   8453,  217,  226,   44099.99,   44102.16,   44100.23,      0.00,     0,      5.51
-0.79,       0.0,       0.0,        8024,      0,      2,      0,      2,   8215,  216,  226,   44100.00,   44098.16,   44100.31,      0.00,     0,      7.22
-0.83,       2.8,       2.8,        9027,      0,      2,      0,      2,   8078,  217,  226,   44099.99,   44105.64,   44100.31,      0.00,     0,      7.37
-1.09,       2.8,       2.8,       10030,      0,      2,      0,      2,   8117,  215,  226,   44099.99,   44100.59,   44100.31,      0.00,     0,      7.25
-1.37,       0.0,       0.0,       11033,      0,      2,      0,      2,   8429,  217,  226,   44099.99,   44081.51,   44100.32,     19.27,    10,    -11.87
-1.49,       0.0,       0.0,       12036,      0,      2,      0,      2,   8423,  215,  226,   44099.99,   44095.55,   44100.31,     25.43,    12,    -18.13
-1.46,       2.8,       2.8,       13039,      0,      2,      0,      2,   8064,  217,  226,   44099.99,   44097.07,   44100.31,     22.39,    14,    -15.16
-1.77,       2.8,       2.8,       14042,      0,      2,      0,      2,   8195,  216,  226,   44100.00,   44095.31,   44100.32,     22.96,    16,    -15.76
-1.88,       0.0,       5.7,       15045,      0,      2,      0,      2,   8054,  215,  226,   44100.00,   44100.36,   44100.32,     24.36,    18,    -17.18
-2.01,     -39.7,      45.3,       16048,      0,      2,      0,      2,   8138,  217,  226,   44099.99,   44098.67,   44100.32,     25.23,    19,    -17.71
-1.85,      -5.7,      17.0,       17051,      0,      2,      0,      2,   8063,  218,  226,   44100.00,   44100.22,   44100.32,     25.43,    22,    -18.15
-1.92,       0.0,       0.0,       18054,      0,      2,      0,      2,   8381,  217,  226,   44100.00,   44101.46,   44100.31,     24.62,    23,    -17.42
-1.96,     -17.0,      17.0,       19057,      0,      2,      0,      2,   8479,  216,  226,   44099.99,   44098.06,   44100.32,     24.19,    24,    -16.82
-2.02,     -90.6,      90.6,       20060,      0,      2,      0,      2,   8438,  217,  226,   44100.00,   44097.24,   44100.33,     26.16,    26,    -18.73
-2.01,     -25.5,      25.5,       21063,      0,      2,      0,      2,   8417,  216,  226,   44100.00,   44103.05,   44100.31,     26.16,    26,    -18.97
-2.00,     -19.8,      25.5,       22066,      0,      5,      0,      5,   8121,  217,  226,   44100.00,   44101.97,   44100.32,     26.12,    27,    -18.83
-1.44,       0.0,       0.0,       23069,      0,      5,      0,      5,   8451,  216,  226,   44100.00,   44102.68,   44100.31,     25.49,    30,    -18.37
-1.47,       0.0,       0.0,       24072,      0,      5,      0,      5,   8439,  217,  226,   44100.00,   44102.03,   44100.31,     24.92,    33,    -17.75
-1.50,       0.0,       0.0,       25075,      0,      5,      0,      5,   8401,  214,  226,   44100.00,   44102.00,   44100.32,     24.92,    33,    -17.66
-1.86,       2.8,       8.5,       26078,      0,      5,      0,      5,   7778,  215,  227,   44100.00,   44103.63,   44100.31,     24.66,    35,    -17.62
-1.87,     -17.0,      17.0,       27081,      0,      5,      0,      5,   8489,  217,  226,   44100.00,   44100.92,   44100.32,     24.15,    37,    -16.98
-1.92,      -5.7,      17.0,       28084,      0,      5,      0,      5,   8172,  217,  226,   44100.00,   44100.05,   44100.31,     24.10,    39,    -16.95
-2.00,     -36.8,      36.8,       29087,      0,      5,      0,      5,   8468,  216,  226,   44100.00,   44100.87,   44100.32,     23.94,    41,    -16.64
-1.62,     -11.3,      11.3,       30090,      0,      5,      0,      5,   8433,  218,  226,   44100.00,   44097.75,   44100.28,     23.34,    43,    -16.91
-1.75,       2.8,       2.8,       31093,      0,      5,      0,      5,   8224,  215,  226,   44100.00,   44101.39,   44100.31,     23.21,    44,    -16.05
-1.95,      -2.8,       2.8,       32096,      0,      5,      0,      5,   8472,  216,  226,   44100.00,   44101.39,   44100.31,     22.79,    46,    -15.71
-1.83,    -102.0,     102.0,       33099,      0,      5,      0,      5,   8411,  214,  226,   44100.00,   44100.58,   44100.31,     23.00,    49,    -15.95
-1.48,       0.0,       0.0,       34102,      0,      5,      0,      5,   8419,  209,  226,   44100.00,   44101.87,   44100.31,     23.00,    49,    -15.87
-1.62,       2.8,       2.8,       35105,      0,     11,      0,     11,   8074,  216,  226,   44100.00,   44102.71,   44100.31,     23.07,    50,    -15.92
-1.71,      -2.8,       8.5,       36108,      0,     11,      0,     11,   7835,  216,  227,   44100.00,   44102.47,   44100.32,     23.27,    51,    -15.92
-1.94,      -5.7,       5.7,       37111,      0,     11,      0,     11,   8470,  217,  226,   44100.00,   44102.54,   44100.31,     23.73,    53,    -16.54
-1.95,      -2.8,       2.8,       38114,      0,     11,      0,     11,   8461,  217,  226,   44100.00,   44102.93,   44100.32,     23.78,    54,    -16.56
+      -0.7,       0.0,       0.0,        1003,      0,      0,      0,      0,   6085,  222,  230
+      -0.8,       0.0,       0.0,        2006,      0,      0,      0,      0,   6087,  222,  230
+      -1.1,       0.0,       0.0,        3009,      0,      0,      0,      0,   6078,  223,  230
+      -1.1,       0.0,       0.0,        4012,      0,      0,      0,      0,   6078,  222,  230
+      -1.1,       0.0,       0.0,        5015,      0,      0,      0,      0,   6071,  223,  230
+      -1.1,       0.0,       0.0,        6018,      0,      0,      0,      0,   6081,  223,  230
+      -1.0,       0.0,       0.0,        7021,      0,      0,      0,      0,   6078,  223,  230
+      -0.8,       0.0,       0.0,        8024,      0,      0,      0,      0,   6085,  223,  230
+      -0.3,       0.0,       0.0,        9027,      0,      0,      0,      0,   6111,  224,  230
+      -0.4,       0.0,       0.0,       10030,      0,      0,      0,      0,   6104,  223,  230
+      -0.8,       0.0,       0.0,       11033,      0,      0,      0,      0,   6096,  223,  230
+      -0.5,       0.0,       0.0,       12036,      0,      0,      0,      0,   6094,  224,  230
+      -0.7,       0.0,       0.0,       13039,      0,      0,      0,      0,   6095,  222,  230
+      -0.7,       0.0,       0.0,       14042,      0,      0,      0,      0,   6094,  222,  230
+      -0.2,       0.0,       0.0,       15045,      0,      0,      0,      0,   6111,  223,  230
+      -0.6,       0.0,       0.0,       16048,      0,      2,      0,      2,   6090,  210,  230
+      -0.6,       0.0,       0.0,       17051,      0,      2,      0,      2,   6097,  220,  230
+      -0.5,       0.0,       0.0,       18054,      0,      2,      0,      2,   6097,  224,  230
+      -0.4,       0.0,       0.0,       19057,      0,      2,      0,      2,   6098,  222,  230
+      -0.4,       0.0,       0.0,       20060,      0,      2,      0,      2,   6107,  223,  230
+      -0.4,       0.0,       0.0,       21063,      0,      2,      0,      2,   6111,  222,  230
+      -0.4,       0.0,       0.0,       22066,      0,      3,      0,      3,   6108,  210,  230
+      -0.3,       0.0,       0.0,       23069,      0,      4,      0,      4,   6106,  214,  245
+      -0.4,       0.0,       0.0,       24072,      0,      4,      0,      4,   6104,  232,  245
+      -0.3,       0.0,       0.0,       25075,      0,      4,      0,      4,   6069,  232,  246
+      -0.3,       0.0,       0.0,       26078,      0,      4,      0,      4,   6110,  232,  245
+      -0.3,       0.0,       0.0,       27081,      0,      4,      0,      4,   6088,  231,  245
+      -0.2,       0.0,       0.0,       28084,      0,      4,      0,      4,   6090,  232,  245
 ```
 
-"Sync error in milliseconds" is the average deviation from exact synchronisation. The first line of the example above indicates that the output drifts to 1.95 milliseconds behind exact synchronisation. Sync is allowed to drift by the `general` `drift_tolerance_in_seconds` setting — (± 0.002 seconds) by default — before a correction will be made.
+"Sync error in milliseconds" is the average deviation from exact synchronisation. The first line of the example above indicates that the output is on average 0.7 milliseconds behind exact synchronisation. Sync is allowed to drift by the `general` `drift_tolerance_in_seconds` setting — (± 0.002 seconds) by default — before a correction will be made.
 
-"Net correction in ppm" is actually the net sum of corrections — the number of frame insertions less the number of frame deletions — given as a moving average in parts per million. After an initial settling period, it represents the drift — the divergence between the rate at which frames are generated at the source and the rate at which the output device consumes them. The first line of the example above indicates that the output device is consuming frames 25.9 ppm faster than the source is generating them. The subsequent lines indicate that the stable actual difference in the clocks is around 95 ppm.
+"Net correction in ppm" is actually the net sum of corrections — the number of frame insertions less the number of frame deletions — given as a moving average in parts per million. After an initial settling period, it represents the drift — the divergence between the rate at which frames are generated at the source and the rate at which the output device consumes them. In this case, the drift is negligible, but it can routinely be up to 150 ppm, especially with older machines.
 
 "Corrections in ppm" is the number of frame insertions plus the number of frame deletions (i.e. the total number of corrections), given as a moving average in parts per million. The closer this is to the net corrections, the fewer "unnecessary" corrections that are being made. Third party programs tend to have much larger levels of corrections.
 
-For reference, a drift of one second per day is approximately 11.57 ppm. Left uncorrected, even a drift this small between two audio outputs will be audible after a short time. The above sample is from an iPhone XS Max to a Raspberry Pi Zero W using a Pimoroni pHAT DAC.
+For reference, a drift of one second per day is approximately 11.57 ppm. Left uncorrected, even a drift this small between two audio outputs will be audible after a short time. The above sample is from an iPhone 6 to Shairport Sync running on a WiFi-connected Raspberry Pi 3 using a cheap no-name USB DAC.
 
 It's not unusual to have resend requests, late packets and even missing packets if some part of the connection to the Shairport Sync device is over WiFi. Late packets can sometimes be asked for and received multiple times. Sometimes late packets are sent and arrive too late, but have already been sent and received in time, so weren't needed anyway...
 
-"Min DAC queue size" is the minimum size the queue of samples in the output device's hardware buffer was measured at. It is meant to stand at 0.20 seconds = 8,820 frames at 44,100 frames per second, and will go low if the processor is very busy. If it goes below about 2,000 then it's an indication that the processor can't really keep up.
+"Min DAC queue size" is the minimum size the queue of samples in the output device's hardware buffer was measured at. It is meant to stand at 0.15 seconds = 6,615 frames at 44,100 frames per second, and will go low if the processor is very busy. If it goes below about 2,000 then it's an indication that the processor can't really keep up.
 
 WiFi Issues
 ---------
-If you are using WiFi, you should ensure that WiFi power management is off. See [TROUBLESHOOTING](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md) for more details.
+If you are using WiFi, you should ensure that WiFi power management is off. See [TROUBLESHOOTING](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md) for more details.
 
 Troubleshooting
 ---------------
-Please refer to [TROUBLESHOOTING](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md) for a few hints, contributed by users.
-
+Please refer to [TROUBLESHOOTING](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md) for a few hints, contributed by users.
