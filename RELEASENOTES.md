@@ -1,551 +1,166 @@
-**Enhancements**
-* Add a list of alsa hardware devices found to the alsa backend help section in the `shairport-sync -h` text. (Doesn't work for alsa on FreeBSD/OpenBSD.)
-* Always place D-Bus access policy documents in `/etc/dbus-1/system.d` in Linux, but adhere to the standard for FreeBSD/OpenBSD.
-
-
-Version 3.3rc7
+Version 3.2.2
 ====
-**Enhancements**
-* Improvements to the `MQTT` client -- extra diagnostic messages at run time and at configuration time.
+Please see the [Release Notes for 3.2](https://github.com/mikebrady/shairport-sync/releases/tag/3.2).
 
-Version 3.3rc6
-====
-**Pesky Change You Can't Ignore**
-* The `while_active` setting in the new `disable_standby_mode` has been renamed to `auto`.
-
-**Enhancements**
-* Automatic bit-depth and speed selection for `alsa` output devices has been added and is the default. The greatest bit depth available is selected, and the lowest multiple of 44,100 frames per second is chosen.
-* Improve support for big-endian devices by adding support for `S16_LE`, `S16_BE`, `S24_LE`, `S24_BE`, `S32_LE` and `S32_BE` formats.
-
-Version 3.3rc5
-====
-* Had a bug, sorry -- please go to 3.3rc6 or later.
-
-Version 3.3rc4
-====
-**New Feature**
-* Support is now included for the automatic selection of the interpolation method. If support for `soxr` interpolation is included at configuration time (using the `--with-soxr` at the `./configuration...` step), then `auto` interpolation is made the default interpolation mode. During startup, the time it takes to do two `soxr` interpolations is calculated -- this, in milliseconds, becomes the `soxr_delay_index`. If the `soxr_delay_index` is less than or equal to a new `general` group setting called `soxr_delay_threshold` (default 30), then `soxr` interpolation will be chosen in `auto` mode; otherwise, `basic` interpolation will be chosen.
-
-Version 3.3rc3
-====
-**Minor Enhancement**
-* Calculate the length of the first sequence of frames of silence preceding the audio at the start of a play session a little more carefully to make it somewhat longer. This should make output devices that operate with a fairly large buffer a little less likely to underrun at the start of a session.
-
-Version 3.3rc2
-====
-
-**New Feature**
-* Shairport Sync can now accept AirPlay streams containing uncompressed PCM -- specifically, 16-bit network-endian interleaved stereo, 44,100 frames per second. There is a restricton -- the packets of audio must be 352 frames long.
-
-**Bug Fix**
-* Compatibility has been restored with virtual ALSA devices. Sometimes, an ALSA output device isn't actually a real hardware device -- for example, if PulseAudio is installed in your system, the "default" ALSA output device may in fact a virtual device that provides a route into the PulseAudio sound server for audio from ALSA-compatible applications. Such virtual devices don't always provide the precise delay timing that Shairport Sync uses. The bug fix is to fall back to the standard calls when precise delay timing is not available.
-* If precise delay timing data is not available, the `disable_standby_mode` is turned off, as it relies on high precision timing. 
-
-Version 3.3rc1
-====
-
-**New Feature**
-* If support for `soxr` interpolation is included at configuration time, then `soxr` interpolation is made the default at run time. (This was later changed -- see 3.3rc4.)
-* If support for the Apple ALAC decoder is included at configuration time, then the Apple ALAC decoder is made the default at run time.
-* If support for metadata is included at configuration, then metadata and cover art are both enabled by default at run time.
-(Metadata is enabled if you configure support for metadata, the dbus interface, the MPRIS interface or the MQTT client.)
-
-**Enhancements**
-* MQTT publishes `active_start` and `active_end` events when the active state is entered and exited.
-* Add correction to fix for tinysvcmdns CVE-2017-12130.
-* Partly update man pages.
-
-Version 3.3rc0
-====
-
-Version 3.3rc0 is 3.3d56
-
-Version 3.3d56 to Version 3.3d40
-====
-**New Features**
-* Two new external program/script hooks – `run_this_before_entering_active_state` and `run_this_after_exiting_active_state` are provided for when the system goes active or inactive. Background: Many users use the `run_this_before_play_begins` program hook to turn on an amplifier and the `run_this_after_play_ends` hook to turn it off. A big problem is when another play session starts immediately after a play session ends, causing the amplifier to be switched off and then on again very quickly. This happens, for example, when a YouTube clip ends and the next one begins. To get around this, the concept of an *active state* covering a sequence of play sessions is introduced. When a play session starts, the system goes active, i.e. it enters the active state. When the play session ends, the system remains active for a period determined by the `active_state_timeout` setting, 10 seconds by default. If another play session starts before the period elapses, the system stays active; otherwise the system goes inactive -- it leaves the active state. The two new hooks mentioned above can be used to execute programs/scripts when the system goes active or inactive.
-* A new `alsa`-only `disable_standby_mode` setting, for controlling the Disable Standby feature, can be set to `always`, `while_active` or `never`. The `always` setting is recommended for systems where the output device is dedicated to Shairport Sync. The "Disable Standby" state iself can be set or cleared via the D-Bus interface `DisableStandby` property.
-* A new command-line option, `-u`, directs logging to STDERR rather than the system log. Useful when you compile Shairport Sync without `libdaemon` using the `--without-libdaemon` configuration option.
-
-**Enhancements**
-* Changes to the Jack Audio back end. The back end for Jack Audio, `audio_jack.c`,  has been extensively rewritten by [Jörn Nettingsmeier](https://github.com/nettings) in a way that is more in keeping with the Jack Audio style. It uses native Jack Audio lockless buffers and offers autoconnect facilities that the previous version didn't have. Many thanks to him.
-* The volume-control software has been completely rewritten. From a user's point of view, the result should be a much smoother response to volume contol changes, free from artefacts. It is now also possible to combine the hardware mixer and the software attenuator in two ways -- giving priority to the software mixer or giving priority to the hardware mixer. see the new `volume_range_combined_hardware_priority` setting in the `general` section opf the configuration file.
-* The muting/unmuting code has been rewritten to be simpler and more consistent.
-* In the `alsa` backend, new `play()` and `delay()` functions minimise the use of `snd_pcm_recover()` to prevent unnecessary resets of the output DACs.
-* In the `alsa` backend driver, hardware isn't accessed until the first time it is needed. That is, when Shairport Sync starts up, it no longer needs to access the device momentarily. Instead, it waits for the first use.
-* The `libdaemon` library is now an optional build. It is not necessary for `systemd` systems and can be omitted. Use the `--without-libdaemon` configuration option to leave it out.
-
-**Bug Fixes**
-* The `mdns-external` method used to advertise the Shairport Sync AirPlay service on ZeroConf is now an optional build and is omitted by default. Previously it was included with `--with-avahi` and could not be included on its own.
-* A number of memory leaks associated with the use of OpenSSL have been fixed.
-* Use CLOCK_RUNTIME in place of CLOCK_MONOTONIC when doing synchronisation timing using the alsa library prior to 1.0.28. Necessary for compabibility with OpenWRT Barrier Breaker.
-
-Version 3.3d39 to Version 3.3d38
-====
-
-**New Feature**
-
-A new feature called *Disable Standby* keeps the output DAC in the play state all the time and helps to remove some annoying clicking / popping noises. It is really pretty impressive, especially combined with fixes to the dithering code described below. If you can enable 24- or 32-bit audio output to your output device, you can get even better results.
-
-This is an ALSA-specific attempt to remove the annoying low-level clicking sounds that some output devices make just when they start processing audio and sometimes when they stop. Typically a faint click might be heard just before a play session starts or just before audio resumes after a pause. Similarly, a faint click can sometimes be heard just after a play session ends.
-
-It is extremely difficult to remove these clicks completely from the hardware, so this new feature ensures that the output device avoids situations where these clicks might be generated by *always* playing audio. To accomplish this, if Shairport Sync isn't actually playing anything, audio frames consisting of silence are sent to the output device, keeping it playing. Apart from the initial startup transition, the output device never stops playing and thus never transitions to and from standby mode, avoiding the possibility of generating associated audio disturbances.
-
-To enable this feature, a new `alsa` group setting with the name `disable_standby_mode` is available. (If you do a full `$ sudo make install`, a new sample configuration file with this setting in it is installed at `/etc/shairport-sync.conf.sample` or `/usr/local/etc/shairport-sync.conf.sample`.) 
-
-A downside to this feature is that the output device totally dedicated to Shairport Sync. For this reason, this new feature is disabled by default. 
-
-Note -- this setting is likely to change. It will probably be necessary to modify it somehow to enable it to be used in integrated systems. Your feedback would be welcome.
-
-**Enhancements and Bug Fixes**
-
-* At present, Shairport Sync adds dither to the audio (a) if the built-in software-based volume control is used, (b) if the audio is mixed to mono or (3) if there is a reduction in sample size, say from 16- to 8-bit. The code for generating dither has been much improved. Due to a poor pseudo-random number arrangement, the dither noise didn't sound like white noise -- now it does. In addition, if dither is to be added, it is also added to the silence inserted just prior to the start of play, and is also added to the silent frames used to prevent the output device from going into standby mode, if selected.
-
-Version 3.3d37 to Version 3.3d22
-====
-
-These updates are about stability.
-
-**Enhancements and Bug Fixes**
-
-With great help from [gibman](https://github.com/gibman) — see [#772](https://github.com/mikebrady/shairport-sync/issues/772) for the gory details — a myriad of issues have been identified and fixed. In particular, [gibman](https://github.com/gibman) shared an automated way of stress-testing Shairport Sync, and this has resulted in the detection of many bugs.
-
-And so, with apologies to Shakespeare, we have taken up arms against a sea of troubles, and by opposing we have ended them. It is hoped that the result is considerably more stable and can better withstand the, uh, slings and arrows of outrageous fortune.
-
-Here is a flavour of some of the issues addressed:
-* Replace the existing watchdog, which only offered partial coverage, with a much more robust thread-based watchdog.
-* Allow a reported remote processing time of zero.
-* Fix a logical error that could cause an endless loop during a flush.
-* Ensure a player thread is correctly initialised before allowing it to be cancelled cleanly.
-* Ensure the player thread always has a cancellation point so that it should always be possible to ask it to terminate.
-* If a play session is interrupted, wait for it to terminate for up to three seconds.
-* If a play session is interrupted, ensure the new session uses a different set of UDP ports. This is to ensure that data from the interrupted session – which might be still in transit – doesn't enter the new session.
-* Make all ALSA command sequences un-cancellable. This is to ensure that ALSA subsystem will not be left in a partially-initialised state if Shairport Sync terminates abruptly.
-* When a connection is terminated abruptly, ensure that all the UDP ports is use are closed properly. 
-* Impose timeouts on both reading and writing to the supervisory RTSP connection governing a session.
-* When closing the RTSP connection due to an error, close it immediately, without waiting for a full TCP handshake, because, if the other end has erred, the handshake may never come.
-* Fix a parameter initialisation error in a situation where there is no hardware mixer.
-* Fix an MQTT-related crash by ignoring unrecognised commands.
-* Fix a compilation error and a warning when using the `--with-convolution` configuration option.
-
-**New Feature**
-* A new `run_this_if_an_unfixable_error_is_detected` (in the `sessioncontrol` group of settings) program hook is provided. At the moment, two conditions can trigger this. The first is if the watchdog is unable to terminate a play session. The second is if the output device stalls for a long period. Both conditions can be caused by malfunctioning DACs. The external program could, for example, reboot the device.
-
-Version 3.3d21
-====
-**Enhancements**
-* Use `/dev/urandom` rather than `/dev/random` as a source of some kind of randomness for the cryptographic "nonce" used in AirPlay password exchange, as `/dev/random` blocks occasionally. Please see [here](https://unix.stackexchange.com/questions/324209/when-to-use-dev-random-vs-dev-urandom) for a discussion of the merits of both. The effect of `/dev/random`'s blocking on Shairport Sync was to make the source of randomness somewhat less random. (By the way, you should never use an important password as an AirPlay password for Shairport Sync -- it is stored in Shairport Sync's configuration file in plain text.)
-
-Version 3.3d20
-====
-**Enhancements**
-* The code that deals with packet loss resulting from network problems has been completely rewritten. The reason is that, while the old code worked quite well, it could be overwhelmed if the network problems were very serious. The new code is simpler and more robust in testing so far. This code interacts with the code for flushing audio before and after a play session, so it may have introduced regressions.
-* The build instructions have been changed to avoid compiler warnings coming from automatically-generated code produced for the D-Bus-based interfaces.
-* Warnings are now logged if the ALSA subsystem fails to recover properly after an error has been cleared.
-
-**Bug Fix**
-* A compilation problem in OpenBSD has been fixed by changing the order of some include files.
-
-Version 3.3d16
-====
 **Enhancement**
-* Extend the range of `audio_backend_latency_offset_in_seconds` to ± 1.75 seconds. Note that no sanity checking of any kind is done on this – if it is too large the program may simply crash.
-
-* Pay more attention to errors that may occur when asking for the DAC delay just before play starts. For diagnostic use.
+* Latency calculations have been updated to accommodate changes in iOS 12 and AirPlay connections from macOS Mojave. Thanks to [artenverho](https://github.com/artenverho) who first reported the issue.
 
 * Formatting of the settings file `shairport-sync.conf` has been fixed, thanks to the work of [roblan](https://github.com/roblan).
 
-Version 3.3d15
+**Bug Fix**
+* Fixed a problem that prevented the `run_this_when_volume_is_set` script or program from running when the volume control is changed. Thanks to [shaven](https://github.com/shaven) for the report.
+
+Version 3.2.1
+====
+
+**Bug Fix**
+* Fix a bug that was causing problems when `soxr` interpolation was chosen. Problems included instability during or after a play session and possibly an extremely slight click on very loud audio. Thanks are due to [hanaguro](https://github.com/hanaguro), [FnasBas](https://github.com/FnasBas), [priitohlo](https://github.com/priitohlo), [David Krmpotić](https://github.com/davidhq) and [artenverho](https://github.com/artenverho).
+
+Version 3.2
+====
+Version 3.2 is equivalent to 3.2RC13.
+
+Version 3.2RC13
+====
+**Adjustment**
+* Reduce the number of attempts that will be made to have a missing packet resent. It seems that in some situations on poor networks, the number of resend requests was causing problems.
+
+Version 3.2RC12
 ====
 **Enhancement**
-* Adjust the latency calculation to accommodate changes in iOS 12 and AirPlay connections from macOS Mojave. Thanks to [artenverho](https://github.com/artenverho) who first reported the issue.
-
-Version 3.3d14
-====
-**Bug Fix**
-* Fix a problem when calling the program to be run when the volume control is changed. Thanks to [shaven](https://github.com/shaven) for the report.
-
-Version 3.3d13
-====
-Reverted to 3.3d11 -- the modification in 3.3d12 was not needed and has been removed.
-
-Version 3.3d11
-====
-**Enhancement**
-* Add a configuration option to specify the PulseAudio output sink. An extra option for the `pa` backend to allow the specification of the audio sink. Thanks to [Maciej Wilczyński](https://github.com/mLupine) for his work on this.
+* Add a "ProgressString" property to the native D-Bus interface.
 
 **Bug Fix**
-* Remove unrecognised options from FreeBSD and OpenBSD compilation instructions.
+* Some code added in RC11 to monitor mutex lock times was causing some annoying issues -- fixed.
 
-Version 3.3d10
+Version 3.2RC11
 ====
-Modify the `jack` interface to ignore the latencies of any ports connected to the `jack` end. This is because it does not seem appropriate to try to compensate for the delays in the `jack` system. Not sure if this is the correct approach... Maybe it's better to allow the user to select no compensation, compensate for the lowest latency or compensate for the highest latency; it seems unnecessarily complex, not really the business of Shairport Sync.
-
-Version 3.3d9
-====
-Many changes to compilation and linking flags. Stop using `HAVE_*` flags except where necessary, use `CONFIG_*` for optional stuff, use `HAS_*` for immediate definitions to be used during configuration, use `USE_*` for Automake definitions. Probably introduced bugs, sigh.
-
-Version 3.3d8
-====
-**Bug Fix**
-* Ensure the compiler flag `HAVE_LIBSOXR` is defined if the `--with-soxr` configuration flag is used and `pkg-config` is in use.
-
-Version 3.3d7
-====
-* Remove the "rolling" requirement for Jack output to be sent.
-* Set the default buffer size for Jack to 0.5 seconds. This may be temporary!
-
-Version 3.3d6
-====
-An improved [Jack Audio](http://jackaudio.org) backend. Testing notes:
-* At the `./configure` step, include `--with-jack`. This should not require any extra packages or libraries when it is being compiled on an AVLinux machine. No need for any other backend to be included, so you can omit `--with-alsa`, etc.
-* Tested on the latest AVLinux only.
-* Jack Audio will not run correctly on a virtual machine; it will only work properly on a real device.
-* A new set of configuration options is present in the configuration file.
-* The Shairport Sync backend will attempt, every second, to open a client on the Jack server until it succeeds. This behaviour can be stopped or the interval extended with the `jack` `auto_client_open_interval` configuration option.
-* Once a Jack client has been opened by the Shairport Sync backend, it will remain open. This behaviour can be changed with the `jack` `auto_client_disconnect` configuration option.
-* Other Jack congfiguration options include the ability to change the name of the client – `client_name` – and the names of the channels – `left_channel_name` and `right_channel_name`.
-
-Testing needed -- these arrangements may not conform to the norms of the Jack community, so all feedback gratefully received.
-
-Some information, e.g. the true output rate, not implemented yet.
-
-Version 3.3d5
-====
-* Introducing a very rough implementation of a Jack Audio backend. The JACK Audio Connection Kit "provides a basic infrastructure for audio applications to communicate with each other and with audio hardware. Through JACK, users are enabled to build powerful systems for signal processing and music production." 
-
-Version 3.3d4
-====
-* Sometimes `libsoxr` is built to rely on `libavutil`. With the present changes to `configure.ac`, if `libavutil` is present, link to it when linking to `libsoxr`, but if it's not present, don't link to it when linking to `libsoxr`.
-* Add `pgk-config` support to `libsoxr` selection.
-
-Thanks to [Jörg Krause](https://github.com/joerg-krause) for identifying these issues and proposing fixes.
-
-Version 3.3d3
-====
-* Modify the code that synchronises the Shairport Sync system's clock with the source clock to try to take account of the sources's nominal rate, which (oddly, e.g. iTunes on a Mac) might not be exactly 44,100 fps. There may be a 32-bit unsigned overflow error here somewhere!
-
-* Try to interpolate for the measured drift between the standard three-second timing snapshots. These changes make a very slight difference from time to time, of the order of microseconds, and it's not clear yet how reliable the drift interpolation is.
-
-* Add some extra fields to the `statistics` output, including nominal source rate, actual input rate, actual output rate, source clock drift, calculated correction needed in ppm. All these numbers agree to a high degree, but the generation of them is fragile and susceptible to errors when there are problems like underrun, and they are not actually running averages, which would be genuinely useful. But they show promise!
-
 **Bug Fixes**
-* Fix a bug in the `dbus` native interface which would silently switch `soxr` interpolation to `basic`.
-* Fix a mutex lock bug in the metadata hub. No known effects.
 
-Version 3.3d1
-====
-Internal changes are being made for version 3.3 to avoid using `SIGUSR1` and `pthread_kill` to stop threads; the standard `pthread_cancel` and friends are being used instead. This should lead to more reliable and orderly cancellation of sessions and threads. However, it is quite a complex change, so bugs may have been introduced or reactivated. Lots of testing needed.
-
-**Bug Fix**
-* Fix an arithmetic overflow in frame rate calculations that could occur after 2^32 frames – approximately 27 hours at 44,100 frames per second. 
-
-Version 3.3d0
-====
-
-**New Features**
-* Frame rates! Exact input and output frame rates are now included in the `statistics` output. The figures generated are averaged over the entire play session since the last pause/resume, if any, so they should settle down and become more accurate over a long play session, say a couple of hours. Timing is relative to `CLOCK_MONOTONIC`. When your system is connected for an appreciable period to network time, e.g. using an NTP client, `CLOCK_MONOTONIC` is adjusted ("conditioned") to keep time extremely accurately. The calculated output frame rate should be very accurate. The calculated input frame rate will vary considerably over short intervals due to network conditions, but over a long play session it should also become very accurate.
-Timing is done from the start of the play session, or from the resumption of play following a pause. Note that while some audio sources pause and resume between tracks, both iTunes on the Mac and the Music app on iOS play all the tracks on a playlist without pause (so long as the tracks are downloaded and present in the device in time).
-* Add the command `quit` to the MPRIS and the D-Bus interfaces. The main motivation for this is that it makes it easier to search for memory leaks.
-
-**Bug Fixes**
-* A number of memory leaks have been identified and removed.
-* A bogus warning about using the deprecated `general` `statistics` options has been fixed.
-
-Version 3.2d67
-====
-This is equivalent to 3.2.1.
-
-**Bug Fix**
-* Fix a bug causing a crash when `soxr` interpolation was enabled and a play session was stopped. This bug overwrote incorrect memory locations, so depending on what it overwrote, may have been responsible for other inexplicable crashes. Thanks are due to [hanaguro](https://github.com/hanaguro), [FnasBas](https://github.com/FnasBas), [priitohlo](https://github.com/priitohlo), [David Krmpotić](https://github.com/davidhq) and [artenverho](https://github.com/artenverho).
-
-Version 3.2.d66
-====
-This is equivalent to 3.2.
-
-Version 3.2.d65
-====
-**Modification**
-* The algorithm for generating resend requests has been made somewhat more gentle -- a little less insistent.
-
-
-**Bug Chasing**
-* Some very elementary bounds checking on the ANNOUNCE packet is performed: that it is 1024 bytes or less in size and that line lengths remaining after parsing do not turn negative when they should remain positive or be exactly zero.
-
-Version 3.2.d64
-====
-**Enhancement**
-* An extra property has been added to the RemoteControl section of the native Shairport Sync D-Bus interface. It is the "progress" metadata emitted from time to time by the AirPlay source and consisting of RTP timestamps for the start of the current play sequence, the current play point and the end of the play sequence.
-
-**Bug Fix**
-* Code to monitor the amount of time a mutex lock request took is improved.
-
-Version 3.2.d63
-====
-**Enhancement**
-* An [MQTT](https://en.wikipedia.org/wiki/MQTT) client interface is introduced, with support for metadata and for some remote control commands, thanks to the work of [Till Zimmermann](https://github.com/tillz). MQTT is a fairly often used protocol in FOSS home-automation projects (as well as in commercial ones), and as Shairport Sync is often used in these setups, this adds client support for this protocol.
-
-Version 3.2d62
-====
-**Bug Fix**
 * Restore compatibility with Synology AudioStation/5.2. Thanks to [Jörg Krause](https://github.com/joerg-krause) for identifying both the issue itself and the likely location of the fix needed. It's not clear if the problem lies with Shairport Sync or Synology – the fix was to ensure that an RTSP reply was sent in one `SEND` call, which shouldn't be important.
+* Fix a bug that was causing Shairport Sync to hang very occasionally when a play session was ending. This seems to occur under rare circumstances, therefore many thanks to [David Krmpotić](https://github.com/davidhq) both for finding the problem and for his patience in trying out different theories before the bug was finally identified. More long-term work is probably needed here.
 
-Version 3.2d61
+Version 3.2RC10
+====
+**Compatibility Adjustment**
+
+* Disable the use of all hardware mute mechanisms by default, for compatibility with other applications using the same output card.
+* Rename the `alsa` setting `mute_using_playback_switch` to `use_hardware_mute_if_available` and make it control volume-based mute as well as playback-switch-based mute.
+
+Version 3.2RC9
 ====
 **Bug Fix**
-* Add a pthread_cancel cleanup routine to put_packet to unlock the player rw mutex when cancelled. Sincere thanks to [David Krmpotić](https://github.com/davidhq) for help investigating this.
 
-Version 3.2d57, 3.2d58, 3.2d59, 3.2d60 
+* Restore the correct pathname for the Shairport Sync PID file used in FreeBSD and System V Linux installations.
+
+Version 3.2RC8
 ====
-**Bug Chasing**
-* Debug messaging has been enhanced when a `TEARDOWN` message is received.
-* Check both timed and untimed mutex locks and give estimates of how long to wait. Generate debug messages when appropriate.
-* Unlock the `ab_mutex` when sending a resend request.
+**Bug Fixes**
 
-Version 3.2d56
+* Fix a bug causing a play session to hang up on Cygwin 64. Fix a bug that might cause excessive resend requests. Fix a number of other (apparently) silent bugs.
+
+Version 3.2RC7
 ====
-**Enhancement**
-* The `mute_using_playback_switch` setting in the `alsa` group has been replaced by a `use_hardware_mute_if_available`, which defaults to `"no"`. This new setting controls both the playback switch method and the magic volume level method for doing hardware-supported muting.
-If hardware muting is used, the output device will be muted when Shairport Sync releases it, potentially causing problems for other audio programs using the device. To avoid this, `use_hardware_mute_if_available` is disabled by default.
+**Bug Fixes**
 
-**Bug Chasing**
-* A debug message has been enhanced when a `TEARDOWN` message is received.
-
-Version 3.2d55
-====
-**Bug Fix**
-* Flush requests that are received while the player is being initialised or deleted are now ignored. This should prevents two potential (but never seen) lock possibilities.
-
-Version 3.2d54
-====
-**Bug Fix**
-* Prevent packets of audio being added when the play session has ended and the player is being deleted. They are now simply dropped.
-
-Version 3.2d53
-====
-**Bug Fix**
-* Fix an incompatibility with Cygwin 64. It seems that the handling of signals in Cygwin is different to regular "native" Unix/Linux platforms. So, this is an attempt to use `pthread_cancel` calls where possible. In principle it should simplify thread management considerably, so let's see how it goes.
-* Fix an off-by-one error that was generating excessive resend requests.
-
-Version 3.2d51
-====
-* Fix a small bug locking and unlocking the read-write mutex. It might (and in principle, it could) cause a crash.
-
-Version 3.2d50
-====
-* Add a read-write mutex lock to the player thread so that it can't be accessed while it's being created and initialised or while it's being torn down and destroyed. Make external accessor functions acquire a read lock for access. It's "A Good Thing" and it might help the seg fault problem, which I'm afraid still can't reproduce...
-
-Version 3.2d49
-====
-* A few extra debugging messages to try to locate where a segfault is occurring.
-
-Version 3.2d48
-====
-**Bug Fix**
-* A seg fault possibly caused by a dangling pointer has been addressed by making the UDP sockets blocking rather than non-blocking. A two millisecond limit has been put on the sendto calls.
-
-Version 3.2d47
-====
-**Bug Fix**
 * A very subtle bug that would occasionally cause a loud 80 millisecond buzz when a new track was selected has been located and fixed. Thanks to [mistipen](https://github.com/mistepien) and [artenverho](https://github.com/artenverho) for help with this.
 
-Version 3.2d46
+Version 3.2RC6
 ====
+**Bug Fixes**
 
-Update [TROUBLESHOOTING.md](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md) to correspond to 3.2RC6.
+* Restores audio sync with videos on older versions of iOS (prior to iOS 11.2) and macOS by restoring the old way of determining latency for clients identifying with AirPlay user agent strings having a version of 353 (iOS 11.1.2) or earlier. Thanks to [Mmoi-Fr](https://github.com/Mmoi-Fr) for help with this.
 
-Version 3.2d45
-====
-**Enhancement**
-* Restore the old method for calculating latency for older AirPlay sources: an AirPlay source displaying an AirPlay User Agent string verion of 353 or older -- corresponding to iOS 11.1.2 or older -- will add an extra 0.25 seconds to the latency requested. This seems to be right.
-
-Version 3.2d44
+Version 3.2RC5
 ====
 **Bug Fixes**
 * When errors occur sending resend requests, back off for 0.5 seconds, rather than 10 seconds, and make the code actually work.
 * Make the configuration options for including the dbus interface and the mpris interface be `--with-dbus-interface` and `--with-mpris-interface` as expected, not `--with-dbus` and `--with-mpris` as they actually were.
 
-Version 3.2d42
-====
-This version just brings some small changes made to the Release Candidates back into the `development` branch. 
-
-Version 3.2d41
+Version 3.2RC4
 ====
 **Bug Fixes**
-* Fixed a hitherto-silent bug that prevented Shairport Sync working properly with AirAudio. According to the [unofficial standard](https://nto.github.io/AirPlay.html), requests for resending missing packets come from the control port; however, up until now, Shairport Sync sent them on the audio port. All AirPlay sources responded to these improperly-delivered requests except AirAudio, which discards requests that do not come from the correct source. Fixed now, with many thanks to [funtax](https://github.com/funtax) and to [Janusz Kowalczyk](https://github.com/kowalcj0) for bringing the issue to the fore.
+* 3.2RC4 now sends resend requests (correctly) in the control channel rather than (incorrectly) over the audio channel as before. This makes it compatible with AirAudio and also makes it conform to the [Unofficial AirPlay Protocol Specification](https://nto.github.io/AirPlay.html). This bug went unnoticed for so long because other AirPlay sources accept resend requests in the audio channel. Thanks to [funtax](https://github.com/funtax) and to [Janusz Kowalczyk](https://github.com/kowalcj0) for bringing the issue to the fore.
 
-Version 3.2d40
-====
-**Bug Fixes**
-* A number of serious and long-standing bugs have been identified and fixed in the threads that handle audio, control and timing packets. Specifically, if UDP reception or transmission errors occured (a rare occurence on a good network, but possible on noisy or congested networks), the threads would quit. In this way, an error on the reception of the first control packet could mute an entire play session.
-
-**Enhancements**
-* The code used to request the retransmission of missing audio packets has been significantly improved.
-
-Version 3.2d39
+Version 3.2RC3
 ====
 **Enhancements**
-* An extra diagnostic to artificially drop UDP packets to simulate a noisy network has been added. Set the proportion of packets to be dropped in the `diagnostics` section of the configuration file using the tag `drop_this_fraction_of_audio_packets`. The value should be between 0.0 and 1.0. E.g. a value of 0.001 would mean one packet in a thousand would be dropped, on average. Look in the sample configuration file `/etc/shairport-sync.conf.sample` for the added entry.
-* Minimal compatibility with AirAudio has been added / restored. There remains a question about error correction for handling UDP packet loss. Thanks to [Janusz Kowalczyk](https://github.com/kowalcj0) for reporting the issues.
-
-Version 3.2d35
-====
-**Enhancements**
-* More cleaning up of the D-Bus and MPRIS interface messages -- they are quieter now.
-
-**Bug Fix**
-* Thanks are due to [yejun](https://github.com/yejun) for noticing and proposing a fix for the bug that dithering is left on when the volume control is ignored. Audio samples should pass through without alteration. (The fix was already in the `development` branch though.)
-
-Version 3.2d34
-====
-**Enhancements**
-* Better compatibility with TuneBlade -- Shairport Sync honours the latency settings properly now.
-* Big cleanup of D-Bus and MPRIS interface messages -- it's a lot less noisy. More to be done here.
-* The brokey YouTube iOS app, which generates a great deal of invalid metadata (do they even know?), is handled a bit better. If valid metadata is there, Shairport Sync can process it.
-* `clip` and `svip` messages are now only emitted for a play connection, not for all connections (e.g. connections that just enquire if the service is present).
-* `pfls` and `prsm` messages are less frequent, especially when a play session starts.
-
-**Other Developments**
-* Shairport Sync now uses about an extra half megabyte of RAM for compatability with TuneBlade's option to have a very long latency -- up to five seconds.
-
-Version 3.2d33
-====
-A new metadata token -- `'pffr'` -- is emitted when the First Frame of a play session has been Received. Not sure we'll keep it...
-
-Version 3.2d30
-====
-**Enhancements**
-* A "native" D-Bus Remote Control permits remote control of the current AirPlay or iTunes client. It includes status information about whether the remote control connection is viable or not, i.e. whether it can still be used to control the client.
-A remote control connection to the audio client becomes valid when the client starts AirPlaying to Shairport Sync. The connections remains valid until the audio source deselects Shairport Sync for AirPlay, or until the client disappears, or until another client starts AirPlaying to Shairport Sync. It is likely that a time limit will be put on this, so that after, say, 30 minutes of inactivity, the remote contol connection will be dropped.
-
-Version 3.2d29
-====
-**Enhancements**
-* CAR INSTALL and OPENBSD notes added.
-* A barebones "native" D-Bus interface for Shairport Sync permitting control of some diagnostic settings. To be expanded...
-* A partly implemented MPRIS control interface including  play/pause/next/previous/volume and some metadata.
-* Remote control of an iTunes source including play/pause/next/previous/volume.
-* Remote control of an AirPlay source including play/pause/next/previous.
-
-Version 3.2d28
-====
-Continuing the experiments with D-Bus and related DACP support. In this revision, an attempt is made to control the amount of scanning the system does to maintain up-to-date information about a DACP source. As before, please note that the implementation is likely to change greatly or be removed at any time.
-
-**Enhancements**
-* Barebones support added for OpenBSD compilation.
-* Only ask for missing packets to be resent once, and if any error occurs making the request, stop for 10 seconds.
-* Include the `-pthread` flag -- including the pthread library with `-lpthread` isn't always enough.
-
-Version 3.2d26
-====
-
-**Enhancements**
-* Improvements in the documentation relating to scripts -- thanks to [Niklas Janz](https://github.com/Alphakilo).
-* Add optional timing annotations to debug messages -- see the new settings in the diagnostic stanza of the configuration file.
+* Lost UDP packet resending code improved for better performance on busy or congested networks.
 
 **Bug Fixes**
-* Ensure the TEARDOWN of a play session is not delayed by a long sleep timer.
-* Allow more than one ANNOUNCE packet for the same play session. Honour the settings in the most recent one.
-* Move the creation and calling of a player thread from the SETUP handler to the RECORD handler.
-* When closing an ALSA sound device, don't wait for any remaining audio to be output with `snd_pcm_drain`; instead, just drop all remaining frame using `snd_pcm_drop`.
-* TEARDOWN should complete in less than 50 ms.
+* 3.2RC3 removes fixes some important and long-standing bugs that could make Shairport Sync less resilient on noisy or poor quality networks.
 
-Version 3.2d25
+Version 3.2RC2
 ====
-**Enhancement**
-* Better handling of missing timing packets.
-* Improved resnchronisation logic should improve performance with slow-to-download YouTube videos.
-* Shairport Sync will now log an unexpectedy dropped or faulty RTSP connection. This might be useful on noisy networks.
+**Bug Fixes**
+* 3.2RC2 makes Shairport Sync work with AirAudio, removing a crashing bug, and includes some more debugging code.
 
-Version 3.2d24
+Version 3.2RC1
 ====
-**New Feature**
+**Enhancements**
+* Shairport Sync now offers an IPC interface via D-Bus. It provides an incomplete but functional MPRIS interface and also provides a native Shairport Sync interface. Both provide some metadata and some remote control. The native D-Bus interface permits remote control of the current AirPlay or iTunes client. It includes status information about whether the remote control connection is viable or not, i.e. whether it can still be used to control the client. A remote control connection to the audio client becomes valid when the client starts AirPlaying to Shairport Sync. The connections remains valid until the audio source deselects Shairport Sync for AirPlay, or until the client disappears, or until another client starts AirPlaying to Shairport Sync. After 15 minutes of inactivity, the remote contol connection will be dropped. 
+* OpenBSD compatibility. Shairport Sync now compiles on OpenBSD -- please consult the OpenBSD note for details.
 * A new `general` option `volume_control_profile`, for advanced use only, with two options: `"standard"` which uses the standard volume control profile -- this has a higher transfer profile at low volumes and a lower transfer profile at high volumes --  or `"flat"` which uses a uniform transfer profile to linearly scale the output mixer's dB according to the AirPlay volume.
-
-Version 3.2d23
-====
-Continuing the experiments with D-Bus and related DACP support.
-
-**Enhancement**
 * Some DACs have a feature that the lowest permissible "attenuation" value that the built-in hardware mixer can be set to is not an attenuation value at all – it is in fact a command to mute the output completely. Shairport Sync has always checked for this feature, basically in order to ignore it when getting the true range of attenuation values offered by the mixer.
 However, with this enhancement, Shairport Sync can actually use this feature to mute the output where appropriate.
+* Added compatibility with [Swinsian](https://swinsian.com), a Mac music player.
 
-Version 3.2d22
-====
-Continuing the experiments with D-Bus and related DACP support.
-
-**Bug Fix**
+**Bug Fixes**
+* Better AirPlay synchronisation. Older versions of Shairport Sync added an 11,025 frame (0.25 seconds) offset to all the latencies negotiated with the sender. This seems now  incorrect for AirPlay sources. Accordingly, the logic Shairport Sync uses to determine the extra delay has been revised. The result is better sync with videos, e.g, YouTube, while iTunes and ForkedDaapd synchronisation is unaffected.
+* Much faster termination of a play session, leading to increased stability playing YouTube audio, etc.
+* Improved resynchronisation logic should improve performance with slow-to-download YouTube videos.
+* Dithering is now off when ignore_volume_control is true. Thanks to [yejun](https://github.com/yejun) for working on this.
+* Better compatibility with TuneBlade -- Shairport Sync honours the latency settings properly now.
 * Fix timing error when using Airfoil as a source.
+* Better handling of missing timing packets.
+* Shairport Sync will now log an unexpectedy dropped or faulty RTSP connection. This might be useful on noisy networks.
+* Better volume level continuity. In recent versions of iOS (11.2) and mac OS (10.13.2), when play is resumed after a pause, the volume level is not always restored, and, if software volume control is being used, Shairport Sync plays at full volume. This issue has been addressed by storing the last airplay volume setting when a play session ends and using it as a default when a new play session begins.
+* Better mixer compatibility. A bug in the hardware volume control affected output devices that have hardware mixers but that do not allow the volume to be set in dB. One example is the Softvol plugin in ALSA. Shairport Sync failed silently when presented with such a device when hardware volume control is enabled: the volume events have no effect. The bug has been fixed by adding two missing lines of code to the `init()` function in `audio_alsa.c`. Thanks to [Jakub Nabaglo](https://github.com/nbgl) for finding and fixing the bug.
+* A number of bug fixes due to [belboj](https://github.com/belboj). Many thanks for these!
+* Enhancements to the handling of quit requests by threads, thanks(again) to [belboj](https://github.com/belboj)!
 
-Version 3.2d21
-====
-Continuing the experiments with D-Bus and related DACP support. In this revision, [tinyhttp](https://github.com/mendsley/tinyhttp) is now used for sending and retrieving DACP information. Many thanks to [Matthew Endsley](https://github.com/mendsley) for this work on tinyhttp.
-As before, please note that the implementation is likely to change greatly or be removed at any time.
+**Other Changes**
+* `clip` and `svip` metadata messages are now only generated for a play connection, not for all connections (e.g. connections that just enquire if the service is present).
+* `pfls` and `prsm` metadata messages are less frequent, especially when a play session starts.
+* Shairport Sync now uses about an extra half megabyte of RAM for compatability with TuneBlade's option to have a very long latency -- up to five seconds.
+* Only ask for missing packets to be resent once, and if any error occurs making the request, stop for 10 seconds.
+* Include the `-pthread` flag -- including the pthread library with `-lpthread` isn't always enough.
+* Add optional timing annotations to debug messages -- see the new settings in the diagnostic stanza of the configuration file.
 
-Version 3.2d20
-====
-**Bug Fix**
-* Fix silly seg-fault bug in 3.2d19, activated when a DACP record was withdrawn.
+**Updated Documentation**
+* CAR INSTALL and OPENBSD notes added.
+* Improvements in the documentation relating to scripts -- thanks to [Niklas Janz](https://github.com/Alphakilo).
+* Typo fix! Thanks to [corbinsantin](https://github.com/corbinsantin).
 
-Version 3.2d19
+
+
+Version 3.1.7
 ====
+* Stable 3.1.5 and 3.1.6 skipped to synchronise the shairport-sync.spec file contents with the release.
+
 **Enhancement**
-* Add compatibility with [Swinsian](https://swinsian.com), a Mac music player.
+* The metdata output stream can include a `dapo` message carrying the DACP port number to be used when communicating with the DACP remote control. This might be useful because the port number is actually pretty hard to find and requires the use of asynchronous mdns operations. You must be using the Avahi mdns back end.
 
-Version 3.2d18
+Version 3.1.4
 ====
-**Bug Fix**
-* In recent versions of iOS (11.2) and mac OS (10.13.2), when play is resumed after a pause, the volume level is not always restored, and, if software volume control is being used, Shairport Sync plays at full volume. This issue has been addressed by storing the last airplay volume setting when a play session ends and using it as a default when a new play session begins. (This is a more generalised solution than in 3.2d16.)
-* Better AirPlay synchronisation. Older versions of Shairport Sync added an 11,025 frame (0.25 seconds) offset to all the latencies agreed with the sender. This seems now only to be correct for iTunes and ForkedDaapd sources, but incorrect for AirPlay sources. Accordingly, the offset is only added for iTunes and ForkedDaapd. The result is better sync with videos, e.g, YouTube, etc. while iTunes and ForkedDaapd synchronisation is unaffected.
 
-Version 3.2d16
-====
-**Bug Fix**
-* In recent versions of iOS (11.2) and mac OS (10.13.2), when play is resumed after a pause, the volume level is not always restored, and, if software volume control is being used, Shairport Sync plays at full volume. This issue has been addressed by storing the last software volume setting when a play session ends and using it as a default when a new play session begins. 
-
-Version 3.2d15
-====
-**Bug Fix, kind of...**
-* Shairport Sync crashes on Arch Linux with with pulseaudio backend enabled. The cause appears to be a pulseaudio configuration issue, but of course, Shairport Sync shouldn't crash. For the present, the bug fix merely adds an error message before terminating Shairport Sync.
-
-**Enhancements**
-* Still lots of changes and experiments with D-Bus and DACP. As before, please note that the implementation is likely to change greatly or to be removed at any time.
-
-Version 3.2d13
-====
 **Security Update**
 
-The version of `tinysvcmdns` bundled in Shairport Sync has a buffer overflow bug: *"An exploitable heap overflow vulnerability exists in the tinysvcmdns library version 2016-07-18. A specially crafted packet can make the library overwrite an arbitrary amount of data on the heap with attacker controlled values. An attacker needs send a dns packet to trigger this vulnerability."* The vulnerability is addressed  by additional checking on packet sizes. See also [CVE-2017-12087](https://bugs.launchpad.net/bugs/cve/2017-12087) and [Vulnerability in tinysvcmdns](https://bugs.launchpad.net/ubuntu/+source/shairport-sync/+bug/1729668).
+* The version of `tinysvcmdns` bundled in Shairport Sync has a buffer overflow bug: *"An exploitable heap overflow vulnerability exists in the tinysvcmdns library version 2016-07-18. A specially crafted packet can make the library overwrite an arbitrary amount of data on the heap with attacker controlled values. An attacker needs send a dns packet to trigger this vulnerability."* The vulnerability is addressed  by additional checking on packet sizes. See also [CVE-2017-12087](https://bugs.launchpad.net/bugs/cve/2017-12087) and [Vulnerability in tinysvcmdns](https://bugs.launchpad.net/ubuntu/+source/shairport-sync/+bug/1729668).
 Thanks and [Chris Boot](https://github.com/bootc) for fixing this bug.
-
-Version 3.2d12
-====
-Experimenting with an [MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/)-compatible D-Bus interface. A very small number of features have a tentative implementation. As with the Shairport Sync D-Bus interface, please note that the implementation is likely to change greatly or be removed at any time.
-
-Continuing the experiments with D-Bus support, Shairport Sync can now be compiled to have a D-Bus presence on the D-Bus system bus. It presents a small number of properties and can execute a method call which sends a command string to the audio source's DACP port. As before, please note that the implementation is likely to change greatly or be removed at any time.
 
 **Enhancement**
 * The metadata output stream can include a `dapo` message carrying the DACP port number to be used when communicating with the DACP remote control. This might be useful because the port number is actually pretty hard to find and requires the use of asynchronous mdns operations. You must be using the Avahi mdns back end.
 
 **Bug Fix**
-* A bug in the hardware volume control affects output devices that have hardware mixers but that do not allow the volume to be set in dB. One example is the Softvol plugin in ALSA. Shairport Sync fails silently when presented with such a device when hardware volume control is enabled: the volume events have no effect. The bug has been fixed by adding two missing lines of code to the `init()` function in `audio_alsa.c`. Thanks to [Jakub Nabaglo](https://github.com/nbgl) for finding and fixing the bug.
-* A number of bug fixes due to [belboj](https://github.com/belboj). Many thanks for these!
-* Enhancements to the handling of quit requests by threads, thanks(again) to [belboj](https://github.com/belboj)!
 
-**Other Stuff**
-* The directory structure has been rearranged somewhat. Probably will change again...
-* Typo fix! Thanks to [corbinsantin](https://github.com/corbinsantin).
+* Somewhere in version 3.x, the `softvol` plugin got broken as the volume change is not applied anymore. Turned out that, for the `softvol` plugin, no `volume()` and `parameters()` are defined. Thanks to [Jörg Krause](https://github.com/joerg-krause) for locating and fixing this bug.
 
-Version 3.2d8
+Version 3.1.3
 ====
 
-**Bug Fix**
+**Bug Fixes**
 * Fixed a bug that prevented Shairport Sync from starting automatically on systems using the System V startup system (e.g. Ubuntu 14.04). The problem was that the directory to be used – `/var/run/shairport-sync/` – was deleted on power down and needed to be recreated on startup. In it's absence, Shairport Sync would not start and would report a mysterious daemon error \#2.
-
-Version 3.2d7
-====
-This introduces a very experimental [D-Bus](https://en.wikipedia.org/wiki/D-Bus) interface to Shairport Sync. At present, in a very ad-hoc trial arrangement, Shairport Sync provides a system bus D-Bus service enabling a program to get and set Volume, to enable and disable the Loundness Filter and to get and set the Loundness Filter threshold (remember, BTW, the Loudness filter only works with software-based volume control). The implementation is likely to change greatly or be removed at any time. Tested on Ubuntu 16.04 and on Raspbian Stretch.
-Two extra configuration options are provided: `--with-dbus` and `--with-dbus-test-client`. (BTW, the test client is never installed, merely compiled.)
 
 Version 3.1.2
 ====
@@ -609,7 +224,6 @@ Version 3.0.2
 Version 3.0.1
 ====
 This update fixes one alarming and potentially very noisy bug and restores the identification of Shairport Sync as "ShairportSync" so that TuneBlade recognises it as an open source application.
-
 **Bug Fixes**
 * Fixed a bug that was causing Shairport Sync to possibly make a very loud and alarming noise whenever an audio frame was missing.
 * In 2.8.6, a change was made to the way Shairport Sync identified itself, so that it could be recognised by TuneBlade as an open source application and treated preferentially. That change was inadventently lost in the transition from 2.8.6 to 3.0. Now it's restored.
@@ -1049,7 +663,7 @@ http://www.freedesktop.org/software/systemd/man/daemon.html#Installing%20Systemd
 Version 2.7.3 -- Development Version
 ----
 **Bug Fix**
-* The dither code was broken in Shairport Sync and also less than ideal anyway. Fixed and improved. Dither is added whenever you use the software volume control at less than full volume. See http://www.ece.rochester.edu/courses/ECE472/resources/Papers/Lipshitz_1992.pdf for a very influential paper by Lipshitz, Wannamaker and Vanderkooy, 1992. The dither code in Shairport Sync was inherited from Shairport and does not conform to the recommendations in the paper -- specifically the implementation would give one bit of dither where the paper recommends two bits peak-to-peak. The other thing is that the inherited dither code was actually broken in Shairport Sync. So, the new dither code gives a two bit peak-to-peak dither based on a Triangular Probability Distribution Function (TPDF). It sounds like a very low-level white noise, unmodulated by the audio material. It would be nice if it was even lower, but it's better than listening to the artifacts present when dithering is disabled.
+* The dither code was broken in Shairport Sync and was less than ideal anyway. It has been fixed and improved. Dither is added whenever you use the software volume control at less than full volume. See http://www.ece.rochester.edu/courses/ECE472/resources/Papers/Lipshitz_1992.pdf for a very influential paper by Lipshitz, Wannamaker and Vanderkooy, 1992. The dither code in Shairport Sync was inherited from Shairport and does not conform to the recommendations in the paper -- specifically the implementation would give one bit of dither where the paper recommends two bits peak-to-peak. The other thing is that the inherited dither code was actually broken in Shairport Sync. So, the new dither code gives a two bit peak-to-peak dither based on a Triangular Probability Distribution Function (TPDF). It sounds like a very low-level white noise, unmodulated by the audio material. It would be nice if it was even lower, but it's better than listening to the artifacts present when dithering is disabled.
 
 Version 2.7.2 -- Development Version
 ----
