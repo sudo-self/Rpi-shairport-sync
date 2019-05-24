@@ -1,3 +1,24 @@
+Version 3.3
+====
+Version 3.3 is focused on stability improvements and also offers a number of enhancements. Here is a selection of the most important:
+
+**Enhancements**
+* Automatic `alsa` output device speed and format selection. The greatest bit depth and the lowest multiple of 44,100 frames per second settings are chosen automatically by default. Manual selection is still available.
+* Automatic interpolation selection. If the CPU is fast enough, the better-quality `soxr` interpolation method is chosen. Otherwise `basic` interpolation is used. Manual selection is still available.
+* A new `active` state. New hooks are provided to execute programs before entering and after leaving the `active` state which covers sequences of play sessions separated by short intervals. This simplifies amplifier switch-on and switch-off, for example.
+* DAC crackle minimisation. This new feature is intended to minimise pops and crackles caused in some Digital to Analog Converters (DACs) when they transition between active and idle or standby operation. The new `alsa`-only `disable_standby_mode` prevents the DAC entering the standby mode by keeping it active, either permanently or while Shairport Sync is in the active state. This feature is switched off by default.
+* A new backend to interface Shairport Sync to [Jack Audio](http://jackaudio.org), thanks to the work of [Jörn Nettingsmeier](https://github.com/nettings).
+* A new [MQTT](https://en.wikipedia.org/wiki/MQTT) client interface, thanks to the work of [Till Zimmermann](https://github.com/tillz).
+* Changes in logging -- now you should add `-u` to direct log entries to STDERR (typically the console) rather than the system log. For example, to get logs of verbosity 1 to appear on the console: `$ shairport-sync -v -u`.
+* The help menu now lists all `alsa` output devices found.
+* Better support for big-endian CPUs.
+* Shairport Sync accepts AirPlay streams containing CD-quality uncompressed PCM.
+
+**Bug Fixes**
+* Lots of bugs – too many to list here – have been fixed that significantly improve the stability of Shairport Sync. The full list is in the Release Notes.
+
+For more details of enhancements and bug fixes, please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3). Special thanks to [gibman](https://github.com/gibman).
+
 Version 3.2.2
 ====
 Please see the [Release Notes for 3.2](https://github.com/mikebrady/shairport-sync/releases/tag/3.2).

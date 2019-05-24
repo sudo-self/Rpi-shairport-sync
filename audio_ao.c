@@ -121,7 +121,7 @@ static void deinit(void) {
 static void start(__attribute__((unused)) int sample_rate,
                   __attribute__((unused)) int sample_format) {}
 
-static void play(void *buf, int samples) { ao_play(dev, buf, samples * 4); }
+static int play(void *buf, int samples) { return ao_play(dev, buf, samples * 4); }
 
 static void stop(void) {}
 
@@ -129,8 +129,10 @@ audio_output audio_ao = {.name = "ao",
                          .help = &help,
                          .init = &init,
                          .deinit = &deinit,
+                         .prepare = NULL,
                          .start = &start,
                          .stop = &stop,
+                         .is_running = NULL,
                          .flush = NULL,
                          .delay = NULL,
                          .play = &play,

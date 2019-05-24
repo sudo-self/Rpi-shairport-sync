@@ -6,6 +6,8 @@
  * tinysvcmdns - a tiny MDNS implementation for publishing services
  * Copyright (C) 2011 Darell Tan
  * All rights reserved.
+ * Updated many times by Mike Brady (c) 2014 -- 2019
+ * Includes fixes for CVE-12087 and CVE-2017-12130
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -81,6 +83,8 @@ struct name_comp {
 
 // duplicates a name
 inline uint8_t *dup_nlabel(const uint8_t *n) {
+  if (n == NULL)
+    return NULL;
   assert(n[0] <= 63); // prevent mis-use
   return (uint8_t *)strdup((char *)n);
 }
@@ -125,8 +129,8 @@ char *nlabel_to_str(const uint8_t *name) {
   const uint8_t *p;
   size_t buf_len = 256;
 
-  assert(name != NULL);
-
+  if (name == NULL)
+    return NULL;
   label = labelp = malloc(buf_len);
 
   if (label) {
@@ -186,7 +190,9 @@ uint8_t *create_label(const char *txt) {
   int len;
   uint8_t *s;
 
-  assert(txt != NULL);
+  //  assert(txt != NULL);
+  if (txt == NULL)
+    return NULL;
   len = strlen(txt);
   if (len > 63)
     return NULL;
@@ -416,7 +422,7 @@ int rr_list_append(struct rr_list **rr_head, struct rr_entry *rr) {
     if (*rr_head == NULL) {
       *rr_head = node;
     } else {
-      struct rr_list *e = *rr_head, *taile;
+      struct rr_list *e = *rr_head, *taile = NULL;
       for (; e; e = e->next) {
         // already in list - don't add
         if (e->e == rr) {
@@ -426,7 +432,10 @@ int rr_list_append(struct rr_list **rr_head, struct rr_entry *rr) {
         if (e->next == NULL)
           taile = e;
       }
-      taile->next = node;
+      if (taile)
+        taile->next = node;
+      else
+        DEBUG_PRINTF("taile not given a value.\n");
     }
   } else {
     die("can not allocate memory for \"node\" in tinysvcmdns.");
@@ -500,7 +509,7 @@ struct rr_entry *rr_create(uint8_t *name, enum rr_type type) {
 }
 
 void rr_set_nsec(struct rr_entry *rr_nsec, enum rr_type type) {
-  assert(rr_nsec->type = RR_NSEC);
+  assert((rr_nsec->type = RR_NSEC));
   assert((type / 8) < sizeof(rr_nsec->data.NSEC.bitmap));
 
   rr_nsec->data.NSEC.bitmap[type / 8] = 1 << (7 - (type % 8));
@@ -675,9 +684,12 @@ static size_t mdns_parse_qn(uint8_t *pkt_buf, size_t pkt_len, size_t off, struct
   if (rr)
     memset(rr, 0, sizeof(struct rr_entry));
   else
-    die("could not allocate memory for \"rr\" in tinysvcmdns");
+    goto err;
 
   name = uncompress_nlabel(pkt_buf, pkt_len, off);
+  if (name == NULL)
+    goto err;
+
   p += label_len(pkt_buf, pkt_len, off);
   rr->name = name;
 
@@ -691,6 +703,10 @@ static size_t mdns_parse_qn(uint8_t *pkt_buf, size_t pkt_len, size_t off, struct
   rr_list_append(&pkt->rr_qn, rr);
 
   return p - (pkt_buf + off);
+
+err:
+  free(rr);
+  return 0;
 }
 
 // parse the MDNS RR section
@@ -713,10 +729,13 @@ static size_t mdns_parse_rr(uint8_t *pkt_buf, size_t pkt_len, size_t off, struct
   if (rr)
     memset(rr, 0, sizeof(struct rr_entry));
   else
-    die("could not allocate memory for \"rr (2)\" in tinysvcmdns");
+    goto err;
 
   name = uncompress_nlabel(pkt_buf, pkt_len, off);
-  p += label_len(pkt_buf, pkt_len, off);
+  if (name == NULL)
+    goto err;
+
+  // parse the MDNS RR section  p += label_len(pkt_buf, pkt_len, off);
   rr->name = name;
 
   rr->type = mdns_read_u16(p);
@@ -819,6 +838,10 @@ static size_t mdns_parse_rr(uint8_t *pkt_buf, size_t pkt_len, size_t off, struct
   rr_list_append(&pkt->rr_ans, rr);
 
   return p - (pkt_buf + off);
+
+err:
+  free(rr);
+  return 0;
 }
 
 // parse a MDNS packet into an mdns_pkt struct

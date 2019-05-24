@@ -1,3 +1,4 @@
+
 Shairport Sync
 =============
 Shairport Sync is an AirPlay audio player – it plays audio streamed from iTunes, iOS, Apple TV and macOS devices and AirPlay sources such as Quicktime Player and [ForkedDaapd](http://ejurgensen.github.io/forked-daapd/), among others.
@@ -6,7 +7,7 @@ Audio played by a Shairport Sync-powered device stays synchronised with the sour
 
 Shairport Sync runs on Linux, FreeBSD and OpenBSD. It does not support AirPlay video or photo streaming.
 
-This is the stable "master" branch. Changes and updates are incorporated into this branch relatively slowly. To access the development version, where all the latest changes are made first, please switch to the "development" branch.
+This document is being updated.
 
 More Information
 ----------
@@ -34,7 +35,7 @@ What else?
 * Hardware Mute — Shairport Sync can mute properly if the hardware supports it.
 * Support for the Apple ALAC decoder.
 * Output bit depths of 8, 16, 24 and 32 bits, rather than the standard 16 bits.
-* Fast Response — With hardware volume control, response is instantaneous; otherwise the response time is 0.15 seconds with `alsa`, 0.35 seconds with `sndio`.
+* Fast Response — With hardware volume control, response is instantaneous; otherwise the response time is 0.20 seconds with `alsa`, 0.35 seconds with `sndio`.
 * Non-Interruptible — Shairport Sync sends back a "busy" signal if it's already playing audio from another source, so other sources can't disrupt an existing Shairport Sync session. (If a source disappears without warning, the session automatically terminates after two minutes and the device becomes available again.)
 * Metadata — Shairport Sync can deliver metadata supplied by the source, such as Album Name, Artist Name, Cover Art, etc. through a pipe or UDP socket to a recipient application program — see https://github.com/mikebrady/shairport-sync-metadata-reader for a sample recipient. Sources that supply metadata include iTunes and the Music app in iOS.
 * Raw Audio — Shairport Sync can deliver raw PCM audio to standard output or to a pipe. This output is delivered synchronously with the source after the appropriate latency and is not interpolated or "stuffed" on its way through Shairport Sync.
@@ -149,7 +150,7 @@ Optional:
 * libsoxr
 * libalac (This is a library containing the Apple ALAC decoder.)
 
-Many Linux distributions have Avahi and OpenSSL already in place, so normally it probably makes sense to choose those options rather than tinysvcmdns or mbed TLS. The `libsoxr` library is available in recent Linux distributions, but it requires lots of processor power — chances are an embedded processor won't be able to keep up.
+Many Linux distributions have Avahi and OpenSSL already in place, so normally it probably makes sense to choose those options rather than tinysvcmdns or mbed TLS. The `libsoxr` library is available in recent Linux distributions, but it requires lots of processor power.
 
 Debian, Ubuntu and Raspbian users can get the basics with:
 
@@ -187,6 +188,7 @@ $ autoreconf -i -f
 - `--with-soundio` include an optional backend module to enable raw audio to be output through the soundio system.
 - `--with-avahi` or `--with-tinysvcmdns` for mdns support. Avahi is a widely-used system-wide zero-configuration networking (zeroconf) service — it may already be in your system. If you don't have Avahi, or similar, then consider including tinysvcmdns, which is a tiny zeroconf service embedded inside the shairport-sync application itself. To enable multicast for `tinysvcmdns`, you may have to add a default route with the following command: `route add -net 224.0.0.0 netmask 224.0.0.0 eth0` (substitute the correct network port for `eth0`). You should not have more than one zeroconf service on the same system — bad things may happen, according to RFC 6762, §15.
 - `--with-ssl=openssl`, `--with-ssl=mbedtls` or `--with-ssl=polarssl` (deprecated) for encryption and related utilities using either OpenSSL, mbed TLS or PolarSSL.
+- `--with-libdaemon` include a demonising library needed if you want to be able to demonise Shairport Sync with the `-d` option. Not needed for `systemd`-based systems which demonise programs differently.
 - `--with-soxr` for libsoxr-based resampling.
 - `--with-piddir` for specifying where the PID file should be stored. This directory is normally chosen automatically. The directory must be writable. If you use this option, you may have to edit the init script to search for the PID file in your new location.
 - `--with-metadata` to add support for Shairport Sync to pipe metadata to a compatible application of your choice. See https://github.com/mikebrady/shairport-sync-metadata-reader for a sample metadata reader.
@@ -242,7 +244,7 @@ SYNOPSIS
 
 ...
 ```
-If your system is definitely a `systemd` system, choose `--with-systemd` below. Otherwise, choose `--with-systemv`.
+If your system is definitely a `systemd` system, choose `--with-libdaemon --with-systemd` below. Otherwise, choose `--with-systemv`.
 
 **Choose the location of the configuration file**
 
@@ -255,7 +257,7 @@ Here is a recommended set of configuration options suitable for Linux installati
 `$ ./configure --sysconfdir=/etc --with-alsa --with-pa --with-avahi --with-ssl=openssl --with-metadata --with-soxr --with-systemd`
 
 * Omit the `--with-soxr` if the libsoxr library is not available.
-* For installation into a System V system, replace the `--with-systemd` with `--with-systemv`.
+* For installation into a System V system, replace the `--with-systemd` with `--with-libdaemon --with-systemv`.
 * If you intend to use Shairport Sync with PulseAudio in the standard user mode, it can not be a system service, so you should omit both `--with-systemd` and `--with-systemv`.
 
 **Build and Install the Application:**
@@ -312,14 +314,13 @@ For the ALSA backend you may need to (c) specify the output device to use and (d
 
 Shairport Sync reads settings from a configuration file at `/etc/shairport-sync.conf` (note that in FreeBSD it will be at `/usr/local/etc/shairport-sync.conf`). When you run `$sudo make install`, a sample configuration file is installed or updated at `/etc/shairport-sync.conf.sample` (`/usr/local/etc/shairport-sync.conf.sample` in FreeBSD). This contains all the setting groups and all the settings available, but they all are commented out (comments begin with `//`) so that default values are used. The file contains explanations of the settings, useful hints and suggestions. In addition, if the file doesn't already exist, a default configuration is installed, which should work in almost any system with a sound card.
 
-Settings in the configuration file are grouped. For instance, there is a `general` group within which you can use the `name` tag to set the service name. Suppose you wanted to set the name of the service to `Front Room`, give the service the password `secret` and use `libsoxr` interpolation, then you should do the following:
+Settings in the configuration file are grouped. For instance, there is a `general` group within which you can use the `name` tag to set the service name. Suppose you wanted to set the name of the service to `Front Room` asd give the service the password `secret`, then you should do the following:
 
 ```
 general =
 {
   name = "Front Room";
   password = "secret";
-  interpolation = "soxr";
   // ... other general settings
 };
 ```
@@ -430,11 +431,10 @@ alsa = {
 };
 ```
 
-Here is an example of using soxr-based resampling and driving a Topping TP30 Digital Amplifier, which has an integrated USB DAC and which is connected as audio device `hw:1`:
+Here is an example of driving a Topping TP30 Digital Amplifier, which has an integrated USB DAC and which is connected as audio device `hw:1`:
 ```
 general = {
   name = "Kitchen";
-  interpolation = "soxr";
 };
 
 alsa = {
@@ -590,4 +590,3 @@ If you are using WiFi, you should ensure that WiFi power management is off. See 
 Troubleshooting
 ---------------
 Please refer to [TROUBLESHOOTING](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md) for a few hints, contributed by users.
-

@@ -48,18 +48,21 @@ static void start(int sample_rate, __attribute__((unused)) int sample_format) {
   debug(1, "dummy audio output started at Fs=%d Hz\n", sample_rate);
 }
 
-static void play(__attribute__((unused)) void *buf, __attribute__((unused)) int samples) {}
+static int play(__attribute__((unused)) void *buf, __attribute__((unused)) int samples) {
+  return 0;
+}
 
 static void stop(void) { debug(1, "dummy audio stopped\n"); }
 
-static void help(void) { printf("    There are no options for dummy audio.\n"); }
 
 audio_output audio_dummy = {.name = "dummy",
-                            .help = &help,
+                            .help = NULL,
                             .init = &init,
                             .deinit = &deinit,
+                            .prepare = NULL,
                             .start = &start,
                             .stop = &stop,
+                            .is_running = NULL,
                             .flush = NULL,
                             .delay = NULL,
                             .play = &play,

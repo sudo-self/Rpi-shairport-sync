@@ -23,8 +23,7 @@ DAEMON=@prefix@/bin/$NAME
 # impossible to pass as arguments.
 
 # Instead, we add the arguments directly to the relevant line in the do_start() function below
-
-PIDFILE=/var/run/$NAME.pid
+PIDFILE=/var/run/$NAME/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
 # Exit if the package is not installed
@@ -48,31 +47,19 @@ do_start()
 {
 	# Return
 	#   0 if daemon has been started
-	#   1 if daemon was already running
-	#   2 if daemon could not be started
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null \
-		|| return 1
+	#   1 if PID directory didn't exist and couldn't be created with approproate permission
+	#   2 if daemon was already running
+	#   3 if daemon could not be started
+        [ -e /var/run/shairport-sync ] || ( mkdir -p /var/run/shairport-sync && chown shairport-sync:shairport-sync /var/run/shairport-sync ) || return 1
+	start-stop-daemon -c shairport-sync:shairport-sync --start --quiet --pidfile $PIDFILE --exec $DAEMON --test > /dev/null || return 2
 
-# This script is set to start running after all other services have started.
-# However, if you find that Shairport Sync is still being started before what it needs is ready,
-# uncomment the next line to get the script to wait for three seconds before attempting to start Shairport Sync.
-#	sleep 3
+	# This script is set to start running after all other services have started.
+	# However, if you find that Shairport Sync is still being started before what it needs is ready,
+	# uncomment the next line to get the script to wait for three seconds before attempting to start Shairport Sync.
+	# sleep 3
 
-# Uncomment just one of the following start-stop-daemon lines, or comment them all out and add your own.
-# Shairport Sync will read settings from the configuration file (/etc/shairport-sync.conf by default) and will then apply any command line options.
-# In the default script, the first line is uncommented, selecting daemon mode (-d). Settings will be taken from the configuration file.
-# BTW, if you're using software volume control, you may have to use alsamixer or similar to set the output device's volume to its maximum level first
-# BTW2, you can use alsamixer to find device identifiers (e.g. hw:1) and mixer names (e.g. "Speaker"). No need to change ALSA's defaults.
-# BTW3, the argument after -a is simply the name the shairport service will be visible as.
-	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- -d || return 2
-#	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- -d -a "Topping TP30 or Griffin iMic on Raspberry Pi" -- -d hw:1 -t hardware -c "PCM" || return 2
-#	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- -d -a "'3D Sound' USB Soundcard on Raspberry Pi" -- -d hw:1 -t hardware -c "Speaker" || return 2
-# BTW, that "3D Sound" USB soundcard sometimes has the mixer name "Headphone" rather than "Speaker" -- use alsamixer to check.
-#	start-stop-daemon --start --quiet --pidfile $PIDFILE --exec $DAEMON -- -d -a "IQaudIO" -- -d hw:1 -t hardware -c "Playback Digital" || return 2
-# BTW, newer versions of IQaudIO have a different mixer name -- use alsamixer to check.
-	# Add code here, if necessary, that waits for the process to be ready
-	# to handle requests from services started subsequently which depend
-	# on this one.  As a last resort, sleep for some time.
+	# Settings from the configuration file (@sysconfdir@/shairport-sync.conf by default)
+	start-stop-daemon -c shairport-sync:shairport-sync --start --quiet --pidfile $PIDFILE --exec $DAEMON -- -d || return 3
 }
 
 #

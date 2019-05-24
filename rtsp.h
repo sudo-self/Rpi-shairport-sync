@@ -4,14 +4,18 @@
 #include "player.h"
 
 rtsp_conn_info *playing_conn;
+rtsp_conn_info **conns;
 
 void rtsp_listen_loop(void);
 // void rtsp_shutdown_stream(void);
 void rtsp_request_shutdown_stream(void);
 
-// initialise the metadata stuff
+void cancel_all_RTSP_threads(void);
+
+// initialise and completely delete the metadata stuff
 
 void metadata_init(void);
+void metadata_stop(void);
 
 // sends metadata out to the metadata pipe, if enabled.
 // It is sent with the type 'ssnc' the given code, data and length

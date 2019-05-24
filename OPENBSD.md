@@ -45,7 +45,7 @@ Next, switch to the `development` branch, configure the build and compile it:
 ```
 $ git checkout development
 $ autoreconf -i -f
-$ ./configure --sysconfdir=/etc --with-avahi --with-ssl=openssl --with-sndio --with-os=openbsd
+$ ./configure --sysconfdir=/etc --with-avahi --with-ssl=openssl --with-libdaemon --with-sndio --with-os=openbsd
 $ make
 ```
 The application is called `shairport-sync`. Check that it's running correctly by executing the following command:
@@ -54,7 +54,7 @@ $ ./shairport-sync -V
 ```
 This will execute the application and it will return its version information and terminate, for example:
 ```
-3.2-OpenSSL-Avahi-sndio-sysconfdir:/etc
+3.2-libdaemon-OpenSSL-Avahi-sndio-sysconfdir:/etc
 ```
 There is no make install yet -- you're on your own.
 

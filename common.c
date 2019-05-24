@@ -2,6 +2,7 @@
  * Utility routines. This file is part of Shairport.
  * Copyright (c) James Laird 2013
  * The volume to attenuation function vol2attn copyright (c) Mike Brady 2014
+ * Further changes and additions (c) Mike Brady 2014 -- 2019
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -46,7 +47,7 @@
 #include <mach/mach_time.h>
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 #include <openssl/evp.h>
@@ -54,7 +55,7 @@
 #include <openssl/rsa.h>
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 #include "polarssl/ctr_drbg.h"
 #include "polarssl/entropy.h"
 #include <polarssl/base64.h>
@@ -67,37 +68,100 @@
 #endif
 #endif
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
 #include <mbedtls/base64.h>
 #include <mbedtls/md.h>
 #include <mbedtls/version.h>
 #include <mbedtls/x509.h>
-
 #endif
 
+#ifdef CONFIG_LIBDAEMON
 #include <libdaemon/dlog.h>
+#else
+#include <syslog.h>
+#endif
 
 #ifdef CONFIG_ALSA
 void set_alsa_out_dev(char *);
 #endif
 
+const char * sps_format_description_string_array[] = {"unknown", "S8", "U8" ,"S16", "S16_LE", "S16_BE", "S24", "S24_LE", "S24_BE", "S24_3LE", "S24_3BE", "S32", "S32_LE", "S32_BE", "auto", "invalid" };
+
+const char * sps_format_description_string(enum sps_format_t format) {
+  if ((format >= SPS_FORMAT_UNKNOWN) && (format <= SPS_FORMAT_AUTO))
+    return sps_format_description_string_array[format];
+  else
+    return sps_format_description_string_array[SPS_FORMAT_INVALID];
+}
+
 // true if Shairport Sync is supposed to be sending output to the output device, false otherwise
 
 static volatile int requested_connection_state_to_output = 1;
 
+// this stuff is to direct logging to syslog via libdaemon or directly
+// alternatively you can direct it to stderr using a command line option
+
+#ifdef CONFIG_LIBDAEMON
+static void (*sps_log)(int prio, const char *t, ...) = daemon_log;
+#else
+static void (*sps_log)(int prio, const char *t, ...) = syslog;
+#endif
+
+void do_sps_log(__attribute__((unused)) int prio, const char *t, ...) {
+  char s[1024];
+  va_list args;
+  va_start(args, t);
+  vsnprintf(s, sizeof(s), t, args);
+  va_end(args);
+  fprintf(stderr,"%s\n",s);    
+}
+
+void log_to_stderr() {
+  sps_log = do_sps_log;
+}
+
 shairport_cfg config;
 
-int debuglev = 0;
+volatile int debuglev = 0;
 
 sigset_t pselect_sigset;
+
+int usleep_uncancellable(useconds_t usec) {
+  int response;
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+  response = usleep(usec);
+  pthread_setcancelstate(oldState, NULL);
+  return response;
+}
+
+static uint16_t UDPPortIndex = 0;
+
+void resetFreeUDPPort() {
+  debug(3, "Resetting UDP Port Suggestion to %u", config.udp_port_base);
+  UDPPortIndex = 0;
+}
+
+uint16_t nextFreeUDPPort() {
+  if (UDPPortIndex == 0)
+    UDPPortIndex = config.udp_port_base;
+  else if (UDPPortIndex == (config.udp_port_base + config.udp_port_range - 1))
+    UDPPortIndex = config.udp_port_base + 3; // avoid wrapping back to the first three, as they can
+                                             // be assigned by resetFreeUDPPort without checking
+  else
+    UDPPortIndex++;
+  return UDPPortIndex;
+}
 
 int get_requested_connection_state_to_output() { return requested_connection_state_to_output; }
 
 void set_requested_connection_state_to_output(int v) { requested_connection_state_to_output = v; }
 
 void die(const char *format, ...) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
   uint64_t time_now = get_absolute_time_in_fp();
@@ -113,18 +177,20 @@ void die(const char *format, ...) {
   va_end(args);
 
   if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    daemon_log(LOG_EMERG, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
+    sps_log(LOG_ERR, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
   else if ((debuglev) && (config.debugger_show_relative_time))
-    daemon_log(LOG_EMERG, "% 20.9f|*fatal error: %s", tsl, s);
+    sps_log(LOG_ERR, "% 20.9f|*fatal error: %s", tsl, s);
   else if ((debuglev) && (config.debugger_show_elapsed_time))
-    daemon_log(LOG_EMERG, "% 20.9f|*fatal error: %s", tss, s);
+    sps_log(LOG_ERR, "% 20.9f|*fatal error: %s", tss, s);
   else
-    daemon_log(LOG_EMERG, "fatal error: %s", s);
-  shairport_shutdown();
-  exit(1);
+    sps_log(LOG_ERR, "fatal error: %s", s);  
+  pthread_setcancelstate(oldState, NULL);
+  abort(); // exit() doesn't always work, by heaven.
 }
 
 void warn(const char *format, ...) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
   uint64_t time_now = get_absolute_time_in_fp();
@@ -138,20 +204,22 @@ void warn(const char *format, ...) {
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-
   if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    daemon_log(LOG_WARNING, "|% 20.9f|% 20.9f|*warning: %s", tss, tsl, s);
+    sps_log(LOG_WARNING, "|% 20.9f|% 20.9f|*warning: %s", tss, tsl, s);
   else if ((debuglev) && (config.debugger_show_relative_time))
-    daemon_log(LOG_WARNING, "% 20.9f|*warning: %s", tsl, s);
+    sps_log(LOG_WARNING, "% 20.9f|*warning: %s", tsl, s);
   else if ((debuglev) && (config.debugger_show_elapsed_time))
-    daemon_log(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
+    sps_log(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
   else
-    daemon_log(LOG_WARNING, "%s", s);
+    sps_log(LOG_WARNING, "%s", s);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void debug(int level, const char *format, ...) {
   if (level > debuglev)
     return;
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
   uint64_t time_now = get_absolute_time_in_fp();
@@ -166,23 +234,41 @@ void debug(int level, const char *format, ...) {
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
   if ((config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    daemon_log(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
+    sps_log(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
   else if (config.debugger_show_relative_time)
-    daemon_log(LOG_DEBUG, "% 20.9f|%s", tsl, s);
+    sps_log(LOG_DEBUG, "% 20.9f|%s", tsl, s);
   else if (config.debugger_show_elapsed_time)
-    daemon_log(LOG_DEBUG, "% 20.9f|%s", tss, s);
+    sps_log(LOG_DEBUG, "% 20.9f|%s", tss, s);
   else
-    daemon_log(LOG_DEBUG, "%s", s);
+    sps_log(LOG_DEBUG, "%s", s);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void inform(const char *format, ...) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char s[1024];
   s[0] = 0;
+  uint64_t time_now = get_absolute_time_in_fp();
+  uint64_t time_since_start = time_now - fp_time_at_startup;
+  uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
+  fp_time_at_last_debug_message = time_now;
+  uint64_t divisor = (uint64_t)1 << 32;
+  double tss = 1.0 * time_since_start / divisor;
+  double tsl = 1.0 * time_since_last_debug_message / divisor;
   va_list args;
   va_start(args, format);
   vsnprintf(s, sizeof(s), format, args);
   va_end(args);
-  daemon_log(LOG_INFO, "%s", s);
+  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
+    sps_log(LOG_INFO, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
+  else if ((debuglev) && (config.debugger_show_relative_time))
+    sps_log(LOG_INFO, "% 20.9f|%s", tsl, s);
+  else if ((debuglev) && (config.debugger_show_elapsed_time))
+    sps_log(LOG_INFO, "% 20.9f|%s", tss, s);
+  else
+    sps_log(LOG_INFO, "%s", s);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 // The following two functions are adapted slightly and with thanks from Jonathan Leffler's sample
@@ -233,7 +319,7 @@ int mkpath(const char *path, mode_t mode) {
   return (status);
 }
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 char *base64_enc(uint8_t *input, int length) {
   char *buf = NULL;
   size_t dlen = 0;
@@ -286,7 +372,7 @@ uint8_t *base64_dec(char *input, int *outlen) {
 }
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 char *base64_enc(uint8_t *input, int length) {
   char *buf = NULL;
   size_t dlen = 0;
@@ -339,8 +425,10 @@ uint8_t *base64_dec(char *input, int *outlen) {
 }
 #endif
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 char *base64_enc(uint8_t *input, int length) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   BIO *bmem, *b64;
   BUF_MEM *bptr;
   b64 = BIO_new(BIO_f_base64());
@@ -348,7 +436,7 @@ char *base64_enc(uint8_t *input, int length) {
   b64 = BIO_push(b64, bmem);
   BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
   BIO_write(b64, input, length);
-  BIO_flush(b64);
+  (void) BIO_flush(b64);
   BIO_get_mem_ptr(b64, &bptr);
 
   char *buf = (char *)malloc(bptr->length);
@@ -359,12 +447,15 @@ char *base64_enc(uint8_t *input, int length) {
     buf[bptr->length - 1] = 0;
   }
 
-  BIO_free_all(bmem);
+  BIO_free_all(b64);
 
+  pthread_setcancelstate(oldState, NULL);
   return buf;
 }
 
 uint8_t *base64_dec(char *input, int *outlen) {
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   BIO *bmem, *b64;
   int inlen = strlen(input);
 
@@ -377,7 +468,7 @@ uint8_t *base64_dec(char *input, int *outlen) {
   BIO_write(bmem, input, inlen);
   while (inlen++ & 3)
     BIO_write(bmem, "=", 1);
-  BIO_flush(bmem);
+  (void) BIO_flush(bmem);
 
   int bufsize = strlen(input) * 3 / 4 + 1;
   uint8_t *buf = malloc(bufsize);
@@ -385,9 +476,10 @@ uint8_t *base64_dec(char *input, int *outlen) {
 
   nread = BIO_read(b64, buf, bufsize);
 
-  BIO_free_all(bmem);
+  BIO_free_all(b64);
 
   *outlen = nread;
+  pthread_setcancelstate(oldState, NULL);
   return buf;
 }
 #endif
@@ -417,10 +509,11 @@ static char super_secret_key[] =
     "2gG0N5hvJpzwwhbhXqFKA4zaaSrw622wDniAK5MlIE0tIAKKP4yxNGjoD2QYjhBGuhvkWKY=\n"
     "-----END RSA PRIVATE KEY-----\0";
 
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
-  static RSA *rsa = NULL;
-
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+  RSA *rsa = NULL;
   if (!rsa) {
     BIO *bmem = BIO_new_mem_buf(super_secret_key, -1);
     rsa = PEM_read_bio_RSAPrivateKey(bmem, NULL, NULL, NULL);
@@ -438,11 +531,13 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
   default:
     die("bad rsa mode");
   }
+  RSA_free(rsa);
+  pthread_setcancelstate(oldState, NULL);
   return out;
 }
 #endif
 
-#ifdef HAVE_LIBMBEDTLS
+#ifdef CONFIG_MBEDTLS
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
   mbedtls_pk_context pkctx;
   mbedtls_rsa_context *trsa;
@@ -499,7 +594,7 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
 }
 #endif
 
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_POLARSSL
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
   rsa_context trsa;
   const char *pers = "rsa_encrypt";
@@ -554,7 +649,26 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
 }
 #endif
 
+int config_set_lookup_bool(config_t *cfg, char *where, int *dst) {
+  const char *str = 0;
+  if (config_lookup_string(cfg, where, &str)) {
+    if (strcasecmp(str, "no") == 0) {
+      (*dst) = 0;
+      return 1;
+    } else if (strcasecmp(str, "yes") == 0) {
+      (*dst) = 1;
+      return 1;
+    } else {
+      die("Invalid %s option choice \"%s\". It should be \"yes\" or \"no\"", where, str);
+      return 0;
+    }
+  } else {
+    return 0;
+  }
+}
+
 void command_set_volume(double volume) {
+  // this has a cancellation point if waiting is enabled
   if (config.cmd_set_volume) {
     /*Spawn a child to run the program.*/
     pid_t pid = fork();
@@ -582,7 +696,7 @@ void command_set_volume(double volume) {
           execv(argV[0], argV);
           warn("Execution of on-set-volume command \"%s\" failed to start", config.cmd_set_volume);
           // debug(1, "Error executing on-set-volume command %s", config.cmd_set_volume);
-          exit(127); /* only if execv fails */
+          exit(EXIT_FAILURE); /* only if execv fails */
         }
       }
 
@@ -601,6 +715,7 @@ void command_set_volume(double volume) {
 }
 
 void command_start(void) {
+  // this has a cancellation point if waiting is enabled or a response is awaited
   if (config.cmd_start) {
     pid_t pid;
     int pipes[2];
@@ -636,14 +751,15 @@ void command_start(void) {
         execv(argV[0], argV);
         warn("Execution of on-start command failed to start");
         debug(1, "Error executing on-start command %s", config.cmd_start);
-        exit(127); /* only if execv fails */
+        exit(EXIT_FAILURE); /* only if execv fails */
       }
     } else {
       if (config.cmd_blocking || config.cmd_start_returns_output) { /* pid!=0 means parent process
                                     and if blocking is true, wait for
                                     process to finish */
         pid_t rc = waitpid(pid, 0, 0);                              /* wait for child to exit */
-        if (rc != pid) {
+        if ((rc != pid) && (errno != ECHILD)) {
+          // In this context, ECHILD means that the child process has already completed, I think!
           warn("Execution of on-start command returned an error.");
           debug(1, "on-start command %s finished with error %d", config.cmd_start, errno);
         }
@@ -666,38 +782,52 @@ void command_start(void) {
     }
   }
 }
+void command_execute(const char *command, const char *extra_argument, const int block) {
+  // this has a cancellation point if waiting is enabled
+  if (command) {
+    char new_command_buffer[1024];
+    char *full_command = (char *)command;
+    if (extra_argument != NULL) {
+      memset(new_command_buffer, 0, sizeof(new_command_buffer));
+      snprintf(new_command_buffer, sizeof(new_command_buffer), "%s %s", command, extra_argument);
+      full_command = new_command_buffer;
+    }
 
-void command_stop(void) {
-  if (config.cmd_stop) {
     /*Spawn a child to run the program.*/
     pid_t pid = fork();
     if (pid == 0) { /* child process */
       int argC;
       char **argV;
-      // debug(1,"on-stop command found.");
-      if (poptParseArgvString(config.cmd_stop, &argC, (const char ***)&argV) !=
+      if (poptParseArgvString(full_command, &argC, (const char ***)&argV) !=
           0) // note that argV should be free()'d after use, but we expect this fork to exit
              // eventually.
-        debug(1, "Can't decipher on-stop command arguments");
+        debug(1, "Can't decipher command arguments in \"%s\".", full_command);
       else {
-        // debug(1,"Executing on-stop command %s",config.cmd_stop);
+        // debug(1,"Executing command %s",full_command);
         execv(argV[0], argV);
-        warn("Execution of on-stop command failed to start");
-        debug(1, "Error executing on-stop command %s", config.cmd_stop);
-        exit(127); /* only if execv fails */
+        warn("Execution of command \"%s\" failed to start", full_command);
+        debug(1, "Error executing command \"%s\".", full_command);
+        exit(EXIT_FAILURE); /* only if execv fails */
       }
     } else {
-      if (config.cmd_blocking) { /* pid!=0 means parent process and if blocking is true, wait for
+      if (block) { /* pid!=0 means parent process and if blocking is true, wait for
                                     process to finish */
         pid_t rc = waitpid(pid, 0, 0); /* wait for child to exit */
-        if (rc != pid) {
-          warn("Execution of on-stop command returned an error.");
-          debug(1, "Stop command %s finished with error %d", config.cmd_stop, errno);
+        if ((rc != pid) && (errno != ECHILD)) {
+          // In this context, ECHILD means that the child process has already completed, I think!
+          warn("Execution of command \"%s\" returned an error.", full_command);
+          debug(1, "Command \"%s\" finished with error %d", full_command, errno);
         }
       }
-      // debug(1,"Continue after on-stop command");
+      // debug(1,"Continue after on-unfixable command");
     }
   }
+}
+
+void command_stop(void) {
+  // this has a cancellation point if waiting is enabled
+  if (config.cmd_stop)
+    command_execute(config.cmd_stop, "", config.cmd_blocking);
 }
 
 // this is for reading an unsigned 32 bit number, such as an RTP timestamp
@@ -732,21 +862,17 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
 
 double vol2attn(double vol, long max_db, long min_db) {
 
-// We use a little coordinate geometry to build a transfer function from the volume passed in to the
-// device's dynamic range.
-// (See the diagram in the documents folder.)
-// The x axis is the "volume in" which will be from -30 to 0. The y axis will be the "volume out"
-// which will be from the bottom of the range to the top.
-// We build the transfer function from one or more lines. We characterise each line with two
-// numbers:
-// the first is where on x the line starts when y=0 (x can be from 0 to -30); the second is where on
-// y the line stops when when x is -30.
-// thus, if the line was characterised as {0,-30}, it would be an identity transfer.
-// Assuming, for example, a dynamic range of lv=-60 to hv=0
-// Typically we'll use three lines -- a three order transfer function
-// First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
-// Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
-// Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
+  // We use a little coordinate geometry to build a transfer function from the volume passed in to
+  // the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
+  // "volume in" which will be from -30 to 0. The y axis will be the "volume out" which will be from
+  // the bottom of the range to the top. We build the transfer function from one or more lines. We
+  // characterise each line with two numbers: the first is where on x the line starts when y=0 (x
+  // can be from 0 to -30); the second is where on y the line stops when when x is -30. thus, if the
+  // line was characterised as {0,-30}, it would be an identity transfer. Assuming, for example, a
+  // dynamic range of lv=-60 to hv=0 Typically we'll use three lines -- a three order transfer
+  // function First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
+  // Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
+  // Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
 
 #define order 3
 
@@ -838,7 +964,8 @@ uint64_t get_absolute_time_in_fp() {
   return time_now_fp;
 }
 
-ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
+ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, int timeout) {
+  // timeout is in milliseconds
   void *ibuf = (void *)buf;
   size_t bytes_remaining = count;
   int rc = 1;
@@ -847,7 +974,7 @@ ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
     // check that we can do some writing
     ufds[0].fd = fd;
     ufds[0].events = POLLOUT;
-    rc = poll(ufds, 1, 5000);
+    rc = poll(ufds, 1, timeout);
     if (rc < 0) {
       // debug(1, "non-blocking write error waiting for pipe to become ready for writing...");
     } else if (rc == 0) {
@@ -858,18 +985,22 @@ ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
       ssize_t bytes_written = write(fd, ibuf, bytes_remaining);
       if (bytes_written == -1) {
         // debug(1,"Error %d in non_blocking_write: \"%s\".",errno,strerror(errno));
-        rc = -1;
+        rc = bytes_written; // to imitate the return from write()
       } else {
         ibuf += bytes_written;
         bytes_remaining -= bytes_written;
       }
     }
   }
-  if (rc == 0)
+  if (rc > 0)
     return count - bytes_remaining; // this is just to mimic a normal write/3.
   else
     return rc;
   //  return write(fd,buf,count);
+}
+
+ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
+  return non_blocking_write_with_timeout(fd,buf,count,5000); // default is 5 seconds.
 }
 
 /* from
@@ -948,9 +1079,7 @@ uint64_t r64u() { return (ranval(&rx)); }
 int64_t r64i() { return (ranval(&rx) >> 1); }
 
 /* generate an array of 64-bit random numbers */
-const int ranarraylength = 1009; // these will be 8-byte numbers.
-
-uint64_t *ranarray;
+const int ranarraylength = 1009 * 203; // these will be 8-byte numbers.
 
 int ranarraynext;
 
@@ -975,9 +1104,11 @@ uint64_t ranarrayval() {
 
 void r64arrayinit() { ranarrayinit(); }
 
-uint64_t ranarray64u() { return (ranarrayval()); }
+// uint64_t ranarray64u() { return (ranarrayval()); }
+uint64_t ranarray64u() { return (ranval(&rx)); }
 
-int64_t ranarray64i() { return (ranarrayval() >> 1); }
+// int64_t ranarray64i() { return (ranarrayval() >> 1); }
+int64_t ranarray64i() { return (ranval(&rx) >> 1); }
 
 uint32_t nctohl(const uint8_t *p) { // read 4 characters from *p and do ntohl on them
   // this is to avoid possible aliasing violations
@@ -1020,6 +1151,8 @@ void sps_nanosleep(const time_t sec, const long nanosec) {
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel) {
 
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   struct timespec tn;
   clock_gettime(CLOCK_REALTIME, &tn);
   uint64_t tnfpsec = tn.tv_sec;
@@ -1048,19 +1181,23 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 
   timeoutTime.tv_sec = time_then;
   timeoutTime.tv_nsec = time_then_nsec;
-
+  int64_t start_time = get_absolute_time_in_fp();
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
+  int64_t et = get_absolute_time_in_fp() - start_time;
 
-  if ((r != 0) && (debugmessage != NULL)) {
+  if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
+    et = (et * 1000000) >> 32; // microseconds
     char errstr[1000];
     if (r == ETIMEDOUT)
       debug(debuglevel,
-            "waiting for a mutex, maximum expected time of %d microseconds exceeded \"%s\".",
-            dally_time, debugmessage);
+            "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
+            "waiting time of %d microseconds. \"%s\".",
+            (1.0 * et) / 1000000, dally_time, debugmessage);
     else
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
   }
+  pthread_setcancelstate(oldState, NULL);
   return r;
 }
 #endif
@@ -1068,17 +1205,20 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel) {
 
-  useconds_t time_to_wait = dally_time;
+  // this is not pthread_cancellation safe because is contains a cancellation point
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+  int time_to_wait = dally_time;
   int r = pthread_mutex_trylock(mutex);
   while ((r == EBUSY) && (time_to_wait > 0)) {
-    useconds_t st = time_to_wait;
+    int st = time_to_wait;
     if (st > 1000)
       st = 1000;
-    sps_nanosleep(0, st * 1000);
+    sps_nanosleep(0, st * 1000); // this contains a cancellation point
     time_to_wait -= st;
     r = pthread_mutex_trylock(mutex);
   }
-  if ((r != 0) && (debugmessage != NULL)) {
+  if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
     char errstr[1000];
     if (r == EBUSY) {
       debug(debuglevel,
@@ -1090,17 +1230,23 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
     }
   }
+  pthread_setcancelstate(oldState, NULL);
   return r;
 }
 #endif
 
-int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *filename,
-                      const int line, int debuglevel) {
+int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexname,
+                      const char *filename, const int line, int debuglevel) {
+  if ((debuglevel > debuglev) || (debuglevel == 0))
+    return pthread_mutex_lock(mutex);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   uint64_t time_at_start = get_absolute_time_in_fp();
   char dstring[1000];
   memset(dstring, 0, sizeof(dstring));
   snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
-  debug(3, "debug_mutex_lock at \"%s\".", dstring);
+  if (debuglevel != 0)
+    debug(3, "mutex_lock \"%s\" at \"%s\".", mutexname, dstring); // only if you really ask for it!
   int result = sps_pthread_mutex_timedlock(mutex, dally_time, dstring, debuglevel);
   if (result == ETIMEDOUT) {
     result = pthread_mutex_lock(mutex);
@@ -1108,37 +1254,54 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
     uint64_t divisor = (uint64_t)1 << 32;
     double delay = 1.0 * time_delay / divisor;
     debug(debuglevel,
-          "debug_mutex_lock at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.", dstring,
-          (1.0 * dally_time) / 1000000, delay);
+          "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.",
+          mutexname, dstring, (1.0 * dally_time) / 1000000, delay);
   }
+  pthread_setcancelstate(oldState, NULL);
   return result;
 }
 
-int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *filename, const int line,
-                        int debuglevel) {
+int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const char *filename,
+                        const int line, int debuglevel) {
+  if ((debuglevel > debuglev) || (debuglevel == 0))
+    return pthread_mutex_unlock(mutex);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char dstring[1000];
   char errstr[512];
   memset(dstring, 0, sizeof(dstring));
   snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
-  debug(debuglevel, "debug_mutex_unlock at \"%s\".", dstring);
+  debug(debuglevel, "mutex_unlock \"%s\" at \"%s\".", mutexname, dstring);
   int r = pthread_mutex_unlock(mutex);
-  if (r != 0)
-    debug(1, "error %d: \"%s\" unlocking a mutex: \"%s\".", r,
-          strerror_r(r, errstr, sizeof(errstr)), dstring);
+  if ((debuglevel != 0) && (r != 0))
+    debug(1, "error %d: \"%s\" unlocking mutex \"%s\" at \"%s\".", r,
+          strerror_r(r, errstr, sizeof(errstr)), mutexname, dstring);
+  pthread_setcancelstate(oldState, NULL);
   return r;
 }
 
+void malloc_cleanup(void *arg) {
+  // debug(1, "malloc cleanup called.");
+  free(arg);
+}
+
+void pthread_cleanup_debug_mutex_unlock(void *arg) { pthread_mutex_unlock((pthread_mutex_t *)arg); }
+
 char *get_version_string() {
-  char *version_string = malloc(200);
+  char *version_string = malloc(1024);
   if (version_string) {
     strcpy(version_string, PACKAGE_VERSION);
-#ifdef HAVE_LIBMBEDTLS
-    strcat(version_string, "-mbedTLS");
+
+#ifdef CONFIG_LIBDAEMON
+  strcat(version_string, "-libdaemon");
 #endif
-#ifdef HAVE_LIBPOLARSSL
+#ifdef CONFIG_MBEDTLS
+  strcat(version_string, "-mbedTLS");
+#endif
+#ifdef CONFIG_POLARSSL
     strcat(version_string, "-PolarSSL");
 #endif
-#ifdef HAVE_LIBSSL
+#ifdef CONFIG_OPENSSL
     strcat(version_string, "-OpenSSL");
 #endif
 #ifdef CONFIG_TINYSVCMDNS
@@ -1149,6 +1312,9 @@ char *get_version_string() {
 #endif
 #ifdef CONFIG_DNS_SD
     strcat(version_string, "-dns_sd");
+#endif
+#ifdef CONFIG_EXTERNAL_MDNS
+    strcat(version_string, "-external_mdns");
 #endif
 #ifdef CONFIG_ALSA
     strcat(version_string, "-ALSA");
@@ -1174,7 +1340,7 @@ char *get_version_string() {
 #ifdef CONFIG_PIPE
     strcat(version_string, "-pipe");
 #endif
-#ifdef HAVE_LIBSOXR
+#ifdef CONFIG_SOXR
     strcat(version_string, "-soxr");
 #endif
 #ifdef CONFIG_CONVOLUTION
@@ -1183,14 +1349,164 @@ char *get_version_string() {
 #ifdef CONFIG_METADATA
     strcat(version_string, "-metadata");
 #endif
-#ifdef HAVE_DBUS
+#ifdef CONFIG_MQTT
+    strcat(version_string, "-mqtt");
+#endif
+#ifdef CONFIG_DBUS_INTERFACE
     strcat(version_string, "-dbus");
 #endif
-#ifdef HAVE_MPRIS
+#ifdef CONFIG_MPRIS_INTERFACE
     strcat(version_string, "-mpris");
 #endif
     strcat(version_string, "-sysconfdir:");
     strcat(version_string, SYSCONFDIR);
   }
   return version_string;
+}
+
+int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_format_t format,
+                             int with_dither, int64_t random_number_in) {
+  // return the last random number used
+  // assuming the buffer has been assigned
+
+  int64_t previous_random_number = random_number_in;
+  char *p = outp;
+  size_t sample_number;
+  for (sample_number = 0; sample_number < number_of_frames * 2; sample_number++) {
+
+    int64_t hyper_sample = 0;
+    // add a TPDF dither -- see
+    // http://www.users.qwest.net/%7Evolt42/cadenzarecording/DitherExplained.pdf
+    // and the discussion around https://www.hydrogenaud.io/forums/index.php?showtopic=16963&st=25
+
+    // I think, for a 32 --> 16 bits, the range of
+    // random numbers needs to be from -2^16 to 2^16, i.e. from -65536 to 65536 inclusive, not from
+    // -32768 to +32767
+
+    // See the original paper at
+    // http://www.ece.rochester.edu/courses/ECE472/resources/Papers/Lipshitz_1992.pdf
+    // by Lipshitz, Wannamaker and Vanderkooy, 1992.
+
+    int64_t dither_mask = 0;
+    switch (format) {
+    case SPS_FORMAT_S32:
+    case SPS_FORMAT_S32_LE:
+    case SPS_FORMAT_S32_BE:
+      dither_mask = (int64_t)1 << (64 + 1 - 32);
+      break;
+    case SPS_FORMAT_S24:
+    case SPS_FORMAT_S24_LE:
+    case SPS_FORMAT_S24_BE:
+    case SPS_FORMAT_S24_3LE:
+    case SPS_FORMAT_S24_3BE:
+      dither_mask = (int64_t)1 << (64 + 1 - 24);
+      break;
+    case SPS_FORMAT_S16:
+    case SPS_FORMAT_S16_LE:
+    case SPS_FORMAT_S16_BE:
+      dither_mask = (int64_t)1 << (64 + 1 - 16);
+      break;
+    case SPS_FORMAT_S8:
+    case SPS_FORMAT_U8:
+      dither_mask = (int64_t)1 << (64 + 1 - 8);
+      break;
+    case SPS_FORMAT_UNKNOWN:
+      die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
+      break;
+    case SPS_FORMAT_AUTO:
+      die("Unexpected SPS_FORMAT_AUTO while calculating dither mask.");
+      break;
+    case SPS_FORMAT_INVALID:
+      die("Unexpected SPS_FORMAT_INVALID while calculating dither mask.");
+      break;
+    }
+    dither_mask -= 1;
+    // int64_t r = r64i();
+    int64_t r = ranarray64i();
+
+    int64_t tpdf = (r & dither_mask) - (previous_random_number & dither_mask);
+
+    // add dither if permitted -- no need to check for clipping, as the sample is, uh, zero
+
+    if (with_dither != 0)
+      hyper_sample += tpdf;
+
+    // move the result to the desired position in the int64_t
+    char *op = p;
+    int result; // this is the length of the sample
+
+    uint8_t byt;
+    switch (format) {
+    case SPS_FORMAT_S32:
+      hyper_sample >>= (64 - 32);
+      *(int32_t *)op = hyper_sample;
+      result = 4;
+      break;
+    case SPS_FORMAT_S24_3LE:
+      hyper_sample >>= (64 - 24);
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      result = 3;
+      break;
+    case SPS_FORMAT_S24_3BE:
+      hyper_sample >>= (64 - 24);
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      result = 3;
+      break;
+    case SPS_FORMAT_S24:
+      hyper_sample >>= (64 - 24);
+      *(int32_t *)op = hyper_sample;
+      result = 4;
+      break;
+    case SPS_FORMAT_S16_LE:
+      hyper_sample >>= (64 - 16);
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      result = 2;
+      break;
+    case SPS_FORMAT_S16_BE:
+      hyper_sample >>= (64 - 16);
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      result = 2;
+      break;
+    case SPS_FORMAT_S16:
+      hyper_sample >>= (64 - 16);
+      *(int16_t *)op = (int16_t)hyper_sample;
+      result = 2;
+      break;
+    case SPS_FORMAT_S8:
+      hyper_sample >>= (int8_t)(64 - 8);
+      *op = hyper_sample;
+      result = 1;
+      break;
+    case SPS_FORMAT_U8:
+      hyper_sample >>= (uint8_t)(64 - 8);
+      hyper_sample += 128;
+      *op = hyper_sample;
+      result = 1;
+      break;
+    default:
+      result = 0; // stop a compiler warning
+      die("Unexpected SPS_FORMAT_UNKNOWN while outputting samples");
+    }
+    p += result;
+    previous_random_number = r;
+  }
+  // hack
+  // memset(outp,0,number_of_frames * 4);
+  return previous_random_number;
 }

@@ -21,3 +21,8 @@ dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSy
 
 # Set Volume using Advanced Remote Control
 dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.AdvancedRemoteControl.SetVolume int32:50
+
+# Get Drift Tolerance
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync string:DriftTolerance
+# Set Drift Tolerance to 1 millisecond
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync string:DriftTolerance variant:double:0.001

@@ -1,6 +1,7 @@
 /*
  * mDNS registration handler. This file is part of Shairport.
  * Copyright (c) Paul Lietar 2013
+ * Amendments and updates copyright (c) Mike Brady 2014 -- 2019
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -41,46 +42,42 @@ int mdns_pid = 0;
  */
 static int fork_execvp(const char *file, char *const argv[]) {
   int execpipe[2];
-  int pid = 0;
-  if (pipe(execpipe) < 0) {
-    return -1;
-  }
+  int response = -1;
+  if (pipe(execpipe) >= 0) {
 
-  if (fcntl(execpipe[1], F_SETFD, fcntl(execpipe[1], F_GETFD) | FD_CLOEXEC) < 0) {
-    close(execpipe[0]);
-    close(execpipe[1]);
-    return -1;
-  }
+    if (fcntl(execpipe[1], F_SETFD, fcntl(execpipe[1], F_GETFD) | FD_CLOEXEC) < 0) {
+      close(execpipe[0]);
+      close(execpipe[1]);
+    } else {
 
-  pid = fork();
-  if (pid < 0) {
-    close(execpipe[0]);
-    close(execpipe[1]);
-    return -1;
-  } else if (pid == 0) { // Child
-    close(execpipe[0]);  // Close the read end
-    execvp(file, argv);
+      int pid = fork();
+      if (pid < 0) {
+        close(execpipe[0]);
+        close(execpipe[1]);
+      } else if (pid == 0) { // Child
+        close(execpipe[0]);  // Close the read end
+        execvp(file, argv);
+        // If we reach this point then execve has failed.
+        // Write erno's value into the pipe and exit.
+        if (write(execpipe[1], &errno, sizeof(errno)) != sizeof(errno))
+          debug(1,
+                "Execve has failed and there was a further error writing an error message, duh.");
+        die("mdns_external: execve has failed.");
+      } else {              // Parent
+        close(execpipe[1]); // Close the write end
 
-    // If we reach this point then execve has failed.
-    // Write erno's value into the pipe and exit.
-    if (write(execpipe[1], &errno, sizeof(errno)) != sizeof(errno))
-      debug(1, "Execve has failed and there was a further error writing an error message, duh.");
-    debug(1, "execve has failed.");
-    _exit(-1);
-    return 0;           // Just to make the compiler happy.
-  } else {              // Parent
-    close(execpipe[1]); // Close the write end
-
-    int childErrno;
-    // Block until child closes the pipe or sends errno.
-    if (read(execpipe[0], &childErrno, sizeof(childErrno)) ==
-        sizeof(childErrno)) { // We received errno
-      errno = childErrno;
-      return -1;
-    } else { // Child closed the pipe. execvp was successful.
-      return pid;
+        int childErrno;
+        // Block until child closes the pipe or sends errno.
+        if (read(execpipe[0], &childErrno, sizeof(childErrno)) ==
+            sizeof(childErrno)) { // We received errno
+          errno = childErrno;
+        } else {
+          response = pid;
+        }
+      }
     }
   }
+  return response;
 }
 
 static int mdns_external_avahi_register(char *apname, __attribute__((unused)) int port) {
@@ -162,11 +159,13 @@ static void kill_mdns_child(void) {
 mdns_backend mdns_external_avahi = {.name = "external-avahi",
                                     .mdns_register = mdns_external_avahi_register,
                                     .mdns_unregister = kill_mdns_child,
-                                    .mdns_dacp_monitor = NULL,
-                                    .mdns_dacp_dont_monitor = NULL};
+                                    .mdns_dacp_monitor_start = NULL,
+                                    .mdns_dacp_monitor_set_id = NULL,
+                                    .mdns_dacp_monitor_stop = NULL};
 
 mdns_backend mdns_external_dns_sd = {.name = "external-dns-sd",
                                      .mdns_register = mdns_external_dns_sd_register,
                                      .mdns_unregister = kill_mdns_child,
-                                     .mdns_dacp_monitor = NULL,
-                                     .mdns_dacp_dont_monitor = NULL};
+                                     .mdns_dacp_monitor_start = NULL,
+                                     .mdns_dacp_monitor_set_id = NULL,
+                                     .mdns_dacp_monitor_stop = NULL};

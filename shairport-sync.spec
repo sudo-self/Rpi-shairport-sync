@@ -1,5 +1,5 @@
 Name:           shairport-sync
-Version:        3.2.2
+Version:        3.3
 Release:        1%{?dist}
 Summary:        AirTunes emulator. Multi-Room with Audio Synchronisation
 # MIT licensed except for tinysvcmdns under BSD, 
@@ -14,7 +14,6 @@ BuildRequires:  systemd
 BuildRequires:  pkgconfig(libconfig)
 BuildRequires:  pkgconfig(popt)
 BuildRequires:  pkgconfig(openssl)
-BuildRequires:  pkgconfig(libdaemon)
 BuildRequires:  pkgconfig(avahi-core)
 BuildRequires:  pkgconfig(alsa)
 BuildRequires:  pkgconfig(soxr)
@@ -67,6 +66,8 @@ getent passwd %{name} &> /dev/null || useradd --system -c "%{name} User" \
 %license LICENSES
 
 %changelog
+* Fri May 24 2019 Mike Brady <mikebrady@eircom.net) 3.3
+- Audio enhancements, stability improvements, MQTT and Jack Audio interfaces.
 * Sun Oct 14 2018 Mike Brady <mikebrady@eircom.net) 3.2.2
 - Compatibility with iOS 12 and mac OS Mojave AirPlay latencies. Minor bug fix.
 * Fri Jul 13 2018 Mike Brady <mikebrady@eircom.net) 3.2.1

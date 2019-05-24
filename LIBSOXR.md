@@ -1,7 +1,7 @@
 
 The Raspbian image at the time of writing is the `May 2016` version, with the release date of `2016-05-10`. It does not include `libsoxr`, but it is available as a package via `apt-get`.
 
-Alternatively, `libsoxr`, part of [The Sox Resampler Library](https://sourceforge.net/projects/soxr/), is very easy to compile. Here are very brief instructions to download, compile and install it:
+Alternatively, `libsoxr` is very easy to compile. Here are very brief instructions to download, compile and install it:
 
 * Install `cmake`. This is used in the building of libsoxr. On Linuxes such as Debian/Ubuntu/Raspbian:
 ```
@@ -14,14 +14,14 @@ On FreeBSD:
 
 * Download the `libsoxr source`:
 ```
-$ git clone git://git.code.sf.net/p/soxr/code soxr-code
+$ git clone git://git.code.sf.net/p/soxr/code libsoxr
 ```
-* `cd` into the `soxr-code` directory and start the build process:
+* `cd` into the `libsoxr` directory and start the build process:
 ```
-$ cd soxr-code
+$ cd libsoxr
 $ ./go
 ```
-Be patient! This takes a long time on a first-generation Raspberry Pi -- it looks like it gets stuck around 40% or 50%, but it will finish if you let it.
+Be patient! This takes a long time on a Raspberry Pi -- it looks like it gets stuck around 40% or 50%, but it will finish if you let it.
 
 Having compiled `libsoxr`, it must now must be installed:
 ```
@@ -32,7 +32,7 @@ Finally, for Shairport Sync to be able to locate `libsoxr` during compilation, y
 
 On Linuxes such as Debian/Ubuntu/Raspbian: 
 ```
-# ldconfig
+# ldconfig -v
 ```
 On FreeBSD you must add the location of the `soxr.pc` file to the `PKG_CONFIG_PATH`, if it exists, and define it otherwise. Here is what you do if it doesn't already exist:
 ```
