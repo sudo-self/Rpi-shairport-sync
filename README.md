@@ -7,8 +7,6 @@ Audio played by a Shairport Sync-powered device stays synchronised with the sour
 
 Shairport Sync runs on Linux, FreeBSD and OpenBSD. It does not support AirPlay video or photo streaming.
 
-This document is being updated.
-
 More Information
 ----------
 Shairport Sync offers *full audio synchronisation*, a feature of AirPlay that previous implementations do not provide. Full audio synchronisation means that audio is played on the output device at exactly the time specified by the audio source. To accomplish this, Shairport Sync needs access to audio systems – such as `alsa` on Linux and `sndio` on FreeBSD – that provide very accurate timing information about output devices. Shairport Sync must have direct access to the output device used, which must be a real sound card capable of working with 44,100, 88,200 or 176,400 samples per second, interleaved PCM stereo of 8, 16, 24 or 32 bits. The default is 44,100 samples per second / 16 bits (you'll get a message in the logfile if there's a problem).
@@ -35,14 +33,15 @@ What else?
 * Hardware Mute — Shairport Sync can mute properly if the hardware supports it.
 * Support for the Apple ALAC decoder.
 * Output bit depths of 8, 16, 24 and 32 bits, rather than the standard 16 bits.
+* Output frame rates of 44,100, 88,200, 176,000 or 352,000 frames per second.
 * Fast Response — With hardware volume control, response is instantaneous; otherwise the response time is 0.20 seconds with `alsa`, 0.35 seconds with `sndio`.
 * Non-Interruptible — Shairport Sync sends back a "busy" signal if it's already playing audio from another source, so other sources can't disrupt an existing Shairport Sync session. (If a source disappears without warning, the session automatically terminates after two minutes and the device becomes available again.)
 * Metadata — Shairport Sync can deliver metadata supplied by the source, such as Album Name, Artist Name, Cover Art, etc. through a pipe or UDP socket to a recipient application program — see https://github.com/mikebrady/shairport-sync-metadata-reader for a sample recipient. Sources that supply metadata include iTunes and the Music app in iOS.
-* Raw Audio — Shairport Sync can deliver raw PCM audio to standard output or to a pipe. This output is delivered synchronously with the source after the appropriate latency and is not interpolated or "stuffed" on its way through Shairport Sync.
-* Autotools and Libtool Support — the Shairport Sync build process uses GNU `autotools` and `libtool` to examine and configure the build environment — important for portability and for cross compilation. Previous versions of Shairport looked at the current system to determine which packages were available, instead of looking at the target system for what packages were available.
-* Compiles on Linux, FreeBSD, OpenBSD.
-* An MPRIS interface, partially complete and very functional.
-* A native D-Bus interface.
+* Compiles on Linux, Cygwin, FreeBSD, OpenBSD.
+* Outputs to [`alsa`](https://www.alsa-project.org/wiki/Main_Page), [`sndio`](http://www.sndio.org), [PulseAudio](https://www.freedesktop.org/wiki/Software/PulseAudio/), [JACK](http://jackaudio.org), to a unix pipe or to `STDOUT`. It also has limited support for [libao](https://xiph.org/ao/) and for [`soundio`](http://libsound.io).
+* An [MPRIS](https://specifications.freedesktop.org/mpris-spec/2.2/) interface, partially complete and very functional, including access to metadata and artwork, and some remote control.
+* An interface to [MQTT](https://en.wikipedia.org/wiki/MQTT), an often-used protocol in home automation projects.
+* A native D-Bus interface, including access to metadata and artwork, some remote control and some system settings.
  
 Heritage
 -------
@@ -50,17 +49,13 @@ Shairport Sync is a substantial rewrite of the fantastic work done in Shairport 
 
 Status
 ------
-Shairport Sync works on a wide variety of Linux devices, FreeBSD and OpenBSD. It works on standard Ubuntu laptops, on the Raspberry Pi with Raspbian Stretch, Jessie and Wheezy, Arch Linux and OpenWrt, and it runs on a Linksys NSLU2 and a TP-Link 710N using OpenWrt. It works with built-in audio and with a variety of USB-connected audio amplifiers and DACs, including a cheapo USB "3D Sound" dongle, a first generation iMic and a Topping TP30 amplifier with a USB DAC input.
+Shairport Sync works on a wide variety of Linux devices, FreeBSD and OpenBSD. It works with built-in audio and with a variety of USB-connected audio amplifiers and DACs. Shairport Sync runs well on the Raspberry Pi. It can drive the built-in sound card – see the note below on configuring the Raspberry Pi to make best use of it. It runs well on the Raspberry Pi Zero W with a suitable USB or I2S card.
 
 Shairport Sync will work with PulseAudio, which is installed in many desktop Linuxes. PulseAudio normally runs in the *user mode* but can be configured to run in *system mode*, though this is not recommended. Shairport Sync can work with it in either mode.
-
-Shairport Sync runs well on the Raspberry Pi on USB and I2S cards. It can drive the built-in sound card – see the note below on configuring the Raspberry Pi to make best use of it. It runs well on the Raspberry Pi Zero W with a suitable USB or I2S card.
 
 Shairport Sync runs natively on FreeBSD and OpenBSD using the `sndio` sound system.
 
 Shairport Sync runs on Ubuntu, OpenWrt, Debian, Arch Linux, Fedora, FreeBSD and OpenBSD inside VMWare Fusion on a Mac, but synchronisation in inaccurate — possibly because the sound card is being emulated.
-
-In addition, Shairport Sync can output to standard output, pipes, `soundio` and `ao` devices using appropriate backends.
 
 For information about changes and updates, please refer to the RELEASENOTES.md file in the distribution.
 
@@ -161,7 +156,7 @@ Debian, Ubuntu and Raspbian users can get the basics with:
 - `# apt install avahi-daemon libavahi-client-dev` if you want to use Avahi (recommended).
 - `# apt install libssl-dev` if you want to use OpenSSL and libcrypto, or use mbed TLS otherwise.
 - `# apt install libmbedtls-dev` if you want to use mbed TLS, or use OpenSSL/libcrypto otherwise. You can still use PolarSSL with `apt install libpolarssl-dev` if you want to use PolarSSL, but it is deprecated as it's not longer being supported.
-- `# apt install libsoxr-dev` if you want support for libsoxr-based resampling. This library is in many recent distributions; if not, instructions for how to build it from source for Rasbpian/Debian Wheezy are available at [LIBSOXR.md](https://github.com/mikebrady/shairport-sync/blob/master/LIBSOXR.md).
+- `# apt install libsoxr-dev` if you want support for libsoxr-based resampling. This library is in recent distributions; if not, instructions for how to build it from source on Linux are available at [LIBSOXR.md](https://github.com/mikebrady/shairport-sync/blob/master/LIBSOXR.md).
 - `# apt install libsndfile1-dev` if you want to use the convolution filter.
 
 If you wish to include the Apple ALAC decoder, you need install it first – please refer to the [ALAC](https://github.com/mikebrady/alac) repository for more information.
@@ -285,6 +280,7 @@ If you have chosen the `--with-systemd` configuration option, then, to enable Sh
 ```
 $ sudo systemctl enable shairport-sync
 ```
+You should then reboot the system.
 
 **Complete installation into a System V system**
 
@@ -293,6 +289,7 @@ If you have chosen the `--with-systemv` configuration option, then, to enable Sh
 $ sudo update-rc.d shairport-sync defaults 90 10
 $ sudo update-rc.d shairport-sync enable
 ```
+You should then reboot the system.
 
 **Man Page**
 
