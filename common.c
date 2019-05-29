@@ -1442,6 +1442,30 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
       *(int32_t *)op = hyper_sample;
       result = 4;
       break;
+    case SPS_FORMAT_S32_LE:
+      hyper_sample >>= (64 - 32);
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 24);
+      *op++ = byt;
+      result = 4;
+      break;
+    case SPS_FORMAT_S32_BE:
+      hyper_sample >>= (64 - 32);
+      byt = (uint8_t)(hyper_sample >> 24);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      result = 4;
+      break;
     case SPS_FORMAT_S24_3LE:
       hyper_sample >>= (64 - 24);
       byt = (uint8_t)hyper_sample;
@@ -1465,6 +1489,28 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
     case SPS_FORMAT_S24:
       hyper_sample >>= (64 - 24);
       *(int32_t *)op = hyper_sample;
+      result = 4;
+      break;
+    case SPS_FORMAT_S24_LE:
+      hyper_sample >>= (64 - 24);
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      *op++ = 0;
+      result = 4;
+      break;
+    case SPS_FORMAT_S24_BE:
+      hyper_sample >>= (64 - 24);
+      *op++ = 0;
+      byt = (uint8_t)(hyper_sample >> 16);
+      *op++ = byt;
+      byt = (uint8_t)(hyper_sample >> 8);
+      *op++ = byt;
+      byt = (uint8_t)hyper_sample;
+      *op++ = byt;
       result = 4;
       break;
     case SPS_FORMAT_S16_LE:
@@ -1501,7 +1547,7 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
       break;
     default:
       result = 0; // stop a compiler warning
-      die("Unexpected SPS_FORMAT_UNKNOWN while outputting samples");
+      die("Unexpected SPS_FORMAT_* with index %d while outputting silence",format);
     }
     p += result;
     previous_random_number = r;
