@@ -1673,10 +1673,15 @@ void *player_thread_func(void *arg) {
   case SPS_FORMAT_S24_3BE:
     conn->output_bytes_per_frame = 6;
     break;
+  
   case SPS_FORMAT_S24:
+  case SPS_FORMAT_S24_LE:
+  case SPS_FORMAT_S24_BE:
     conn->output_bytes_per_frame = 8;
     break;
   case SPS_FORMAT_S32:
+  case SPS_FORMAT_S32_LE:
+  case SPS_FORMAT_S32_BE:
     conn->output_bytes_per_frame = 8;
     break;
   default:
