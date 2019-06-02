@@ -650,12 +650,14 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
   if (dither) {
 
     // add a TPDF dither -- see
-    // http://www.users.qwest.net/%7Evolt42/cadenzarecording/DitherExplained.pdf
+    // http://educypedia.karadimov.info/library/DitherExplained.pdf
     // and the discussion around https://www.hydrogenaud.io/forums/index.php?showtopic=16963&st=25
 
     // I think, for a 32 --> 16 bits, the range of
     // random numbers needs to be from -2^16 to 2^16, i.e. from -65536 to 65536 inclusive, not from
     // -32768 to +32767
+    
+    // Actually, what would be generated here is from -65535 to 65535, i.e. one less on the limits.
 
     // See the original paper at
     // http://www.ece.rochester.edu/courses/ECE472/resources/Papers/Lipshitz_1992.pdf
@@ -666,23 +668,23 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
     case SPS_FORMAT_S32:
     case SPS_FORMAT_S32_LE:
     case SPS_FORMAT_S32_BE:
-      dither_mask = (int64_t)1 << (64 + 1 - 32);
+      dither_mask = (int64_t)1 << (64 - 32);
       break;
     case SPS_FORMAT_S24:
     case SPS_FORMAT_S24_LE:
     case SPS_FORMAT_S24_BE:
     case SPS_FORMAT_S24_3LE:
     case SPS_FORMAT_S24_3BE:
-      dither_mask = (int64_t)1 << (64 + 1 - 24);
+      dither_mask = (int64_t)1 << (64 - 24);
       break;
     case SPS_FORMAT_S16:
     case SPS_FORMAT_S16_LE:
     case SPS_FORMAT_S16_BE:
-      dither_mask = (int64_t)1 << (64 + 1 - 16);
+      dither_mask = (int64_t)1 << (64 - 16);
       break;
     case SPS_FORMAT_S8:
     case SPS_FORMAT_U8:
-      dither_mask = (int64_t)1 << (64 + 1 - 8);
+      dither_mask = (int64_t)1 << (64 - 8);
       break;
     case SPS_FORMAT_UNKNOWN:
       die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
