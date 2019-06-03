@@ -192,7 +192,9 @@ static void help(void) {
          "    -c mixer-control    set the mixer control name, default is to use no mixer.\n"
          "    -m mixer-device     set the mixer device, default is the output device.\n"
          "    -i mixer-index      set the mixer index, default is 0.\n");
-  system("if [ -d /proc/asound ] ; then echo \"    hardware output devices:\" ; ls -al /proc/asound/ 2>/dev/null | grep '\\->' | tr -s ' ' | cut -d ' ' -f 9 | while read line; do echo \"      \\\"hw:$line\\\"\" ; done ; fi");
+  int r = system("if [ -d /proc/asound ] ; then echo \"    hardware output devices:\" ; ls -al /proc/asound/ 2>/dev/null | grep '\\->' | tr -s ' ' | cut -d ' ' -f 9 | while read line; do echo \"      \\\"hw:$line\\\"\" ; done ; fi");
+  if (r != 0)
+    debug(2, "error %d executing a script to list alsa hardware device names", r);
 }
 
 void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; }
