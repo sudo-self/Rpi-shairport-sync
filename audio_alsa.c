@@ -512,7 +512,7 @@ int actual_open_alsa_device(int do_auto_setup) {
 	}
   
   if (set_period_size_request != 0) {
-    debug(1, "Attempting to set the period size");
+    debug(1, "Attempting to set the period size to %lu", period_size_requested);
     ret = snd_pcm_hw_params_set_period_size_near(alsa_handle, alsa_params, &period_size_requested,
                                                  &dir);
     if (ret < 0) {
