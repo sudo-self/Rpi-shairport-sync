@@ -1178,7 +1178,7 @@ static int init(int argc, char **argv) {
       else {
         warn("Invalid disable_standby_mode option choice \"%s\". It should be "
              "\"always\", \"auto\" or \"never\". "
-             "It remains set to \"never\".");
+             "It remains set to \"never\".", str);
       }
     }
 
