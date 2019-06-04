@@ -1,10 +1,11 @@
-The Inevitable Version 3.3.1rc0
+The Inevitable Version 3.3.1rc1
 ====
 **Bug Fixes**
 * Fix a bug in the MQTT documentation and add sanity checking for the port chosen -- thanks to [David Crook](https://github.com/idcrook).
 * Fix a bug that caused manual format and rate setting to be ignored -- thanks to [Jörg Krause](https://github.com/joerg-krause).
 * Add missing support for format settings S24_LE, S24_BE, S32_LE and S32_BE.
 * Fix a bug that caused dither to be too loud.
+* Fix error message for invalid standby mode choice.
 
 Version 3.3rc8
 ====
