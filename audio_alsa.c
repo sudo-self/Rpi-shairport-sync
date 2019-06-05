@@ -192,7 +192,9 @@ static void help(void) {
          "    -c mixer-control    set the mixer control name, default is to use no mixer.\n"
          "    -m mixer-device     set the mixer device, default is the output device.\n"
          "    -i mixer-index      set the mixer index, default is 0.\n");
-  system("if [ -d /proc/asound ] ; then echo \"    hardware output devices:\" ; ls -al /proc/asound/ 2>/dev/null | grep '\\->' | tr -s ' ' | cut -d ' ' -f 9 | while read line; do echo \"      \\\"hw:$line\\\"\" ; done ; fi");
+  int r = system("if [ -d /proc/asound ] ; then echo \"    hardware output devices:\" ; ls -al /proc/asound/ 2>/dev/null | grep '\\->' | tr -s ' ' | cut -d ' ' -f 9 | while read line; do echo \"      \\\"hw:$line\\\"\" ; done ; fi");
+  if (r != 0)
+    debug(2, "error %d executing a script to list alsa hardware device names", r);
 }
 
 void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; }
@@ -510,7 +512,7 @@ int actual_open_alsa_device(int do_auto_setup) {
 	}
   
   if (set_period_size_request != 0) {
-    debug(1, "Attempting to set the period size");
+    debug(1, "Attempting to set the period size to %lu", period_size_requested);
     ret = snd_pcm_hw_params_set_period_size_near(alsa_handle, alsa_params, &period_size_requested,
                                                  &dir);
     if (ret < 0) {
@@ -1037,6 +1039,8 @@ static int init(int argc, char **argv) {
 
     /* Get the output format, using the same names as aplay does*/
     if (config_lookup_string(config.cfg, "alsa.output_format", &str)) {
+    	int temp_output_format_auto_requested = config.output_format_auto_requested;
+    	config.output_format_auto_requested = 0; // assume a valid format will be given.
       if (strcasecmp(str, "S16") == 0)
         config.output_format = SPS_FORMAT_S16;
       else if (strcasecmp(str, "S16_LE") == 0)
@@ -1066,11 +1070,12 @@ static int init(int argc, char **argv) {
       else if (strcasecmp(str, "auto") == 0)
         config.output_format_auto_requested = 1;
       else {
-        warn("Invalid output format \"%s\". It should be \"U8\", \"S8\", "
+      	config.output_format_auto_requested = temp_output_format_auto_requested; //format was invalid; recall the original setting
+        warn("Invalid output format \"%s\". It should be \"auto\", \"U8\", \"S8\", "
              "\"S16\", \"S24\", \"S24_LE\", \"S24_BE\", "
              "\"S24_3LE\", \"S24_3BE\" or "
-             "\"S32\", \"S32_LE\", \"S32_BE\". It is set to \"%s\".",
-             sps_format_description_string(config.output_format));
+             "\"S32\", \"S32_LE\", \"S32_BE\". It remains set to \"%s\".", str,
+             config.output_format_auto_requested == 1 ? "auto" : sps_format_description_string(config.output_format));
       }
     }
 
@@ -1078,25 +1083,35 @@ static int init(int argc, char **argv) {
 			if (strcasecmp(str, "auto") == 0) {
 				config.output_rate_auto_requested = 1;
 			} else {
-				/* Get the output rate, which must be a multiple of 44,100*/
-				if (config_lookup_int(config.cfg, "alsa.output_rate", &value)) {
-					debug(1, "alsa output rate is %d frames per second", value);
-					switch (value) {
-					case 44100:
-					case 88200:
-					case 176400:
-					case 352800:
-						config.output_rate = value;
-						break;
-					default:
-						warn("Invalid output rate \"%d\". It should be \"auto\" or a multiple of 44,100 up "
-								 "to 352,800. It is "
-								 "set to %d.",
-								 value,config.output_rate);
-					}
-				}
+				if (config.output_rate_auto_requested == 1)
+					warn("Invalid output rate \"%s\". It should be \"auto\", 44100, 88200, 176400 or 352800. "
+						 "It remains set to \"auto\". Note: numbers should not be placed in quotes.", str);
+				else
+					warn("Invalid output rate \"%s\". It should be \"auto\", 44100, 88200, 176400 or 352800. "
+						 "It remains set to %d. Note: numbers should not be placed in quotes.", str, config.output_rate);
 			}
-    }
+		}
+		
+		/* Get the output rate, which must be a multiple of 44,100*/
+		if (config_lookup_int(config.cfg, "alsa.output_rate", &value)) {
+			debug(1, "alsa output rate is %d frames per second", value);
+			switch (value) {
+			case 44100:
+			case 88200:
+			case 176400:
+			case 352800:
+				config.output_rate = value;
+				config.output_rate_auto_requested = 0;
+				break;
+			default:
+				if (config.output_rate_auto_requested == 1)
+					warn("Invalid output rate \"%d\". It should be \"auto\", 44100, 88200, 176400 or 352800. "
+						 "It remains set to \"auto\".",value);
+				else
+					warn("Invalid output rate \"%d\".It should be \"auto\", 44100, 88200, 176400 or 352800. "
+						 "It remains set to %d.", value, config.output_rate);
+			}
+		}
 
     /* Get the use_mmap_if_available setting. */
     if (config_lookup_string(config.cfg, "alsa.use_mmap_if_available", &str)) {
@@ -1107,7 +1122,7 @@ static int init(int argc, char **argv) {
       else {
         warn("Invalid use_mmap_if_available option choice \"%s\". It should be "
              "\"yes\" or \"no\". "
-             "It is set to \"yes\".");
+             "It remains set to \"yes\".");
         config.no_mmap = 0;
       }
     }
@@ -1163,7 +1178,7 @@ static int init(int argc, char **argv) {
       else {
         warn("Invalid disable_standby_mode option choice \"%s\". It should be "
              "\"always\", \"auto\" or \"never\". "
-             "It is set to \"never\".");
+             "It remains set to \"never\".", str);
       }
     }
 
@@ -1179,7 +1194,7 @@ static int init(int argc, char **argv) {
       else {
         warn("Invalid use_precision_timing option choice \"%s\". It should be "
              "\"yes\", \"auto\" or \"no\". "
-             "It is set to \"auto\".");
+             "It remains set to \"%s\".", config.use_precision_timing == YNA_NO ? "no" : config.use_precision_timing == YNA_AUTO ? "auto" : "yes");
       }
     }
 

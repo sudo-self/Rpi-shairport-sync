@@ -992,7 +992,6 @@ int parse_options(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_MQTT
-    int tmpval = 0;
     config_set_lookup_bool(config.cfg, "mqtt.enabled", &config.mqtt_enabled);
     if (config.mqtt_enabled && !config.metadata_enabled) {
       die("You need to have metadata enabled in order to use mqtt");
@@ -1001,11 +1000,13 @@ int parse_options(int argc, char **argv) {
       config.mqtt_hostname = (char *)str;
       // TODO: Document that, if this is false, whole mqtt func is disabled
     }
-    if (config_lookup_int(config.cfg, "mqtt.port", &tmpval)) {
-      config.mqtt_port = tmpval;
-    } else {
-      // TODO: Is this the correct way to set a default value?
-      config.mqtt_port = 1883;
+    config.mqtt_port = 1883;
+    if (config_lookup_int(config.cfg, "mqtt.port", &value)) {
+      if ((value < 0) || (value > 65535))
+          die("Invalid mqtt port number  \"%sd\". It should be between 0 and 65535, default is 1883",
+              value);
+      else
+          config.mqtt_port = value;
     }
 
     if (config_lookup_string(config.cfg, "mqtt.username", &str)) {
