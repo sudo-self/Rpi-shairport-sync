@@ -7,7 +7,7 @@ Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sy
 * Fix a bug that caused manual format and rate setting to be ignored -- thanks to [Jörg Krause](https://github.com/joerg-krause).
 * Add missing support for format settings S24_LE, S24_BE, S32_LE and S32_BE.
 * Fix a bug that caused dither to be too loud.
-* Fix error message for invalid standby mode choice.
+* Fix error message for invalid `disable_standby_mode` choice -- thanks to [Tim Curtis](https://github.com/moodeaudio) at [Moode Audio](https://moodeaudio.org).
 
 Version 3.3
 ====
