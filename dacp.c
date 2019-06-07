@@ -40,6 +40,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "metadata_hub.h"
