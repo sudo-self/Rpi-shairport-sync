@@ -1,5 +1,5 @@
 Name:           shairport-sync
-Version:        3.3
+Version:        3.3.1
 Release:        1%{?dist}
 Summary:        AirTunes emulator. Multi-Room with Audio Synchronisation
 # MIT licensed except for tinysvcmdns under BSD, 
@@ -66,6 +66,8 @@ getent passwd %{name} &> /dev/null || useradd --system -c "%{name} User" \
 %license LICENSES
 
 %changelog
+* Wed Jun 05 2019 Mike Brady <mikebrady@eircom.net) 3.3.1
+- Bug fixes.
 * Fri May 24 2019 Mike Brady <mikebrady@eircom.net) 3.3
 - Audio enhancements, stability improvements, MQTT and Jack Audio interfaces.
 * Sun Oct 14 2018 Mike Brady <mikebrady@eircom.net) 3.2.2

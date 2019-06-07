@@ -1,3 +1,14 @@
+Version 3.3.1
+===
+Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
+
+**Bug Fixes**
+* Fix a bug in the MQTT documentation and add sanity checking for the port chosen -- thanks to [David Crook](https://github.com/idcrook).
+* Fix a bug that caused manual format and rate setting to be ignored -- thanks to [Jörg Krause](https://github.com/joerg-krause).
+* Add missing support for format settings S24_LE, S24_BE, S32_LE and S32_BE.
+* Fix a bug that caused dither to be too loud.
+* Fix error message for invalid `disable_standby_mode` choice -- thanks to [Tim Curtis](https://github.com/moodeaudio) at [Moode Audio](https://moodeaudio.org).
+
 Version 3.3
 ====
 Version 3.3 is focused on stability improvements and also offers a number of enhancements. Here is a selection of the most important:
