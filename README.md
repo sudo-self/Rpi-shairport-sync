@@ -72,7 +72,7 @@ Shairport Sync may already be available as a package in your Linux distribution 
 **OpenWrt:** There is a Shairport Sync package in OpenWrt trunk. Also, there's an OpenWrt package at https://github.com/mikebrady/shairport-sync-for-openwrt, including one that builds back to Barrier Breaker.
 
 **Arch Linux:** Shairport Sync is available for x86_64 and i686 platforms in the Arch Linux Community Repository -- search for `shairport-sync`. See also https://www.archlinux.org/packages/.
-An Arch Linux installation package, suitable for compilation on any platform, is also available at [EliaCereda/shairport-sync-PKGBUILD](https://github.com/EliaCereda/shairport-sync-PKGBUILD).
+To build and install the latest version of Shairport Sync, an [Arch Linux build and installation guide](https://github.com/mikebrady/shairport-sync-for-arch-linux) is available, based on original work by [Elia Cereda](https://github.com/EliaCereda).
 
 **Mac OS X:** A HomeBrew package exists for Shairport Sync. With HomeBrew installed, Shairport Sync can be installed using the command: 
 ```
