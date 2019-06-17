@@ -66,6 +66,7 @@ void *alsa_buffer_monitor_thread_code(void *arg);
 static void volume(double vol);
 void do_volume(double vol);
 int prepare(void);
+int do_play(void *buf, int samples);
 
 static void parameters(audio_parameters *info);
 int mute(int do_mute); // returns true if it actually is allowed to use the mute
@@ -120,6 +121,8 @@ int frame_size; // in bytes for interleaved stereo
 
 int alsa_device_initialised; // boolean to ensure the initialisation is only
                              // done once
+
+enum yndk_type precision_delay_available_status = YNDK_DONT_KNOW; // initially, we don't know if the device can do precision delay
          
 snd_pcm_t *alsa_handle = NULL;
 static snd_pcm_hw_params_t *alsa_params = NULL;
@@ -212,12 +215,12 @@ int precision_delay_available() {
       if (ret == 0) {
         if (uses_update_timestamps == YNDK_YES) {
           precision_delay_available_status = YNDK_YES;
-          debug(2,"alsa: precision delay timing available.");
+          debug(2,"alsa: precision delay timing is available.");
         } else {
           precision_delay_available_status = YNDK_NO;
-          debug(2,"alsa: precision delay timing not available.");
-          if (config.disable_standby_mode != disable_standby_off)
-            inform("Note: disable_standby_mode has been turned off because the output device is not capable of precision delay timing.");
+          debug(2,"alsa: precision delay timing is not available.");
+          // if (config.disable_standby_mode != disable_standby_off)
+          //  inform("Note: disable_standby_mode has been turned off because the output device is not capable of precision delay timing.");
         }
       }
     }
@@ -1622,19 +1625,20 @@ int do_play(void *buf, int samples) {
         measurement_data_is_valid = 0;
         if (ret == -EPIPE) { /* underrun */
           debug(1, "alsa: underrun while writing %d samples to alsa device.", samples);
-          ret = snd_pcm_recover(alsa_handle, ret, debuglev > 0 ? 1 : 0);
-          if (ret < 0) {
-            warn("alsa: can't recover from SND_PCM_STATE_XRUN: %s.", snd_strerror(ret));
+          int tret = snd_pcm_recover(alsa_handle, ret, debuglev > 0 ? 1 : 0);
+          if (tret < 0) {
+            warn("alsa: can't recover from SND_PCM_STATE_XRUN: %s.", snd_strerror(tret));
           }
         } else if (ret == -ESTRPIPE) { /* suspended */
           debug(1, "alsa: suspended while writing %d samples to alsa device.", samples);
-          while ((ret = snd_pcm_resume(alsa_handle)) == -EAGAIN) {
+          int tret;
+          while ((tret = snd_pcm_resume(alsa_handle)) == -EAGAIN) {
             sleep(1); /* wait until the suspend flag is released */
-            if (ret < 0) {
+            if (tret < 0) {
               warn("alsa: can't recover from SND_PCM_STATE_SUSPENDED state, "
                    "snd_pcm_prepare() "
                    "failed: %s.",
-                   snd_strerror(ret));
+                   snd_strerror(tret));
             }
           }
         } else {
@@ -1875,8 +1879,11 @@ void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
 */
 
 void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
+  int frame_count = 0;
+  int error_count = 0;
+  int error_threshold_exceeded = 0;
   int okb = -1;
-  while (1) {
+  while (error_threshold_exceeded == 0) { // if too many play errors occur early on, we will turn off the disable stanby mode
     if (okb != config.keep_dac_busy) {
       debug(2,"keep_dac_busy is now \"%s\"",config.keep_dac_busy == 0 ? "no" : "yes");
       okb = config.keep_dac_busy;
@@ -1944,6 +1951,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
                      "allocate memory for a "
                      "silent frame buffer.");
           } else {
+            int ret;
             pthread_cleanup_push(malloc_cleanup, silence);
             int use_dither = 0;
             if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
@@ -1956,8 +1964,19 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
             // debug(1,"Play %d frames of silence with most_recent_write_time of
             // %" PRIx64 ".",
             //    frames_of_silence,most_recent_write_time);
-            do_play(silence, frames_of_silence);
+            ret = do_play(silence, frames_of_silence);
+            frame_count++;
             pthread_cleanup_pop(1);
+            if (ret < 0) {
+              error_count++;
+              char errorstring[1024];
+              strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
+              debug(2, "alsa: alsa_buffer_monitor_thread_code error %d (\"%s\") writing %d samples to alsa device -- %d errors in %d trials.", ret, (char *)errorstring, frames_of_silence, error_count, frame_count);
+              if ((error_count > 20) && (frame_count < 50)) {
+                warn("disable_standby_mode has been turned off because too many underruns occurred. Are you outputting to a virtual device or running in a virtual machine?");
+                error_threshold_exceeded = 1;
+              }
+            }
           }
         }
       }
