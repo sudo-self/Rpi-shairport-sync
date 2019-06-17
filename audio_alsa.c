@@ -181,7 +181,7 @@ int precision_delay_available() {
 
     // The criteria as to whether precision delay is available
     // is whether the device driver returns non-zero update timestamps
-    // If it does, and the device is a hardware device (i.e. its name begins with "hw:0"),
+    // If it does, and the device is a hardware device (i.e. its name begins with "hw:"),
     // it is considered that precision delay is available. Otherwise, it's considered to be unavailable.
     
     // To test, we play a silence buffer (fairly large to avoid underflow)
