@@ -1,3 +1,8 @@
+Version 3.3.2d1
+====
+**Enhancements**
+* Allow `disable_standby_mode` to operate on any output device, not just real hardware devices. If there are too many underruns while outputting silence, the disable standby mode will be turned off.
+
 The Inevitable Version 3.3.1rc1
 ====
 **Bug Fixes**
