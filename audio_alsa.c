@@ -162,11 +162,69 @@ int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, 
 // use this to allow the use of standard or precision delay calculations, with standard the, uh, standard.
 int (*delay_and_status)(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum yndk_type *using_update_timestamps) = standard_delay_and_status;
 
+// this will return true if the DAC can return precision delay information and false if not
+// if it is not yet known, it will test the output device to find out
+
+// note -- once it has done the test, it decides -- even if the delay comes back with
+// "don't know", it will take that as a "No" and remember it.
+// If you want it to check again, set precision_delay_available_status to YNDK_DONT_KNOW
+// first.
+
 int precision_delay_available() {
-  // this is very crude -- if the device is a hardware device, then it's assumed the delay is precise
-  const char *output_device_name = snd_pcm_name(alsa_handle);
-  return (strstr(output_device_name,"hw:") == output_device_name);
+  if (precision_delay_available_status == YNDK_DONT_KNOW) {
+    // At present, the only criterion as to whether precision delay is available
+    // is whether the device driver returns non-zero update timestamps
+    // If it does, it is considered precision delay is available
+    // Otherwise, it's considered to be unavailable
+    
+    // To test, we play a silence buffer (fairly large to avoid underflow)
+    // and then we check the delay return. It will tell us if it 
+    // was able to use the (non-zero) update timestamps
+        
+    int frames_of_silence = 4410;
+    size_t size_of_silence_buffer = frames_of_silence * frame_size;
+    void *silence = malloc(size_of_silence_buffer);
+    if (silence == NULL) {
+      debug(1, "alsa: precision_delay_available -- failed to "
+               "allocate memory for a "
+               "silent frame buffer.");
+    } else {
+      pthread_cleanup_push(malloc_cleanup, silence);
+      int use_dither = 0;
+      if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
+          (config.airplay_volume != 0.0))
+        use_dither = 1;
+      dither_random_number_store =
+          generate_zero_frames(silence, frames_of_silence, config.output_format,
+                               use_dither, // i.e. with dither
+                               dither_random_number_store);
+      // debug(1,"Play %d frames of silence with most_recent_write_time of
+      // %" PRIx64 ".",
+      //    frames_of_silence,most_recent_write_time);
+      do_play(silence, frames_of_silence);
+      pthread_cleanup_pop(1);
+      // now we can get the delay, and we'll note if it uses update timestamps
+      enum yndk_type uses_update_timestamps;
+      snd_pcm_state_t state;
+      snd_pcm_sframes_t delay;     
+      int ret = delay_and_status(&state, &delay, &uses_update_timestamps);
+      // debug(3,"alsa: precision_delay_available asking for delay and status with a return status of %d, a delay of %ld and a uses_update_timestamps of %d.", ret, delay, uses_update_timestamps);     
+      if (ret == 0) {
+        if (uses_update_timestamps == YNDK_YES) {
+          precision_delay_available_status = YNDK_YES;
+          debug(2,"alsa: precision delay timing available.");
+        } else {
+          precision_delay_available_status = YNDK_NO;
+          debug(2,"alsa: precision delay timing not available.");
+          if (config.disable_standby_mode != disable_standby_off)
+            inform("Note: disable_standby_mode has been turned off because the output device is not capable of precision delay timing.");
+        }
+      }
+    }
+  }
+  return (precision_delay_available_status == YNDK_YES);
 }
+
 
 // static int play_number;
 // static int64_t accumulated_delay, accumulated_da_delay;
@@ -1850,8 +1908,8 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
     // and config.keep_dac_busy is true (at the present, this has to be the case
     // to be in the
     // abm_connected state in the first place...) then do the silence-filling
-    // thing, if needed, and if the output device is capable of precision delay.
-    if ((alsa_backend_state != abm_disconnected) && (config.keep_dac_busy != 0) && precision_delay_available()) {
+    // thing, if needed /* only if the output device is capable of precision delay */.
+    if ((alsa_backend_state != abm_disconnected) && (config.keep_dac_busy != 0) /* && precision_delay_available() */ ) {
       int reply;
       long buffer_size = 0;
       snd_pcm_state_t state;
