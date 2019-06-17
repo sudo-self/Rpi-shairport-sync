@@ -210,7 +210,7 @@ int precision_delay_available() {
       enum yndk_type uses_update_timestamps;
       snd_pcm_state_t state;
       snd_pcm_sframes_t delay;     
-      int ret = delay_and_status(&state, &delay, &uses_update_timestamps);
+      int ret = precision_delay_and_status(&state, &delay, &uses_update_timestamps);
       // debug(3,"alsa: precision_delay_available asking for delay and status with a return status of %d, a delay of %ld and a uses_update_timestamps of %d.", ret, delay, uses_update_timestamps);     
       if (ret == 0) {
         if (uses_update_timestamps == YNDK_YES) {
