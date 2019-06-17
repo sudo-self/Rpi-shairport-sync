@@ -1623,7 +1623,7 @@ int do_play(void *buf, int samples) {
         measurement_data_is_valid = 0;
         if (ret == -EPIPE) { /* underrun */
           debug(1, "alsa: underrun while writing %d samples to alsa device.", samples);
-          int tret = snd_pcm_recover(alsa_handle, ret, debuglev > 0 ? 1 : 0);
+          int tret = snd_pcm_recover(alsa_handle, ret, debuglev > 0 ? 0 : 1);
           if (tret < 0) {
             warn("alsa: can't recover from SND_PCM_STATE_XRUN: %s.", snd_strerror(tret));
           }
