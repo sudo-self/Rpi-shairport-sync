@@ -219,8 +219,6 @@ int precision_delay_available() {
         } else {
           precision_delay_available_status = YNDK_NO;
           debug(2,"alsa: precision delay timing is not available.");
-          // if (config.disable_standby_mode != disable_standby_off)
-          //  inform("Note: disable_standby_mode has been turned off because the output device is not capable of precision delay timing.");
         }
       }
     }
@@ -1972,8 +1970,8 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
               char errorstring[1024];
               strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
               debug(2, "alsa: alsa_buffer_monitor_thread_code error %d (\"%s\") writing %d samples to alsa device -- %d errors in %d trials.", ret, (char *)errorstring, frames_of_silence, error_count, frame_count);
-              if ((error_count > 20) && (frame_count < 50)) {
-                warn("disable_standby_mode has been turned off because too many underruns occurred. Are you outputting to a virtual device or running in a virtual machine?");
+              if ((error_count > 40) && (frame_count < 100)) {
+                warn("disable_standby_mode has been turned off because too many underruns occurred. Is Shairport Sync outputting to a virtual device or running in a virtual machine?");
                 error_threshold_exceeded = 1;
               }
             }
