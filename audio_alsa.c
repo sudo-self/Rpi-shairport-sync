@@ -175,10 +175,14 @@ int (*delay_and_status)(snd_pcm_state_t *state, snd_pcm_sframes_t *delay, enum y
 
 int precision_delay_available() {
   if (precision_delay_available_status == YNDK_DONT_KNOW) {
-    // At present, the only criterion as to whether precision delay is available
+    // this is very crude -- if the device is a hardware device, then it's assumed the delay is precise
+    const char *output_device_name = snd_pcm_name(alsa_handle);
+    int is_a_real_hardware_device = (strstr(output_device_name,"hw:") == output_device_name);
+
+    // The criteria as to whether precision delay is available
     // is whether the device driver returns non-zero update timestamps
-    // If it does, it is considered precision delay is available
-    // Otherwise, it's considered to be unavailable
+    // If it does, and the device is a hardware device (i.e. its name begins with "hw:0"),
+    // it is considered that precision delay is available. Otherwise, it's considered to be unavailable.
     
     // To test, we play a silence buffer (fairly large to avoid underflow)
     // and then we check the delay return. It will tell us if it 
@@ -213,12 +217,16 @@ int precision_delay_available() {
       int ret = precision_delay_and_status(&state, &delay, &uses_update_timestamps);
       // debug(3,"alsa: precision_delay_available asking for delay and status with a return status of %d, a delay of %ld and a uses_update_timestamps of %d.", ret, delay, uses_update_timestamps);     
       if (ret == 0) {
-        if (uses_update_timestamps == YNDK_YES) {
+        if ((uses_update_timestamps == YNDK_YES) && (is_a_real_hardware_device)) {
           precision_delay_available_status = YNDK_YES;
           debug(2,"alsa: precision delay timing is available.");
         } else {
-          precision_delay_available_status = YNDK_NO;
-          debug(2,"alsa: precision delay timing is not available.");
+          if ((uses_update_timestamps == YNDK_YES) && (!is_a_real_hardware_device)) {
+            debug(2,"alsa: precision delay timing is not available because it's not definitely a hardware device.");
+          } else {
+            debug(2,"alsa: precision delay timing is not available.");
+          }      
+          precision_delay_available_status = YNDK_NO; 
         }
       }
     }
@@ -1435,14 +1443,13 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
 // user information
       if (update_timestamp_ns == 0) {
         if (delay_type_notified != 1) {
-          inform("Note: the alsa output device \"%s\" is not capable of high precision delay timing.", snd_pcm_name(alsa_handle));
-          debug(1,"alsa: delay_and_status must use snd_pcm_delay() to calculate delay");
+          debug(2,"alsa: update timestamps unavailable");
           delay_type_notified = 1;
         }
       } else {
 // diagnostic
         if (delay_type_notified != 0) {
-          debug(2,"alsa: delay_and_status using snd_pcm_status_get_delay() to calculate delay");
+          debug(2,"alsa: update timestamps available");
           delay_type_notified = 0;
         }
       }
