@@ -137,9 +137,8 @@ void *rtp_audio_receiver(void *arg) {
       stat_mean += stat_delta / stat_n;
       stat_M2 += stat_delta * (time_interval_us - stat_mean);
       if (stat_n % 2500 == 0) {
-        debug(2,
-              "Packet reception interval stats: mean, standard deviation and max for the last "
-              "2,500 packets in microseconds: %10.1f, %10.1f, %10.1f.",
+        debug(2, "Packet reception interval stats: mean, standard deviation and max for the last "
+                 "2,500 packets in microseconds: %10.1f, %10.1f, %10.1f.",
               stat_mean, sqrtf(stat_M2 / (stat_n - 1)), longest_packet_time_interval_us);
         stat_n = 0;
         stat_mean = 0.0;
@@ -369,10 +368,9 @@ void *rtp_control_receiver(void *arg) {
 
                 if (la != conn->latency) {
                   conn->latency = la;
-                  debug(3,
-                        "New latency detected: %" PRIu32 ", sync latency: %" PRIu32
-                        ", minimum latency: %" PRIu32 ", maximum "
-                        "latency: %" PRIu32 ", fixed offset: %" PRIu32 ".",
+                  debug(3, "New latency detected: %" PRIu32 ", sync latency: %" PRIu32
+                           ", minimum latency: %" PRIu32 ", maximum "
+                           "latency: %" PRIu32 ", fixed offset: %" PRIu32 ".",
                         la, sync_rtp_timestamp - rtp_timestamp_less_latency, conn->minimum_latency,
                         conn->maximum_latency, config.fixedLatencyOffset);
                 }
@@ -396,11 +394,11 @@ void *rtp_control_receiver(void *arg) {
                     remote_frame_time_interval; // an IEEE double calculation with a 32-bit
                                                 // numerator and 64-bit denominator
                                                 // integers
-                conn->remote_frame_rate = conn->remote_frame_rate *
-                                          (uint64_t)0x100000000; // this should just change the
-                                                                 // [binary] exponent in the IEEE
-                                                                 // FP representation; the
-                                                                 // mantissa should be unaffected.
+                conn->remote_frame_rate =
+                    conn->remote_frame_rate * (uint64_t)0x100000000; // this should just change the
+                // [binary] exponent in the IEEE
+                // FP representation; the
+                // mantissa should be unaffected.
               } else {
                 conn->remote_frame_rate = 0.0; // use as a flag.
               }
@@ -824,7 +822,7 @@ void *rtp_timing_receiver(void *arg) {
                 conn->local_to_remote_time_gradient = (1.0 * mtl) / mbl;
               else {
                 conn->local_to_remote_time_gradient = 1.0;
-                debug(1,"rtp_timing_receiver: mbl is 0");
+                debug(1, "rtp_timing_receiver: mbl is 0");
               }
             } else {
               conn->local_to_remote_time_gradient = 1.0;
@@ -1105,7 +1103,7 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_con
       if (local_time)
         calculated_frame_rate = ((1.0 * local_frames) / local_time) * one_fp;
       else
-        debug(1,"sanitised_source_rate_information: local_time is zero");
+        debug(1, "sanitised_source_rate_information: local_time is zero");
       if ((local_time == 0) || ((calculated_frame_rate / conn->input_rate) > 1.002) ||
           ((calculated_frame_rate / conn->input_rate) < 0.998)) {
         debug(3, "input frame rate out of bounds at %.2f fps.", calculated_frame_rate);
@@ -1188,7 +1186,7 @@ int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
   if (time_difference)
     frame_interval = (time_interval * frame_difference) / time_difference;
   else
-    debug(1,"local_time_to_frame: time_difference is zero");
+    debug(1, "local_time_to_frame: time_difference is zero");
   if (reference_time_was_earlier) {
     // debug(1,"Frame interval is %" PRId64 " frames.",frame_interval);
     *frame = (conn->reference_timestamp + frame_interval);
@@ -1240,9 +1238,8 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
                    (struct sockaddr *)&conn->rtp_client_control_socket, msgsize) == -1) {
           char em[1024];
           strerror_r(errno, em, sizeof(em));
-          debug(1,
-                "Error %d using sendto to an audio socket: \"%s\". Backing off for 1/16th of a "
-                "second.",
+          debug(1, "Error %d using sendto to an audio socket: \"%s\". Backing off for 1/16th of a "
+                   "second.",
                 errno, em);
           conn->rtp_time_of_last_resend_request_error_fp = time_of_sending_fp;
         } else {

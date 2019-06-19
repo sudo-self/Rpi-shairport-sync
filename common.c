@@ -87,9 +87,11 @@
 void set_alsa_out_dev(char *);
 #endif
 
-const char * sps_format_description_string_array[] = {"unknown", "S8", "U8" ,"S16", "S16_LE", "S16_BE", "S24", "S24_LE", "S24_BE", "S24_3LE", "S24_3BE", "S32", "S32_LE", "S32_BE", "auto", "invalid" };
+const char *sps_format_description_string_array[] = {
+    "unknown", "S8",      "U8",      "S16", "S16_LE", "S16_BE", "S24",  "S24_LE",
+    "S24_BE",  "S24_3LE", "S24_3BE", "S32", "S32_LE", "S32_BE", "auto", "invalid"};
 
-const char * sps_format_description_string(enum sps_format_t format) {
+const char *sps_format_description_string(enum sps_format_t format) {
   if ((format >= SPS_FORMAT_UNKNOWN) && (format <= SPS_FORMAT_AUTO))
     return sps_format_description_string_array[format];
   else
@@ -115,12 +117,10 @@ void do_sps_log(__attribute__((unused)) int prio, const char *t, ...) {
   va_start(args, t);
   vsnprintf(s, sizeof(s), t, args);
   va_end(args);
-  fprintf(stderr,"%s\n",s);    
+  fprintf(stderr, "%s\n", s);
 }
 
-void log_to_stderr() {
-  sps_log = do_sps_log;
-}
+void log_to_stderr() { sps_log = do_sps_log; }
 
 shairport_cfg config;
 
@@ -183,7 +183,7 @@ void die(const char *format, ...) {
   else if ((debuglev) && (config.debugger_show_elapsed_time))
     sps_log(LOG_ERR, "% 20.9f|*fatal error: %s", tss, s);
   else
-    sps_log(LOG_ERR, "fatal error: %s", s);  
+    sps_log(LOG_ERR, "fatal error: %s", s);
   pthread_setcancelstate(oldState, NULL);
   abort(); // exit() doesn't always work, by heaven.
 }
@@ -436,7 +436,7 @@ char *base64_enc(uint8_t *input, int length) {
   b64 = BIO_push(b64, bmem);
   BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
   BIO_write(b64, input, length);
-  (void) BIO_flush(b64);
+  (void)BIO_flush(b64);
   BIO_get_mem_ptr(b64, &bptr);
 
   char *buf = (char *)malloc(bptr->length);
@@ -468,7 +468,7 @@ uint8_t *base64_dec(char *input, int *outlen) {
   BIO_write(bmem, input, inlen);
   while (inlen++ & 3)
     BIO_write(bmem, "=", 1);
-  (void) BIO_flush(bmem);
+  (void)BIO_flush(bmem);
 
   int bufsize = strlen(input) * 3 / 4 + 1;
   uint8_t *buf = malloc(bufsize);
@@ -862,17 +862,17 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
 
 double vol2attn(double vol, long max_db, long min_db) {
 
-  // We use a little coordinate geometry to build a transfer function from the volume passed in to
-  // the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
-  // "volume in" which will be from -30 to 0. The y axis will be the "volume out" which will be from
-  // the bottom of the range to the top. We build the transfer function from one or more lines. We
-  // characterise each line with two numbers: the first is where on x the line starts when y=0 (x
-  // can be from 0 to -30); the second is where on y the line stops when when x is -30. thus, if the
-  // line was characterised as {0,-30}, it would be an identity transfer. Assuming, for example, a
-  // dynamic range of lv=-60 to hv=0 Typically we'll use three lines -- a three order transfer
-  // function First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
-  // Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
-  // Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
+// We use a little coordinate geometry to build a transfer function from the volume passed in to
+// the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
+// "volume in" which will be from -30 to 0. The y axis will be the "volume out" which will be from
+// the bottom of the range to the top. We build the transfer function from one or more lines. We
+// characterise each line with two numbers: the first is where on x the line starts when y=0 (x
+// can be from 0 to -30); the second is where on y the line stops when when x is -30. thus, if the
+// line was characterised as {0,-30}, it would be an identity transfer. Assuming, for example, a
+// dynamic range of lv=-60 to hv=0 Typically we'll use three lines -- a three order transfer
+// function First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
+// Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
+// Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
 
 #define order 3
 
@@ -1000,7 +1000,7 @@ ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, i
 }
 
 ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
-  return non_blocking_write_with_timeout(fd,buf,count,5000); // default is 5 seconds.
+  return non_blocking_write_with_timeout(fd, buf, count, 5000); // default is 5 seconds.
 }
 
 /* from
@@ -1189,9 +1189,8 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
     et = (et * 1000000) >> 32; // microseconds
     char errstr[1000];
     if (r == ETIMEDOUT)
-      debug(debuglevel,
-            "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
-            "waiting time of %d microseconds. \"%s\".",
+      debug(debuglevel, "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
+                        "waiting time of %d microseconds. \"%s\".",
             (1.0 * et) / 1000000, dally_time, debugmessage);
     else
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
@@ -1293,10 +1292,10 @@ char *get_version_string() {
     strcpy(version_string, PACKAGE_VERSION);
 
 #ifdef CONFIG_LIBDAEMON
-  strcat(version_string, "-libdaemon");
+    strcat(version_string, "-libdaemon");
 #endif
 #ifdef CONFIG_MBEDTLS
-  strcat(version_string, "-mbedTLS");
+    strcat(version_string, "-mbedTLS");
 #endif
 #ifdef CONFIG_POLARSSL
     strcat(version_string, "-PolarSSL");
@@ -1382,7 +1381,7 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
     // I think, for a 32 --> 16 bits, the range of
     // random numbers needs to be from -2^16 to 2^16, i.e. from -65536 to 65536 inclusive, not from
     // -32768 to +32767
-    
+
     // Actually, what would be generated here is from -65535 to 65535, i.e. one less on the limits.
 
     // See the original paper at
@@ -1549,7 +1548,7 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
       break;
     default:
       result = 0; // stop a compiler warning
-      die("Unexpected SPS_FORMAT_* with index %d while outputting silence",format);
+      die("Unexpected SPS_FORMAT_* with index %d while outputting silence", format);
     }
     p += result;
     previous_random_number = r;

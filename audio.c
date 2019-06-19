@@ -116,7 +116,7 @@ void audio_ls_outputs(void) {
       printf("Settings and options for the audio backend \"%s\":\n", (*out)->name);
       (*out)->help();
     } else {
-      printf("There are no settings or options for the audio backend \"%s\".\n", (*out)->name);    
+      printf("There are no settings or options for the audio backend \"%s\".\n", (*out)->name);
     }
   }
 }

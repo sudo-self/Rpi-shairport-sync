@@ -34,18 +34,10 @@ enum dbus_session_type {
 #define sps_extra_code_output_state_cannot_make_ready 32769
 
 // yeah/no/auto
-enum yna_type {
-  YNA_AUTO = -1,
-  YNA_NO = 0,
-  YNA_YES = 1
-} yna_type;
+enum yna_type { YNA_AUTO = -1, YNA_NO = 0, YNA_YES = 1 } yna_type;
 
 // yeah/no/dont-care
-enum yndk_type {
-  YNDK_DONT_KNOW = -1,
-  YNDK_NO = 0,
-  YNDK_YES = 1
-} yndk_type;
+enum yndk_type { YNDK_DONT_KNOW = -1, YNDK_NO = 0, YNDK_YES = 1 } yndk_type;
 
 enum endian_type {
   SS_LITTLE_ENDIAN = 0,
@@ -56,7 +48,7 @@ enum endian_type {
 enum stuffing_type {
   ST_basic = 0, // straight deletion or insertion of a frame in a 352-frame packet
   ST_soxr,      // use libsoxr to make a 352 frame packet one frame longer or shorter
-  ST_auto,			// use soxr if compiled for it and if the soxr_index is low enough
+  ST_auto,      // use soxr if compiled for it and if the soxr_index is low enough
 } s_type;
 
 enum playback_mode_type {
@@ -95,7 +87,7 @@ enum sps_format_t {
   SPS_FORMAT_S16_BE,
   SPS_FORMAT_S24,
   SPS_FORMAT_S24_LE,
-  SPS_FORMAT_S24_BE,  
+  SPS_FORMAT_S24_BE,
   SPS_FORMAT_S24_3LE,
   SPS_FORMAT_S24_3BE,
   SPS_FORMAT_S32,
@@ -105,7 +97,7 @@ enum sps_format_t {
   SPS_FORMAT_INVALID,
 } sps_format_t;
 
-const char * sps_format_description_string(enum sps_format_t format);
+const char *sps_format_description_string(enum sps_format_t format);
 
 typedef struct {
   config_t *cfg;
@@ -172,7 +164,7 @@ typedef struct {
   uint32_t userSuppliedLatency; // overrides all other latencies -- use with caution
   uint32_t fixedLatencyOffset;  // add this to all automatic latencies supplied to get the actual
                                 // total latency
-  // the total latency will be limited to the min and max-latency values, if supplied
+// the total latency will be limited to the min and max-latency values, if supplied
 #ifdef CONFIG_LIBDAEMON
   int daemonise;
   int daemonise_store_pid; // don't try to save a PID file
@@ -192,7 +184,8 @@ typedef struct {
   double tolerance; // allow this much drift before attempting to correct it
   enum stuffing_type packet_stuffing;
   int soxr_delay_index;
-  int soxr_delay_threshold; // the soxr delay must be less or equal to this for soxr interpolation to be enabled under the auto setting
+  int soxr_delay_threshold; // the soxr delay must be less or equal to this for soxr interpolation
+                            // to be enabled under the auto setting
   int decoders_supported;
   int use_apple_decoder; // set to 1 if you want to use the apple decoder instead of the original by
                          // David Hammerton
@@ -215,16 +208,18 @@ typedef struct {
                                        // fixed latency there might be in the audio path
   double audio_backend_silent_lead_in_time; // the length of the silence that should precede a play.
   double active_state_timeout; // the amount of time from when play ends to when the system leaves
-                              // into the "active" mode.
-  uint32_t volume_range_db;   // the range, in dB, from max dB to min dB. Zero means use the mixer's
-                              // native range.
-  int volume_range_hw_priority; // when extending the volume range by combining sw and hw attenuators, lowering the volume, use all the hw attenuation before using
+                               // into the "active" mode.
+  uint32_t volume_range_db; // the range, in dB, from max dB to min dB. Zero means use the mixer's
+                            // native range.
+  int volume_range_hw_priority; // when extending the volume range by combining sw and hw
+                                // attenuators, lowering the volume, use all the hw attenuation
+                                // before using
                                 // sw attenuation
   enum volume_control_profile_type volume_control_profile;
 
-	int output_format_auto_requested; // true if the configuration requests auto configuration
+  int output_format_auto_requested; // true if the configuration requests auto configuration
   enum sps_format_t output_format;
-	int output_rate_auto_requested; // true if the configuration requests auto configuration
+  int output_rate_auto_requested; // true if the configuration requests auto configuration
   unsigned int output_rate;
 
 #ifdef CONFIG_CONVOLUTION
@@ -283,7 +278,8 @@ int get_requested_connection_state_to_output();
 
 void set_requested_connection_state_to_output(int v);
 
-ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, int timeout); // timeout in milliseconds
+ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count,
+                                        int timeout); // timeout in milliseconds
 
 ssize_t non_blocking_write(int fd, const void *buf, size_t count); // used in a few places
 

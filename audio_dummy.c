@@ -54,7 +54,6 @@ static int play(__attribute__((unused)) void *buf, __attribute__((unused)) int s
 
 static void stop(void) { debug(1, "dummy audio stopped\n"); }
 
-
 audio_output audio_dummy = {.name = "dummy",
                             .help = NULL,
                             .init = &init,

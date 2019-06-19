@@ -433,12 +433,14 @@ gboolean notify_drift_tolerance_callback(ShairportSync *skeleton,
 }
 
 gboolean notify_disable_standby_mode_callback(ShairportSync *skeleton,
-                                     __attribute__((unused)) gpointer user_data) {
+                                              __attribute__((unused)) gpointer user_data) {
   char *th = (char *)shairport_sync_get_disable_standby_mode(skeleton);
-  if ((strcasecmp(th, "no") == 0) || (strcasecmp(th, "off") == 0) || (strcasecmp(th, "never") == 0)) {
+  if ((strcasecmp(th, "no") == 0) || (strcasecmp(th, "off") == 0) ||
+      (strcasecmp(th, "never") == 0)) {
     config.disable_standby_mode = disable_standby_off;
     config.keep_dac_busy = 0;
-  } else if ((strcasecmp(th, "yes") == 0) || (strcasecmp(th, "on") == 0) || (strcasecmp(th, "always") == 0)) {
+  } else if ((strcasecmp(th, "yes") == 0) || (strcasecmp(th, "on") == 0) ||
+             (strcasecmp(th, "always") == 0)) {
     config.disable_standby_mode = disable_standby_always;
     config.keep_dac_busy = 1;
   } else if (strcasecmp(th, "auto") == 0)
@@ -446,17 +448,17 @@ gboolean notify_disable_standby_mode_callback(ShairportSync *skeleton,
   else {
     warn("An unrecognised disable_standby_mode: \"%s\" was requested via D-Bus interface.", th);
     switch (config.disable_standby_mode) {
-      case disable_standby_off:
-        shairport_sync_set_disable_standby_mode(skeleton, "off");
-        break;
-      case disable_standby_always:
-        shairport_sync_set_disable_standby_mode(skeleton, "always");
-        break;
-      case disable_standby_auto:
-        shairport_sync_set_disable_standby_mode(skeleton, "auto");
-        break;
-      default:
-        break;
+    case disable_standby_off:
+      shairport_sync_set_disable_standby_mode(skeleton, "off");
+      break;
+    case disable_standby_always:
+      shairport_sync_set_disable_standby_mode(skeleton, "always");
+      break;
+    case disable_standby_auto:
+      shairport_sync_set_disable_standby_mode(skeleton, "auto");
+      break;
+    default:
+      break;
     }
   }
   return TRUE;
@@ -661,7 +663,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(notify_alacdecoder_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::disable-standby-mode",
                    G_CALLBACK(notify_disable_standby_mode_callback), NULL);
-   g_signal_connect(shairportSyncSkeleton, "notify::volume-control-profile",
+  g_signal_connect(shairportSyncSkeleton, "notify::volume-control-profile",
                    G_CALLBACK(notify_volume_control_profile_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::disable-standby",
                    G_CALLBACK(notify_disable_standby_callback), NULL);
@@ -749,21 +751,21 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   debug(1, ">> Active set to \"false\"");
 
   switch (config.disable_standby_mode) {
-    case disable_standby_off:
-      shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "off");
-      debug(1, ">> disable standby mode set to \"off\"");
-      break;
-    case disable_standby_always:
-      shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "always");
-      debug(1, ">> disable standby mode set to \"always\"");
-      break;
-    case disable_standby_auto:
-      shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "auto");
-      debug(1, ">> disable standby mode set to \"auto\"");
-      break;
-    default:
-      debug(1,"invalid disable_standby mode!");
-      break;
+  case disable_standby_off:
+    shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "off");
+    debug(1, ">> disable standby mode set to \"off\"");
+    break;
+  case disable_standby_always:
+    shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "always");
+    debug(1, ">> disable standby mode set to \"always\"");
+    break;
+  case disable_standby_auto:
+    shairport_sync_set_disable_standby_mode(SHAIRPORT_SYNC(shairportSyncSkeleton), "auto");
+    debug(1, ">> disable standby mode set to \"auto\"");
+    break;
+  default:
+    debug(1, "invalid disable_standby mode!");
+    break;
   }
 
 #ifdef CONFIG_SOXR
@@ -902,9 +904,7 @@ void stop_dbus_service() {
     g_bus_unown_name(ownerID);
   else
     debug(1, "Zero OwnerID for \"org.gnome.ShairportSync\".");
-  service_is_running  = 0;
+  service_is_running = 0;
 }
 
-int dbus_service_is_running() {
-  return service_is_running;
-}
+int dbus_service_is_running() { return service_is_running; }

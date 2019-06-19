@@ -31,6 +31,7 @@
 #include <libconfig.h>
 #include <libgen.h>
 #include <memory.h>
+#include <net/if.h>
 #include <popt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,9 +39,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <net/if.h>
 #include <unistd.h>
-
 
 #include "config.h"
 
@@ -97,14 +96,13 @@
 #endif
 
 #ifdef CONFIG_SOXR
-#include <soxr.h>
 #include <math.h>
+#include <soxr.h>
 #endif
 
 #ifdef CONFIG_CONVOLUTION
 #include <FFTConvolver/convolver.h>
 #endif
-
 
 #ifdef CONFIG_LIBDAEMON
 pid_t pid;
@@ -165,33 +163,34 @@ void print_version(void) {
 }
 
 #ifdef CONFIG_SOXR
-pthread_t	soxr_time_check_thread;
-void* soxr_time_check(__attribute__((unused)) void *arg) {
+pthread_t soxr_time_check_thread;
+void *soxr_time_check(__attribute__((unused)) void *arg) {
   const int buffer_length = 352;
-  int32_t inbuffer[buffer_length*2];
-  int32_t outbuffer[(buffer_length+1)*2];
-  
-  //int32_t *outbuffer = (int32_t*)malloc((buffer_length+1)*2*sizeof(int32_t));
-  //int32_t *inbuffer = (int32_t*)malloc((buffer_length)*2*sizeof(int32_t));
-  
+  int32_t inbuffer[buffer_length * 2];
+  int32_t outbuffer[(buffer_length + 1) * 2];
+
+  // int32_t *outbuffer = (int32_t*)malloc((buffer_length+1)*2*sizeof(int32_t));
+  // int32_t *inbuffer = (int32_t*)malloc((buffer_length)*2*sizeof(int32_t));
+
   // generate a sample signal
-  const double frequency = 440; // 
-  
+  const double frequency = 440; //
+
   int i;
-     
+
   int number_of_iterations = 0;
   uint64_t soxr_start_time = get_absolute_time_in_fp();
-  uint64_t loop_until_time = (uint64_t)0x180000000 + soxr_start_time; // loop for a second and a half, max
+  uint64_t loop_until_time =
+      (uint64_t)0x180000000 + soxr_start_time; // loop for a second and a half, max
   while (get_absolute_time_in_fp() < loop_until_time) {
-  
+
     number_of_iterations++;
-    for (i = 0; i < buffer_length ; i++) {
-      double w = sin(i * (frequency + number_of_iterations * 2) * 2 * M_PI/44100);
+    for (i = 0; i < buffer_length; i++) {
+      double w = sin(i * (frequency + number_of_iterations * 2) * 2 * M_PI / 44100);
       int32_t wint = (int32_t)(w * INT32_MAX);
       inbuffer[i * 2] = wint;
       inbuffer[i * 2 + 1] = wint;
     }
-  
+
     soxr_io_spec_t io_spec;
     io_spec.itype = SOXR_INT32_I;
     io_spec.otype = SOXR_INT32_I;
@@ -201,37 +200,39 @@ void* soxr_time_check(__attribute__((unused)) void *arg) {
 
     size_t odone;
 
-    soxr_oneshot(buffer_length, buffer_length + 1, 2, // Rates and # of chans.
-                                      inbuffer, buffer_length, NULL,        // Input.
-                                      outbuffer, buffer_length + 1, &odone, // Output.
-                                      &io_spec,    // Input, output and transfer spec.
-                                      NULL, NULL); // Default configuration.
-                                     
+    soxr_oneshot(buffer_length, buffer_length + 1, 2,  // Rates and # of chans.
+                 inbuffer, buffer_length, NULL,        // Input.
+                 outbuffer, buffer_length + 1, &odone, // Output.
+                 &io_spec,                             // Input, output and transfer spec.
+                 NULL, NULL);                          // Default configuration.
+
     io_spec.itype = SOXR_INT32_I;
     io_spec.otype = SOXR_INT32_I;
     io_spec.scale = 1.0; // this seems to crash if not = 1.0
     io_spec.e = NULL;
     io_spec.flags = 0;
 
-    soxr_oneshot(buffer_length, buffer_length - 1, 2, // Rates and # of chans.
-                                      inbuffer, buffer_length, NULL,        // Input.
-                                      outbuffer, buffer_length - 1, &odone, // Output.
-                                      &io_spec,    // Input, output and transfer spec.
-                                      NULL, NULL); // Default configuration.
-  	
+    soxr_oneshot(buffer_length, buffer_length - 1, 2,  // Rates and # of chans.
+                 inbuffer, buffer_length, NULL,        // Input.
+                 outbuffer, buffer_length - 1, &odone, // Output.
+                 &io_spec,                             // Input, output and transfer spec.
+                 NULL, NULL);                          // Default configuration.
   }
 
   double soxr_execution_time_us =
-    (((get_absolute_time_in_fp() - soxr_start_time) * 1000000) >> 32) * 1.0;
+      (((get_absolute_time_in_fp() - soxr_start_time) * 1000000) >> 32) * 1.0;
   // free(outbuffer);
   // free(inbuffer);
-  config.soxr_delay_index = (int)(0.9 + soxr_execution_time_us/(number_of_iterations *1000));
-  debug(2,"soxr_delay_index: %d.", config.soxr_delay_index);
-  if ((config.packet_stuffing == ST_soxr) && (config.soxr_delay_index > config.soxr_delay_threshold))
-  	inform("Note: this device may be too slow for \"soxr\" interpolation. Consider choosing the \"basic\" or \"auto\" interpolation setting.");
+  config.soxr_delay_index = (int)(0.9 + soxr_execution_time_us / (number_of_iterations * 1000));
+  debug(2, "soxr_delay_index: %d.", config.soxr_delay_index);
+  if ((config.packet_stuffing == ST_soxr) &&
+      (config.soxr_delay_index > config.soxr_delay_threshold))
+    inform("Note: this device may be too slow for \"soxr\" interpolation. Consider choosing the "
+           "\"basic\" or \"auto\" interpolation setting.");
   if (config.packet_stuffing == ST_auto)
-    debug(1,"\"%s\" interpolation has been chosen.", config.soxr_delay_index <= config.soxr_delay_threshold ? "soxr" : "basic");
-	pthread_exit(NULL);
+    debug(1, "\"%s\" interpolation has been chosen.",
+          config.soxr_delay_index <= config.soxr_delay_threshold ? "soxr" : "basic");
+  pthread_exit(NULL);
 }
 
 #endif
@@ -428,10 +429,14 @@ int parse_options(int argc, char **argv) {
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
   config.active_state_timeout = 10.0;
-  config.soxr_delay_threshold = 30; // the soxr measurement time (milliseconds) of two oneshots must not exceed this if soxr interpolation is to be chosen automatically.
-  config.volume_range_hw_priority = 0; // if combining software and hardware volume control, give the software priority
+  config.soxr_delay_threshold = 30; // the soxr measurement time (milliseconds) of two oneshots must
+                                    // not exceed this if soxr interpolation is to be chosen
+                                    // automatically.
+  config.volume_range_hw_priority =
+      0; // if combining software and hardware volume control, give the software priority
 // i.e. when reducing volume, reduce the sw first before reducing the software.
-// this is because some hw mixers mute at the bottom of their range, and they don't always advertise this fact
+// this is because some hw mixers mute at the bottom of their range, and they don't always advertise
+// this fact
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
@@ -536,13 +541,13 @@ int parse_options(int argc, char **argv) {
           config.packet_stuffing = ST_soxr;
 #else
           warn("The soxr option not available because this version of shairport-sync was built "
-              "without libsoxr "
-              "support. Change the \"general/interpolation\" setting in the configuration file.");
+               "without libsoxr "
+               "support. Change the \"general/interpolation\" setting in the configuration file.");
 #endif
         else
           die("Invalid interpolation option choice. It should be \"auto\", \"basic\" or \"soxr\"");
       }
-      
+
 #ifdef CONFIG_SOXR
       /* Get the soxr_delay_threshold setting. */
       if (config_lookup_int(config.cfg, "general.soxr_delay_threshold", &value)) {
@@ -550,9 +555,9 @@ int parse_options(int argc, char **argv) {
           config.soxr_delay_threshold = value;
         else
           warn("Invalid general soxr_delay_threshold setting option choice \"%d\". It should be "
-              "between 0 and 100, "
-              "inclusive. Default is %d (milliseconds).",
-              value, config.soxr_delay_threshold);
+               "between 0 and 100, "
+               "inclusive. Default is %d (milliseconds).",
+               value, config.soxr_delay_threshold);
       }
 #endif
 
@@ -1003,10 +1008,10 @@ int parse_options(int argc, char **argv) {
     config.mqtt_port = 1883;
     if (config_lookup_int(config.cfg, "mqtt.port", &value)) {
       if ((value < 0) || (value > 65535))
-          die("Invalid mqtt port number  \"%sd\". It should be between 0 and 65535, default is 1883",
-              value);
+        die("Invalid mqtt port number  \"%sd\". It should be between 0 and 65535, default is 1883",
+            value);
       else
-          config.mqtt_port = value;
+        config.mqtt_port = value;
     }
 
     if (config_lookup_string(config.cfg, "mqtt.username", &str)) {
@@ -1051,11 +1056,11 @@ int parse_options(int argc, char **argv) {
     }
     config_set_lookup_bool(config.cfg, "mqtt.enable_remote", &config.mqtt_enable_remote);
 #ifndef CONFIG_AVAHI
-        if (config.mqtt_enable_remote) {
-          die("You have enabled MQTT remote control which requires shairport-sync to be built with "
-              "Avahi, but your installation is not using avahi. Please reinstall/recompile with "
-              "avahi enabled, or disable remote control.");
-        }
+    if (config.mqtt_enable_remote) {
+      die("You have enabled MQTT remote control which requires shairport-sync to be built with "
+          "Avahi, but your installation is not using avahi. Please reinstall/recompile with "
+          "avahi enabled, or disable remote control.");
+    }
 #endif
 #endif
   }
@@ -1125,7 +1130,6 @@ int parse_options(int argc, char **argv) {
 
 // here, we are finally finished reading the options
 
-
 #ifdef CONFIG_LIBDAEMON
   if ((daemonisewith) && (daemonisewithout))
     die("Select either daemonize_with_pid_file or daemonize_without_pid_file -- you have selected "
@@ -1138,7 +1142,9 @@ int parse_options(int argc, char **argv) {
 #else
   /* Check if we are called with -d or --daemon or -j or justDaemoniseNoPIDFile options*/
   if ((daemonisewith != 0) || (daemonisewithout != 0)) {
-    fprintf(stderr,"%s was built without libdaemon, so does not support daemonisation using the -d, --deamon, -j or --justDaemoniseNoPIDFile options\n",config.appName);
+    fprintf(stderr, "%s was built without libdaemon, so does not support daemonisation using the "
+                    "-d, --deamon, -j or --justDaemoniseNoPIDFile options\n",
+            config.appName);
     exit(EXIT_FAILURE);
   }
 
@@ -1313,16 +1319,16 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
     debug(2, "Deinitialise the audio backend.");
     config.output->deinit();
   }
-  
+
 #ifdef CONFIG_LIBDAEMON
-// only do this if you are the daemon
+  // only do this if you are the daemon
   if (pid == 0) {
     daemon_retval_send(0);
     daemon_pid_file_remove();
     daemon_signal_done();
-  }  
+  }
 #endif
- 
+
   debug(2, "Exit...");
   exit(EXIT_SUCCESS);
 }
@@ -1366,12 +1372,12 @@ int main(int argc, char **argv) {
     die("can not allocate memory for the app name!");
   free(basec);
 
-  //  debug(1,"startup");
+//  debug(1,"startup");
 #ifdef CONFIG_LIBDAEMON
   daemon_set_verbosity(LOG_DEBUG);
 #else
-  setlogmask (LOG_UPTO (LOG_DEBUG));
-  openlog(NULL,0,LOG_DAEMON);
+  setlogmask(LOG_UPTO(LOG_DEBUG));
+  openlog(NULL, 0, LOG_DAEMON);
 #endif
   atexit(exit_function);
 
@@ -1410,8 +1416,9 @@ int main(int argc, char **argv) {
 
   // config.statistics_requested = 0; // don't print stats in the log
   // config.userSuppliedLatency = 0; // zero means none supplied
-  
-  config.debugger_show_relative_time = 1; // by default, log the  time back to the previous debug message
+
+  config.debugger_show_relative_time =
+      1;                         // by default, log the  time back to the previous debug message
   config.resyncthreshold = 0.05; // 50 ms
   config.timeout = 120; // this number of seconds to wait for [more] audio before switching to idle.
   config.tolerance =
@@ -1419,13 +1426,12 @@ int main(int argc, char **argv) {
   config.buffer_start_fill = 220;
   config.port = 5000;
 
-
 #ifdef CONFIG_SOXR
-  config.packet_stuffing = ST_auto; // use soxr interpolation by default if support has been included and if the CPU is fast enough
+  config.packet_stuffing = ST_auto; // use soxr interpolation by default if support has been
+                                    // included and if the CPU is fast enough
 #else
   config.packet_stuffing = ST_basic; // simple interpolation or deletion
 #endif
-
 
   // char hostname[100];
   // gethostname(hostname, 100);
@@ -1488,7 +1494,6 @@ int main(int argc, char **argv) {
 
 #endif
 
-
   // parse arguments into config -- needed to locate pid_dir
   int audio_arg = parse_options(argc, argv);
 
@@ -1499,7 +1504,7 @@ int main(int argc, char **argv) {
   }
 
   /* Check if we are called with -k or --kill option */
-  if (killOption != 0) {  
+  if (killOption != 0) {
 #ifdef CONFIG_LIBDAEMON
     int ret;
 
@@ -1512,7 +1517,8 @@ int main(int argc, char **argv) {
     }
     return ret < 0 ? 1 : 0;
 #else
-    fprintf(stderr,"%s was built without libdaemon, so does not support the -k or --kill option\n",config.appName);
+    fprintf(stderr, "%s was built without libdaemon, so does not support the -k or --kill option\n",
+            config.appName);
     return 1;
 #endif
   }
@@ -1591,7 +1597,7 @@ int main(int argc, char **argv) {
           daemon_signal_done();
           return 0;
         }
- 
+
         if (daemon_pid_file_create() < 0) {
           daemon_log(LOG_ERR, "Could not create PID file (%s).", strerror(errno));
 
@@ -1608,7 +1614,7 @@ int main(int argc, char **argv) {
   }
 
 #endif
-  debug(1,"Started!");
+  debug(1, "Started!");
   main_thread_id = pthread_self();
   if (!main_thread_id)
     debug(1, "Main thread is set up to be NULL!");
@@ -1617,7 +1623,6 @@ int main(int argc, char **argv) {
 
   // make sure the program can create files that group and world can read
   umask(S_IWGRP | S_IWOTH);
-
 
   /* print out version */
 
@@ -1628,7 +1633,7 @@ int main(int argc, char **argv) {
   } else {
     debug(1, "can't print the version information!");
   }
-  
+
   debug(1, "log verbosity is %d.", debuglev);
 
   config.output = audio_get_output(config.output_name);
@@ -1701,7 +1706,9 @@ int main(int argc, char **argv) {
   debug(1, "active_state_timeout is  %f seconds.", config.active_state_timeout);
   debug(1, "mdns backend \"%s\".", config.mdns_name);
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
-  debug(1, "interpolation setting is \"%s\".", config.packet_stuffing == ST_basic ? "basic" : config.packet_stuffing == ST_soxr ? "soxr" : "auto");
+  debug(1, "interpolation setting is \"%s\".",
+        config.packet_stuffing == ST_basic ? "basic" : config.packet_stuffing == ST_soxr ? "soxr"
+                                                                                         : "auto");
   debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
   debug(1, "resync time is %f seconds.", config.resyncthreshold);
   debug(1, "allow a session to be interrupted: %d.", config.allow_session_interruption);
@@ -1715,25 +1722,25 @@ int main(int argc, char **argv) {
     debug(1, "volume_max_db is not set");
   debug(1, "volume range in dB (zero means use the range specified by the mixer): %u.",
         config.volume_range_db);
-  debug(
-      1,
-      "volume_range_combined_hardware_priority (1 means hardware mixer attenuation is used first) is %d.",
-      config.volume_range_hw_priority);
+  debug(1, "volume_range_combined_hardware_priority (1 means hardware mixer attenuation is used "
+           "first) is %d.",
+        config.volume_range_hw_priority);
   debug(1, "playback_mode is %d (0-stereo, 1-mono, 1-reverse_stereo, 2-both_left, 3-both_right).",
         config.playback_mode);
   debug(1, "disable_synchronization is %d.", config.no_sync);
   debug(1, "use_mmap_if_available is %d.", config.no_mmap ? 0 : 1);
-  debug(1, "output_format automatic selection is %sabled.", config.output_format_auto_requested ? "en" : "dis");
+  debug(1, "output_format automatic selection is %sabled.",
+        config.output_format_auto_requested ? "en" : "dis");
   if (config.output_format_auto_requested == 0)
-  	debug(1,
-        "output_format is \"%s\".",
-        sps_format_description_string(config.output_format));
-  debug(1, "output_rate automatic selection is %sabled.", config.output_rate_auto_requested ? "en" : "dis");
+    debug(1, "output_format is \"%s\".", sps_format_description_string(config.output_format));
+  debug(1, "output_rate automatic selection is %sabled.",
+        config.output_rate_auto_requested ? "en" : "dis");
   if (config.output_rate_auto_requested == 0)
-  	debug(1, "output_rate is %d.", config.output_rate);
+    debug(1, "output_rate is %d.", config.output_rate);
   debug(1, "audio backend desired buffer length is %f seconds.",
         config.audio_backend_buffer_desired_length);
-  debug(1, "audio_backend_buffer_interpolation_threshold_in_seconds is %f seconds.", config.audio_backend_buffer_interpolation_threshold_in_seconds);
+  debug(1, "audio_backend_buffer_interpolation_threshold_in_seconds is %f seconds.",
+        config.audio_backend_buffer_interpolation_threshold_in_seconds);
   debug(1, "audio backend latency offset is %f seconds.", config.audio_backend_latency_offset);
   debug(1, "audio backend silence lead-in time is %f seconds. A value -1.0 means use the default.",
         config.audio_backend_silent_lead_in_time);
@@ -1783,7 +1790,7 @@ int main(int argc, char **argv) {
   uint8_t ap_md5[16];
 
 #ifdef CONFIG_SOXR
-	pthread_create(&soxr_time_check_thread, NULL, &soxr_time_check, NULL);
+  pthread_create(&soxr_time_check_thread, NULL, &soxr_time_check, NULL);
 #endif
 
 #ifdef CONFIG_OPENSSL
