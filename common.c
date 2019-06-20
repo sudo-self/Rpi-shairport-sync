@@ -1368,61 +1368,62 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
   // return the last random number used
   // assuming the buffer has been assigned
 
+  // add a TPDF dither -- see
+  // http://educypedia.karadimov.info/library/DitherExplained.pdf
+  // and the discussion around https://www.hydrogenaud.io/forums/index.php?showtopic=16963&st=25
+
+  // I think, for a 32 --> 16 bits, the range of
+  // random numbers needs to be from -2^16 to 2^16, i.e. from -65536 to 65536 inclusive, not from
+  // -32768 to +32767
+
+  // Actually, what would be generated here is from -65535 to 65535, i.e. one less on the limits.
+
+  // See the original paper at
+  // http://www.ece.rochester.edu/courses/ECE472/resources/Papers/Lipshitz_1992.pdf
+  // by Lipshitz, Wannamaker and Vanderkooy, 1992.
+
+  int64_t dither_mask = 0;
+  switch (format) {
+  case SPS_FORMAT_S32:
+  case SPS_FORMAT_S32_LE:
+  case SPS_FORMAT_S32_BE:
+    dither_mask = (int64_t)1 << (64 - 32);
+    break;
+  case SPS_FORMAT_S24:
+  case SPS_FORMAT_S24_LE:
+  case SPS_FORMAT_S24_BE:
+  case SPS_FORMAT_S24_3LE:
+  case SPS_FORMAT_S24_3BE:
+    dither_mask = (int64_t)1 << (64 - 24);
+    break;
+  case SPS_FORMAT_S16:
+  case SPS_FORMAT_S16_LE:
+  case SPS_FORMAT_S16_BE:
+    dither_mask = (int64_t)1 << (64 - 16);
+    break;
+  case SPS_FORMAT_S8:
+  case SPS_FORMAT_U8:
+    dither_mask = (int64_t)1 << (64 - 8);
+    break;
+  case SPS_FORMAT_UNKNOWN:
+    die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
+    break;
+  case SPS_FORMAT_AUTO:
+    die("Unexpected SPS_FORMAT_AUTO while calculating dither mask.");
+    break;
+  case SPS_FORMAT_INVALID:
+    die("Unexpected SPS_FORMAT_INVALID while calculating dither mask.");
+    break;
+  }
+  dither_mask -= 1;
+
   int64_t previous_random_number = random_number_in;
   char *p = outp;
   size_t sample_number;
   for (sample_number = 0; sample_number < number_of_frames * 2; sample_number++) {
 
     int64_t hyper_sample = 0;
-    // add a TPDF dither -- see
-    // http://educypedia.karadimov.info/library/DitherExplained.pdf
-    // and the discussion around https://www.hydrogenaud.io/forums/index.php?showtopic=16963&st=25
 
-    // I think, for a 32 --> 16 bits, the range of
-    // random numbers needs to be from -2^16 to 2^16, i.e. from -65536 to 65536 inclusive, not from
-    // -32768 to +32767
-
-    // Actually, what would be generated here is from -65535 to 65535, i.e. one less on the limits.
-
-    // See the original paper at
-    // http://www.ece.rochester.edu/courses/ECE472/resources/Papers/Lipshitz_1992.pdf
-    // by Lipshitz, Wannamaker and Vanderkooy, 1992.
-
-    int64_t dither_mask = 0;
-    switch (format) {
-    case SPS_FORMAT_S32:
-    case SPS_FORMAT_S32_LE:
-    case SPS_FORMAT_S32_BE:
-      dither_mask = (int64_t)1 << (64 - 32);
-      break;
-    case SPS_FORMAT_S24:
-    case SPS_FORMAT_S24_LE:
-    case SPS_FORMAT_S24_BE:
-    case SPS_FORMAT_S24_3LE:
-    case SPS_FORMAT_S24_3BE:
-      dither_mask = (int64_t)1 << (64 - 24);
-      break;
-    case SPS_FORMAT_S16:
-    case SPS_FORMAT_S16_LE:
-    case SPS_FORMAT_S16_BE:
-      dither_mask = (int64_t)1 << (64 - 16);
-      break;
-    case SPS_FORMAT_S8:
-    case SPS_FORMAT_U8:
-      dither_mask = (int64_t)1 << (64 - 8);
-      break;
-    case SPS_FORMAT_UNKNOWN:
-      die("Unexpected SPS_FORMAT_UNKNOWN while calculating dither mask.");
-      break;
-    case SPS_FORMAT_AUTO:
-      die("Unexpected SPS_FORMAT_AUTO while calculating dither mask.");
-      break;
-    case SPS_FORMAT_INVALID:
-      die("Unexpected SPS_FORMAT_INVALID while calculating dither mask.");
-      break;
-    }
-    dither_mask -= 1;
-    // int64_t r = r64i();
     int64_t r = ranarray64i();
 
     int64_t tpdf = (r & dither_mask) - (previous_random_number & dither_mask);
@@ -1434,126 +1435,87 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
 
     // move the result to the desired position in the int64_t
     char *op = p;
-    int result; // this is the length of the sample
+    int sample_length; // this is the length of the sample
 
-    uint8_t byt;
     switch (format) {
     case SPS_FORMAT_S32:
       hyper_sample >>= (64 - 32);
       *(int32_t *)op = hyper_sample;
-      result = 4;
+      sample_length = 4;
       break;
     case SPS_FORMAT_S32_LE:
-      hyper_sample >>= (64 - 32);
-      byt = (uint8_t)hyper_sample;
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 8);
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 16);
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 24);
-      *op++ = byt;
-      result = 4;
+      *op++ = (uint8_t)(hyper_sample >> (64 - 32));      // 32 bits, ls byte
+      *op++ = (uint8_t)(hyper_sample >> (64 - 32 + 8));  // 32 bits, less significant middle byte
+      *op++ = (uint8_t)(hyper_sample >> (64 - 32 + 16)); // 32 bits, more significant middle byte
+      *op = (uint8_t)(hyper_sample >> (64 - 32 + 24));   // 32 bits, ms byte
+      sample_length = 4;
       break;
     case SPS_FORMAT_S32_BE:
-      hyper_sample >>= (64 - 32);
-      byt = (uint8_t)(hyper_sample >> 24);
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 16);
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 8);
-      *op++ = byt;
-      byt = (uint8_t)hyper_sample;
-      *op++ = byt;
-      result = 4;
+      *op++ = (uint8_t)(hyper_sample >> (64 - 32 + 24)); // 32 bits, ms byte
+      *op++ = (uint8_t)(hyper_sample >> (64 - 32 + 16)); // 32 bits, more significant middle byte
+      *op++ = (uint8_t)(hyper_sample >> (64 - 32 + 8));  // 32 bits, less significant middle byte
+      *op = (uint8_t)(hyper_sample >> (64 - 32));        // 32 bits, ls byte
+      sample_length = 4;
       break;
     case SPS_FORMAT_S24_3LE:
-      hyper_sample >>= (64 - 24);
-      byt = (uint8_t)hyper_sample;
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 8);
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 16);
-      *op++ = byt;
-      result = 3;
+      *op++ = (uint8_t)(hyper_sample >> (64 - 24));     // 24 bits, ls byte
+      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8)); // 24 bits, middle byte
+      *op = (uint8_t)(hyper_sample >> (64 - 24 + 16));  // 24 bits, ms byte
+      sample_length = 3;
       break;
     case SPS_FORMAT_S24_3BE:
-      hyper_sample >>= (64 - 24);
-      byt = (uint8_t)(hyper_sample >> 16);
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 8);
-      *op++ = byt;
-      byt = (uint8_t)hyper_sample;
-      *op++ = byt;
-      result = 3;
+      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 16)); // 24 bits, ms byte
+      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8));  // 24 bits, middle byte
+      *op = (uint8_t)(hyper_sample >> (64 - 24));        // 24 bits, ls byte
+      sample_length = 3;
       break;
     case SPS_FORMAT_S24:
       hyper_sample >>= (64 - 24);
       *(int32_t *)op = hyper_sample;
-      result = 4;
+      sample_length = 4;
       break;
     case SPS_FORMAT_S24_LE:
-      hyper_sample >>= (64 - 24);
-      byt = (uint8_t)hyper_sample;
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 8);
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 16);
-      *op++ = byt;
-      *op++ = 0;
-      result = 4;
+      *op++ = (uint8_t)(hyper_sample >> (64 - 24));      // 24 bits, ls byte
+      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8));  // 24 bits, middle byte
+      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 16)); // 24 bits, ms byte
+      *op = 0;
+      sample_length = 4;
       break;
     case SPS_FORMAT_S24_BE:
-      hyper_sample >>= (64 - 24);
       *op++ = 0;
-      byt = (uint8_t)(hyper_sample >> 16);
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 8);
-      *op++ = byt;
-      byt = (uint8_t)hyper_sample;
-      *op++ = byt;
-      result = 4;
+      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 16)); // 24 bits, ms byte
+      *op++ = (uint8_t)(hyper_sample >> (64 - 24 + 8));  // 24 bits, middle byte
+      *op = (uint8_t)(hyper_sample >> (64 - 24));        // 24 bits, ls byte
+      sample_length = 4;
       break;
     case SPS_FORMAT_S16_LE:
-      hyper_sample >>= (64 - 16);
-      byt = (uint8_t)hyper_sample;
-      *op++ = byt;
-      byt = (uint8_t)(hyper_sample >> 8);
-      *op++ = byt;
-      result = 2;
+      *op++ = (uint8_t)(hyper_sample >> (64 - 16));
+      *op++ = (uint8_t)(hyper_sample >> (64 - 16 + 8)); // 16 bits, ms byte
+      sample_length = 2;
       break;
     case SPS_FORMAT_S16_BE:
-      hyper_sample >>= (64 - 16);
-      byt = (uint8_t)(hyper_sample >> 8);
-      *op++ = byt;
-      byt = (uint8_t)hyper_sample;
-      *op++ = byt;
-      result = 2;
+      *op++ = (uint8_t)(hyper_sample >> (64 - 16 + 8)); // 16 bits, ms byte
+      *op = (uint8_t)(hyper_sample >> (64 - 16));
+      sample_length = 2;
       break;
     case SPS_FORMAT_S16:
-      hyper_sample >>= (64 - 16);
-      *(int16_t *)op = (int16_t)hyper_sample;
-      result = 2;
+      *(int16_t *)op = (int16_t)(hyper_sample >> (64 - 16));
+      sample_length = 2;
       break;
     case SPS_FORMAT_S8:
-      hyper_sample >>= (int8_t)(64 - 8);
-      *op = hyper_sample;
-      result = 1;
+      *op = (int8_t)(hyper_sample >> (64 - 8));
+      sample_length = 1;
       break;
     case SPS_FORMAT_U8:
-      hyper_sample >>= (uint8_t)(64 - 8);
-      hyper_sample += 128;
-      *op = hyper_sample;
-      result = 1;
+      *op = 128 + (uint8_t)(hyper_sample >> (64 - 8));
+      sample_length = 1;
       break;
     default:
-      result = 0; // stop a compiler warning
+      sample_length = 0; // stop a compiler warning
       die("Unexpected SPS_FORMAT_* with index %d while outputting silence", format);
     }
-    p += result;
+    p += sample_length;
     previous_random_number = r;
   }
-  // hack
-  // memset(outp,0,number_of_frames * 4);
   return previous_random_number;
 }

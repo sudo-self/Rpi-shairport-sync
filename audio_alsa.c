@@ -1003,16 +1003,14 @@ static int init(int argc, char **argv) {
   config.audio_backend_buffer_interpolation_threshold_in_seconds =
       0.120; // below this, basic interpolation will be used to save time.
   config.alsa_maximum_stall_time = 0.200; // 200 milliseconds -- if it takes longer, it's a problem
-  config.audio_backend_silence_threshold =
+  config.disable_standby_mode_silence_threshold =
       0.040; // start sending silent frames if the delay goes below this time
-  config.audio_backend_silence_scan_interval = 0.004; // check silence threshold this often
+  config.disable_standby_mode_silence_scan_interval = 0.004; // check silence threshold this often
 
   stall_monitor_error_threshold =
       (uint64_t)1000000 * config.alsa_maximum_stall_time; // stall time max to microseconds;
   stall_monitor_error_threshold = (stall_monitor_error_threshold << 32) / 1000000; // now in fp form
-  debug(1,
-        "stall_monitor_error_threshold is 0x%" PRIx64 ", with alsa_maximum_stall_time of %f sec.",
-        stall_monitor_error_threshold, config.alsa_maximum_stall_time);
+  debug(1, "alsa: alsa_maximum_stall_time of %f sec.", config.alsa_maximum_stall_time);
 
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
@@ -1233,6 +1231,29 @@ static int init(int argc, char **argv) {
       }
     }
 
+    /* Get the optional disable_standby_mode_silence_threshold setting. */
+    if (config_lookup_float(config.cfg, "alsa.disable_standby_mode_silence_threshold", &dvalue)) {
+      if (dvalue < 0.0) {
+        warn("Invalid alsa disable_standby_mode_silence_threshold setting \"%f\". It "
+             "must be greater than 0. Default is \"%f\". No setting is made.",
+             dvalue, config.disable_standby_mode_silence_threshold);
+      } else {
+        config.disable_standby_mode_silence_threshold = dvalue;
+      }
+    }
+
+    /* Get the optional disable_standby_mode_silence_scan_interval setting. */
+    if (config_lookup_float(config.cfg, "alsa.disable_standby_mode_silence_scan_interval",
+                            &dvalue)) {
+      if (dvalue < 0.0) {
+        warn("Invalid alsa disable_standby_mode_silence_scan_interval setting \"%f\". It "
+             "must be greater than 0. Default is \"%f\". No setting is made.",
+             dvalue, config.disable_standby_mode_silence_scan_interval);
+      } else {
+        config.disable_standby_mode_silence_scan_interval = dvalue;
+      }
+    }
+
     /* Get the optional disable_standby_mode setting. */
     if (config_lookup_string(config.cfg, "alsa.disable_standby_mode", &str)) {
       if ((strcasecmp(str, "no") == 0) || (strcasecmp(str, "off") == 0) ||
@@ -1276,6 +1297,10 @@ static int init(int argc, char **argv) {
           config.disable_standby_mode == disable_standby_off
               ? "never"
               : config.disable_standby_mode == disable_standby_always ? "always" : "auto");
+    debug(1, "alsa: disable_standby_mode_silence_threshold is %f seconds.",
+          config.disable_standby_mode_silence_threshold);
+    debug(1, "alsa: disable_standby_mode_silence_scan_interval is %f seconds.",
+          config.disable_standby_mode_silence_scan_interval);
   }
 
   optind = 1; // optind=0 is equivalent to optind=1 plus special behaviour
@@ -1643,7 +1668,7 @@ int do_play(void *buf, int samples) {
         measurement_data_is_valid = 0;
         if (ret == -EPIPE) { /* underrun */
           debug(1, "alsa: underrun while writing %d samples to alsa device.", samples);
-          int tret = snd_pcm_recover(alsa_handle, ret, debuglev > 0 ? 0 : 1);
+          int tret = snd_pcm_recover(alsa_handle, ret, 1);
           if (tret < 0) {
             warn("alsa: can't recover from SND_PCM_STATE_XRUN: %s.", snd_strerror(tret));
           }
@@ -1898,9 +1923,9 @@ void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
 void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
   int frame_count = 0;
   int error_count = 0;
-  int error_threshold_exceeded = 0;
+  int error_detected = 0;
   int okb = -1;
-  while (error_threshold_exceeded ==
+  while (error_detected ==
          0) { // if too many play errors occur early on, we will turn off the disable stanby mode
     if (okb != config.keep_dac_busy) {
       debug(2, "keep_dac_busy is now \"%s\"", config.keep_dac_busy == 0 ? "no" : "yes");
@@ -1911,7 +1936,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
                "do_alsa_device_init_if_needed.");
       do_alsa_device_init_if_needed();
     }
-    int sleep_time_ms = (int)(config.audio_backend_silence_scan_interval * 1000);
+    int sleep_time_ms = (int)(config.disable_standby_mode_silence_scan_interval * 1000);
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 200000, 0);
     // check possible state transitions here
     if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
@@ -1950,25 +1975,19 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
                 (char *)errorstring);
         }
         long buffer_size_threshold =
-            (long)(config.audio_backend_silence_threshold * config.output_rate);
+            (long)(config.disable_standby_mode_silence_threshold * config.output_rate);
+        size_t size_of_silence_buffer;
         if (buffer_size < buffer_size_threshold) {
           uint64_t sleep_time_in_fp = sleep_time_ms;
           sleep_time_in_fp = sleep_time_in_fp << 32;
           sleep_time_in_fp = sleep_time_in_fp / 1000;
-          // debug(1,"alsa: sleep_time: %d ms or 0x%" PRIx64 " in fp
-          // form.",sleep_time_ms,sleep_time_in_fp); int frames_of_silence =
-          // (config.output_rate *
-          // sleep_time_ms * 2) / 1000;
           int frames_of_silence = 1024;
-          size_t size_of_silence_buffer = frames_of_silence * frame_size;
-          // debug(1, "alsa: alsa_buffer_monitor_thread_code -- silence buffer
-          // length: %u bytes.",
-          //      size_of_silence_buffer);
+          size_of_silence_buffer = frames_of_silence * frame_size;
           void *silence = malloc(size_of_silence_buffer);
           if (silence == NULL) {
-            debug(1, "alsa: alsa_buffer_monitor_thread_code -- failed to "
-                     "allocate memory for a "
-                     "silent frame buffer.");
+            warn("disable_standby_mode has been turned off because a memory allocation error "
+                 "occurred.");
+            error_detected = 1;
           } else {
             int ret;
             pthread_cleanup_push(malloc_cleanup, silence);
@@ -1980,12 +1999,9 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
                 generate_zero_frames(silence, frames_of_silence, config.output_format,
                                      use_dither, // i.e. with dither
                                      dither_random_number_store);
-            // debug(1,"Play %d frames of silence with most_recent_write_time of
-            // %" PRIx64 ".",
-            //    frames_of_silence,most_recent_write_time);
             ret = do_play(silence, frames_of_silence);
             frame_count++;
-            pthread_cleanup_pop(1);
+            pthread_cleanup_pop(1); // free malloced buffer
             if (ret < 0) {
               error_count++;
               char errorstring[1024];
@@ -1997,7 +2013,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
                 warn("disable_standby_mode has been turned off because too many underruns "
                      "occurred. Is Shairport Sync outputting to a virtual device or running in a "
                      "virtual machine?");
-                error_threshold_exceeded = 1;
+                error_detected = 1;
               }
             }
           }
