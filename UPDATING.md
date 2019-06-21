@@ -61,5 +61,5 @@ Your Shairport Sync should be upgraded now.
 ```
 $ sudo amixer sset <mixer_name> unmute
 ```
-Alternatively you can use `alsamixer`. A muted output has the letter(s) `M` as its value. Select it an type `M` again to unmute. 
+Alternatively you can use `alsamixer`. A muted output has the letter(s) `M` as its value. Select it and type `M` again to unmute. 
 
