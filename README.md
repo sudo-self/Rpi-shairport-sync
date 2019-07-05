@@ -535,38 +535,62 @@ Some Statistics
 ---------------
 If you turn on the `general`  `statistics` setting, a heading like this will be output to the console or log file:
 ```
-sync error in milliseconds, net correction in ppm, corrections in ppm, total packets, missing packets, late packets, too late packets, resend requests, min DAC queue size, min buffer occupancy, max buffer occupancy
+sync error in milliseconds, net correction in ppm, corrections in ppm, total packets, missing packets, late packets, too late packets, resend requests, min DAC queue size, min buffer occupancy, max buffer occupancy, source nominal frames per second, source actual frames per second, output frames per second, source clock drift in ppm, source clock drift sample count, rough calculated correction in ppm
 ```
 This will be followed by the statistics themselves at regular intervals, for example:
 ```
-      -0.7,       0.0,       0.0,        1003,      0,      0,      0,      0,   6085,  222,  230
-      -0.8,       0.0,       0.0,        2006,      0,      0,      0,      0,   6087,  222,  230
-      -1.1,       0.0,       0.0,        3009,      0,      0,      0,      0,   6078,  223,  230
-      -1.1,       0.0,       0.0,        4012,      0,      0,      0,      0,   6078,  222,  230
-      -1.1,       0.0,       0.0,        5015,      0,      0,      0,      0,   6071,  223,  230
-      -1.1,       0.0,       0.0,        6018,      0,      0,      0,      0,   6081,  223,  230
-      -1.0,       0.0,       0.0,        7021,      0,      0,      0,      0,   6078,  223,  230
-      -0.8,       0.0,       0.0,        8024,      0,      0,      0,      0,   6085,  223,  230
-      -0.3,       0.0,       0.0,        9027,      0,      0,      0,      0,   6111,  224,  230
-      -0.4,       0.0,       0.0,       10030,      0,      0,      0,      0,   6104,  223,  230
-      -0.8,       0.0,       0.0,       11033,      0,      0,      0,      0,   6096,  223,  230
-      -0.5,       0.0,       0.0,       12036,      0,      0,      0,      0,   6094,  224,  230
-      -0.7,       0.0,       0.0,       13039,      0,      0,      0,      0,   6095,  222,  230
-      -0.7,       0.0,       0.0,       14042,      0,      0,      0,      0,   6094,  222,  230
-      -0.2,       0.0,       0.0,       15045,      0,      0,      0,      0,   6111,  223,  230
-      -0.6,       0.0,       0.0,       16048,      0,      2,      0,      2,   6090,  210,  230
-      -0.6,       0.0,       0.0,       17051,      0,      2,      0,      2,   6097,  220,  230
-      -0.5,       0.0,       0.0,       18054,      0,      2,      0,      2,   6097,  224,  230
-      -0.4,       0.0,       0.0,       19057,      0,      2,      0,      2,   6098,  222,  230
-      -0.4,       0.0,       0.0,       20060,      0,      2,      0,      2,   6107,  223,  230
-      -0.4,       0.0,       0.0,       21063,      0,      2,      0,      2,   6111,  222,  230
-      -0.4,       0.0,       0.0,       22066,      0,      3,      0,      3,   6108,  210,  230
-      -0.3,       0.0,       0.0,       23069,      0,      4,      0,      4,   6106,  214,  245
-      -0.4,       0.0,       0.0,       24072,      0,      4,      0,      4,   6104,  232,  245
-      -0.3,       0.0,       0.0,       25075,      0,      4,      0,      4,   6069,  232,  246
-      -0.3,       0.0,       0.0,       26078,      0,      4,      0,      4,   6110,  232,  245
-      -0.3,       0.0,       0.0,       27081,      0,      4,      0,      4,   6088,  231,  245
-      -0.2,       0.0,       0.0,       28084,      0,      4,      0,      4,   6090,  232,  245
+     -1.30,      22.9,      22.9,        1003,      0,      0,      0,      0,   7118,  211,  227,   44100.00,   43991.81,   44099.85,      0.00,     0,     -3.38
+     -1.87,       5.7,       5.7,        2006,      0,      0,      0,      0,   7824,  209,  226,   44100.02,   44020.00,   44099.92,      0.00,     0,     -2.27
+     -1.47,       0.0,       0.0,        3009,      0,      0,      0,      0,   8505,  218,  226,   44100.03,   44097.32,   44099.97,      0.00,     0,     -1.26
+     -0.85,       0.0,       0.0,        4012,      0,      0,      0,      0,   8525,  209,  226,   44100.02,   44098.24,   44099.95,      0.00,     0,     -1.56
+     -0.16,       0.0,       0.0,        5015,      0,      0,      0,      0,   8477,  209,  227,   44100.00,   44098.32,   44099.89,      0.00,     0,     -2.39
+     -0.43,       0.0,       0.0,        6018,      0,      0,      0,      0,   8533,  214,  226,   44100.00,   44091.52,   44099.90,      0.00,     0,     -2.18
+     -0.65,       0.0,       0.0,        7021,      0,      0,      0,      0,   8537,  220,  226,   44100.00,   44097.46,   44099.92,      0.00,     0,     -1.81
+     -0.32,       0.0,       0.0,        8024,      0,      0,      0,      0,   8545,  219,  226,   44100.01,   44089.73,   44099.93,      0.00,     0,     -1.87
+     -0.16,       0.0,       0.0,        9027,      0,      0,      0,      0,   8561,  220,  226,   44100.01,   44084.12,   44099.92,      0.00,     0,     -2.04
+      0.02,       0.0,       0.0,       10030,      0,      0,      0,      0,   8569,  218,  226,   44100.00,   44091.64,   44099.96,      0.00,     0,     -0.93
+      0.40,       0.0,       0.0,       11033,      0,      0,      0,      0,   8581,  219,  226,   44100.00,   44094.52,   44099.92,     26.46,    10,    -28.22
+      0.58,       0.0,       0.0,       12036,      0,      0,      0,      0,   8589,  218,  226,   44100.00,   44093.36,   44099.92,     24.04,    12,    -25.98
+      0.82,       0.0,       0.0,       13039,      0,      0,      0,      0,   8609,  217,  226,   44100.01,   44095.28,   44099.94,     25.55,    14,    -26.97
+      1.05,       0.0,       0.0,       14042,      0,      0,      0,      0,   8605,  207,  226,   44100.00,   44096.62,   44099.94,     26.10,    16,    -27.61
+      1.31,       0.0,       0.0,       15045,      0,      0,      0,      0,   8633,  209,  226,   44100.00,   44096.14,   44099.92,     26.56,    17,    -28.49
+      1.55,       2.8,       2.8,       16048,      0,      0,      0,      0,   7650,  210,  226,   44100.01,   44099.75,   44099.93,     26.84,    18,    -28.54
+      1.77,       0.0,       0.0,       17051,      0,      0,      0,      0,   8642,  218,  226,   44100.00,   44099.94,   44099.95,     27.26,    20,    -28.52
+      1.99,     -19.8,      19.8,       18054,      0,      0,      0,      0,   8648,  218,  226,   44100.00,   44097.73,   44099.94,     27.20,    23,    -28.52
+      2.00,     -22.7,      22.7,       19057,      0,      0,      0,      0,   8586,  218,  226,   44100.00,   44100.09,   44099.95,     27.30,    25,    -28.60
+      2.03,     -56.6,      56.6,       20060,      0,      0,      0,      0,   8586,  219,  226,   44100.00,   44101.32,   44099.94,     27.35,    28,    -28.87
+      1.97,     -14.2,      14.2,       21063,      0,      0,      0,      0,   8556,  219,  226,   44100.00,   44100.30,   44099.93,     27.58,    30,    -29.22
+      1.99,     -11.3,      11.3,       22066,      0,      0,      0,      0,   8586,  217,  226,   44100.00,   44099.21,   44099.93,     27.52,    32,    -29.19
+      1.99,     -22.7,      22.7,       23069,      0,      0,      0,      0,   8587,  217,  226,   44100.00,   44100.39,   44099.94,     27.08,    34,    -28.52
+      2.03,     -45.3,      45.3,       24072,      0,      0,      0,      0,   8534,  220,  226,   44100.00,   44096.84,   44099.93,     27.37,    36,    -29.03
+      2.05,     -76.5,      76.5,       25075,      0,      0,      0,      0,   8579,  219,  227,   44100.00,   44098.66,   44099.94,     28.29,    37,    -29.59
+      1.96,     -19.8,      19.8,       26078,      0,      0,      0,      0,   8596,  219,  226,   44100.00,   44099.57,   44099.92,     28.80,    38,    -30.54
+      1.94,     -25.5,      25.5,       27081,      0,      0,      0,      0,   8607,  218,  227,   44100.00,   44098.79,   44099.93,     29.54,    41,    -31.07
+      1.97,     -17.0,      17.0,       28084,      0,      0,      0,      0,   8598,  219,  227,   44100.00,   44099.64,   44099.94,     29.54,    41,    -30.94
+      1.86,       0.0,       0.0,       29087,      0,      0,      0,      0,   8629,  217,  226,   44100.00,   44100.37,   44099.93,     29.51,    42,    -31.25
+      2.01,     -53.8,      53.8,       30090,      0,      0,      0,      0,   8612,  220,  227,   44100.00,   44099.61,   44099.93,     29.54,    44,    -31.04
+      1.93,      -5.7,       5.7,       31093,      0,      0,      0,      0,   8642,  218,  226,   44100.00,   44100.83,   44099.93,     29.26,    45,    -30.80
+      2.00,     -34.0,      34.0,       32096,      0,      0,      0,      0,   8584,  218,  226,   44100.00,   44101.57,   44099.94,     28.96,    47,    -30.35
+      2.01,     -28.3,      28.3,       33099,      0,      0,      0,      0,   8631,  218,  227,   44100.00,   44100.89,   44099.94,     28.67,    49,    -30.13
+      1.98,     -28.3,      28.3,       34102,      0,      0,      0,      0,   8609,  219,  227,   44100.00,   44101.54,   44099.93,     28.60,    51,    -30.32
+      2.01,     -68.0,      68.0,       35105,      0,      0,      0,      0,   8592,  218,  226,   44100.00,   44098.76,   44099.93,     28.51,    52,    -30.06
+      1.88,      -5.7,       5.7,       36108,      0,      0,      0,      0,   8643,  215,  226,   44100.00,   44099.07,   44099.93,     28.41,    54,    -29.95
+      1.95,     -14.2,      14.2,       37111,      0,      0,      0,      0,   8521,  205,  226,   44100.00,   44097.64,   44099.93,     28.29,    55,    -29.96
+      2.01,     -34.0,      34.0,       38114,      0,      0,      0,      0,   8553,  219,  241,   44100.00,   44114.10,   44099.94,     28.15,    56,    -29.64
+      1.97,    -147.3,     147.3,       39117,      0,      0,      0,      0,   8564,  228,  241,   44100.00,   44117.06,   44099.92,     28.55,    58,    -30.39
+      1.07,       0.0,       0.0,       40120,      0,      0,      0,      0,   8617,  229,  242,   44100.00,   44116.11,   44099.93,     28.44,    59,    -29.95
+      1.35,       0.0,       0.0,       41123,      0,      0,      0,      0,   8607,  229,  241,   44100.00,   44111.73,   44099.93,     28.30,    61,    -30.01
+      1.53,       0.0,       0.0,       42126,      0,      0,      0,      0,   8645,  227,  241,   44100.00,   44113.60,   44099.94,     28.08,    62,    -29.56
+      1.82,       0.0,       0.0,       43129,      0,      0,      0,      0,   8649,  229,  241,   44100.00,   44112.52,   44099.93,     28.03,    64,    -29.55
+      2.02,     -34.0,      34.0,       44132,      0,      0,      0,      0,   8619,  228,  241,   44100.00,   44115.39,   44099.93,     28.00,    66,    -29.57
+      2.02,     -51.0,      51.0,       45135,      0,      0,      0,      0,   8354,  220,  241,   44100.00,   44112.59,   44099.93,     27.94,    68,    -29.52
+      1.91,     -25.5,      25.5,       46138,      0,      0,      0,      0,   8460,  215,  241,   44100.00,   44112.81,   44099.93,     27.89,    69,    -29.44
+      1.90,     -14.2,      14.2,       47141,      0,      0,      0,      0,   8661,  229,  241,   44100.00,   44113.62,   44099.93,     27.86,    72,    -29.50
+      1.99,     -79.3,      79.3,       48144,      0,      0,      0,      0,   8416,  228,  241,   44100.00,   44111.05,   44099.94,     27.86,    73,    -29.33
+      1.57,     -22.7,      22.7,       49147,      0,      0,      0,      0,   8585,  227,  242,   44100.00,   44113.42,   44099.93,     27.49,    74,    -29.11
+      1.60,       0.0,       0.0,       50150,      0,      0,      0,      0,   8549,  229,  241,   44100.00,   44112.52,   44099.93,     27.44,    77,    -29.02
+      1.88,     -19.8,      19.8,       51153,      0,      0,      0,      0,   8641,  204,  242,   44100.00,   44100.43,   44099.94,     27.49,    79,    -28.97
+Playback Stopped. Total playing time 00:07:01. Input: 44100.43, output: 44099.94 frames per second.
 ```
 
 "Sync error in milliseconds" is the average deviation from exact synchronisation. The first line of the example above indicates that the output is on average 0.7 milliseconds behind exact synchronisation. Sync is allowed to drift by the `general` `drift_tolerance_in_seconds` setting — (± 0.002 seconds) by default — before a correction will be made.
@@ -575,11 +599,22 @@ This will be followed by the statistics themselves at regular intervals, for exa
 
 "Corrections in ppm" is the number of frame insertions plus the number of frame deletions (i.e. the total number of corrections), given as a moving average in parts per million. The closer this is to the net corrections, the fewer "unnecessary" corrections that are being made. Third party programs tend to have much larger levels of corrections.
 
-For reference, a drift of one second per day is approximately 11.57 ppm. Left uncorrected, even a drift this small between two audio outputs will be audible after a short time. The above sample is from an iPhone 6 to Shairport Sync running on a WiFi-connected Raspberry Pi 3 using a cheap no-name USB DAC.
+"Min DAC queue size" is the minimum size the queue of samples in the output device's hardware buffer was measured at. It is meant to stand at 0.2 seconds = 8,820 frames at 44,100 frames per second, and will go low if the processor is very busy. If it goes below about 2,000 then it's an indication that the processor can't really keep up.
+
+"Source nominal frames per second" is the rate at which audio is being sent to Shairport Sync according to information supplied by the source itself.
+
+"Source actual frames per second" is the rate at which frames of audio are actually received by Shairport Sync. This can vary a great deal due to network conditions, but over a long time (more than 30 minutes) it should settle down to an accurate value. It does not account for retransmitted packets.
+
+"Output frames per second" is the actual rate at which frames of audio are taken by the output device. On a system with a well-conditioned `ntp`-based clock (and without output underruns) this figure should be very accurate after playing material continuously for a period.
+
+"Source clock drift in ppm" is an estimate of the difference in timekeeping between the audio source and the Shairport Sync devive. It is calculated from a linear regression of drift sample data. The number of samples the estimate is based on is given in the next column, "Source clock drift sample count".
+
+"Rough calculated correction in ppm" is a very crude estimate of the amount of interpolation that needs to applied, on average, to keep sync. It is not really to be relied on at this time.
+
+For reference, a drift of one second per day is approximately 11.57 ppm. Left uncorrected, even a drift this small between two audio outputs will be audible after a short time. The above sample is from an iPhone XS Max to Shairport Sync running on a WiFi-connected Raspberry Pi 3 using an [IQaudIO Pi-DigiAMP+](http://iqaudio.co.uk/hats/9-pi-digiamp.html).
 
 It's not unusual to have resend requests, late packets and even missing packets if some part of the connection to the Shairport Sync device is over WiFi. Late packets can sometimes be asked for and received multiple times. Sometimes late packets are sent and arrive too late, but have already been sent and received in time, so weren't needed anyway...
 
-"Min DAC queue size" is the minimum size the queue of samples in the output device's hardware buffer was measured at. It is meant to stand at 0.15 seconds = 6,615 frames at 44,100 frames per second, and will go low if the processor is very busy. If it goes below about 2,000 then it's an indication that the processor can't really keep up.
 
 WiFi Issues
 ---------
