@@ -200,11 +200,17 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
 
     size_t odone;
 
+    //int oldState;
+    //pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+
     soxr_oneshot(buffer_length, buffer_length + 1, 2,  // Rates and # of chans.
                  inbuffer, buffer_length, NULL,        // Input.
                  outbuffer, buffer_length + 1, &odone, // Output.
                  &io_spec,                             // Input, output and transfer spec.
                  NULL, NULL);                          // Default configuration.
+    //pthread_setcancelstate(oldState, NULL);
+    
+    pthread_testcancel();
 
     io_spec.itype = SOXR_INT32_I;
     io_spec.otype = SOXR_INT32_I;
@@ -212,11 +218,13 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
     io_spec.e = NULL;
     io_spec.flags = 0;
 
+    //pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
     soxr_oneshot(buffer_length, buffer_length - 1, 2,  // Rates and # of chans.
                  inbuffer, buffer_length, NULL,        // Input.
                  outbuffer, buffer_length - 1, &odone, // Output.
                  &io_spec,                             // Input, output and transfer spec.
                  NULL, NULL);                          // Default configuration.
+   //pthread_setcancelstate(oldState, NULL);
   }
 
   double soxr_execution_time_us =
@@ -1162,25 +1170,27 @@ int parse_options(int argc, char **argv) {
   if (tdebuglev != 0)
     debuglev = tdebuglev;
 
-  /* if the Service Name wasn't specified, do it now */
-
-  if (raw_service_name == NULL)
-    raw_service_name = strdup("%H");
-
   // now, do the substitutions in the service name
   char hostname[100];
   gethostname(hostname, 100);
-  char *i1 = str_replace(raw_service_name, "%h", hostname);
-  if (raw_service_name) {
-    free(raw_service_name);
-    raw_service_name = NULL;
-  }
+
+  
+  
+  char *i0;
+  if (raw_service_name == NULL)
+    i0 = strdup("%H"); // this is the default it the Service Name wasn't specified
+  else
+    i0 = strdup(raw_service_name);
+ 
+  // here, do the substitutions for %h, %H, %v and %V
+  char *i1 = str_replace(i0, "%h", hostname);
   if ((hostname[0] >= 'a') && (hostname[0] <= 'z'))
     hostname[0] = hostname[0] - 0x20; // convert a lowercase first letter into a capital letter
   char *i2 = str_replace(i1, "%H", hostname);
   char *i3 = str_replace(i2, "%v", PACKAGE_VERSION);
   char *vs = get_version_string();
-  config.service_name = str_replace(i3, "%V", vs);
+  config.service_name = str_replace(i3, "%V", vs); // service name complete
+  free(i0);
   free(i1);
   free(i2);
   free(i3);
@@ -1277,8 +1287,8 @@ const char *pid_file_proc(void) {
 #endif
 
 void main_cleanup_handler(__attribute__((unused)) void *arg) {
-  // it doesn't look like this is called when the main function is cancelled eith a pthread cancel.
-  debug(2, "main cleanup handler called.");
+  // it doesn't look like this is called when the main function is cancelled with a pthread cancel.
+  debug(1, "main cleanup handler called.");
 #ifdef CONFIG_MQTT
   if (config.mqtt_enabled) {
     // terminate_mqtt();
@@ -1320,6 +1330,11 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
     config.output->deinit();
   }
 
+#ifdef CONFIG_SOXR
+  // be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
+  pthread_join(soxr_time_check_thread, NULL);
+#endif
+
 #ifdef CONFIG_LIBDAEMON
   // only do this if you are the daemon
   if (pid == 0) {
@@ -1334,7 +1349,7 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
 }
 
 void exit_function() {
-  debug(2, "exit function called...");
+  debug(1, "exit function called...");
   main_cleanup_handler(NULL);
   if (conns)
     free(conns); // make sure the connections have been deleted first
@@ -1643,7 +1658,7 @@ int main(int argc, char **argv) {
   }
   config.output->init(argc - audio_arg, argv + audio_arg);
 
-  pthread_cleanup_push(main_cleanup_handler, NULL);
+  // pthread_cleanup_push(main_cleanup_handler, NULL);
 
   // daemon_log(LOG_NOTICE, "startup");
 
@@ -1854,15 +1869,6 @@ int main(int argc, char **argv) {
 #endif
 
   activity_monitor_start();
-
-  // debug(1, "Successful Startup");
   rtsp_listen_loop();
-
-  // should not reach this...
-  // daemon_log(LOG_NOTICE, "Unexpected exit...");
-  // daemon_retval_send(0);
-  // daemon_pid_file_remove();
-  pthread_cleanup_pop(1);
-  debug(1, "Odd exit point");
-  pthread_exit(NULL);
+  return 0;
 }
