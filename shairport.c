@@ -180,7 +180,7 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
   int number_of_iterations = 0;
   uint64_t soxr_start_time = get_absolute_time_in_fp();
   uint64_t loop_until_time =
-      (uint64_t)0x180000000 + soxr_start_time; // loop for a second and a half, max
+      (uint64_t)0x180000000 + soxr_start_time; // loop for a second and a half, max -- no need to be able to cancel it, do _don't even try_!
   while (get_absolute_time_in_fp() < loop_until_time) {
 
     number_of_iterations++;
@@ -200,31 +200,23 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
 
     size_t odone;
 
-    //int oldState;
-    //pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
-
     soxr_oneshot(buffer_length, buffer_length + 1, 2,  // Rates and # of chans.
                  inbuffer, buffer_length, NULL,        // Input.
                  outbuffer, buffer_length + 1, &odone, // Output.
                  &io_spec,                             // Input, output and transfer spec.
                  NULL, NULL);                          // Default configuration.
-    //pthread_setcancelstate(oldState, NULL);
     
-    pthread_testcancel();
-
     io_spec.itype = SOXR_INT32_I;
     io_spec.otype = SOXR_INT32_I;
     io_spec.scale = 1.0; // this seems to crash if not = 1.0
     io_spec.e = NULL;
     io_spec.flags = 0;
 
-    //pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
     soxr_oneshot(buffer_length, buffer_length - 1, 2,  // Rates and # of chans.
                  inbuffer, buffer_length, NULL,        // Input.
                  outbuffer, buffer_length - 1, &odone, // Output.
                  &io_spec,                             // Input, output and transfer spec.
                  NULL, NULL);                          // Default configuration.
-   //pthread_setcancelstate(oldState, NULL);
   }
 
   double soxr_execution_time_us =
