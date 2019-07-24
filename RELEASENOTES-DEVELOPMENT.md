@@ -1,3 +1,8 @@
+Version 3.3.2d2
+====
+**Bug Fix**
+* Fix a double-free memory bug. Thanks to [Chris Boot](https://github.com/bootc) for reporting this bug, which came through the Debian BTS: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577. The fix is different from the suggested patch.
+
 Version 3.3.2d1
 ====
 **Enhancements**
