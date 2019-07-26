@@ -76,7 +76,8 @@ struct sndio_formats {
 static struct sndio_formats formats[] = {{"S8", SPS_FORMAT_S8, 44100, 8, 1, 1, SIO_LE_NATIVE},
                                          {"U8", SPS_FORMAT_U8, 44100, 8, 1, 0, SIO_LE_NATIVE},
                                          {"S16", SPS_FORMAT_S16, 44100, 16, 2, 1, SIO_LE_NATIVE},
-                                         {"AUTOMATIC", SPS_FORMAT_S16, 44100, 16, 2, 1, SIO_LE_NATIVE}, // TODO: make this really automatic?
+                                         {"AUTOMATIC", SPS_FORMAT_S16, 44100, 16, 2, 1,
+                                          SIO_LE_NATIVE}, // TODO: make this really automatic?
                                          {"S24", SPS_FORMAT_S24, 44100, 24, 4, 1, SIO_LE_NATIVE},
                                          {"S24_3LE", SPS_FORMAT_S24_3LE, 44100, 24, 3, 1, 1},
                                          {"S24_3BE", SPS_FORMAT_S24_3BE, 44100, 24, 3, 1, 0},
@@ -176,7 +177,6 @@ static int init(int argc, char **argv) {
   written = played = 0;
   time_of_last_onmove_cb = 0;
   at_least_one_onmove_cb_seen = 0;
-  
 
   for (i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (formats[i].fmt == config.output_format) {
@@ -187,7 +187,7 @@ static int init(int argc, char **argv) {
       break;
     }
   }
-  
+
   if (!sio_setpar(hdl, &par) || !sio_getpar(hdl, &par))
     die("sndio: failed to set audio parameters");
   for (i = 0, found = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
@@ -200,7 +200,6 @@ static int init(int argc, char **argv) {
   }
   if (!found)
     die("sndio: could not set output device to the required format and rate.");
-  
 
   framesize = par.bps * par.pchan;
   config.output_rate = par.rate;

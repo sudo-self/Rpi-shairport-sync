@@ -46,7 +46,6 @@
 #include "dbus-service.h"
 #endif
 
-
 enum am_state state;
 enum ps_state { ps_inactive, ps_active } player_state;
 
@@ -73,10 +72,10 @@ void going_active(int block) {
 
   if (config.disable_standby_mode == disable_standby_auto) {
 #ifdef CONFIG_DBUS_INTERFACE
-  if (dbus_service_is_running())
-    shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
-  else
-    config.keep_dac_busy = 1;    
+    if (dbus_service_is_running())
+      shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
+    else
+      config.keep_dac_busy = 1;
 #else
     config.keep_dac_busy = 1;
 #endif
@@ -100,12 +99,12 @@ void going_inactive(int block) {
 
   if (config.disable_standby_mode == disable_standby_auto) {
 #ifdef CONFIG_DBUS_INTERFACE
-  if (dbus_service_is_running())
-    shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
-  else
-    config.keep_dac_busy = 0;  
+    if (dbus_service_is_running())
+      shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
+    else
+      config.keep_dac_busy = 0;
 #else
-  config.keep_dac_busy = 0;  
+    config.keep_dac_busy = 0;
 #endif
   }
 }
@@ -255,9 +254,7 @@ void *activity_monitor_thread_code(void *arg) {
   pthread_exit(NULL);
 }
 
-enum am_state activity_status() {
-  return (state);
-}
+enum am_state activity_status() { return (state); }
 
 void activity_monitor_start() {
   // debug(1,"activity_monitor_start");

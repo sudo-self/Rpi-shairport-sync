@@ -46,8 +46,8 @@
 #include "metadata_hub.h"
 
 #ifdef CONFIG_MBEDTLS
-#include <mbedtls/version.h>
 #include <mbedtls/md5.h>
+#include <mbedtls/version.h>
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -223,7 +223,7 @@ char *metadata_write_image_file(const char *buf, int len) {
   char *path = NULL; // this will be what is returned
 
   uint8_t img_md5[16];
-  // uint8_t ap_md5[16];
+// uint8_t ap_md5[16];
 
 #ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
@@ -233,17 +233,17 @@ char *metadata_write_image_file(const char *buf, int len) {
 #endif
 
 #ifdef CONFIG_MBEDTLS
-  #if MBEDTLS_VERSION_MINOR >= 7
-    mbedtls_md5_context tctx;
-    mbedtls_md5_starts_ret(&tctx);
-    mbedtls_md5_update_ret(&tctx, (const unsigned char *)buf, len);
-    mbedtls_md5_finish_ret(&tctx, img_md5);
-  #else
-    mbedtls_md5_context tctx;
-    mbedtls_md5_starts(&tctx);
-    mbedtls_md5_update(&tctx, (const unsigned char *)buf, len);
-    mbedtls_md5_finish(&tctx, img_md5);
-  #endif
+#if MBEDTLS_VERSION_MINOR >= 7
+  mbedtls_md5_context tctx;
+  mbedtls_md5_starts_ret(&tctx);
+  mbedtls_md5_update_ret(&tctx, (const unsigned char *)buf, len);
+  mbedtls_md5_finish_ret(&tctx, img_md5);
+#else
+  mbedtls_md5_context tctx;
+  mbedtls_md5_starts(&tctx);
+  mbedtls_md5_update(&tctx, (const unsigned char *)buf, len);
+  mbedtls_md5_finish(&tctx, img_md5);
+#endif
 #endif
 
 #ifdef CONFIG_POLARSSL

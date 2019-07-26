@@ -2572,7 +2572,7 @@ void rtsp_listen_loop(void) {
       } else
 #endif
         family = "IPv4";
-      debug(1, "Unable to listen on %s port %d. The error is: \"%s\".", family, config.port,
+      debug(1, "unable to listen on %s port %d. The error is: \"%s\".", family, config.port,
             strerror(errno));
       continue;
     }
@@ -2585,127 +2585,127 @@ void rtsp_listen_loop(void) {
 
   freeaddrinfo(info);
 
-  if (!nsock)
-    die("Could not establish a service on port %d -- program terminating. Is another instance of "
-        "Shairport Sync running on this device?",
-        config.port);
-
-  int maxfd = -1;
-  fd_set fds;
-  FD_ZERO(&fds);
-  for (i = 0; i < nsock; i++) {
-    if (sockfd[i] > maxfd)
-      maxfd = sockfd[i];
-  }
-
-  mdns_register();
-
-  pthread_setcancelstate(oldState, NULL);
-  int acceptfd;
-  struct timeval tv;
-  pthread_cleanup_push(rtsp_listen_loop_cleanup_handler, (void *)sockfd);
-  do {
-    pthread_testcancel();
-    tv.tv_sec = 60;
-    tv.tv_usec = 0;
-
-    for (i = 0; i < nsock; i++)
-      FD_SET(sockfd[i], &fds);
-
-    ret = select(maxfd + 1, &fds, 0, 0, &tv);
-    if (ret < 0) {
-      if (errno == EINTR)
-        continue;
-      break;
+  if (nsock) {
+    int maxfd = -1;
+    fd_set fds;
+    FD_ZERO(&fds);
+    for (i = 0; i < nsock; i++) {
+      if (sockfd[i] > maxfd)
+        maxfd = sockfd[i];
     }
 
-    cleanup_threads();
+    mdns_register();
 
-    acceptfd = -1;
-    for (i = 0; i < nsock; i++) {
-      if (FD_ISSET(sockfd[i], &fds)) {
-        acceptfd = sockfd[i];
+    pthread_setcancelstate(oldState, NULL);
+    int acceptfd;
+    struct timeval tv;
+    pthread_cleanup_push(rtsp_listen_loop_cleanup_handler, (void *)sockfd);
+    do {
+      pthread_testcancel();
+      tv.tv_sec = 60;
+      tv.tv_usec = 0;
+
+      for (i = 0; i < nsock; i++)
+        FD_SET(sockfd[i], &fds);
+
+      ret = select(maxfd + 1, &fds, 0, 0, &tv);
+      if (ret < 0) {
+        if (errno == EINTR)
+          continue;
         break;
       }
-    }
-    if (acceptfd < 0) // timeout
-      continue;
 
-    rtsp_conn_info *conn = malloc(sizeof(rtsp_conn_info));
-    if (conn == 0)
-      die("Couldn't allocate memory for an rtsp_conn_info record.");
-    memset(conn, 0, sizeof(rtsp_conn_info));
-    conn->connection_number = RTSP_connection_index++;
-    socklen_t slen = sizeof(conn->remote);
+      cleanup_threads();
 
-    conn->fd = accept(acceptfd, (struct sockaddr *)&conn->remote, &slen);
-    if (conn->fd < 0) {
-      debug(1, "Connection %d: New connection on port %d not accepted:", conn->connection_number,
-            config.port);
-      perror("failed to accept connection");
-      free(conn);
-    } else {
-      SOCKADDR *local_info = (SOCKADDR *)&conn->local;
-      socklen_t size_of_reply = sizeof(*local_info);
-      memset(local_info, 0, sizeof(SOCKADDR));
-      if (getsockname(conn->fd, (struct sockaddr *)local_info, &size_of_reply) == 0) {
-
-        // IPv4:
-        if (local_info->SAFAMILY == AF_INET) {
-          char ip4[INET_ADDRSTRLEN];        // space to hold the IPv4 string
-          char remote_ip4[INET_ADDRSTRLEN]; // space to hold the IPv4 string
-          struct sockaddr_in *sa = (struct sockaddr_in *)local_info;
-          inet_ntop(AF_INET, &(sa->sin_addr), ip4, INET_ADDRSTRLEN);
-          unsigned short int tport = ntohs(sa->sin_port);
-          sa = (struct sockaddr_in *)&conn->remote;
-          inet_ntop(AF_INET, &(sa->sin_addr), remote_ip4, INET_ADDRSTRLEN);
-          unsigned short int rport = ntohs(sa->sin_port);
-          debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
-                conn->connection_number, remote_ip4, rport, ip4, tport);
+      acceptfd = -1;
+      for (i = 0; i < nsock; i++) {
+        if (FD_ISSET(sockfd[i], &fds)) {
+          acceptfd = sockfd[i];
+          break;
         }
-#ifdef AF_INET6
-        if (local_info->SAFAMILY == AF_INET6) {
-          // IPv6:
+      }
+      if (acceptfd < 0) // timeout
+        continue;
 
-          char ip6[INET6_ADDRSTRLEN];        // space to hold the IPv6 string
-          char remote_ip6[INET6_ADDRSTRLEN]; // space to hold the IPv6 string
-          struct sockaddr_in6 *sa6 =
-              (struct sockaddr_in6 *)local_info; // pretend this is loaded with something
-          inet_ntop(AF_INET6, &(sa6->sin6_addr), ip6, INET6_ADDRSTRLEN);
-          u_int16_t tport = ntohs(sa6->sin6_port);
+      rtsp_conn_info *conn = malloc(sizeof(rtsp_conn_info));
+      if (conn == 0)
+        die("Couldn't allocate memory for an rtsp_conn_info record.");
+      memset(conn, 0, sizeof(rtsp_conn_info));
+      conn->connection_number = RTSP_connection_index++;
+      socklen_t slen = sizeof(conn->remote);
 
-          sa6 = (struct sockaddr_in6 *)&conn->remote; // pretend this is loaded with something
-          inet_ntop(AF_INET6, &(sa6->sin6_addr), remote_ip6, INET6_ADDRSTRLEN);
-          u_int16_t rport = ntohs(sa6->sin6_port);
-          debug(2, "Connection %d: new connection from [%s]:%u to self at [%s]:%u.",
-                conn->connection_number, remote_ip6, rport, ip6, tport);
-        }
-#endif
-
+      conn->fd = accept(acceptfd, (struct sockaddr *)&conn->remote, &slen);
+      if (conn->fd < 0) {
+        debug(1, "Connection %d: New connection on port %d not accepted:", conn->connection_number,
+              config.port);
+        perror("failed to accept connection");
+        free(conn);
       } else {
-        debug(1, "Error figuring out Shairport Sync's own IP number.");
-      }
-      //      usleep(500000);
-      //      pthread_t rtsp_conversation_thread;
-      //      conn->thread = rtsp_conversation_thread;
-      //      conn->stop = 0; // record's memory has been zeroed
-      //      conn->authorized = 0; // record's memory has been zeroed
-      // fcntl(conn->fd, F_SETFL, O_NONBLOCK);
+        SOCKADDR *local_info = (SOCKADDR *)&conn->local;
+        socklen_t size_of_reply = sizeof(*local_info);
+        memset(local_info, 0, sizeof(SOCKADDR));
+        if (getsockname(conn->fd, (struct sockaddr *)local_info, &size_of_reply) == 0) {
 
-      ret = pthread_create(&conn->thread, NULL, rtsp_conversation_thread_func,
-                           conn); // also acts as a memory barrier
-      if (ret) {
-        char errorstring[1024];
-        strerror_r(ret, (char *)errorstring, sizeof(errorstring));
-        die("Connection %d: cannot create an RTSP conversation thread. Error %d: \"%s\".",
-            conn->connection_number, ret, (char *)errorstring);
-      }
-      debug(3, "Successfully created RTSP receiver thread %d.", conn->connection_number);
-      conn->running = 1; // this must happen before the thread is tracked
-      track_thread(conn);
-    }
-  } while (1);
+          // IPv4:
+          if (local_info->SAFAMILY == AF_INET) {
+            char ip4[INET_ADDRSTRLEN];        // space to hold the IPv4 string
+            char remote_ip4[INET_ADDRSTRLEN]; // space to hold the IPv4 string
+            struct sockaddr_in *sa = (struct sockaddr_in *)local_info;
+            inet_ntop(AF_INET, &(sa->sin_addr), ip4, INET_ADDRSTRLEN);
+            unsigned short int tport = ntohs(sa->sin_port);
+            sa = (struct sockaddr_in *)&conn->remote;
+            inet_ntop(AF_INET, &(sa->sin_addr), remote_ip4, INET_ADDRSTRLEN);
+            unsigned short int rport = ntohs(sa->sin_port);
+            debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
+                  conn->connection_number, remote_ip4, rport, ip4, tport);
+          }
+  #ifdef AF_INET6
+          if (local_info->SAFAMILY == AF_INET6) {
+            // IPv6:
 
-  pthread_cleanup_pop(1); // should never happen
-  debug(1, "Oops -- fell out of the RTSP select loop");
+            char ip6[INET6_ADDRSTRLEN];        // space to hold the IPv6 string
+            char remote_ip6[INET6_ADDRSTRLEN]; // space to hold the IPv6 string
+            struct sockaddr_in6 *sa6 =
+                (struct sockaddr_in6 *)local_info; // pretend this is loaded with something
+            inet_ntop(AF_INET6, &(sa6->sin6_addr), ip6, INET6_ADDRSTRLEN);
+            u_int16_t tport = ntohs(sa6->sin6_port);
+
+            sa6 = (struct sockaddr_in6 *)&conn->remote; // pretend this is loaded with something
+            inet_ntop(AF_INET6, &(sa6->sin6_addr), remote_ip6, INET6_ADDRSTRLEN);
+            u_int16_t rport = ntohs(sa6->sin6_port);
+            debug(2, "Connection %d: new connection from [%s]:%u to self at [%s]:%u.",
+                  conn->connection_number, remote_ip6, rport, ip6, tport);
+          }
+  #endif
+
+        } else {
+          debug(1, "Error figuring out Shairport Sync's own IP number.");
+        }
+        //      usleep(500000);
+        //      pthread_t rtsp_conversation_thread;
+        //      conn->thread = rtsp_conversation_thread;
+        //      conn->stop = 0; // record's memory has been zeroed
+        //      conn->authorized = 0; // record's memory has been zeroed
+        // fcntl(conn->fd, F_SETFL, O_NONBLOCK);
+
+        ret = pthread_create(&conn->thread, NULL, rtsp_conversation_thread_func,
+                             conn); // also acts as a memory barrier
+        if (ret) {
+          char errorstring[1024];
+          strerror_r(ret, (char *)errorstring, sizeof(errorstring));
+          die("Connection %d: cannot create an RTSP conversation thread. Error %d: \"%s\".",
+              conn->connection_number, ret, (char *)errorstring);
+        }
+        debug(3, "Successfully created RTSP receiver thread %d.", conn->connection_number);
+        conn->running = 1; // this must happen before the thread is tracked
+        track_thread(conn);
+      }
+    } while (1);
+    pthread_cleanup_pop(1); // should never happen
+  } else {
+    warn("could not establish a service on port %d -- program terminating. Is another instance of "
+        "Shairport Sync running on this device?",
+        config.port);
+  }
+  // debug(1, "Oops -- fell out of the RTSP select loop");
 }
