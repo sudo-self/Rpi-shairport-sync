@@ -4,6 +4,7 @@ Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sy
 
 **Bug Fixes**
 * Fix a bug that sometimes caused a crash when a service name was specified in the configuration file. The fix was to be more systematic in allocating and deallocating memory for temporary strings. Thanks to [Chris Boot](https://github.com/bootc), [Ari Sovijarvi](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577#5), [Bernhard Übelacker](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577#10) and [Jeroen Massar](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577#17) for the bug report. Fixes [Debian Bug report #925577]( https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577) and supercedes [Pull Request #879](https://github.com/mikebrady/shairport-sync/pull/879).
+* Correct some documentation typos – thanks again to [Chris Boot](https://github.com/bootc).
 
 **Enhancements**
 
