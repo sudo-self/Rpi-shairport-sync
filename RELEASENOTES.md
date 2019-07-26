@@ -1,6 +1,18 @@
-Version 3.3.1
+Version 3.3.2
 ===
 Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
+
+**Bug Fixes**
+* Fix a bug that sometimes caused a crash when a service name was specified in the configuration file. The fix was to be more systematic in allocating and deallocating memory for temporary strings. Thanks to [Chris Boot](https://github.com/bootc), [Ari Sovijarvi](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577#5), [Bernhard Übelacker](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577#10) and [Jeroen Massar](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577#17) for the bug report. Fixes [Debian Bug report #925577]( https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577) and supercedes [Pull Request #879](https://github.com/mikebrady/shairport-sync/pull/879).
+
+**Enhancements**
+
+Add some settings for controlling the disable_standby_mode.
+* The first setting is the `disable_standby_mode_silence_threshold`, which is the amount of audio in the output device's hardware buffer. It should normally be close to the value given in the `audio_backend_buffer_desired_length_in_seconds` setting. If it drops to this value, silence is added to the buffer to prevent the output device from becoming idle.
+* The second new setting is the `disable_standby_mode_silence_scan_interval` which is the time between checks of the output device's hardware buffer.
+
+Version 3.3.1
+===
 
 **Bug Fixes**
 * Fix a bug in the MQTT documentation and add sanity checking for the port chosen -- thanks to [David Crook](https://github.com/idcrook).
