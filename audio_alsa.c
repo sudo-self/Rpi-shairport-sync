@@ -73,7 +73,7 @@ int mute(int do_mute); // returns true if it actually is allowed to use the mute
 static double set_volume;
 static int output_method_signalled = 0; // for reporting whether it's using mmap or not
 int delay_type_notified = -1; // for controlling the reporting of whether the output device can do
-                              // precison delays (e.g. alsa->pulsaudio virtual devices can't)
+                              // precision delays (e.g. alsa->pulsaudio virtual devices can't)
 int use_monotonic_clock = 0;  // this value will be set when the hardware is initialised
 
 audio_output audio_alsa = {

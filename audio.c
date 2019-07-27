@@ -157,7 +157,7 @@ void parse_general_audio_options(void) {
       }
     }
 
-    /* Get the minumum buffer size for fancy interpolation setting in seconds. */
+    /* Get the minimum buffer size for fancy interpolation setting in seconds. */
     if (config_lookup_float(config.cfg,
                             "general.audio_backend_buffer_interpolation_threshold_in_seconds",
                             &dvalue)) {

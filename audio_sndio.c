@@ -256,7 +256,7 @@ static int delay(long *_delay) {
   pthread_mutex_lock(&sndio_mutex);
   size_t estimated_extra_frames_output = 0;
   if (at_least_one_onmove_cb_seen) { // when output starts, the onmove_cb callback will be made
-    // calculate the difference in time between now and when the last callback occoured,
+    // calculate the difference in time between now and when the last callback occurred,
     // and use it to estimate the frames that would have been output
     uint64_t time_difference = get_absolute_time_in_fp() - time_of_last_onmove_cb;
     uint64_t frame_difference = time_difference * par.rate;

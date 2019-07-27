@@ -123,7 +123,7 @@ void activity_monitor_signify_activity(int active) {
   // execute the going_inactive() function.
   //
   // The reason for all this is that we might want to perform the attached scripts
-  // and wait for them to complete before continuing. If they were perfomed in the
+  // and wait for them to complete before continuing. If they were performed in the
   // activity monitor thread, then we couldn't wait for them to complete.
 
   // Thus, the only time the thread will execute a going_... function is when a non-zero

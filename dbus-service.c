@@ -410,10 +410,10 @@ gboolean notify_loudness_threshold_callback(ShairportSync *skeleton,
                                             __attribute__((unused)) gpointer user_data) {
   gdouble th = shairport_sync_get_loudness_threshold(skeleton);
   if ((th <= 0.0) && (th >= -100.0)) {
-    debug(1, ">> setting loudness threshhold to %f.", th);
+    debug(1, ">> setting loudness threshold to %f.", th);
     config.loudness_reference_volume_db = th;
   } else {
-    debug(1, ">> invalid loudness threshhold: %f. Ignored.", th);
+    debug(1, ">> invalid loudness threshold: %f. Ignored.", th);
     shairport_sync_set_loudness_threshold(skeleton, config.loudness_reference_volume_db);
   }
   return TRUE;

@@ -1137,7 +1137,7 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 //    Specifically, it's the "X-Apple-Client-Name" string
 //    'snua' -- A "user agent" -- e.g. "iTunes/12..." -- has opened a play
 //    session. Specifically, it's the "User-Agent" string
-//    The next two two tokens are to facilitiate remote control of the source.
+//    The next two two tokens are to facilitate remote control of the source.
 //    There is some information at http://nto.github.io/AirPlay.html about
 //    remote control of the source.
 //
@@ -1869,7 +1869,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
       unsigned int i;
       for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
         conn->stream.fmtp[i] = atoi(strsep(&pfmtp, " \t"));
-      // here we should check the sanity ot the fmtp values
+      // here we should check the sanity of the fmtp values
       // for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
       //  debug(1,"  fmtp[%2d] is: %10d",i,conn->stream.fmtp[i]);
 

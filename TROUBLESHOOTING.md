@@ -188,7 +188,7 @@ card 1: MP3 [Sound Blaster MP3+], device 0: USB Audio [USB Audio]
   Subdevice #0: subdevice #0
 ````
 
-or look at your exisiting '/etc/asound.conf' file, which may look something like this
+or look at your existing '/etc/asound.conf' file, which may look something like this
 
 ````
 pcm.!default {

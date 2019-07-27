@@ -47,7 +47,7 @@ do_start()
 {
 	# Return
 	#   0 if daemon has been started
-	#   1 if PID directory didn't exist and couldn't be created with approproate permission
+	#   1 if PID directory didn't exist and couldn't be created with appropriate permission
 	#   2 if daemon was already running
 	#   3 if daemon could not be started
         [ -e /var/run/shairport-sync ] || ( mkdir -p /var/run/shairport-sync && chown shairport-sync:shairport-sync /var/run/shairport-sync ) || return 1
