@@ -229,7 +229,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   if (jack_activate(client)) {
     die("Could not activate %s JACK client.", config.jack_client_name);
   } else {
-    debug(2, "JACK client %s activated sucessfully.", config.jack_client_name);
+    debug(2, "JACK client %s activated successfully.", config.jack_client_name);
   }
   if (config.jack_autoconnect_pattern != NULL) {
     inform("config.jack_autoconnect_pattern is %s. If you see the program die after this,"
@@ -257,7 +257,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
             // success
             break;
           default:
-            warn("JACK error no. %d occured while trying to connect %s to %s.", err,
+            warn("JACK error no. %d occurred while trying to connect %s to %s.", err,
                  full_port_name[i], port_list[i]);
             break;
           }

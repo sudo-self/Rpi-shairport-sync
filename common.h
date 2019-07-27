@@ -148,13 +148,13 @@ typedef struct {
   int volume_max_db;
   int no_sync;            // disable synchronisation, even if it's available
   int no_mmap;            // disable use of mmap-based output, even if it's available
-  double resyncthreshold; // if it get's out of whack my more than this number of seconds, resync.
+  double resyncthreshold; // if it gets out of whack my more than this number of seconds, resync.
                           // Zero means never
                           // resync.
   int allow_session_interruption;
   int timeout; // while in play mode, exit if no packets of audio come in for more than this number
                // of seconds . Zero means never exit.
-  int dont_check_timeout; // this is used to maintain backward compatability with the old -t option
+  int dont_check_timeout; // this is used to maintain backward compatibility with the old -t option
                           // behaviour; only set by -t 0, cleared by everything else
   char *output_name;
   audio_output *output;
@@ -194,7 +194,7 @@ typedef struct {
   char *configfile;
   char *regtype; // The regtype is the service type followed by the protocol, separated by a dot, by
                  // default “_raop._tcp.”.
-  char *interface;     // a string containg the interface name, or NULL if nothing specified
+  char *interface;     // a string containing the interface name, or NULL if nothing specified
   int interface_index; // only valid if the interface string is non-NULL
   double audio_backend_buffer_desired_length; // this will be the length in seconds of the
                                               // audio backend buffer -- the DAC buffer for ALSA

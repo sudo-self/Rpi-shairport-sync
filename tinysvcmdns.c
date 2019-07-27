@@ -1576,7 +1576,7 @@ void mdnsd_set_hostname(struct mdnsd *svr, const char *hostname, uint32_t ip) {
   struct rr_entry *a_e = NULL, *nsec_e = NULL;
 
   // currently can't be called twice
-  // dont ask me what happens if the IP changes
+  // don't ask me what happens if the IP changes
   assert(svr->hostname == NULL);
 
   a_e = rr_create_a(create_nlabel(hostname), ip); // 120 seconds automatically
@@ -1596,7 +1596,7 @@ void mdnsd_set_hostname_v6(struct mdnsd *svr, const char *hostname, struct in6_a
   struct rr_entry *aaaa_e = NULL, *nsec_e = NULL;
 
   // currently can't be called twice
-  // dont ask me what happens if the IP changes
+  // don't ask me what happens if the IP changes
   assert(svr->hostname == NULL);
 
   aaaa_e = rr_create_aaaa(create_nlabel(hostname), addr); // 120 seconds automatically

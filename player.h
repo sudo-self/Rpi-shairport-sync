@@ -55,7 +55,7 @@ typedef struct audio_buffer_entry { // decoded audio packets
 // Resend requests will be spaced out evenly in the latency period, subject to a minimum interval of
 // about 0.25 seconds.
 // Each buffer occupies 352*4 bytes plus about, say, 64 bytes of overhead in various places, say
-// rougly 1,500 bytes per buffer.
+// roughly 1,500 bytes per buffer.
 // Thus, 2048 buffers will occupy about 3 megabytes -- no big deal in a normal machine but maybe a
 // problem in an embedded device.
 

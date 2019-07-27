@@ -19,7 +19,7 @@ In this example, a Raspberry Pi Zero W and a Pimoroni PHAT DAC are used. This co
 ### Prepare the initial SD Image
 * Download the latest version of Raspbian Lite -- Stretch Lite of 2018-03-13 at the time of writing -- and install it onto an SD Card.
 * Mount the card on a Linux machine. Two drives should appear -- a `boot` drive and a `rootfs` drive. Both of these need a little modification.
-* Enable SSH service by creating a file called `ssh` on the `boot` drive. To do this, mount the drive and CD to its `boot` partiton (since my username is `mike`, the drive is at `/media/mike/boot`):
+* Enable SSH service by creating a file called `ssh` on the `boot` drive. To do this, mount the drive and CD to its `boot` partition (since my username is `mike`, the drive is at `/media/mike/boot`):
 ```
 $ touch ssh
 ```

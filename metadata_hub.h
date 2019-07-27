@@ -106,7 +106,7 @@ void metadata_hub_release_track_artwork(void);
 // these functions lock and unlock the read-write mutex on the metadata hub and run the watchers
 // afterwards
 void metadata_hub_modify_prolog(void);
-void metadata_hub_modify_epilog(int modified); // set to true if modifications occured, 0 otherwise
+void metadata_hub_modify_epilog(int modified); // set to true if modifications occurred, 0 otherwise
 
 // these are for safe reading
 void metadata_hub_read_prolog(void);

@@ -170,7 +170,7 @@ static inline seq_t SUCCESSOR(seq_t x) {
 
 // used in seq_diff and seq_order
 
-// anything with ORDINATE in it must be proctected by the ab_mutex
+// anything with ORDINATE in it must be protected by the ab_mutex
 static inline int32_t ORDINATE(seq_t x, seq_t base) {
   int32_t p = x;    // int32_t from seq_t, i.e. uint16_t, so okay
   int32_t q = base; // int32_t from seq_t, i.e. uint16_t, so okay
@@ -1921,7 +1921,7 @@ void *player_thread_func(void *arg) {
   while (1) {
     pthread_testcancel();                     // allow a pthread_cancel request to take effect.
     abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not
-                                              // guaranteed that they'll aways be executed
+                                              // guaranteed that they'll always be executed
     if (inframe) {
       inbuf = inframe->data;
       inbuflength = inframe->length;
@@ -1942,7 +1942,7 @@ void *player_thread_func(void *arg) {
             debug(1, "Failed to allocate memory for a silent frame silence buffer.");
           } else {
             // the player may change the contents of the buffer, so it has to be zeroed each time;
-            // might as well malloc and freee it locally
+            // might as well malloc and free it locally
             conn->previous_random_number = generate_zero_frames(
                 silence, conn->max_frames_per_packet * conn->output_sample_ratio,
                 config.output_format, conn->enable_dither, conn->previous_random_number);
@@ -1964,7 +1964,7 @@ void *player_thread_func(void *arg) {
             debug(1, "Failed to allocate memory for a flush silence buffer.");
           } else {
             // the player may change the contents of the buffer, so it has to be zeroed each time;
-            // might as well malloc and freee it locally
+            // might as well malloc and free it locally
             conn->previous_random_number = generate_zero_frames(
                 silence, conn->max_frames_per_packet * conn->output_sample_ratio,
                 config.output_format, conn->enable_dither, conn->previous_random_number);

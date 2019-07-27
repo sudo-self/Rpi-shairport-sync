@@ -97,7 +97,7 @@ You should also remove the initialisation script files `/etc/systemd/system/shai
 
 **Determine The Configuration Needed**
 
-Shairport Sync has a number of different "backends" that connnect it to the system's audio handling infrastructure. Most recent Linux distributions that have a GUI – including Ubuntu, Debian and others – use PulseAudio to handle sound. In such cases, it is inadvisable to attempt to disable or remove PulseAudio. Thus, if your system uses PulseAudio, you should build Shairport Sync with the PulseAudio backend. You can check to see if PulseAudio is running by opening a Terminal window and entering the command `$ pactl info`. Here is an example of what you'll get if PulseAudio is installed, though the exact details may vary:
+Shairport Sync has a number of different "backends" that connect it to the system's audio handling infrastructure. Most recent Linux distributions that have a GUI – including Ubuntu, Debian and others – use PulseAudio to handle sound. In such cases, it is inadvisable to attempt to disable or remove PulseAudio. Thus, if your system uses PulseAudio, you should build Shairport Sync with the PulseAudio backend. You can check to see if PulseAudio is running by opening a Terminal window and entering the command `$ pactl info`. Here is an example of what you'll get if PulseAudio is installed, though the exact details may vary:
 ```
 $ pactl info
 Server String: unix:/run/user/1000/pulse/native
@@ -609,7 +609,7 @@ This will be followed by the statistics themselves at regular intervals, for exa
 
 "Output frames per second" is the actual rate at which frames of audio are taken by the output device. On a system with a well-conditioned `ntp`-based clock (and without output underruns) this figure should be very accurate after playing material continuously for a period.
 
-"Source clock drift in ppm" is an estimate of the difference in timekeeping between the audio source and the Shairport Sync devive. It is calculated from a linear regression of drift sample data. The number of samples the estimate is based on is given in the next column, "Source clock drift sample count".
+"Source clock drift in ppm" is an estimate of the difference in timekeeping between the audio source and the Shairport Sync device. It is calculated from a linear regression of drift sample data. The number of samples the estimate is based on is given in the next column, "Source clock drift sample count".
 
 "Rough calculated correction in ppm" is a very crude estimate of the amount of interpolation that needs to applied, on average, to keep sync. It is not really to be relied on at this time.
 

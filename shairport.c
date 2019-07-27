@@ -1143,7 +1143,7 @@ int parse_options(int argc, char **argv) {
   /* Check if we are called with -d or --daemon or -j or justDaemoniseNoPIDFile options*/
   if ((daemonisewith != 0) || (daemonisewithout != 0)) {
     fprintf(stderr, "%s was built without libdaemon, so does not support daemonisation using the "
-                    "-d, --deamon, -j or --justDaemoniseNoPIDFile options\n",
+                    "-d, --daemon, -j or --justDaemoniseNoPIDFile options\n",
             config.appName);
     exit(EXIT_FAILURE);
   }
@@ -1494,7 +1494,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  /* Set indentification string for the daemon for both syslog and PID file */
+  /* Set identification string for the daemon for both syslog and PID file */
   daemon_pid_file_ident = daemon_log_ident = daemon_ident_from_argv0(argv[0]);
 
   daemon_pid_file_proc = pid_file_proc;
@@ -1696,7 +1696,7 @@ int main(int argc, char **argv) {
   debug(1, "statistics_requester status is %d.", config.statistics_requested);
 #if CONFIG_LIBDAEMON
   debug(1, "daemon status is %d.", config.daemonise);
-  debug(1, "deamon pid file path is \"%s\".", pid_file_proc());
+  debug(1, "daemon pid file path is \"%s\".", pid_file_proc());
 #endif
   debug(1, "rtsp listening port is %d.", config.port);
   debug(1, "udp base port is %d.", config.udp_port_base);
