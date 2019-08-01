@@ -1366,13 +1366,13 @@ int main(int argc, char **argv) {
   /* Check if we are called with -V or --version parameter */
   if (argc >= 2 && ((strcmp(argv[1], "-V") == 0) || (strcmp(argv[1], "--version") == 0))) {
     print_version();
-    exit(EXIT_FAILURE);
+    exit(EXIT_SUCCESS);
   }
 
   /* Check if we are called with -h or --help parameter */
   if (argc >= 2 && ((strcmp(argv[1], "-h") == 0) || (strcmp(argv[1], "--help") == 0))) {
     usage(argv[0]);
-    exit(EXIT_FAILURE);
+    exit(EXIT_SUCCESS);
   }
 
 #ifdef CONFIG_LIBDAEMON
