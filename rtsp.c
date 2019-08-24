@@ -1866,9 +1866,31 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     if (pfmtp) {
       conn->stream.type = ast_apple_lossless;
       debug(3, "An ALAC stream has been detected.");
+
+      // Set connection defaults
+      conn->stream.fmtp[0] = 96;
+      conn->stream.fmtp[1] = 352;
+      conn->stream.fmtp[2] = 0;
+      conn->stream.fmtp[3] = 16;
+      conn->stream.fmtp[4] = 40;
+      conn->stream.fmtp[5] = 10;
+      conn->stream.fmtp[6] = 14;
+      conn->stream.fmtp[7] = 2;
+      conn->stream.fmtp[8] = 255;
+      conn->stream.fmtp[9] = 0;
+      conn->stream.fmtp[10] = 0;
+      conn->stream.fmtp[11] = 44100;
+
       unsigned int i;
-      for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
-        conn->stream.fmtp[i] = atoi(strsep(&pfmtp, " \t"));
+      char* found;
+      for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++) {
+        found = strsep(&pfmtp, " \t");
+        if (found != NULL) {
+          conn->stream.fmtp[i] = atoi(found);
+        } else {
+          break;
+        }
+      }
       // here we should check the sanity of the fmtp values
       // for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
       //  debug(1,"  fmtp[%2d] is: %10d",i,conn->stream.fmtp[i]);
