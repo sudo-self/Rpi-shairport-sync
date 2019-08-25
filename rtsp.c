@@ -1867,7 +1867,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
       conn->stream.type = ast_apple_lossless;
       debug(3, "An ALAC stream has been detected.");
 
-      // Set connection defaults
+      // Set reasonable connection defaults
       conn->stream.fmtp[0] = 96;
       conn->stream.fmtp[1] = 352;
       conn->stream.fmtp[2] = 0;
@@ -1881,15 +1881,11 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
       conn->stream.fmtp[10] = 0;
       conn->stream.fmtp[11] = 44100;
 
-      unsigned int i;
+      unsigned int i = 0;
+      unsigned int max_param = sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]);
       char* found;
-      for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++) {
-        found = strsep(&pfmtp, " \t");
-        if (found != NULL) {
-          conn->stream.fmtp[i] = atoi(found);
-        } else {
-          break;
-        }
+      while ((found = strsep(&pfmtp, " \t")) != NULL && i < max_param) {
+        conn->stream.fmtp[i++] = atoi(found);          
       }
       // here we should check the sanity of the fmtp values
       // for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
