@@ -1,4 +1,5 @@
-Version 3.3.2d4
+Version 3.3.2d3
+====
 **Bug Fix**
 * Fixes a potential crash when an incomplete `fmtp` parameter set is sent by the requesting client. Thanks to [Angus71](https://github.com/Angus71) for the fault report and for the repair.
 
