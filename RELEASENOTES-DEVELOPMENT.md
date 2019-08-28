@@ -1,3 +1,10 @@
+Version 3.3.2d4
+**Bug Fix**
+* Fixes a potential crash when an incomplete `fmtp` parameter set is sent by the requesting client. Thanks to [Angus71](https://github.com/Angus71) for the fault report and for the repair.
+
+**Enhancement**
+* Instead of returning `EXIT_FAILURE`, return `EXIT_WITH_SUCCESS` on early exit with either "version" (`–version` or `-V`) or "help" (`–help` or `-h`) arguments. Thanks to [Henrik Nilsson](https://github.com/henriknil) for the patch.
+
 Version 3.3.2d2
 ====
 **Bug Fix**
