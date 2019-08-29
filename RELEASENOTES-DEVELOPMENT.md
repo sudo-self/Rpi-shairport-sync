@@ -1,3 +1,8 @@
+Version 3.3.2d4
+====
+**Bug Fixes and Enhancements**
+* Fixes and enhancements to the MPRIS and native D-Bus interfaces. In particular, situations where artwork is absent are better handled, and the remote interface and advanced remote interface `availability` properties should be mnore resilient to netowkr problems. Addresses Issue #890. Thanks to [exoqrtx](https://github.com/exoqrtx) for bringinig these issues to light andf for testing.
+
 Version 3.3.2d3
 ====
 **Bug Fix**
