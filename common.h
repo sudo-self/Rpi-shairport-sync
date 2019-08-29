@@ -393,4 +393,6 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
 
 void malloc_cleanup(void *arg);
 
+int string_update_with_size(char **str, int *flag, char *s, size_t len);
+
 #endif // _COMMON_H

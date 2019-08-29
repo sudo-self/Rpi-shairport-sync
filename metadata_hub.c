@@ -61,64 +61,21 @@
 int metadata_hub_initialised = 0;
 
 pthread_rwlock_t metadata_hub_re_lock = PTHREAD_RWLOCK_INITIALIZER;
-struct track_metadata_bundle *track_metadata; // used for a temporary track metadata store
 
-void release_char_string(char **str) {
-  if (*str) {
-    free(*str);
-    *str = NULL;
-  }
-}
-
-void metadata_hub_release_track_metadata(struct track_metadata_bundle *track_metadata) {
-  // debug(1,"release track metadata");
-  if (track_metadata) {
-    release_char_string(&track_metadata->track_name);
-    release_char_string(&track_metadata->artist_name);
-    release_char_string(&track_metadata->album_artist_name);
-    release_char_string(&track_metadata->album_name);
-    release_char_string(&track_metadata->genre);
-    release_char_string(&track_metadata->comment);
-    release_char_string(&track_metadata->composer);
-    release_char_string(&track_metadata->file_kind);
-    release_char_string(&track_metadata->song_description);
-    release_char_string(&track_metadata->song_album_artist);
-    release_char_string(&track_metadata->sort_name);
-    release_char_string(&track_metadata->sort_artist);
-    release_char_string(&track_metadata->sort_album);
-    release_char_string(&track_metadata->sort_composer);
-    free((char *)track_metadata);
-  } else {
-    debug(3, "Asked to release non-existent track metadata");
-  }
-}
-
-void metadata_hub_release_track_artwork(void) {
-  // debug(1,"release track artwork");
-  release_char_string(&metadata_store.cover_art_pathname);
+int string_update(char **str, int *flag, char *s) {
+  if (s)
+    return string_update_with_size(str, flag, s, strlen(s));
+  else
+    return string_update_with_size(str, flag, NULL, 0);
 }
 
 void metadata_hub_init(void) {
   // debug(1, "Metadata bundle initialisation.");
   memset(&metadata_store, 0, sizeof(metadata_store));
-  track_metadata = NULL;
   metadata_hub_initialised = 1;
 }
 
-void metadata_hub_stop(void) {
-  if (metadata_hub_initialised) {
-    debug(2, "metadata_hub_stop.");
-    metadata_hub_release_track_artwork();
-    if (metadata_store.track_metadata) {
-      metadata_hub_release_track_metadata(metadata_store.track_metadata);
-      metadata_store.track_metadata = NULL;
-    }
-    if (track_metadata) {
-      metadata_hub_release_track_metadata(track_metadata);
-      track_metadata = NULL;
-    }
-  }
-}
+void metadata_hub_stop(void) {}
 
 void add_metadata_watcher(metadata_watcher fn, void *userdata) {
   int i;
@@ -132,24 +89,41 @@ void add_metadata_watcher(metadata_watcher fn, void *userdata) {
   }
 }
 
+/*
 void metadata_hub_unlock_hub_mutex_cleanup(__attribute__((unused)) void *arg) {
   // debug(1, "metadata_hub_unlock_hub_mutex_cleanup called.");
   pthread_rwlock_unlock(&metadata_hub_re_lock);
 }
+*/
 
 void run_metadata_watchers(void) {
   int i;
-  // debug(1, "locking metadata hub for reading");
-  pthread_rwlock_rdlock(&metadata_hub_re_lock);
-  pthread_cleanup_push(metadata_hub_unlock_hub_mutex_cleanup, NULL);
   for (i = 0; i < number_of_watchers; i++) {
     if (metadata_store.watchers[i]) {
       metadata_store.watchers[i](&metadata_store, metadata_store.watchers_data[i]);
     }
   }
-  // debug(1, "unlocking metadata hub for reading");
-  // pthread_rwlock_unlock(&metadata_hub_re_lock);
-  pthread_cleanup_pop(1);
+  // turn off changed flags
+  metadata_store.cover_art_pathname_changed = 0;
+  metadata_store.client_ip_changed = 0;
+  metadata_store.server_ip_changed = 0;
+  metadata_store.progress_string_changed = 0;
+  metadata_store.item_id_changed = 0;
+  metadata_store.item_composite_id_changed = 0;
+  metadata_store.artist_name_changed = 0;
+  metadata_store.album_artist_name_changed = 0;
+  metadata_store.album_name_changed = 0;
+  metadata_store.track_name_changed = 0;
+  metadata_store.genre_changed = 0;
+  metadata_store.comment_changed = 0;
+  metadata_store.composer_changed = 0;
+  metadata_store.file_kind_changed = 0;
+  metadata_store.song_description_changed = 0;
+  metadata_store.song_album_artist_changed = 0;
+  metadata_store.sort_artist_changed = 0;
+  metadata_store.sort_album_changed = 0;
+  metadata_store.sort_composer_changed = 0;
+  metadata_store.songtime_in_milliseconds_changed = 0;
 }
 
 void metadata_hub_modify_prolog(void) {
@@ -163,48 +137,21 @@ void metadata_hub_modify_prolog(void) {
 }
 
 void metadata_hub_modify_epilog(int modified) {
-  // always run this after changing an entry or a sequence of entries in the metadata_hub
-  // debug(1, "unlocking metadata hub for writing");
-
-  // Here, we check to see if the dacp_server is transitioning between active and inactive
-  // If it's going off, we will release track metadata and image stuff
-  // If it's already off, we do nothing
-  // If it's transitioning to on, we will record it for use later.
-
-  int m = 0;
-  int tm = modified;
-
-  if ((metadata_store.dacp_server_active == 0) &&
-      (metadata_store.dacp_server_has_been_active != 0)) {
-    debug(2, "dacp_scanner going inactive -- release track metadata and artwork");
-    if (metadata_store.track_metadata) {
-      m = 1;
-      metadata_hub_release_track_metadata(metadata_store.track_metadata);
-      metadata_store.track_metadata = NULL;
-    }
-    if (metadata_store.cover_art_pathname) {
-      m = 1;
-      metadata_hub_release_track_artwork();
-    }
-    if (m)
-      debug(2, "Release track metadata after dacp server goes inactive.");
-    tm += m;
-  }
   metadata_store.dacp_server_has_been_active =
       metadata_store.dacp_server_active; // set the scanner_has_been_active now.
-  pthread_rwlock_unlock(&metadata_hub_re_lock);
-  if (tm) {
+  if (modified) {
     run_metadata_watchers();
   }
+  pthread_rwlock_unlock(&metadata_hub_re_lock);
 }
 
 void metadata_hub_read_prolog(void) {
   // always run this before reading an entry or a sequence of entries in the metadata_hub
   // debug(1, "locking metadata hub for reading");
   if (pthread_rwlock_tryrdlock(&metadata_hub_re_lock) != 0) {
-    debug(1, "Metadata_hub read lock is already taken -- must wait.");
+    debug(2, "Metadata_hub read lock is already taken -- must wait.");
     pthread_rwlock_rdlock(&metadata_hub_re_lock);
-    debug(1, "Okay -- acquired the metadata_hub read lock.");
+    debug(2, "Okay -- acquired the metadata_hub read lock.");
   }
 }
 
@@ -223,7 +170,7 @@ char *metadata_write_image_file(const char *buf, int len) {
   char *path = NULL; // this will be what is returned
 
   uint8_t img_md5[16];
-// uint8_t ap_md5[16];
+  // uint8_t ap_md5[16];
 
 #ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
@@ -345,124 +292,125 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
   // https://code.google.com/p/ytrack/wiki/DMAP
 
   // all the following items of metadata are contained in one metadata packet
-  // they are preseded by an 'ssnc' 'mdst' item and followed by an 'ssnc 'mden' item.
+  // they are preceded by an 'ssnc' 'mdst' item and followed by an 'ssnc 'mden' item.
 
+  uint32_t ui;
+  char *cs;
+  int changed = 0;
   if (type == 'core') {
     switch (code) {
     case 'mper':
-      if (track_metadata) {
-        track_metadata->item_id = ntohl(*(uint32_t *)data);
-        track_metadata->item_id_received = 1;
-        debug(2, "MH Item ID set to: \"%u\"", track_metadata->item_id);
-      } else {
-        debug(1, "No track metadata memory allocated when item id received!");
+      ui = ntohl(*(uint32_t *)data);
+      debug(2, "MH Item ID seen: \"%u\" of length %u.", ui, length);
+      if (ui != metadata_store.item_id) {
+        metadata_store.item_id = ui;
+        metadata_store.item_id_changed = 1;
+        metadata_store.item_id_received = 1;
+        debug(2, "MH Item ID set to: \"%u\"", metadata_store.item_id);
+      }
+      break;
+    case 'astm':
+      ui = ntohl(*(uint32_t *)data);
+      debug(2, "MH Song Time seen: \"%u\" of length %u.", ui, length);
+      if (ui != metadata_store.songtime_in_milliseconds) {
+        metadata_store.songtime_in_milliseconds = ui;
+        metadata_store.songtime_in_milliseconds_changed = 1;
+        debug(2, "MH Song Time set to: \"%u\"", metadata_store.songtime_in_milliseconds);
       }
       break;
     case 'asal':
-      if (track_metadata) {
-        track_metadata->album_name = strndup(data, length);
-        debug(2, "MH Album name set to: \"%s\"", track_metadata->album_name);
-      } else {
-        debug(1, "No track metadata memory allocated when album name received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.album_name, &metadata_store.album_name_changed, cs)) {
+        debug(2, "MH Album name set to: \"%s\"", metadata_store.album_name);
       }
+      free(cs);
       break;
     case 'asar':
-      if (track_metadata) {
-        track_metadata->artist_name = strndup(data, length);
-        debug(2, "MH Artist name set to: \"%s\"", track_metadata->artist_name);
-      } else {
-        debug(1, "No track metadata memory allocated when artist name received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.artist_name, &metadata_store.artist_name_changed, cs)) {
+        debug(2, "MH Artist name set to: \"%s\"", metadata_store.artist_name);
       }
+      free(cs);
       break;
     case 'assl':
-      if (track_metadata) {
-        track_metadata->album_artist_name = strndup(data, length);
-        debug(2, "MH Album Artist name set to: \"%s\"", track_metadata->album_artist_name);
-      } else {
-        debug(1, "No track metadata memory allocated when album artist name received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.album_artist_name,
+                        &metadata_store.album_artist_name_changed, cs)) {
+        debug(2, "MH Album Artist name set to: \"%s\"", metadata_store.album_artist_name);
       }
+      free(cs);
       break;
     case 'ascm':
-      if (track_metadata) {
-        track_metadata->comment = strndup(data, length);
-        debug(2, "MH Comment set to: \"%s\"", track_metadata->comment);
-      } else {
-        debug(1, "No track metadata memory allocated when comment received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.comment, &metadata_store.comment_changed, cs)) {
+        debug(2, "MH Comment set to: \"%s\"", metadata_store.comment);
       }
+      free(cs);
       break;
     case 'asgn':
-      if (track_metadata) {
-        track_metadata->genre = strndup(data, length);
-        debug(2, "MH Genre set to: \"%s\"", track_metadata->genre);
-      } else {
-        debug(1, "No track metadata memory allocated when genre received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.genre, &metadata_store.genre_changed, cs)) {
+        debug(2, "MH Genre set to: \"%s\"", metadata_store.genre);
       }
+      free(cs);
       break;
     case 'minm':
-      if (track_metadata) {
-        track_metadata->track_name = strndup(data, length);
-        debug(2, "MH Track name set to: \"%s\"", track_metadata->track_name);
-      } else {
-        debug(1, "No track metadata memory allocated when track name received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.track_name, &metadata_store.track_name_changed, cs)) {
+        debug(2, "MH Track Name set to: \"%s\"", metadata_store.track_name);
       }
+      free(cs);
       break;
     case 'ascp':
-      if (track_metadata) {
-        track_metadata->composer = strndup(data, length);
-        debug(2, "MH Composer set to: \"%s\"", track_metadata->composer);
-      } else {
-        debug(1, "No track metadata memory allocated when track name received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.composer, &metadata_store.composer_changed, cs)) {
+        debug(2, "MH Composer set to: \"%s\"", metadata_store.composer);
       }
+      free(cs);
       break;
     case 'asdt':
-      if (track_metadata) {
-        track_metadata->song_description = strndup(data, length);
-        debug(2, "MH Song Description set to: \"%s\"", track_metadata->song_description);
-      } else {
-        debug(1, "No track metadata memory allocated when song description received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.song_description, &metadata_store.song_description_changed,
+                        cs)) {
+        debug(2, "MH Song Description set to: \"%s\"", metadata_store.song_description);
       }
+      free(cs);
       break;
     case 'asaa':
-      if (track_metadata) {
-        track_metadata->song_album_artist = strndup(data, length);
-        debug(2, "MH Song Album Artist set to: \"%s\"", track_metadata->song_album_artist);
-      } else {
-        debug(1, "No track metadata memory allocated when song artist received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.song_album_artist,
+                        &metadata_store.song_album_artist_changed, cs)) {
+        debug(2, "MH Song Album Artist set to: \"%s\"", metadata_store.song_album_artist);
       }
+      free(cs);
       break;
     case 'assn':
-      if (track_metadata) {
-        track_metadata->sort_name = strndup(data, length);
-        debug(2, "MH Sort Name set to: \"%s\"", track_metadata->sort_name);
-      } else {
-        debug(1, "No track metadata memory allocated when sort name description received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.sort_name, &metadata_store.sort_name_changed, cs)) {
+        debug(2, "MH Sort Name set to: \"%s\"", metadata_store.sort_name);
       }
+      free(cs);
       break;
     case 'assa':
-      if (track_metadata) {
-        track_metadata->sort_artist = strndup(data, length);
-        debug(2, "MH Sort Artist set to: \"%s\"", track_metadata->sort_artist);
-      } else {
-        debug(1, "No track metadata memory allocated when sort artist description received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.sort_artist, &metadata_store.sort_artist_changed, cs)) {
+        debug(2, "MH Sort Artist set to: \"%s\"", metadata_store.sort_artist);
       }
+      free(cs);
       break;
     case 'assu':
-      if (track_metadata) {
-        track_metadata->sort_album = strndup(data, length);
-        debug(2, "MH Sort Album set to: \"%s\"", track_metadata->sort_album);
-      } else {
-        debug(1, "No track metadata memory allocated when sort album description received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.sort_album, &metadata_store.sort_album_changed, cs)) {
+        debug(2, "MH Sort Album set to: \"%s\"", metadata_store.sort_album);
       }
+      free(cs);
       break;
     case 'assc':
-      if (track_metadata) {
-        track_metadata->sort_composer = strndup(data, length);
-        debug(2, "MH Sort Composer set to: \"%s\"", track_metadata->sort_composer);
-      } else {
-        debug(1, "No track metadata memory allocated when sort composer description received!");
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.sort_composer, &metadata_store.sort_composer_changed, cs)) {
+        debug(2, "MH Sort Composer set to: \"%s\"", metadata_store.sort_composer);
       }
-      break;
-
+      free(cs);
     default:
       /*
           {
@@ -487,132 +435,121 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
     }
   } else if (type == 'ssnc') {
     switch (code) {
-
     // ignore the following
     case 'pcst':
     case 'pcen':
       break;
-
     case 'mdst':
       debug(2, "MH Metadata stream processing start.");
-      if (track_metadata) {
-        debug(1, "This track metadata bundle still seems to exist -- releasing it");
-        metadata_hub_release_track_metadata(track_metadata);
-      }
-      track_metadata = (struct track_metadata_bundle *)malloc(sizeof(struct track_metadata_bundle));
-      if (track_metadata == NULL)
-        die("Could not allocate memory for track metadata.");
-      memset(track_metadata, 0, sizeof(struct track_metadata_bundle));
+      metadata_hub_modify_prolog();
       break;
     case 'mden':
-      if (track_metadata) {
-        metadata_hub_modify_prolog();
-        metadata_hub_release_track_metadata(metadata_store.track_metadata);
-        metadata_store.track_metadata = track_metadata;
-        track_metadata = NULL;
-        metadata_hub_modify_epilog(1);
-      }
       debug(2, "MH Metadata stream processing end.");
+      metadata_hub_modify_epilog(1);
+      debug(2, "MH Metadata stream processing epilog complete.");
       break;
     case 'PICT':
+      metadata_hub_modify_prolog();
+      debug(2, "MH Picture received, length %u bytes.", length);
+      char uri[2048];
       if (length > 16) {
-        metadata_hub_modify_prolog();
-        debug(2, "MH Picture received, length %u bytes.", length);
-        release_char_string(&metadata_store.cover_art_pathname);
-        metadata_store.cover_art_pathname = metadata_write_image_file(data, length);
-        metadata_hub_modify_epilog(1);
+        char *pathname = metadata_write_image_file(data, length);
+        snprintf(uri, sizeof(uri), "file://%s", pathname);
+        free(pathname);
+      } else {
+        uri[0] = '\0';
       }
+      if (string_update(&metadata_store.cover_art_pathname,
+                        &metadata_store.cover_art_pathname_changed,
+                        uri)) // if the picture's file path is different from the stored one...
+        metadata_hub_modify_epilog(1);
+      else
+        metadata_hub_modify_epilog(0);
       break;
-    /*
     case 'clip':
-      if ((metadata_store.client_ip == NULL) ||
-          (strncmp(metadata_store.client_ip, data, length) != 0)) {
-        metadata_hub_modify_prolog();
-        if (metadata_store.client_ip)
-          free(metadata_store.client_ip);
-        metadata_store.client_ip = strndup(data, length);
-        debug(1, "MH Client IP set to: \"%s\"", metadata_store.client_ip);
-        metadata_store.client_ip_changed = 1;
-        metadata_store.changed = 1;
-        metadata_hub_modify_epilog(1);
+      metadata_hub_modify_prolog();
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.client_ip, &metadata_store.client_ip_changed, cs)) {
+        changed = 1;
+        debug(2, "MH Client IP set to: \"%s\"", metadata_store.client_ip);
       }
+      free(cs);
+      metadata_hub_modify_epilog(changed);
       break;
-    */
     case 'prgr':
-      if ((metadata_store.progress_string == NULL) ||
-          (strncmp(metadata_store.progress_string, data, length) != 0)) {
-        metadata_hub_modify_prolog();
-        release_char_string(&metadata_store.progress_string);
-        metadata_store.progress_string = strndup(data, length);
+      metadata_hub_modify_prolog();
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.progress_string, &metadata_store.progress_string_changed,
+                        cs)) {
+        changed = 1;
         debug(2, "MH Progress String set to: \"%s\"", metadata_store.progress_string);
-        metadata_hub_modify_epilog(1);
       }
+      free(cs);
+      metadata_hub_modify_epilog(changed);
       break;
     case 'svip':
-      if ((metadata_store.server_ip == NULL) ||
-          (strncmp(metadata_store.server_ip, data, length) != 0)) {
-        metadata_hub_modify_prolog();
-        release_char_string(&metadata_store.server_ip);
-        metadata_store.server_ip = strndup(data, length);
-        // debug(1, "MH Server IP set to: \"%s\"", metadata_store.server_ip);
-        metadata_hub_modify_epilog(1);
-      }
-      break;
-    // these could tell us about play / pause etc. but will only occur if metadata is enabled, so
-    // we'll just ignore them
-    case 'abeg': {
       metadata_hub_modify_prolog();
-      int changed = (metadata_store.active_state != AM_ACTIVE);
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.server_ip, &metadata_store.server_ip_changed, cs)) {
+        changed = 1;
+        debug(2, "MH Server IP set to: \"%s\"", metadata_store.server_ip);
+      }
+      free(cs);
+      metadata_hub_modify_epilog(changed);
+      break;
+    case 'abeg':
+      metadata_hub_modify_prolog();
+      changed = (metadata_store.active_state != AM_ACTIVE);
       metadata_store.active_state = AM_ACTIVE;
       metadata_hub_modify_epilog(changed);
-    } break;
-    case 'aend': {
+      break;
+    case 'aend':
       metadata_hub_modify_prolog();
-      int changed = (metadata_store.active_state != AM_INACTIVE);
+      changed = (metadata_store.active_state != AM_INACTIVE);
       metadata_store.active_state = AM_INACTIVE;
       metadata_hub_modify_epilog(changed);
-    } break;
-    case 'pbeg': {
+      break;
+    case 'pbeg':
       metadata_hub_modify_prolog();
-      int changed = (metadata_store.player_state != PS_PLAYING);
+      changed = (metadata_store.player_state != PS_PLAYING);
       metadata_store.player_state = PS_PLAYING;
       metadata_store.player_thread_active = 1;
       metadata_hub_modify_epilog(changed);
-    } break;
-    case 'pend': {
+      break;
+    case 'pend':
       metadata_hub_modify_prolog();
+      changed = (metadata_store.player_state != PS_STOPPED);
       metadata_store.player_thread_active = 0;
       metadata_store.player_state = PS_STOPPED;
-      metadata_hub_modify_epilog(1);
-    } break;
-    case 'pfls': {
+      metadata_hub_modify_epilog(changed);
+      break;
+    case 'pfls':
       metadata_hub_modify_prolog();
-      int changed = (metadata_store.player_state != PS_PAUSED);
+      changed = (metadata_store.player_state != PS_PAUSED);
       metadata_store.player_state = PS_PAUSED;
       metadata_hub_modify_epilog(changed);
-    } break;
+      break;
     case 'pffr': // this is sent when the first frame has been received
-    case 'prsm': {
+    case 'prsm':
       metadata_hub_modify_prolog();
       int changed = (metadata_store.player_state != PS_PLAYING);
       metadata_store.player_state = PS_PLAYING;
       metadata_hub_modify_epilog(changed);
-    } break;
+      break;
     case 'pvol': {
       // Note: it's assumed that the config.airplay volume has already been correctly set.
-      int modified = 0;
       int32_t actual_volume;
       int gv = dacp_get_volume(&actual_volume);
       metadata_hub_modify_prolog();
       if ((gv == 200) && (metadata_store.speaker_volume != actual_volume)) {
         metadata_store.speaker_volume = actual_volume;
-        modified = 1;
+        changed = 1;
       }
       if (metadata_store.airplay_volume != config.airplay_volume) {
         metadata_store.airplay_volume = config.airplay_volume;
-        modified = 1;
+        changed = 1;
       }
-      metadata_hub_modify_epilog(modified); // change
+      metadata_hub_modify_epilog(changed); // change
     } break;
 
     default: {

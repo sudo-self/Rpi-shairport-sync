@@ -112,7 +112,10 @@ static void response_code(void *opaque, int code) {
 }
 
 static const struct http_funcs responseFuncs = {
-    response_realloc, response_body, response_header, response_code,
+    response_realloc,
+    response_body,
+    response_header,
+    response_code,
 };
 
 // static pthread_mutex_t dacp_conversation_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -320,9 +323,10 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
       // debug(1,"Sent command\"%s\" with a response body of size %d.",command,response.size);
       // debug(1,"dacp_conversation_lock released.");
     } else {
-      debug(3, "dacp_send_command: could not acquire a lock on the dacp transmit/receive section "
-               "when attempting to "
-               "send the command \"%s\". Possible timeout?",
+      debug(3,
+            "dacp_send_command: could not acquire a lock on the dacp transmit/receive section "
+            "when attempting to "
+            "send the command \"%s\". Possible timeout?",
             command);
       response.code = 494; // This client is already busy
     }
@@ -419,8 +423,9 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
 
 void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
   debug_mutex_lock(&dacp_server_information_lock, 500000, 2);
-  debug(3, "dacp_monitor_port_update_callback with Remote ID \"%s\", target ID \"%s\" and port "
-           "number %d.",
+  debug(3,
+        "dacp_monitor_port_update_callback with Remote ID \"%s\", target ID \"%s\" and port "
+        "number %d.",
         dacp_id, dacp_server.dacp_id, port);
   if (strcmp(dacp_id, dacp_server.dacp_id) == 0) {
     dacp_server.port = port;
@@ -468,8 +473,9 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
                (metadata_store.advanced_dacp_server_active != 0);
       metadata_store.dacp_server_active = 0;
       metadata_store.advanced_dacp_server_active = 0;
-      debug(2, "setting dacp_server_active and advanced_dacp_server_active to 0 with an update "
-               "flag value of %d",
+      debug(2,
+            "setting dacp_server_active and advanced_dacp_server_active to 0 with an update "
+            "flag value of %d",
             ch);
       metadata_hub_modify_epilog(ch);
       while (dacp_server.scan_enable == 0) {
@@ -483,7 +489,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
     scan_index++;
     result = dacp_get_volume(&the_volume); // just want the http code
 
-    if ((result == 496) || (result == 403) || (result == 501)) {
+    if ((result == 403) || (result == 501)) {
       bad_result_count++;
       // debug(1,"Bad Scan : %d.",result);
     } else
@@ -511,8 +517,8 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
     if (dacp_server.scan_enable ==
         1) { // if it hasn't been turned off, continue looking for information.
       int transient_problem =
-          (result == 494) ||
-          (result == 495); // this just means that it couldn't send the query because something
+          (result == 494) || (result == 495) ||
+          (result == 496); // this just means that it couldn't send the query because something
                            // else
                            // was sending a command or something
       if ((!transient_problem) && (bad_result_count == 0) && (idle_scan_count == 0) &&
@@ -525,12 +531,12 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
         int inactive = metadata_store.dacp_server_active == 0;
         if (inactive) {
           metadata_store.dacp_server_active = 1;
-          debug(2, "Setting dacp_server_active to active because of a response of %d.", result);
+          debug(1, "Setting dacp_server_active to active because of a response of %d.", result);
         }
         int same = metadata_store.advanced_dacp_server_active == (result == 200);
         if (!same) {
           metadata_store.advanced_dacp_server_active = (result == 200);
-          debug(2, "Setting dacp_advanced_server_active to %d because of a response of %d.",
+          debug(1, "Setting dacp_advanced_server_active to %d because of a response of %d.",
                 (result == 200), result);
         }
         metadata_hub_modify_epilog(inactive + (!same));
@@ -574,6 +580,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
                 // char u;
                 // char *st;
                 int32_t r;
+                uint32_t ui;
                 // uint64_t v;
                 // int i;
 
@@ -658,64 +665,42 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
                     break;
                   }
                   break;
-                /*
                 case 'cann': // track name
-                  t = sp - item_size;
-                  if ((metadata_store.track_name == NULL) ||
-                      (strncmp(metadata_store.track_name, t, item_size) != 0)) {
-                    if (metadata_store.track_name)
-                      free(metadata_store.track_name);
-                    metadata_store.track_name = strndup(t, item_size);
-                    debug(1, "Track name changed to: \"%s\"", metadata_store.track_name);
-                    metadata_store.track_name_changed = 1;
-                    metadata_store.changed = 1;
+                  debug(2, "DACP Track Name seen");
+                  if (string_update_with_size(&metadata_store.track_name, &metadata_store.track_name_changed,
+                                     sp - item_size, item_size)) {
+                    debug(2, "DACP Track Name set to: \"%s\"", metadata_store.track_name);
                   }
                   break;
                 case 'cana': // artist name
-                  t = sp - item_size;
-                  if ((metadata_store.artist_name == NULL) ||
-                      (strncmp(metadata_store.artist_name, t, item_size) != 0)) {
-                    if (metadata_store.artist_name)
-                      free(metadata_store.artist_name);
-                    metadata_store.artist_name = strndup(t, item_size);
-                    debug(1, "Artist name changed to: \"%s\"", metadata_store.artist_name);
-                    metadata_store.artist_name_changed = 1;
-                    metadata_store.changed = 1;
+                  debug(2, "DACP Artist Name seen");
+                  if (string_update_with_size(&metadata_store.artist_name,
+                                     &metadata_store.artist_name_changed, sp - item_size,
+                                     item_size)) {
+                    debug(2, "DACP Artist Name set to: \"%s\"", metadata_store.artist_name);
                   }
                   break;
                 case 'canl': // album name
-                  t = sp - item_size;
-                  if ((metadata_store.album_name == NULL) ||
-                      (strncmp(metadata_store.album_name, t, item_size) != 0)) {
-                    if (metadata_store.album_name)
-                      free(metadata_store.album_name);
-                    metadata_store.album_name = strndup(t, item_size);
-                    debug(1, "Album name changed to: \"%s\"", metadata_store.album_name);
-                    metadata_store.album_name_changed = 1;
-                    metadata_store.changed = 1;
+                  debug(2, "DACP Album Name seen");
+                  if (string_update_with_size(&metadata_store.album_name, &metadata_store.album_name_changed,
+                                     sp - item_size, item_size)) {
+                    debug(2, "DACP Album Name set to: \"%s\"", metadata_store.album_name);
                   }
                   break;
                 case 'cang': // genre
-                  t = sp - item_size;
-                  if ((metadata_store.genre == NULL) ||
-                      (strncmp(metadata_store.genre, t, item_size) != 0)) {
-                    if (metadata_store.genre)
-                      free(metadata_store.genre);
-                    metadata_store.genre = strndup(t, item_size);
-                    debug(1, "Genre changed to: \"%s\"", metadata_store.genre);
-                    metadata_store.genre_changed = 1;
-                    metadata_store.changed = 1;
+                  debug(2, "DACP Genre seen");
+                  if (string_update_with_size(&metadata_store.genre, &metadata_store.genre_changed,
+                                     sp - item_size, item_size)) {
+                    debug(2, "DACP Genre set to: \"%s\"", metadata_store.genre);
                   }
                   break;
                 case 'canp': // nowplaying 4 ids: dbid, plid, playlistItem, itemid (from mellowware
-                --
                              // see reference above)
-                  t = sp - item_size;
-                  if (memcmp(metadata_store.item_composite_id, t,
+                  debug(2, "DACP Composite ID seen");
+                  if (memcmp(metadata_store.item_composite_id, sp - item_size,
                              sizeof(metadata_store.item_composite_id)) != 0) {
-                    memcpy(metadata_store.item_composite_id, t,
+                    memcpy(metadata_store.item_composite_id, sp - item_size,
                            sizeof(metadata_store.item_composite_id));
-
                     char st[33];
                     char *pt = st;
                     int it;
@@ -724,18 +709,20 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
                       pt += 2;
                     }
                     *pt = 0;
-                    // debug(1, "Item composite ID set to 0x%s.", st);
-                    metadata_store.item_id_changed = 1;
-                    metadata_store.changed = 1;
+                    debug(2, "Item composite ID changed to 0x%s.", st);
+                    metadata_store.item_composite_id_changed = 1;
                   }
                   break;
-                */
                 case 'astm':
                   t = sp - item_size;
-                  r = ntohl(*(uint32_t *)(t));
-                  if (metadata_store.track_metadata)
-                    metadata_store.track_metadata->songtime_in_milliseconds =
-                        ntohl(*(uint32_t *)(t));
+                  ui = ntohl(*(uint32_t *)(t));
+                  debug(2, "DACP Song Time seen: \"%u\" of length %u.", ui, item_size);
+                  if (ui != metadata_store.songtime_in_milliseconds) {
+                    metadata_store.songtime_in_milliseconds = ui;
+                    metadata_store.songtime_in_milliseconds_changed = 1;
+                    debug(2, "DACP Song Time set to: \"%u\"",
+                          metadata_store.songtime_in_milliseconds);
+                  }
                   break;
 
                 /*

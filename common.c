@@ -1519,3 +1519,39 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
   }
   return previous_random_number;
 }
+
+// This will check the incoming string "s" of length "len" with the existing NUL-terminated string "str" and update "flag" accordingly.
+
+// Note: if the incoming string length is zero, then the a NULL is used; i.e. no zero-length strings are stored.
+
+// If the strings are different, the str is free'd and replaced by a pointer
+// to a newly strdup'd string and the flag is set
+// If they are the same, the flag is cleared
+
+int string_update_with_size(char **str, int *flag, char *s, size_t len) {
+  if (*str) {
+    if ((s) && (len)) {
+      if (strncmp(*str, s, len) != 0) {
+        free(*str);
+        *str = strndup(s, len);
+        *flag = 1;
+      } else {
+        *flag = 0;
+      }
+    } else {
+      // old string is non-NULL, new string is NULL or length 0
+      free(*str);
+      *str = NULL;
+      *flag = 1;
+    }
+  } else { // old string is NULL
+    if ((s) && (len)) {
+      *str = strndup(s, len);
+      *flag = 1;
+    } else {
+      // old string is NULL and new string is NULL or length 0
+      *flag = 0; // so no change
+    }
+  }
+  return *flag;
+}
