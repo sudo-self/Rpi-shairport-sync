@@ -123,7 +123,6 @@ static void browse_callback(AvahiServiceBrowser *b, AvahiIfIndex interface, Avah
                             const char *domain, AVAHI_GCC_UNUSED AvahiLookupResultFlags flags,
                             void *userdata) {
   // debug(1,"browse_callback, event %d.", event);
-  dacp_browser_struct *dbs = (dacp_browser_struct *)userdata;
   assert(b);
   /* Called whenever a new services becomes available on the LAN or is removed from the LAN */
   switch (event) {
@@ -147,6 +146,7 @@ static void browse_callback(AvahiServiceBrowser *b, AvahiIfIndex interface, Avah
   case AVAHI_BROWSER_REMOVE:
     debug(2, "(Browser) REMOVE: service '%s' of type '%s' in domain '%s'.", name, type, domain);
 #ifdef CONFIG_DACP_CLIENT
+    dacp_browser_struct *dbs = (dacp_browser_struct *)userdata;
     char *dacpid = strstr(name, "iTunes_Ctrl_");
     if (dacpid) {
       dacpid += strlen("iTunes_Ctrl_");
