@@ -240,7 +240,7 @@ SYNOPSIS
 
 ...
 ```
-If your system is definitely a `systemd` system, choose `--with-libdaemon --with-systemd` below. Otherwise, choose `--with-systemv`.
+If your system is definitely a `systemd` system, choose `--with-systemd` below. Otherwise, choose `--with-libdaemon --with-systemv`.
 
 **Choose the location of the configuration file**
 
