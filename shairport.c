@@ -116,42 +116,6 @@ int daemonisewithout = 0;
 char configuration_file_path[4096 + 1];
 char actual_configuration_file_path[4096 + 1];
 
-static void sig_ignore(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
-                       __attribute__((unused)) void *baz) {}
-static void sig_shutdown(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
-                         __attribute__((unused)) void *baz) {
-  debug(2, "shutdown requested...");
-#ifdef CONFIG_LIBDAEMON
-  if (pid == 0) {
-    daemon_retval_send(255);
-    daemon_pid_file_remove();
-  }
-#endif
-  exit(EXIT_SUCCESS);
-}
-
-static void sig_child(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
-                      __attribute__((unused)) void *baz) {
-  // wait for child processes to exit
-  pid_t pid;
-  while ((pid = waitpid((pid_t)-1, 0, WNOHANG)) > 0) {
-  }
-}
-
-static void sig_disconnect_audio_output(__attribute__((unused)) int foo,
-                                        __attribute__((unused)) siginfo_t *bar,
-                                        __attribute__((unused)) void *baz) {
-  debug(1, "disconnect audio output requested.");
-  set_requested_connection_state_to_output(0);
-}
-
-static void sig_connect_audio_output(__attribute__((unused)) int foo,
-                                     __attribute__((unused)) siginfo_t *bar,
-                                     __attribute__((unused)) void *baz) {
-  debug(1, "connect audio output requested.");
-  set_requested_connection_state_to_output(1);
-}
-
 void print_version(void) {
   char *version_string = get_version_string();
   if (version_string) {
@@ -1227,46 +1191,6 @@ void *dbus_thread_func(__attribute__((unused)) void *arg) {
 }
 #endif
 
-void signal_setup(void) {
-  // mask off all signals before creating threads.
-  // this way we control which thread gets which signals.
-  // for now, we don't care which thread gets the following.
-  sigset_t set;
-  sigfillset(&set);
-  sigdelset(&set, SIGINT);
-  sigdelset(&set, SIGTERM);
-  sigdelset(&set, SIGHUP);
-  sigdelset(&set, SIGSTOP);
-  sigdelset(&set, SIGCHLD);
-  sigdelset(&set, SIGUSR2);
-  pthread_sigmask(SIG_BLOCK, &set, NULL);
-
-  // SIGUSR1 is used to interrupt a thread if blocked in pselect
-  pthread_sigmask(SIG_SETMASK, NULL, &pselect_sigset);
-  sigdelset(&pselect_sigset, SIGUSR1);
-
-  // setting this to SIG_IGN would prevent signalling any threads.
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
-  sa.sa_flags = SA_SIGINFO;
-  sa.sa_sigaction = &sig_ignore;
-  sigaction(SIGUSR1, &sa, NULL);
-
-  sa.sa_flags = SA_SIGINFO | SA_RESTART;
-  sa.sa_sigaction = &sig_shutdown;
-  sigaction(SIGINT, &sa, NULL);
-  sigaction(SIGTERM, &sa, NULL);
-
-  sa.sa_sigaction = &sig_disconnect_audio_output;
-  sigaction(SIGUSR2, &sa, NULL);
-
-  sa.sa_sigaction = &sig_connect_audio_output;
-  sigaction(SIGHUP, &sa, NULL);
-
-  sa.sa_sigaction = &sig_child;
-  sigaction(SIGCHLD, &sa, NULL);
-}
-
 #ifdef CONFIG_LIBDAEMON
 char pid_file_path_string[4096] = "\0";
 
@@ -1625,8 +1549,6 @@ int main(int argc, char **argv) {
   main_thread_id = pthread_self();
   if (!main_thread_id)
     debug(1, "Main thread is set up to be NULL!");
-
-  signal_setup();
 
   // make sure the program can create files that group and world can read
   umask(S_IWGRP | S_IWOTH);
