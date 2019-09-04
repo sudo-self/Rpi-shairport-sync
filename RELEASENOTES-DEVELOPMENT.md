@@ -8,7 +8,7 @@ Version 3.3.2d5
 Version 3.3.2d4
 ====
 **Bug Fixes and Enhancements**
-* Fixes and enhancements to the MPRIS and native D-Bus interfaces. In particular, situations where artwork is absent are better handled, and the remote interface and advanced remote interface `availability` properties should be mnore resilient to network problems. Addresses issue [#890](https://github.com/mikebrady/shairport-sync/issues/890). Thanks to [exoqrtx](https://github.com/exoqrtx) for bringing these issues to light and for testing.
+* Fixes and enhancements to the MPRIS and native D-Bus interfaces. In particular, situations where artwork is absent are better handled, and the remote interface and advanced remote interface `availability` properties should be more resilient in the face of network problems. Addresses issue [#890](https://github.com/mikebrady/shairport-sync/issues/890). Thanks to [exoqrtx](https://github.com/exoqrtx) for bringing these issues to light and for testing.
 
 Version 3.3.2d3
 ====
