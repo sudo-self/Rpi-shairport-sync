@@ -1,14 +1,14 @@
 Version 3.3.2d5
 ====
-**Bug Fix**
-* Fixes an issue that occured in Ubuntu 14.04 – the `shairport-sync` daemon would silently die after a fairly long period. It typically happened just after a DHCP address was renewed. The problem seemed to be related to having more than one `avahi` threaded polling loop (though this isn't documented anywhere). The fix was to consolidate the `avahi` stuff down to one threaded polling loop.
-Addresses Issue [#895](https://github.com/mikebrady/shairport-sync/issues/895). Thanks to [Hans (the) MCUdude](https://github.com/MCUdude) for reporting and for initial troubleshooting.
+**Bug Fixes**
+* Improves the detection of the remote services available when an audio source is playing. If the source is minimally compatible, e.g. iOS, Shairport Sync's `org.gnome.ShairportSync.RemoteControl` native `dbus` interface becomes "`available`". If the source is iTunes, then the `org.gnome.ShairportSync.AdvancedRemoteControl` interface also becomes `available`. Artwork, metadata, status and limited remote control facilities are accessible through these interfaces when they are in the `available` state. Follows on from issues raised in [#890](https://github.com/mikebrady/shairport-sync/issues/890). Thanks again to [exoqrtx](https://github.com/exoqrtx) for bringing these issues to light and for testing.
+* Fixes an issue that occured in Ubuntu 14.04 – the `shairport-sync` daemon would silently die after a fairly long period. It typically happened just after a DHCP address was renewed. The problem seemed to be related to having more than one `avahi` threaded polling loop (though this isn't documented anywhere). The fix was to consolidate the `avahi` stuff down to one threaded polling loop. Addresses issue [#895](https://github.com/mikebrady/shairport-sync/issues/895). Thanks to [Hans (the) MCUdude](https://github.com/MCUdude) for reporting and for initial troubleshooting.
 
 
 Version 3.3.2d4
 ====
 **Bug Fixes and Enhancements**
-* Fixes and enhancements to the MPRIS and native D-Bus interfaces. In particular, situations where artwork is absent are better handled, and the remote interface and advanced remote interface `availability` properties should be mnore resilient to network problems. Addresses Issue [#890](https://github.com/mikebrady/shairport-sync/issues/890). Thanks to [exoqrtx](https://github.com/exoqrtx) for bringing these issues to light and for testing.
+* Fixes and enhancements to the MPRIS and native D-Bus interfaces. In particular, situations where artwork is absent are better handled, and the remote interface and advanced remote interface `availability` properties should be mnore resilient to network problems. Addresses issue [#890](https://github.com/mikebrady/shairport-sync/issues/890). Thanks to [exoqrtx](https://github.com/exoqrtx) for bringing these issues to light and for testing.
 
 Version 3.3.2d3
 ====
