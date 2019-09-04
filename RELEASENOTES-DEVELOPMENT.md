@@ -1,3 +1,10 @@
+Version 3.3.2d5
+====
+**Bug Fix**
+* Fixes an issue that occured in Ubuntu 14.04 – the `shairport-sync` daemon would silently die after a fairly long period. It typically happened just after a DHCP address was renewed. The problem seemed to be related to having more than one `avahi` threaded polling loop (though this isn't documented anywhere). The fix was to consolidate the `avahi` stuff down to one threaded polling loop.
+Addresses Issue [#895](https://github.com/mikebrady/shairport-sync/issues/895). Thanks to [Hans (the) MCUdude](https://github.com/MCUdude) for reporting and for initial troubleshooting.
+
+
 Version 3.3.2d4
 ====
 **Bug Fixes and Enhancements**
