@@ -132,7 +132,9 @@ void metadata_hub_modify_prolog(void) {
   if (pthread_rwlock_trywrlock(&metadata_hub_re_lock) != 0) {
     debug(2, "Metadata_hub write lock is already taken -- must wait.");
     pthread_rwlock_wrlock(&metadata_hub_re_lock);
-    debug(2, "Okay -- acquired the metadata_hub write lock.");
+    debug(1, "Okay -- acquired the metadata_hub write lock.");
+  } else {
+    debug(3, "Metadata_hub write lock acquired.");
   }
 }
 
@@ -143,6 +145,7 @@ void metadata_hub_modify_epilog(int modified) {
     run_metadata_watchers();
   }
   pthread_rwlock_unlock(&metadata_hub_re_lock);
+  debug(3, "Metadata_hub write lock unlocked.");
 }
 
 void metadata_hub_read_prolog(void) {
@@ -511,16 +514,16 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       break;
     case 'pbeg':
       metadata_hub_modify_prolog();
-      changed = (metadata_store.player_state != PS_PLAYING);
+      changed = ((metadata_store.player_state != PS_PLAYING) || (metadata_store.player_thread_active == 0));
       metadata_store.player_state = PS_PLAYING;
       metadata_store.player_thread_active = 1;
       metadata_hub_modify_epilog(changed);
       break;
     case 'pend':
       metadata_hub_modify_prolog();
-      changed = (metadata_store.player_state != PS_STOPPED);
-      metadata_store.player_thread_active = 0;
+      changed = ((metadata_store.player_state != PS_STOPPED) || (metadata_store.player_thread_active == 1));
       metadata_store.player_state = PS_STOPPED;
+      metadata_store.player_thread_active = 0;
       metadata_hub_modify_epilog(changed);
       break;
     case 'pfls':
@@ -537,14 +540,15 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       metadata_hub_modify_epilog(changed);
       break;
     case 'pvol': {
-      // Note: it's assumed that the config.airplay volume has already been correctly set.
-      int32_t actual_volume;
-      int gv = dacp_get_volume(&actual_volume);
       metadata_hub_modify_prolog();
-      if ((gv == 200) && (metadata_store.speaker_volume != actual_volume)) {
-        metadata_store.speaker_volume = actual_volume;
-        changed = 1;
-      }
+      // Note: it's assumed that the config.airplay volume has already been correctly set.
+      //int32_t actual_volume;
+      //int gv = dacp_get_volume(&actual_volume);
+      //metadata_hub_modify_prolog();
+      //if ((gv == 200) && (metadata_store.speaker_volume != actual_volume)) {
+      //  metadata_store.speaker_volume = actual_volume;
+      //  changed = 1;
+      //}
       if (metadata_store.airplay_volume != config.airplay_volume) {
         metadata_store.airplay_volume = config.airplay_volume;
         changed = 1;

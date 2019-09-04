@@ -149,203 +149,216 @@ void http_cleanup(void *arg) {
 }
 
 int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
+  int result;
+	// debug(1,"dacp_send_command: command is: \"%s\".",command);
+	
+	if (dacp_server.port == 0) {
+	  debug(1,"No DACP port specified yet");
+	  result = 490; // no port specified
+	} else {
 
-  // will malloc space for the body or set it to NULL -- the caller should free it.
+    // will malloc space for the body or set it to NULL -- the caller should free it.
 
-  // Using some custom HTTP-like return codes
-  //  498 Bad Address information for the DACP server
-  //  497 Can't establish a socket to the DACP server
-  //  496 Can't connect to the DACP server
-  //  495 Error receiving response
-  //  494 This client is already busy
-  //  493 Client failed to send a message
-  //  492 Argument out of range
+    // Using some custom HTTP-like return codes
+    //  498 Bad Address information for the DACP server
+    //  497 Can't establish a socket to the DACP server
+    //  496 Can't connect to the DACP server
+    //  495 Error receiving response
+    //  494 This client is already busy
+    //  493 Client failed to send a message
+    //  492 Argument out of range
+    //  491 Client refused connection
 
-  struct addrinfo hints, *res;
-  int sockfd;
+    struct addrinfo hints, *res;
+    int sockfd;
 
-  struct HttpResponse response;
-  response.body = NULL;
-  response.malloced_size = 0;
-  response.size = 0;
-  response.code = 0;
+    struct HttpResponse response;
+    response.body = NULL;
+    response.malloced_size = 0;
+    response.size = 0;
+    response.code = 0;
 
-  char portstring[10], server[1024], message[1024];
-  memset(&portstring, 0, sizeof(portstring));
-  if (dacp_server.connection_family == AF_INET6) {
-    snprintf(server, sizeof(server), "%s%%%u", dacp_server.ip_string, dacp_server.scope_id);
-  } else {
-    strcpy(server, dacp_server.ip_string);
-  }
-  snprintf(portstring, sizeof(portstring), "%u", dacp_server.port);
+    char portstring[10], server[1024], message[1024];
+    memset(&portstring, 0, sizeof(portstring));
+    if (dacp_server.connection_family == AF_INET6) {
+      snprintf(server, sizeof(server), "%s%%%u", dacp_server.ip_string, dacp_server.scope_id);
+    } else {
+      strcpy(server, dacp_server.ip_string);
+    }
+    snprintf(portstring, sizeof(portstring), "%u", dacp_server.port);
 
-  // first, load up address structs with getaddrinfo():
+    // first, load up address structs with getaddrinfo():
 
-  memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = SOCK_STREAM;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
 
-  // debug(1, "DACP port string is \"%s:%s\".", server, portstring);
+    // debug(1, "DACP port string is \"%s:%s\".", server, portstring);
 
-  int ires = getaddrinfo(server, portstring, &hints, &res);
-  if (ires) {
-    // debug(1,"Error %d \"%s\" at getaddrinfo.",ires,gai_strerror(ires));
-    response.code = 498; // Bad Address information for the DACP server
-  } else {
-    uint64_t start_time = get_absolute_time_in_fp();
-    pthread_cleanup_push(addrinfo_cleanup, (void *)&res);
-    // only do this one at a time -- not sure it is necessary, but better safe than sorry
+    int ires = getaddrinfo(server, portstring, &hints, &res);
+    if (ires) {
+      // debug(1,"Error %d \"%s\" at getaddrinfo.",ires,gai_strerror(ires));
+      response.code = 498; // Bad Address information for the DACP server
+    } else {
+      uint64_t start_time = get_absolute_time_in_fp();
+      pthread_cleanup_push(addrinfo_cleanup, (void *)&res);
+      // only do this one at a time -- not sure it is necessary, but better safe than sorry
 
-    int mutex_reply = sps_pthread_mutex_timedlock(&dacp_conversation_lock, 2000000, command, 1);
-    // int mutex_reply = pthread_mutex_lock(&dacp_conversation_lock);
-    if (mutex_reply == 0) {
-      pthread_cleanup_push(mutex_lock_cleanup, (void *)&dacp_conversation_lock);
+      int mutex_reply = sps_pthread_mutex_timedlock(&dacp_conversation_lock, 2000000, command, 1);
+      // int mutex_reply = pthread_mutex_lock(&dacp_conversation_lock);
+      if (mutex_reply == 0) {
+        pthread_cleanup_push(mutex_lock_cleanup, (void *)&dacp_conversation_lock);
 
-      // make a socket:
-      sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+        // make a socket:
+        sockfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
-      if (sockfd == -1) {
-        // debug(1, "DACP socket could not be created -- error %d: \"%s\".",errno,strerror(errno));
-        response.code = 497; // Can't establish a socket to the DACP server
-      } else {
-        pthread_cleanup_push(connect_cleanup, (void *)&sockfd);
-        // debug(2, "dacp_send_command: open socket %d.",sockfd);
-
-        struct timeval tv;
-        tv.tv_sec = 0;
-        tv.tv_usec = 80000;
-        if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
-          debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
-        if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
-          debug(1, "dacp_send_command: error %d setting send timeout.", errno);
-
-        // connect!
-        // debug(1, "DACP socket created.");
-        if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
-          debug(3, "dacp_send_command: connect failed with errno %d.", errno);
-          response.code = 496; // Can't connect to the DACP server
+        if (sockfd == -1) {
+          // debug(1, "DACP socket could not be created -- error %d: \"%s\".",errno,strerror(errno));
+          response.code = 497; // Can't establish a socket to the DACP server
         } else {
-          // debug(1,"DACP connect succeeded.");
+          pthread_cleanup_push(connect_cleanup, (void *)&sockfd);
+          // debug(2, "dacp_send_command: open socket %d.",sockfd);
 
-          snprintf(message, sizeof(message),
-                   "GET /ctrl-int/1/%s HTTP/1.1\r\nHost: %s:%u\r\nActive-Remote: %u\r\n\r\n",
-                   command, dacp_server.ip_string, dacp_server.port, dacp_server.active_remote_id);
+          struct timeval tv;
+          tv.tv_sec = 0;
+          tv.tv_usec = 500000;
+          if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
+            debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
+          if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
+            debug(1, "dacp_send_command: error %d setting send timeout.", errno);
 
-          // Send command
-          debug(3, "dacp_send_command: \"%s\".", command);
-          ssize_t wresp = send(sockfd, message, strlen(message), 0);
-          if (wresp == -1) {
-            char errorstring[1024];
-            strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-            debug(2, "dacp_send_command: write error %d: \"%s\".", errno, (char *)errorstring);
-            struct linger so_linger;
-            so_linger.l_onoff = 1; // "true"
-            so_linger.l_linger = 0;
-            int err = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
-            if (err)
-              debug(1, "Could not set the dacp socket to abort due to a write error on closing.");
-          }
-          if (wresp != (ssize_t)strlen(message)) {
-            // debug(1, "dacp_send_command: send failed.");
-            response.code = 493; // Client failed to send a message
-
+          // connect!
+          // debug(1, "DACP socket created.");
+          if (connect(sockfd, res->ai_addr, res->ai_addrlen) < 0) {
+            // debug(1, "dacp_send_command: connect failed with errno %d.", errno);
+            if (errno == ECONNREFUSED)
+              response.code = 491; // DACP server doesn't want to talk anymore...
+            else
+              response.code = 496; // Can't connect to the DACP server
           } else {
+            // debug(1,"DACP connect succeeded.");
 
-            response.body = malloc(2048); // it can resize this if necessary
-            response.malloced_size = 2048;
-            pthread_cleanup_push(malloc_cleanup, response.body);
+            snprintf(message, sizeof(message),
+                     "GET /ctrl-int/1/%s HTTP/1.1\r\nHost: %s:%u\r\nActive-Remote: %u\r\n\r\n",
+                     command, dacp_server.ip_string, dacp_server.port, dacp_server.active_remote_id);
 
-            struct http_roundtripper rt;
-            http_init(&rt, responseFuncs, &response);
-            pthread_cleanup_push(http_cleanup, &rt);
+            // Send command
+            debug(3, "dacp_send_command: \"%s\".", command);
+            ssize_t wresp = send(sockfd, message, strlen(message), 0);
+            if (wresp == -1) {
+              char errorstring[1024];
+              strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+              debug(2, "dacp_send_command: write error %d: \"%s\".", errno, (char *)errorstring);
+              struct linger so_linger;
+              so_linger.l_onoff = 1; // "true"
+              so_linger.l_linger = 0;
+              int err = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
+              if (err)
+                debug(1, "Could not set the dacp socket to abort due to a write error on closing.");
+            }
+            if (wresp != (ssize_t)strlen(message)) {
+              // debug(1, "dacp_send_command: send failed.");
+              response.code = 493; // Client failed to send a message
 
-            int needmore = 1;
-            int looperror = 0;
-            char buffer[8192];
-            memset(buffer, 0, sizeof(buffer));
-            while (needmore && !looperror) {
-              const char *data = buffer;
-              if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
-                debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
-              ssize_t ndata = recv(sockfd, buffer, sizeof(buffer), 0);
-              // debug(3, "Received %d bytes: \"%s\".", ndata, buffer);
-              if (ndata <= 0) {
-                if (ndata == -1) {
-                  char errorstring[1024];
-                  strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-                  debug(2, "dacp_send_command: receiving error %d: \"%s\".", errno,
-                        (char *)errorstring);
-                  struct linger so_linger;
-                  so_linger.l_onoff = 1; // "true"
-                  so_linger.l_linger = 0;
-                  int err = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
-                  if (err)
-                    debug(1,
-                          "Could not set the dacp socket to abort due to a read error on closing.");
+            } else {
+
+              response.body = malloc(2048); // it can resize this if necessary
+              response.malloced_size = 2048;
+              pthread_cleanup_push(malloc_cleanup, response.body);
+
+              struct http_roundtripper rt;
+              http_init(&rt, responseFuncs, &response);
+              pthread_cleanup_push(http_cleanup, &rt);
+
+              int needmore = 1;
+              int looperror = 0;
+              char buffer[8192];
+              memset(buffer, 0, sizeof(buffer));
+              while (needmore && !looperror) {
+                const char *data = buffer;
+                if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
+                  debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
+                ssize_t ndata = recv(sockfd, buffer, sizeof(buffer), 0);
+                // debug(3, "Received %d bytes: \"%s\".", ndata, buffer);
+                if (ndata <= 0) {
+                  if (ndata == -1) {
+                    char errorstring[1024];
+                    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+                    debug(2, "dacp_send_command: receiving error %d: \"%s\".", errno,
+                          (char *)errorstring);
+                    struct linger so_linger;
+                    so_linger.l_onoff = 1; // "true"
+                    so_linger.l_linger = 0;
+                    int err = setsockopt(sockfd, SOL_SOCKET, SO_LINGER, &so_linger, sizeof so_linger);
+                    if (err)
+                      debug(1,
+                            "Could not set the dacp socket to abort due to a read error on closing.");
+                  }
+
+                  free(response.body);
+                  response.body = NULL;
+                  response.malloced_size = 0;
+                  response.size = 0;
+                  response.code = 495; // Error receiving response
+                  looperror = 1;
                 }
 
+                while (needmore && ndata && !looperror) {
+                  int read;
+                  needmore = http_data(&rt, data, ndata, &read);
+                  ndata -= read;
+                  data += read;
+                }
+              }
+
+              if (http_iserror(&rt)) {
+                debug(3, "dacp_send_command: error parsing data.");
                 free(response.body);
                 response.body = NULL;
                 response.malloced_size = 0;
                 response.size = 0;
-                response.code = 495; // Error receiving response
-                looperror = 1;
               }
-
-              while (needmore && ndata && !looperror) {
-                int read;
-                needmore = http_data(&rt, data, ndata, &read);
-                ndata -= read;
-                data += read;
-              }
+              // debug(1,"Size of response body is %d",response.size);
+              pthread_cleanup_pop(1); // this should call http_cleanup
+              // http_free(&rt);
+              pthread_cleanup_pop(
+                  0); // this should *not* free the malloced buffer -- just pop the malloc cleanup
             }
-
-            if (http_iserror(&rt)) {
-              debug(3, "dacp_send_command: error parsing data.");
-              free(response.body);
-              response.body = NULL;
-              response.malloced_size = 0;
-              response.size = 0;
-            }
-            // debug(1,"Size of response body is %d",response.size);
-            pthread_cleanup_pop(1); // this should call http_cleanup
-            // http_free(&rt);
-            pthread_cleanup_pop(
-                0); // this should *not* free the malloced buffer -- just pop the malloc cleanup
           }
+          pthread_cleanup_pop(1); // this should close the socket
+                                  // close(sockfd);
+                                  // debug(1,"DACP socket closed.");
         }
-        pthread_cleanup_pop(1); // this should close the socket
-                                // close(sockfd);
-                                // debug(1,"DACP socket closed.");
+        pthread_cleanup_pop(1); // this should unlock the dacp_conversation_lock);
+        // pthread_mutex_unlock(&dacp_conversation_lock);
+        // debug(1,"Sent command\"%s\" with a response body of size %d.",command,response.size);
+        // debug(1,"dacp_conversation_lock released.");
+      } else {
+        debug(3,
+              "dacp_send_command: could not acquire a lock on the dacp transmit/receive section "
+              "when attempting to "
+              "send the command \"%s\". Possible timeout?",
+              command);
+        response.code = 494; // This client is already busy
       }
-      pthread_cleanup_pop(1); // this should unlock the dacp_conversation_lock);
-      // pthread_mutex_unlock(&dacp_conversation_lock);
-      // debug(1,"Sent command\"%s\" with a response body of size %d.",command,response.size);
-      // debug(1,"dacp_conversation_lock released.");
-    } else {
-      debug(3,
-            "dacp_send_command: could not acquire a lock on the dacp transmit/receive section "
-            "when attempting to "
-            "send the command \"%s\". Possible timeout?",
-            command);
-      response.code = 494; // This client is already busy
+      pthread_cleanup_pop(1); // this should free the addrinfo
+      // freeaddrinfo(res);
+      uint64_t et = get_absolute_time_in_fp() - start_time;
+      et = (et * 1000000) >> 32; // microseconds
+      debug(3, "dacp_send_command: %f seconds, response code %d, command \"%s\".",
+            (1.0 * et) / 1000000, response.code, command);
     }
-    pthread_cleanup_pop(1); // this should free the addrinfo
-    // freeaddrinfo(res);
-    uint64_t et = get_absolute_time_in_fp() - start_time;
-    et = (et * 1000000) >> 32; // microseconds
-    debug(3, "dacp_send_command: %f seconds, response code %d, command \"%s\".",
-          (1.0 * et) / 1000000, response.code, command);
+    *body = response.body;
+    *bodysize = response.size;
+    result = response.code;
   }
-  *body = response.body;
-  *bodysize = response.size;
-  return response.code;
+  return result;
 }
 
 int send_simple_dacp_command(const char *command) {
   int reply = 0;
   char *server_reply = NULL;
-  debug(3, "Sending command \"%s\".", command);
+  debug(1, "send_simple_dacp_command: sending command \"%s\".", command);
   ssize_t reply_size = 0;
   reply = dacp_send_command(command, &server_reply, &reply_size);
   if (server_reply) {
@@ -423,7 +436,7 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
 
 void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
   debug_mutex_lock(&dacp_server_information_lock, 500000, 2);
-  debug(3,
+  debug(2,
         "dacp_monitor_port_update_callback with Remote ID \"%s\", target ID \"%s\" and port "
         "number %d.",
         dacp_id, dacp_server.dacp_id, port);
@@ -474,7 +487,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
       metadata_store.dacp_server_active = 0;
       metadata_store.advanced_dacp_server_active = 0;
       debug(2,
-            "setting dacp_server_active and advanced_dacp_server_active to 0 with an update "
+            "setting metadata_store.dacp_server_active and metadata_store.advanced_dacp_server_active to 0 with an update "
             "flag value of %d",
             ch);
       metadata_hub_modify_epilog(ch);
@@ -483,17 +496,44 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
         pthread_cond_wait(&dacp_server_information_cv, &dacp_server_information_lock);
         //      debug(1,"dacp_monitor_thread_code wake up.");
       }
+      // so dacp_server.scan_enable will be true at this point
       bad_result_count = 0;
       idle_scan_count = 0;
+      
     }
-    scan_index++;
+    
     result = dacp_get_volume(&the_volume); // just want the http code
+    pthread_cleanup_pop(1);
 
-    if ((result == 403) || (result == 501)) {
-      bad_result_count++;
-      // debug(1,"Bad Scan : %d.",result);
-    } else
+    scan_index++;
+    // debug(1,"DACP Scan Result: %d.", result);
+
+    if ((result == 200) || (result == 400)) {
       bad_result_count = 0;
+    } else {
+      if (bad_result_count < config.scan_max_bad_response_count) // limit to some reasonable value
+        bad_result_count++;
+    }
+        
+    // here, do the debouncing calculations to see
+    // if the dacp server  and the
+    // advanced dacp server are available 
+    
+    // -1 means we don't know because some bad statuses have been reported
+    // 0 means definitely no
+    // +1 means definitely yes
+    
+    int dacp_server_status_now = -1;
+    int advanced_dacp_server_status_now = -1;
+    
+    if (bad_result_count == 0) {    
+      dacp_server_status_now = 1;
+      if (result == 200)
+        advanced_dacp_server_status_now = 1;
+    } else if (bad_result_count == config.scan_max_bad_response_count) { // if a sequence of bad return codes occurs, then it's gone
+      dacp_server_status_now = 0;
+      advanced_dacp_server_status_now = 0;
+    }
 
     if (metadata_store.player_thread_active == 0)
       idle_scan_count++;
@@ -503,44 +543,36 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
     debug(3, "Scan Result: %d, Bad Scan Count: %d, Idle Scan Count: %d.", result, bad_result_count,
           idle_scan_count);
 
-    if ((bad_result_count == config.scan_max_bad_response_count) ||
-        (idle_scan_count == config.scan_max_inactive_count)) {
+/* not used
+// decide if idle for too long
+    if  (idle_scan_count == config.scan_max_inactive_count) {
       debug(2, "DACP server status scanning stopped.");
       dacp_server.scan_enable = 0;
     }
-    pthread_cleanup_pop(1);
+*/
+ 
+    int update_needed = 0;
+    metadata_hub_modify_prolog();
+    if (dacp_server_status_now != -1) { // if dacp_server_status_now is actually known...
+      if (metadata_store.dacp_server_active != dacp_server_status_now) {
+        debug(2, "metadata_store.dacp_server_active set to %d.", dacp_server_status_now);
+        metadata_store.dacp_server_active = dacp_server_status_now;
+        update_needed = 1;
+      }
+    }
+    if (advanced_dacp_server_status_now != -1) { // if advanced_dacp_server_status_now is actually known...
+      if (metadata_store.advanced_dacp_server_active != advanced_dacp_server_status_now) {
+        debug(2, "metadata_store.advanced_dacp_server_active set to %d.", dacp_server_status_now);
+        metadata_store.advanced_dacp_server_active = advanced_dacp_server_status_now;
+        update_needed = 1;
+      }
+    }
 
+    metadata_hub_modify_epilog(update_needed);
+    
     // pthread_mutex_unlock(&dacp_server_information_lock);
     // debug(1, "DACP Server ID \"%u\" at \"%s:%u\", scan %d.", dacp_server.active_remote_id,
     //      dacp_server.ip_string, dacp_server.port, scan_index);
-
-    if (dacp_server.scan_enable ==
-        1) { // if it hasn't been turned off, continue looking for information.
-      int transient_problem =
-          (result == 494) || (result == 495) ||
-          (result == 496); // this just means that it couldn't send the query because something
-                           // else
-                           // was sending a command or something
-      if ((!transient_problem) && (bad_result_count == 0) && (idle_scan_count == 0) &&
-          (dacp_server.scan_enable == 1)) {
-
-        // Any other result means that the DACP server is active, but not providing advanced
-        // features
-
-        metadata_hub_modify_prolog();
-        int inactive = metadata_store.dacp_server_active == 0;
-        if (inactive) {
-          metadata_store.dacp_server_active = 1;
-          debug(1, "Setting dacp_server_active to active because of a response of %d.", result);
-        }
-        int same = metadata_store.advanced_dacp_server_active == (result == 200);
-        if (!same) {
-          metadata_store.advanced_dacp_server_active = (result == 200);
-          debug(1, "Setting dacp_advanced_server_active to %d because of a response of %d.",
-                (result == 200), result);
-        }
-        metadata_hub_modify_epilog(inactive + (!same));
-      }
 
       if (result == 200) {
         metadata_hub_modify_prolog();
@@ -555,7 +587,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
         char command[1024] = "";
         snprintf(command, sizeof(command) - 1, "playstatusupdate?revision-number=%d",
                  revision_number);
-        // debug(1,"Command: \"%s\"",command);
+        // debug(1,"dacp_monitor_thread_code: command: \"%s\"",command);
         result = dacp_send_command(command, &response, &le);
         // debug(1,"Response to \"%s\" is %d.",command,result);
         if (result == 200) {
@@ -775,7 +807,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
               }
 
               // finished possibly writing to the metadata hub
-              metadata_hub_modify_epilog(1);
+              metadata_hub_modify_epilog(1); // should really see if this can be made responsive to changes
             } else {
               debug(1, "Status Update not found.\n");
             }
@@ -815,7 +847,6 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
         sleep(config.scan_interval_when_active);
       else
         sleep(config.scan_interval_when_inactive);
-    }
   }
   debug(1, "DACP monitor thread exiting -- should never happen.");
   pthread_exit(NULL);
@@ -901,6 +932,7 @@ int dacp_get_client_volume(int32_t *result) {
   char *server_reply = NULL;
   int32_t overall_volume = -1;
   ssize_t reply_size;
+  // debug(1,"dacp_get_client_volume: dacp_send_command");
   int response =
       dacp_send_command("getproperty?properties=dmcp.volume", &server_reply, &reply_size);
   if (response == 200) { // if we get an okay
@@ -947,7 +979,7 @@ int dacp_set_include_speaker_volume(int64_t machine_number, int32_t vo) {
   snprintf(message, sizeof(message),
            "setproperty?include-speaker-id=%" PRId64 "&dmcp.volume=%" PRId32 "", machine_number,
            vo);
-  debug(2, "sending \"%s\"", message);
+  debug(1, "sending \"%s\"", message);
   return send_simple_dacp_command(message);
   // should return 204
 }
@@ -957,7 +989,7 @@ int dacp_set_speaker_volume(int64_t machine_number, int32_t vo) {
   memset(message, 0, sizeof(message));
   snprintf(message, sizeof(message), "setproperty?speaker-id=%" PRId64 "&dmcp.volume=%" PRId32 "",
            machine_number, vo);
-  debug(2, "sending \"%s\"", message);
+  debug(1, "sending \"%s\"", message);
   return send_simple_dacp_command(message);
   // should return 204
 }
@@ -970,6 +1002,7 @@ int dacp_get_speaker_list(dacp_spkr_stuff *speaker_info, int max_size_of_array,
   int speaker_count = -1; // will be fixed if there is no problem
   ssize_t le;
 
+  // debug(1,"dacp_speaker_list: dacp_send_command");
   int response = dacp_send_command("getspeakers", &server_reply, &le);
   if (response == 200) {
     char *sp = server_reply;

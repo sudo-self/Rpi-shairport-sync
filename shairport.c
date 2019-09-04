@@ -407,14 +407,12 @@ int parse_options(int argc, char **argv) {
   config.scan_interval_when_active =
       1; // number of seconds between DACP server scans when playing something
   config.scan_interval_when_inactive =
-      3; // number of seconds between DACP server scans playing nothing
+      1; // number of seconds between DACP server scans when playing nothing
   config.scan_max_bad_response_count =
       5; // number of successive bad results to ignore before giving up
-  config.scan_max_inactive_count =
-      (15 * 60) / config.scan_interval_when_inactive; // number of scans to do before stopping if
-                                                      // not made active again (15 minutes)
-//  config.scan_max_inactive_count = 5; // number of scans to do before stopping if not made active
-//  again (15 minutes )
+  //config.scan_max_inactive_count =
+  //    (365 * 24 * 60 * 60) / config.scan_interval_when_inactive; // number of scans to do before stopping if
+                                                      // not made active again (not used)
 #endif
 
   // config_setting_t *setting;
