@@ -25,6 +25,8 @@ guint ownerID = 0;
 
 void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)) void *userdata) {
   char response[100];
+  gboolean current_status, new_status;
+  
   const char *th;
   shairport_sync_advanced_remote_control_set_volume(shairportSyncAdvancedRemoteControlSkeleton,
                                                     argc->speaker_volume);
@@ -129,21 +131,30 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
         shairportSyncAdvancedRemoteControlSkeleton, response);
   }
 
+  
   switch (argc->shuffle_status) {
   case SS_NOT_AVAILABLE:
-    shairport_sync_advanced_remote_control_set_shuffle(shairportSyncAdvancedRemoteControlSkeleton,
-                                                       FALSE);
+    new_status = FALSE;
     break;
   case SS_OFF:
-    shairport_sync_advanced_remote_control_set_shuffle(shairportSyncAdvancedRemoteControlSkeleton,
-                                                       FALSE);
+    new_status = FALSE;
     break;
   case SS_ON:
-    shairport_sync_advanced_remote_control_set_shuffle(shairportSyncAdvancedRemoteControlSkeleton,
-                                                       TRUE);
+    new_status = TRUE;
     break;
   default:
-    debug(1, "This should never happen.");
+    new_status = FALSE;
+    debug(1, "Unknown shuffle status -- this should never happen.");
+  }
+  
+  current_status = shairport_sync_advanced_remote_control_get_shuffle(
+      shairportSyncAdvancedRemoteControlSkeleton);
+  
+  // only set this if it's different
+  if (current_status != new_status) {
+    debug(3, "Shuffle State should be changed");
+    shairport_sync_advanced_remote_control_set_shuffle(
+        shairportSyncAdvancedRemoteControlSkeleton, new_status);
   }
 
   // Build the metadata array
