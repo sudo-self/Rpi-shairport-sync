@@ -530,6 +530,8 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
       dacp_server_status_now = 1;
       if (result == 200)
         advanced_dacp_server_status_now = 1;
+      else if (result == 400)
+        advanced_dacp_server_status_now = 0;
     } else if (bad_result_count == config.scan_max_bad_response_count) { // if a sequence of bad return codes occurs, then it's gone
       dacp_server_status_now = 0;
       advanced_dacp_server_status_now = 0;
