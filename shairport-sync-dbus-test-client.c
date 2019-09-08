@@ -175,6 +175,15 @@ int main(int argc, char *argv[]) {
   sleep(5);
   shairport_sync_advanced_remote_control_call_set_volume(
       SHAIRPORT_SYNC_ADVANCED_REMOTE_CONTROL(proxy4), 60, NULL, NULL, 0);
+        
+  sleep(5);
+  g_print("Volume up for five seconds...\n");
+  shairport_sync_remote_control_call_volume_up(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), NULL, NULL, NULL);
+
+  sleep(5);
+  g_print("Volume down\n");
+  shairport_sync_remote_control_call_volume_down(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), NULL, NULL, NULL);
+  
   /*
   // sleep(1);
     shairport_sync_set_loudness_filter_active(SHAIRPORT_SYNC(proxy), TRUE);

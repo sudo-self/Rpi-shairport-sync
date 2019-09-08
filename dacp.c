@@ -358,7 +358,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
 int send_simple_dacp_command(const char *command) {
   int reply = 0;
   char *server_reply = NULL;
-  debug(1, "send_simple_dacp_command: sending command \"%s\".", command);
+  debug(2, "send_simple_dacp_command: sending command \"%s\".", command);
   ssize_t reply_size = 0;
   reply = dacp_send_command(command, &server_reply, &reply_size);
   if (server_reply) {
