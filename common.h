@@ -295,11 +295,6 @@ void r64init(uint64_t seed);
 uint64_t r64u();
 int64_t r64i();
 
-uint64_t *ranarray;
-void r64arrayinit();
-uint64_t ranarray64u();
-int64_t ranarray64i();
-
 // if you are breaking in to a session, you need to avoid the ports of the current session
 // if you are law-abiding, then you can reuse the ports.
 // so, you can reset the free UDP ports minder when you're legit, and leave it otherwise

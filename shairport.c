@@ -106,6 +106,7 @@
 
 #ifdef CONFIG_LIBDAEMON
 pid_t pid;
+int this_is_the_daemon_process = 0;
 #endif
 
 int killOption = 0;
@@ -1200,18 +1201,25 @@ const char *pid_file_proc(void) {
 }
 #endif
 
-void main_cleanup_handler(__attribute__((unused)) void *arg) {
-  // it doesn't look like this is called when the main function is cancelled with a pthread cancel.
-  debug(1, "main cleanup handler called.");
+
+void exit_function() {
+
+// the following is to ensure that if libdaemon has been included
+// that most of this code will be skipped when the parent process is exiting
+// exec
+#ifdef CONFIG_LIBDAEMON
+  if (this_is_the_daemon_process) { //this is the daemon that is exiting
+#endif
+  debug(1, "exit function called...");
 #ifdef CONFIG_MQTT
   if (config.mqtt_enabled) {
-    // terminate_mqtt();
+    terminate_mqtt();
   }
 #endif
 
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
 #ifdef CONFIG_MPRIS_INTERFACE
-// stop_mpris_service();
+  stop_mpris_service();
 #endif
 #ifdef CONFIG_DBUS_INTERFACE
   stop_dbus_service();
@@ -1249,34 +1257,25 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
   pthread_join(soxr_time_check_thread, NULL);
 #endif
 
+  
+  if (conns)
+    free(conns); // make sure the connections have been deleted first
+
+  if (config.service_name)
+    free(config.service_name);
+
+  if (config.regtype)
+    free(config.regtype);
+
 #ifdef CONFIG_LIBDAEMON
-  // only do this if you are the daemon
-  if (pid == 0) {
-    daemon_retval_send(0);
-    daemon_pid_file_remove();
-    daemon_signal_done();
+  daemon_retval_send(0);
+  daemon_pid_file_remove();
+  daemon_signal_done();
+  if (config.computed_piddir)
+    free(config.computed_piddir);
   }
 #endif
 
-  debug(2, "Exit...");
-  exit(EXIT_SUCCESS);
-}
-
-void exit_function() {
-  debug(1, "exit function called...");
-  main_cleanup_handler(NULL);
-  if (conns)
-    free(conns); // make sure the connections have been deleted first
-  if (config.service_name)
-    free(config.service_name);
-  if (config.regtype)
-    free(config.regtype);
-#ifdef CONFIG_LIBDAEMON
-  if (config.computed_piddir)
-    free(config.computed_piddir);
-#endif
-  if (ranarray)
-    free((void *)ranarray);
   if (config.cfg)
     config_destroy(config.cfg);
   if (config.appName)
@@ -1398,10 +1397,6 @@ int main(int argc, char **argv) {
 
   r64init(0);
 
-  // initialise the randomw number array
-
-  r64arrayinit();
-
 #ifdef CONFIG_LIBDAEMON
 
   /* Reset signal handlers */
@@ -1503,6 +1498,8 @@ int main(int argc, char **argv) {
       }
       return ret;
     } else { /* pid == 0 means we are the daemon */
+    
+      this_is_the_daemon_process = 1; // 
 
       /* Close FDs */
       if (daemon_close_all(-1) < 0) {

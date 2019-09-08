@@ -1078,38 +1078,6 @@ uint64_t r64u() { return (ranval(&rx)); }
 
 int64_t r64i() { return (ranval(&rx) >> 1); }
 
-/* generate an array of 64-bit random numbers */
-const int ranarraylength = 1009 * 203; // these will be 8-byte numbers.
-
-int ranarraynext;
-
-void ranarrayinit() {
-  ranarray = (uint64_t *)malloc(ranarraylength * sizeof(uint64_t));
-  if (ranarray) {
-    int i;
-    for (i = 0; i < ranarraylength; i++)
-      ranarray[i] = r64u();
-    ranarraynext = 0;
-  } else {
-    die("failed to allocate space for the ranarray.");
-  }
-}
-
-uint64_t ranarrayval() {
-  uint64_t v = ranarray[ranarraynext];
-  ranarraynext++;
-  ranarraynext = ranarraynext % ranarraylength;
-  return v;
-}
-
-void r64arrayinit() { ranarrayinit(); }
-
-// uint64_t ranarray64u() { return (ranarrayval()); }
-uint64_t ranarray64u() { return (ranval(&rx)); }
-
-// int64_t ranarray64i() { return (ranarrayval() >> 1); }
-int64_t ranarray64i() { return (ranval(&rx) >> 1); }
-
 uint32_t nctohl(const uint8_t *p) { // read 4 characters from *p and do ntohl on them
   // this is to avoid possible aliasing violations
   uint32_t holder;
@@ -1424,7 +1392,7 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
 
     int64_t hyper_sample = 0;
 
-    int64_t r = ranarray64i();
+    int64_t r = r64i();
 
     int64_t tpdf = (r & dither_mask) - (previous_random_number & dither_mask);
 
