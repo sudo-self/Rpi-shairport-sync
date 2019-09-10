@@ -1804,7 +1804,7 @@ int prepare(void) {
 
   if (alsa_backend_state == abm_disconnected) {
     if (alsa_device_initialised == 0) {
-      debug(1, "alsa: prepare() calling alsa_device_init.");
+      // debug(1, "alsa: prepare() calling alsa_device_init.");
       alsa_device_init();
       alsa_device_initialised = 1;
     }
