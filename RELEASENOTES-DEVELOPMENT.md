@@ -6,6 +6,7 @@ Version 3.3.2d6
 **Bug Fixes**
 * Fixes an error whereby the `'pvol'`volume metadata was no longer sent if Shairport Sync was configured to ignore volume control information coming from the audio source. Addresses issue [#903](https://github.com/mikebrady/shairport-sync/issues/903). Thanks to [Jordan Bass](https://github.com/jorbas) for reporting the regression and for identifying the commit and code in which the regression occurred.
 * Fixes a compilation error if including the MQTT client -- thanks to [exoqrtx](https://github.com/exoqrtx) for reporting.
+* Fixes a compilation error if including the MPRIS interface.
 * Ensure the hardware mixer of an `alsa` device is detected and initialised before responding to the first volume setting.
 
 Version 3.3.2d5
