@@ -1,8 +1,12 @@
 Version 3.3.2d6
 ====
+**Enhancements**
+* Normalise the `'pvol`' volume outputs so that when both the software and hardware attenuators are in use to extend the overall attenuation range, the maximum output level corresponods to the maximum output level of the hardware mixer.
+
 **Bug Fixes**
 * Fixes an error whereby the `'pvol'`volume metadata was no longer sent if Shairport Sync was configured to ignore volume control information coming from the audio source. Addresses issue [#903](https://github.com/mikebrady/shairport-sync/issues/903). Thanks to [Jordan Bass](https://github.com/jorbas) for reporting the regression and for identifying the commit and code in which the regression occurred.
 * Fixes a compilation error if including the MQTT client -- thanks to [exoqrtx](https://github.com/exoqrtx) for reporting.
+* Ensure the hardware mixer of an `alsa` device is detected and initialised before responding to the first volume setting.
 
 Version 3.3.2d5
 ====
