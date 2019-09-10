@@ -2689,7 +2689,6 @@ void *player_thread_func(void *arg) {
 
 void player_volume_without_notification(double airplay_volume, rtsp_conn_info *conn) {
   debug_mutex_lock(&conn->volume_control_mutex, 5000, 1);
-  debug(2, "player_volume_without_notification %f", airplay_volume);
   // first, see if we are hw only, sw only, both with hw attenuation on the top or both with sw
   // attenuation on top
 
@@ -2701,6 +2700,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
 
   int32_t hw_max_db = 0, hw_min_db = 0; // zeroed to quieten an incorrect uninitialised warning
   int32_t sw_max_db = 0, sw_min_db = -9630;
+  
   if (config.output->parameters) {
     volume_mode = vol_hw_only;
     audio_parameters audio_information;
@@ -2877,8 +2877,14 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
       char *dv = malloc(128); // will be freed in the metadata thread
       if (dv) {
         memset(dv, 0, 128);
-        snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, scaled_attenuation / 100.0,
+        if (volume_mode == vol_both) {
+          // normalise the maximum output to the hardware device's max output
+          snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, (scaled_attenuation - max_db + hw_max_db) / 100.0,
+                   (min_db - max_db + hw_max_db) / 100.0, (max_db - max_db + hw_max_db) / 100.0);        
+        } else {
+          snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, scaled_attenuation / 100.0,
                    min_db / 100.0, max_db / 100.0);
+        }
         send_ssnc_metadata('pvol', dv, strlen(dv), 1);
       }
 #endif
@@ -2898,7 +2904,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
 #ifdef CONFIG_METADATA
  else {
       // here, send the 'pvol' metadata message when the airplay volume information
-      // is not being used by shairport sync to control the output volume
+      // is being used by shairport sync to control the output volume
       char *dv = malloc(128); // will be freed in the metadata thread
       if (dv) {
         memset(dv, 0, 128);
