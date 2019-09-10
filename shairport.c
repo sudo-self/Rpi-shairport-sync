@@ -1211,11 +1211,15 @@ void exit_function() {
   if (this_is_the_daemon_process) { //this is the daemon that is exiting
 #endif
   debug(1, "exit function called...");
+
+/*
+Actually, there is no terminate_mqtt() function.
 #ifdef CONFIG_MQTT
   if (config.mqtt_enabled) {
-    terminate_mqtt();
+    terminate_mqtt(); 
   }
 #endif
+*/
 
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
 #ifdef CONFIG_MPRIS_INTERFACE
