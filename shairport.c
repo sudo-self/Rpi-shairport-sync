@@ -1222,9 +1222,13 @@ Actually, there is no terminate_mqtt() function.
 */
 
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
+
+/*
+Actually, there is no stop_mpris_service() function.
 #ifdef CONFIG_MPRIS_INTERFACE
   stop_mpris_service();
 #endif
+*/
 #ifdef CONFIG_DBUS_INTERFACE
   stop_dbus_service();
 #endif
