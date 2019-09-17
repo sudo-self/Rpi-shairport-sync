@@ -100,6 +100,7 @@ enum sps_format_t {
 const char *sps_format_description_string(enum sps_format_t format);
 
 typedef struct {
+  pthread_mutex_t lock;
   config_t *cfg;
   int endianness;
   double airplay_volume; // stored here for reloading when necessary
@@ -148,13 +149,13 @@ typedef struct {
   int volume_max_db;
   int no_sync;            // disable synchronisation, even if it's available
   int no_mmap;            // disable use of mmap-based output, even if it's available
-  double resyncthreshold; // if it gets out of whack my more than this number of seconds, resync.
+  double resyncthreshold; // if it get's out of whack my more than this number of seconds, resync.
                           // Zero means never
                           // resync.
   int allow_session_interruption;
   int timeout; // while in play mode, exit if no packets of audio come in for more than this number
                // of seconds . Zero means never exit.
-  int dont_check_timeout; // this is used to maintain backward compatibility with the old -t option
+  int dont_check_timeout; // this is used to maintain backward compatability with the old -t option
                           // behaviour; only set by -t 0, cleared by everything else
   char *output_name;
   audio_output *output;
@@ -176,6 +177,7 @@ typedef struct {
   int logOutputLevel;              // log output level
   int debugger_show_elapsed_time;  // in the debug message, display the time since startup
   int debugger_show_relative_time; // in the debug message, display the time since the last one
+  int debugger_show_file_and_line; // in the debug message, display the filename and line number
   int statistics_requested, use_negotiated_latencies;
   enum playback_mode_type playback_mode;
   char *cmd_start, *cmd_stop, *cmd_set_volume, *cmd_unfixable;
@@ -194,7 +196,7 @@ typedef struct {
   char *configfile;
   char *regtype; // The regtype is the service type followed by the protocol, separated by a dot, by
                  // default “_raop._tcp.”.
-  char *interface;     // a string containing the interface name, or NULL if nothing specified
+  char *interface;     // a string containg the interface name, or NULL if nothing specified
   int interface_index; // only valid if the interface string is non-NULL
   double audio_backend_buffer_desired_length; // this will be the length in seconds of the
                                               // audio backend buffer -- the DAC buffer for ALSA
@@ -266,6 +268,10 @@ typedef struct {
 
 } shairport_cfg;
 
+// accessors to config for multi-thread access
+double get_config_airplay_volume();
+void set_config_airplay_volume(double v);
+
 uint32_t nctohl(const uint8_t *p); // read 4 characters from *p and do ntohl on them
 uint16_t nctohs(const uint8_t *p); // read 2 characters from *p and do ntohs on them
 
@@ -308,10 +314,15 @@ uint16_t nextFreeUDPPort();
 
 volatile int debuglev;
 
-void die(const char *format, ...);
-void warn(const char *format, ...);
-void inform(const char *format, ...);
-void debug(int level, const char *format, ...);
+void _die(const char *filename, const int linenumber, const char *format, ...);
+void _warn(const char *filename, const int linenumber, const char *format, ...);
+void _inform(const char *filename, const int linenumber, const char *format, ...);
+void _debug(const char *filename, const int linenumber, int level, const char *format, ...);
+
+#define die(...) _die(__FILE__, __LINE__, __VA_ARGS__)
+#define debug(...) _debug(__FILE__, __LINE__, __VA_ARGS__)
+#define warn(...) _warn(__FILE__, __LINE__, __VA_ARGS__)
+#define inform(...) _inform(__FILE__, __LINE__, __VA_ARGS__)
 
 uint8_t *base64_dec(char *input, int *outlen);
 char *base64_enc(uint8_t *input, int length);
@@ -357,6 +368,13 @@ void shairport_shutdown();
 
 extern sigset_t pselect_sigset;
 
+pthread_mutex_t the_conn_lock;
+
+#define conn_lock(arg)                                                                             \
+  pthread_mutex_lock(&the_conn_lock);                                                              \
+  arg;                                                                                             \
+  pthread_mutex_unlock(&the_conn_lock);
+
 // wait for the specified time in microseconds -- it checks every 20 milliseconds
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel);
@@ -377,6 +395,19 @@ void pthread_cleanup_debug_mutex_unlock(void *arg);
 #define pthread_cleanup_debug_mutex_lock(mu, t, d)                                                 \
   if (_debug_mutex_lock(mu, t, #mu, __FILE__, __LINE__, d) == 0)                                   \
   pthread_cleanup_push(pthread_cleanup_debug_mutex_unlock, (void *)mu)
+
+#define config_lock                                                                                \
+  if (pthread_mutex_trylock(&config.lock) != 0) {                                                  \
+    debug(1, "config_lock: cannot acquire config.lock");                                           \
+  }
+
+#define config_unlock pthread_mutex_unlock(&config.lock)
+
+pthread_mutex_t r64_mutex;
+
+#define r64_lock pthread_mutex_lock(&r64_mutex)
+
+#define r64_unlock pthread_mutex_unlock(&r64_mutex)
 
 char *get_version_string(); // mallocs a string space -- remember to free it afterwards
 

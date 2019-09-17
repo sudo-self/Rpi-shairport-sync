@@ -359,6 +359,19 @@ gboolean notify_delta_time_callback(ShairportSyncDiagnostics *skeleton,
   return TRUE;
 }
 
+gboolean notify_file_and_line_callback(ShairportSyncDiagnostics *skeleton,
+                                    __attribute__((unused)) gpointer user_data) {
+  // debug(1, "\"notify_file_and_line_callback\" called.");
+  if (shairport_sync_diagnostics_get_file_and_line(skeleton)) {
+    config.debugger_show_file_and_line = 1;
+    debug(1, ">> start including file and line in logs");
+  } else {
+    config.debugger_show_file_and_line = 0;
+    debug(1, ">> stop including file and line in logs");
+  }
+  return TRUE;
+}
+
 gboolean notify_statistics_callback(ShairportSyncDiagnostics *skeleton,
                                     __attribute__((unused)) gpointer user_data) {
   // debug(1, "\"notify_statistics_callback\" called.");
@@ -698,6 +711,9 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   g_signal_connect(shairportSyncDiagnosticsSkeleton, "notify::delta-time",
                    G_CALLBACK(notify_delta_time_callback), NULL);
 
+  g_signal_connect(shairportSyncDiagnosticsSkeleton, "notify::file-and-line",
+                   G_CALLBACK(notify_file_and_line_callback), NULL);
+
   g_signal_connect(shairportSyncRemoteControlSkeleton, "handle-fast-forward",
                    G_CALLBACK(on_handle_fast_forward), NULL);
   g_signal_connect(shairportSyncRemoteControlSkeleton, "handle-rewind",
@@ -852,6 +868,16 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
     shairport_sync_diagnostics_set_delta_time(
         SHAIRPORT_SYNC_DIAGNOSTICS(shairportSyncDiagnosticsSkeleton), TRUE);
     // debug(1, ">> delta time is not included in log entries");
+  }
+
+  if (config.debugger_show_file_and_line == 0) {
+    shairport_sync_diagnostics_set_file_and_line(
+        SHAIRPORT_SYNC_DIAGNOSTICS(shairportSyncDiagnosticsSkeleton), FALSE);
+    // debug(1, ">> file and line is included in log entries");
+  } else {
+    shairport_sync_diagnostics_set_file_and_line(
+        SHAIRPORT_SYNC_DIAGNOSTICS(shairportSyncDiagnosticsSkeleton), TRUE);
+    // debug(1, ">> file and line is not included in log entries");
   }
 
   shairport_sync_remote_control_set_player_state(shairportSyncRemoteControlSkeleton,

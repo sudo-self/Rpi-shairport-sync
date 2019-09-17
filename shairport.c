@@ -576,6 +576,17 @@ int parse_options(int argc, char **argv) {
               value);
       }
 
+      /* Get the config.debugger_show_file_and_line in debug messages setting. */
+      if (config_lookup_string(config.cfg, "diagnostics.log_show_file_and_line", &str)) {
+        if (strcasecmp(str, "no") == 0)
+          config.debugger_show_file_and_line = 0;
+        else if (strcasecmp(str, "yes") == 0)
+          config.debugger_show_file_and_line = 1;
+        else
+          die("Invalid diagnostics log_show_file_and_line option choice \"%s\". It should be "
+              "\"yes\" or \"no\"");
+      }
+
       /* Get the show elapsed time in debug messages setting. */
       if (config_lookup_string(config.cfg, "diagnostics.log_show_time_since_startup", &str)) {
         if (strcasecmp(str, "no") == 0)
@@ -1365,6 +1376,8 @@ int main(int argc, char **argv) {
   // config.statistics_requested = 0; // don't print stats in the log
   // config.userSuppliedLatency = 0; // zero means none supplied
 
+  config.debugger_show_file_and_line =
+      1;                         // by default, log the file and line of the originating message
   config.debugger_show_relative_time =
       1;                         // by default, log the  time back to the previous debug message
   config.resyncthreshold = 0.05; // 50 ms

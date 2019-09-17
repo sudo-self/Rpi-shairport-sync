@@ -87,6 +87,11 @@
 void set_alsa_out_dev(char *);
 #endif
 
+// always lock use this when accessing the fp_time_at_last_debug_message
+static pthread_mutex_t debug_timing_lock = PTHREAD_MUTEX_INITIALIZER;
+
+pthread_mutex_t the_conn_lock = PTHREAD_MUTEX_INITIALIZER;
+
 const char *sps_format_description_string_array[] = {
     "unknown", "S8",      "U8",      "S16", "S16_LE", "S16_BE", "S24",  "S24_LE",
     "S24_BE",  "S24_3LE", "S24_3BE", "S32", "S32_LE", "S32_BE", "auto", "invalid"};
@@ -124,6 +129,21 @@ void log_to_stderr() { sps_log = do_sps_log; }
 
 shairport_cfg config;
 
+// accessors for multi-thread-access fields in the conn structure
+
+double get_config_airplay_volume() {
+  config_lock;
+  double v = config.airplay_volume;
+  config_unlock;
+  return v;
+}
+
+void set_config_airplay_volume(double v) {
+  config_lock;
+  config.airplay_volume = v;
+  config_unlock;
+}
+
 volatile int debuglev = 0;
 
 sigset_t pselect_sigset;
@@ -159,115 +179,140 @@ int get_requested_connection_state_to_output() { return requested_connection_sta
 
 void set_requested_connection_state_to_output(int v) { requested_connection_state_to_output = v; }
 
-void die(const char *format, ...) {
+char *generate_preliminary_string(char *buffer, size_t buffer_length, double tss, double tsl,
+                                  const char *filename, const int linenumber, const char *prefix) {
+  size_t space_remaining = buffer_length;
+  char *insertion_point = buffer;
+  if (config.debugger_show_elapsed_time) {
+    snprintf(insertion_point, space_remaining, "% 20.9f", tss);
+    insertion_point = insertion_point + strlen(insertion_point);
+    space_remaining = space_remaining - strlen(insertion_point);
+  }
+  if (config.debugger_show_relative_time) {
+    snprintf(insertion_point, space_remaining, "% 20.9f", tsl);
+    insertion_point = insertion_point + strlen(insertion_point);
+    space_remaining = space_remaining - strlen(insertion_point);
+  }
+  if (config.debugger_show_file_and_line) {
+    snprintf(insertion_point, space_remaining, " \"%s:%d\"", filename, linenumber);
+    insertion_point = insertion_point + strlen(insertion_point);
+    space_remaining = space_remaining - strlen(insertion_point);
+  }
+
+  if (prefix) {
+    snprintf(insertion_point, space_remaining, "%s", prefix);
+    insertion_point = insertion_point + strlen(insertion_point);
+  }
+  return insertion_point;
+}
+
+void _die(const char *filename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char s[1024];
-  s[0] = 0;
-  uint64_t time_now = get_absolute_time_in_fp();
-  uint64_t time_since_start = time_now - fp_time_at_startup;
-  uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
-  fp_time_at_last_debug_message = time_now;
-  uint64_t divisor = (uint64_t)1 << 32;
-  double tss = 1.0 * time_since_start / divisor;
-  double tsl = 1.0 * time_since_last_debug_message / divisor;
+  char b[1024];
+  b[0] = 0;
+  char *s;
+  if (debuglev) {
+    pthread_mutex_lock(&debug_timing_lock);
+    uint64_t time_now = get_absolute_time_in_fp();
+    uint64_t time_since_start = time_now - fp_time_at_startup;
+    uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
+    fp_time_at_last_debug_message = time_now;
+    pthread_mutex_unlock(&debug_timing_lock);
+    uint64_t divisor = (uint64_t)1 << 32;
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
+                                    1.0 * time_since_last_debug_message / divisor, filename,
+                                    linenumber, " *fatal error: ");
+  } else {
+    s = b;
+  }
   va_list args;
   va_start(args, format);
-  vsnprintf(s, sizeof(s), format, args);
+  vsnprintf(s, sizeof(b) - (s - b), format, args);
   va_end(args);
-
-  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    sps_log(LOG_ERR, "|% 20.9f|% 20.9f|*fatal error: %s", tss, tsl, s);
-  else if ((debuglev) && (config.debugger_show_relative_time))
-    sps_log(LOG_ERR, "% 20.9f|*fatal error: %s", tsl, s);
-  else if ((debuglev) && (config.debugger_show_elapsed_time))
-    sps_log(LOG_ERR, "% 20.9f|*fatal error: %s", tss, s);
-  else
-    sps_log(LOG_ERR, "fatal error: %s", s);
+  sps_log(LOG_ERR, "%s", b);
   pthread_setcancelstate(oldState, NULL);
   abort(); // exit() doesn't always work, by heaven.
 }
 
-void warn(const char *format, ...) {
+void _warn(const char *filename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char s[1024];
-  s[0] = 0;
-  uint64_t time_now = get_absolute_time_in_fp();
-  uint64_t time_since_start = time_now - fp_time_at_startup;
-  uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
-  fp_time_at_last_debug_message = time_now;
-  uint64_t divisor = (uint64_t)1 << 32;
-  double tss = 1.0 * time_since_start / divisor;
-  double tsl = 1.0 * time_since_last_debug_message / divisor;
+  char b[1024];
+  b[0] = 0;
+  char *s;
+  if (debuglev) {
+    pthread_mutex_lock(&debug_timing_lock);
+    uint64_t time_now = get_absolute_time_in_fp();
+    uint64_t time_since_start = time_now - fp_time_at_startup;
+    uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
+    fp_time_at_last_debug_message = time_now;
+    pthread_mutex_unlock(&debug_timing_lock);
+    uint64_t divisor = (uint64_t)1 << 32;
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
+                                    1.0 * time_since_last_debug_message / divisor, filename,
+                                    linenumber, " *warning: ");
+  } else {
+    s = b;
+  }
   va_list args;
   va_start(args, format);
-  vsnprintf(s, sizeof(s), format, args);
+  vsnprintf(s, sizeof(b) - (s - b), format, args);
   va_end(args);
-  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    sps_log(LOG_WARNING, "|% 20.9f|% 20.9f|*warning: %s", tss, tsl, s);
-  else if ((debuglev) && (config.debugger_show_relative_time))
-    sps_log(LOG_WARNING, "% 20.9f|*warning: %s", tsl, s);
-  else if ((debuglev) && (config.debugger_show_elapsed_time))
-    sps_log(LOG_WARNING, "% 20.9f|*warning: %s", tss, s);
-  else
-    sps_log(LOG_WARNING, "%s", s);
+  sps_log(LOG_WARNING, "%s", b);
   pthread_setcancelstate(oldState, NULL);
 }
 
-void debug(int level, const char *format, ...) {
+void _debug(const char *filename, const int linenumber, int level, const char *format, ...) {
   if (level > debuglev)
     return;
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char s[1024];
-  s[0] = 0;
+  char b[1024];
+  b[0] = 0;
+  pthread_mutex_lock(&debug_timing_lock);
   uint64_t time_now = get_absolute_time_in_fp();
   uint64_t time_since_start = time_now - fp_time_at_startup;
   uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
   fp_time_at_last_debug_message = time_now;
+  pthread_mutex_unlock(&debug_timing_lock);
   uint64_t divisor = (uint64_t)1 << 32;
-  double tss = 1.0 * time_since_start / divisor;
-  double tsl = 1.0 * time_since_last_debug_message / divisor;
+  char *s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
+                                        1.0 * time_since_last_debug_message / divisor, filename,
+                                        linenumber, " ");
   va_list args;
   va_start(args, format);
-  vsnprintf(s, sizeof(s), format, args);
+  vsnprintf(s, sizeof(b) - (s - b), format, args);
   va_end(args);
-  if ((config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    sps_log(LOG_DEBUG, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
-  else if (config.debugger_show_relative_time)
-    sps_log(LOG_DEBUG, "% 20.9f|%s", tsl, s);
-  else if (config.debugger_show_elapsed_time)
-    sps_log(LOG_DEBUG, "% 20.9f|%s", tss, s);
-  else
-    sps_log(LOG_DEBUG, "%s", s);
+  sps_log(LOG_DEBUG, "%s", b);
   pthread_setcancelstate(oldState, NULL);
 }
 
-void inform(const char *format, ...) {
+void _inform(const char *filename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char s[1024];
-  s[0] = 0;
-  uint64_t time_now = get_absolute_time_in_fp();
-  uint64_t time_since_start = time_now - fp_time_at_startup;
-  uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
-  fp_time_at_last_debug_message = time_now;
-  uint64_t divisor = (uint64_t)1 << 32;
-  double tss = 1.0 * time_since_start / divisor;
-  double tsl = 1.0 * time_since_last_debug_message / divisor;
+  char b[1024];
+  b[0] = 0;
+  char *s;
+  if (debuglev) {
+    pthread_mutex_lock(&debug_timing_lock);
+    uint64_t time_now = get_absolute_time_in_fp();
+    uint64_t time_since_start = time_now - fp_time_at_startup;
+    uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
+    fp_time_at_last_debug_message = time_now;
+    pthread_mutex_unlock(&debug_timing_lock);
+    uint64_t divisor = (uint64_t)1 << 32;
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
+                                    1.0 * time_since_last_debug_message / divisor, filename,
+                                    linenumber, " ");
+  } else {
+    s = b;
+  }
   va_list args;
   va_start(args, format);
-  vsnprintf(s, sizeof(s), format, args);
+  vsnprintf(s, sizeof(b) - (s - b), format, args);
   va_end(args);
-  if ((debuglev) && (config.debugger_show_elapsed_time) && (config.debugger_show_relative_time))
-    sps_log(LOG_INFO, "|% 20.9f|% 20.9f|%s", tss, tsl, s);
-  else if ((debuglev) && (config.debugger_show_relative_time))
-    sps_log(LOG_INFO, "% 20.9f|%s", tsl, s);
-  else if ((debuglev) && (config.debugger_show_elapsed_time))
-    sps_log(LOG_INFO, "% 20.9f|%s", tss, s);
-  else
-    sps_log(LOG_INFO, "%s", s);
+  sps_log(LOG_INFO, "%s", b);
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -862,17 +907,17 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
 
 double vol2attn(double vol, long max_db, long min_db) {
 
-// We use a little coordinate geometry to build a transfer function from the volume passed in to
-// the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
-// "volume in" which will be from -30 to 0. The y axis will be the "volume out" which will be from
-// the bottom of the range to the top. We build the transfer function from one or more lines. We
-// characterise each line with two numbers: the first is where on x the line starts when y=0 (x
-// can be from 0 to -30); the second is where on y the line stops when when x is -30. thus, if the
-// line was characterised as {0,-30}, it would be an identity transfer. Assuming, for example, a
-// dynamic range of lv=-60 to hv=0 Typically we'll use three lines -- a three order transfer
-// function First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
-// Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
-// Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
+  // We use a little coordinate geometry to build a transfer function from the volume passed in to
+  // the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
+  // "volume in" which will be from -30 to 0. The y axis will be the "volume out" which will be from
+  // the bottom of the range to the top. We build the transfer function from one or more lines. We
+  // characterise each line with two numbers: the first is where on x the line starts when y=0 (x
+  // can be from 0 to -30); the second is where on y the line stops when when x is -30. thus, if the
+  // line was characterised as {0,-30}, it would be an identity transfer. Assuming, for example, a
+  // dynamic range of lv=-60 to hv=0 Typically we'll use three lines -- a three order transfer
+  // function First: {0,30} giving a gentle slope -- the 30 comes from half the dynamic range
+  // Second: {-5,-30-(lv+30)/2} giving a faster slope from y=0 at x=-12 to y=-42.5 at x=-30
+  // Third: {-17,lv} giving a fast slope from y=0 at x=-19 to y=-60 at x=-30
 
 #define order 3
 
@@ -1044,6 +1089,9 @@ char *str_replace(const char *string, const char *substr, const char *replacemen
 
 /* from http://burtleburtle.net/bob/rand/smallprng.html */
 
+// this is not thread-safe, so we need a mutex on it to use it properly// always lock use this when accessing the fp_time_at_last_debug_message
+pthread_mutex_t r64_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 // typedef uint64_t u8;
 typedef struct ranctx {
   uint64_t a;
@@ -1157,8 +1205,9 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
     et = (et * 1000000) >> 32; // microseconds
     char errstr[1000];
     if (r == ETIMEDOUT)
-      debug(debuglevel, "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
-                        "waiting time of %d microseconds. \"%s\".",
+      debug(debuglevel,
+            "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
+            "waiting time of %d microseconds. \"%s\".",
             (1.0 * et) / 1000000, dally_time, debugmessage);
     else
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
@@ -1388,10 +1437,10 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
   int64_t previous_random_number = random_number_in;
   char *p = outp;
   size_t sample_number;
+  r64_lock; // the random number generator is not thread safe, so we need to lock it while using it
   for (sample_number = 0; sample_number < number_of_frames * 2; sample_number++) {
 
     int64_t hyper_sample = 0;
-
     int64_t r = r64i();
 
     int64_t tpdf = (r & dither_mask) - (previous_random_number & dither_mask);
@@ -1485,6 +1534,7 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
     p += sample_length;
     previous_random_number = r;
   }
+  r64_unlock;
   return previous_random_number;
 }
 
