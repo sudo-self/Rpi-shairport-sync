@@ -10,6 +10,11 @@ dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/Shair
 # Set Statistics-Requested Status to true
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync.Diagnostics string:Statistics variant:boolean:true
 
+# Are File Name and Line Number included in Log Entries?
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync.Diagnostics string:FileAndLine
+# Include File Name and Line Number in Log Entries
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync.Diagnostics string:FileAndLine variant:boolean:true
+
 # Is Elapsed Time included in Log Entries?
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync.Diagnostics string:ElapsedTime
 # Include Elapsed Time in Log Entries
