@@ -1992,7 +1992,7 @@ void *player_thread_func(void *arg) {
         //          debug(3, "Play frame %d.", play_number);
         conn->play_number_after_flush++;
         if (inframe->given_timestamp == 0) {
-          debug(1, "Player has supplied a silent frame, (possibly frame %u) for play number %d, after %d resend requests.",
+          debug(2, "Player has supplied a silent frame, (possibly frame %u) for play number %d, after %d resend requests.",
                 SUCCESSOR(conn->last_seqno_read), play_number, inframe->resend_request_number);
           conn->last_seqno_read = (SUCCESSOR(conn->last_seqno_read) &
                                    0xffff); // manage the packet out of sequence minder
