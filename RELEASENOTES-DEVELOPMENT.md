@@ -1,3 +1,12 @@
+Version 3.3.3d7
+====
+
+**Duh**
+* Versions 3.3.2d3 to 3.3.2d6 should have been labelled 3.3.3d\<something\>.
+
+**Enhancement**
+* Rewrite the logic for identifying missing packets of audio and for asking for resends. It seems more robust -- there was a suspicion of the previous logic that resend requests were not made for some missing packets. In addition, requests for resends of continuous sequences of packets are rolled into one.
+
 Version 3.3.2d6
 ====
 **Enhancements**

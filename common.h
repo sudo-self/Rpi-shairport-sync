@@ -100,6 +100,9 @@ enum sps_format_t {
 const char *sps_format_description_string(enum sps_format_t format);
 
 typedef struct {
+  double resend_wait_before_check; // wait this long before asking for a missing packet to be resent
+  double resend_wait_between_checks; // wait this long between making requests
+  double resend_last_check_before_use; // if the packet is missing this close to the time of use, give up
   pthread_mutex_t lock;
   config_t *cfg;
   int endianness;
