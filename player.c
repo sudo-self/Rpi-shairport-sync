@@ -628,7 +628,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       	int missing_frame_run_count = 0;
       	int start_of_missing_frame_run = -1;
         int number_of_missing_frames = 0;
-        debug(2,"check start");
+        debug(3,"check start");
         while (x != conn->ab_write) {
           abuf_t *check_buf = conn->audio_buffer + BUFIDX(x);
           if (!check_buf->ready) {
