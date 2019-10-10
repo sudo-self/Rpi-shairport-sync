@@ -1,3 +1,17 @@
+Version 3.3.3d8
+====
+
+**Bug Fix**
+* Fix a bug in the resend request logic.
+
+
+**Enhancement**
+* Expose the settings controlling the resend request logic. The new settings are in the `general` section:
+  * `resend_control_first_check_time` is the time allowed to elapse before a packet is considered missing, defaulting to 0.1 sec. UDP packets don't always arrive in order and they don't need to be re-requested just because they arrive out of sequence. Essentially, therefore, this parameter is to prevent needless resend requests for packets that are already in transit.
+  * `resend_control_check_interval_time` is the interval between repeated requests for a missing packet, defaulting to 0.25 seconds. 
+  * `resend_control_last_check_time` is the time by which the last check should be done before the estimated time of a missing packet's transfer to the output buffer, defaulting to 0.1 seconds. In other words, if a packet is still missing 0.1 seconds before it is due to be transferred to the DAC's output buffer, don't bother asking for a resend.
+
+
 Version 3.3.3d7
 ====
 
