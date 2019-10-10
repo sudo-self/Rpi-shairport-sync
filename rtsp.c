@@ -591,15 +591,6 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
   int msg_size = -1;
 
   while (msg_size < 0) {
-    /*
-fd_set readfds;
-FD_ZERO(&readfds);
-FD_SET(conn->fd, &readfds);
-do {
-  memory_barrier();
-} while (conn->stop == 0 &&
-         pselect(conn->fd + 1, &readfds, NULL, NULL, NULL, &pselect_sigset) <= 0);
-*/
     if (conn->stop != 0) {
       debug(3, "RTSP conversation thread %d shutdown requested.", conn->connection_number);
       reply = rtsp_read_request_response_immediate_shutdown_requested;
@@ -684,16 +675,6 @@ do {
       }
     }
 
-    /*
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(conn->fd, &readfds);
-    do {
-      memory_barrier();
-    } while (conn->stop == 0 &&
-             pselect(conn->fd + 1, &readfds, NULL, NULL, NULL, &pselect_sigset) <= 0);
-    */
-
     if (conn->stop != 0) {
       debug(1, "RTSP shutdown requested.");
       reply = rtsp_read_request_response_immediate_shutdown_requested;
@@ -711,8 +692,17 @@ do {
     if (nread < 0) {
       if (errno == EINTR)
         continue;
-      perror("read failure");
-      reply = rtsp_read_request_response_error;
+      if (errno == EAGAIN) {
+        debug(1, "Getting Error 11 -- EAGAIN from a blocking read!");
+        continue;
+      }
+      if (errno != ECONNRESET) {
+        char errorstring[1024];
+        strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+        debug(1, "Connection %d: rtsp_read_request_response_read_error %d: \"%s\".",
+              conn->connection_number, errno, (char *)errorstring);
+      }
+      reply = rtsp_read_request_response_read_error;
       goto shutdown;
     }
     inbuf += nread;

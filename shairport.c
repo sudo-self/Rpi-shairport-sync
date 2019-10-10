@@ -402,9 +402,9 @@ int parse_options(int argc, char **argv) {
 // i.e. when reducing volume, reduce the sw first before reducing the software.
 // this is because some hw mixers mute at the bottom of their range, and they don't always advertise
 // this fact
-  config.resend_wait_before_check = 0.10; // wait this many seconds before requesting the resending of a missing packet
-  config.resend_wait_between_checks = 0.25; // wait this many seconds before again requesting the resending of a missing packet
-  config.resend_last_check_before_use = 0.10; // give up if the packet is still missing this close to when it's needed
+  config.resend_control_first_check_time = 0.10; // wait this many seconds before requesting the resending of a missing packet
+  config.resend_control_check_interval_time = 0.25; // wait this many seconds before again requesting the resending of a missing packet
+  config.resend_control_last_check_time = 0.10; // give up if the packet is still missing this close to when it's needed
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
@@ -765,6 +765,44 @@ int parse_options(int argc, char **argv) {
                    "Shairport Sync. The default decoder will be used.");
         } else
           die("Invalid alac_decoder option choice \"%s\". It should be \"hammerton\" or \"apple\"");
+      }
+      
+      
+      /* Get the resend control settings. */
+      if (config_lookup_float(config.cfg, "general.resend_control_first_check_time",
+                              &dvalue)) {
+        if ((dvalue >= 0.0) && (dvalue <= 3.0))
+          config.resend_control_first_check_time = dvalue;
+        else
+          warn("Invalid general resend_control_first_check_time setting \"%d\". It should "
+              "be "
+              "between 0.0 and 3.0, "
+              "inclusive. The setting remains at %f seconds.",
+              dvalue, config.resend_control_first_check_time);
+      }
+
+      if (config_lookup_float(config.cfg, "general.resend_control_check_interval_time",
+                              &dvalue)) {
+        if ((dvalue >= 0.0) && (dvalue <= 3.0))
+          config.resend_control_check_interval_time = dvalue;
+        else
+          warn("Invalid general resend_control_check_interval_time setting \"%d\". It should "
+              "be "
+              "between 0.0 and 3.0, "
+              "inclusive. The setting remains at %f seconds.",
+              dvalue, config.resend_control_check_interval_time);
+      }
+
+      if (config_lookup_float(config.cfg, "general.resend_control_last_check_time",
+                              &dvalue)) {
+        if ((dvalue >= 0.0) && (dvalue <= 3.0))
+          config.resend_control_last_check_time = dvalue;
+        else
+          warn("Invalid general resend_control_last_check_time setting \"%d\". It should "
+              "be "
+              "between 0.0 and 3.0, "
+              "inclusive. The setting remains at %f seconds.",
+              dvalue, config.resend_control_last_check_time);
       }
 
       /* Get the default latency. Deprecated! */

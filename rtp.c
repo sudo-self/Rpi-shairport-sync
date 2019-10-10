@@ -1218,7 +1218,8 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
     }
 #endif
     uint64_t time_of_sending_fp = get_absolute_time_in_fp();
-    uint64_t resend_error_backoff_time = (uint64_t)1 << (32 - 4); // one sixteenth of a second
+    uint64_t resend_error_backoff_time = (uint64_t)1000000 * 0.3; // 0.3 seconds
+    resend_error_backoff_time = (resend_error_backoff_time << 32) / 1000000;
     if ((conn->rtp_time_of_last_resend_request_error_fp == 0) ||
         ((time_of_sending_fp - conn->rtp_time_of_last_resend_request_error_fp) >
          resend_error_backoff_time)) {
@@ -1238,8 +1239,7 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
                    (struct sockaddr *)&conn->rtp_client_control_socket, msgsize) == -1) {
           char em[1024];
           strerror_r(errno, em, sizeof(em));
-          debug(1, "Error %d using sendto to an audio socket: \"%s\". Backing off for 1/16th of a "
-                   "second.",
+          debug(2, "Error %d using sendto to request a resend: \"%s\".",
                 errno, em);
           conn->rtp_time_of_last_resend_request_error_fp = time_of_sending_fp;
         } else {
@@ -1249,12 +1249,12 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
       } else {
         debug(
             3,
-            "Dropping resend request packet to simulate a bad network. Backing off for 1/16th of a "
+            "Dropping resend request packet to simulate a bad network. Backing off for 0.3 "
             "second.");
         conn->rtp_time_of_last_resend_request_error_fp = time_of_sending_fp;
       }
     } else {
-      debug(3, "Backing off sending resend requests due to a previous send-to error");
+      debug(1, "Suppressing a resend request due to a resend sendto error in the last 0.3 seconds.");
     }
   } else {
     // if (!request_sent) {
