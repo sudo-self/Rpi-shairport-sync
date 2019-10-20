@@ -126,7 +126,6 @@ typedef struct {
   int metadata_sockport;
   size_t metadata_sockmsglength;
   int get_coverart;
-  int retain_coverart;
 #endif
 #ifdef CONFIG_MQTT
   int mqtt_enabled;
@@ -253,6 +252,8 @@ typedef struct {
 
 #ifdef CONFIG_METADATA_HUB
   char *cover_art_cache_dir;
+  int retain_coverart;
+
   int scan_interval_when_active;   // number of seconds between DACP server scans when playing
                                    // something (1)
   int scan_interval_when_inactive; // number of seconds between DACP server scans playing nothing
