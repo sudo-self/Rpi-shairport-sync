@@ -836,6 +836,20 @@ int parse_options(int argc, char **argv) {
         config.metadata_pipename = (char *)str;
       }
 
+      if (config_lookup_string(config.cfg, "metadata.socket_address", &str)) {
+        config.metadata_sockaddr = (char *)str;
+      }
+      if (config_lookup_int(config.cfg, "metadata.socket_port", &value)) {
+        config.metadata_sockport = value;
+      }
+      config.metadata_sockmsglength = 500;
+      if (config_lookup_int(config.cfg, "metadata.socket_msglength", &value)) {
+        config.metadata_sockmsglength = value < 500 ? 500 : value > 65000 ? 65000 : value;
+      }
+
+#endif
+
+#ifdef CONFIG_METADATA_HUB
       if (config_lookup_string(config.cfg, "metadata.cover_art_cache_directory", &str)) {
         config.cover_art_cache_dir = (char *)str;
       }
@@ -849,17 +863,6 @@ int parse_options(int argc, char **argv) {
           die("Invalid metadata retain_cover_art option choice \"%s\". It should be \"yes\" or "
               "\"no\"");
       }
-      if (config_lookup_string(config.cfg, "metadata.socket_address", &str)) {
-        config.metadata_sockaddr = (char *)str;
-      }
-      if (config_lookup_int(config.cfg, "metadata.socket_port", &value)) {
-        config.metadata_sockport = value;
-      }
-      config.metadata_sockmsglength = 500;
-      if (config_lookup_int(config.cfg, "metadata.socket_msglength", &value)) {
-        config.metadata_sockmsglength = value < 500 ? 500 : value > 65000 ? 65000 : value;
-      }
-
 #endif
 
       if (config_lookup_string(config.cfg, "sessioncontrol.run_this_before_play_begins", &str)) {
