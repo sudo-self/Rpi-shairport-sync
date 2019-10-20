@@ -170,121 +170,125 @@ char *metadata_write_image_file(const char *buf, int len) {
   // it will return a path to the image file allocated with malloc.
   // free it if you don't need it.
 
-  char *path = NULL; // this will be what is returned
+  char *path = NULL; // this will be what is returned  
+  if (strcmp(config.cover_art_cache_dir,"") != 0) { // an empty string means do not write the file
 
-  uint8_t img_md5[16];
-  // uint8_t ap_md5[16];
+    uint8_t img_md5[16];
+    // uint8_t ap_md5[16];
 
-#ifdef CONFIG_OPENSSL
-  MD5_CTX ctx;
-  MD5_Init(&ctx);
-  MD5_Update(&ctx, buf, len);
-  MD5_Final(img_md5, &ctx);
-#endif
+  #ifdef CONFIG_OPENSSL
+    MD5_CTX ctx;
+    MD5_Init(&ctx);
+    MD5_Update(&ctx, buf, len);
+    MD5_Final(img_md5, &ctx);
+  #endif
 
-#ifdef CONFIG_MBEDTLS
-#if MBEDTLS_VERSION_MINOR >= 7
-  mbedtls_md5_context tctx;
-  mbedtls_md5_starts_ret(&tctx);
-  mbedtls_md5_update_ret(&tctx, (const unsigned char *)buf, len);
-  mbedtls_md5_finish_ret(&tctx, img_md5);
-#else
-  mbedtls_md5_context tctx;
-  mbedtls_md5_starts(&tctx);
-  mbedtls_md5_update(&tctx, (const unsigned char *)buf, len);
-  mbedtls_md5_finish(&tctx, img_md5);
-#endif
-#endif
+  #ifdef CONFIG_MBEDTLS
+  #if MBEDTLS_VERSION_MINOR >= 7
+    mbedtls_md5_context tctx;
+    mbedtls_md5_starts_ret(&tctx);
+    mbedtls_md5_update_ret(&tctx, (const unsigned char *)buf, len);
+    mbedtls_md5_finish_ret(&tctx, img_md5);
+  #else
+    mbedtls_md5_context tctx;
+    mbedtls_md5_starts(&tctx);
+    mbedtls_md5_update(&tctx, (const unsigned char *)buf, len);
+    mbedtls_md5_finish(&tctx, img_md5);
+  #endif
+  #endif
 
-#ifdef CONFIG_POLARSSL
-  md5_context tctx;
-  md5_starts(&tctx);
-  md5_update(&tctx, (const unsigned char *)buf, len);
-  md5_finish(&tctx, img_md5);
-#endif
+  #ifdef CONFIG_POLARSSL
+    md5_context tctx;
+    md5_starts(&tctx);
+    md5_update(&tctx, (const unsigned char *)buf, len);
+    md5_finish(&tctx, img_md5);
+  #endif
 
-  char img_md5_str[33];
-  memset(img_md5_str, 0, sizeof(img_md5_str));
-  char *ext;
-  char png[] = "png";
-  char jpg[] = "jpg";
-  int i;
-  for (i = 0; i < 16; i++)
-    snprintf(&img_md5_str[i * 2], 3, "%02x", (uint8_t)img_md5[i]);
-  // see if the file is a jpeg or a png
-  if (strncmp(buf, "\xFF\xD8\xFF", 3) == 0)
-    ext = jpg;
-  else if (strncmp(buf, "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", 8) == 0)
-    ext = png;
-  else {
-    debug(1, "Unidentified image type of cover art -- jpg extension used.");
-    ext = jpg;
-  }
-  mode_t oldumask = umask(000);
-  int result = mkpath(config.cover_art_cache_dir, 0777);
-  umask(oldumask);
-  if ((result == 0) || (result == -EEXIST)) {
-    // see if the file exists by opening it.
-    // if it exists, we're done
-    char *prefix = "cover-";
+    char img_md5_str[33];
+    memset(img_md5_str, 0, sizeof(img_md5_str));
+    char *ext;
+    char png[] = "png";
+    char jpg[] = "jpg";
+    int i;
+    for (i = 0; i < 16; i++)
+      snprintf(&img_md5_str[i * 2], 3, "%02x", (uint8_t)img_md5[i]);
+    // see if the file is a jpeg or a png
+    if (strncmp(buf, "\xFF\xD8\xFF", 3) == 0)
+      ext = jpg;
+    else if (strncmp(buf, "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", 8) == 0)
+      ext = png;
+    else {
+      debug(1, "Unidentified image type of cover art -- jpg extension used.");
+      ext = jpg;
+    }
+    mode_t oldumask = umask(000);
+    int result = mkpath(config.cover_art_cache_dir, 0777);
+    umask(oldumask);
+    if ((result == 0) || (result == -EEXIST)) {
+      // see if the file exists by opening it.
+      // if it exists, we're done
+      char *prefix = "cover-";
 
-    size_t pl = strlen(config.cover_art_cache_dir) + 1 + strlen(prefix) + strlen(img_md5_str) + 1 +
-                strlen(ext);
+      size_t pl = strlen(config.cover_art_cache_dir) + 1 + strlen(prefix) + strlen(img_md5_str) + 1 +
+                  strlen(ext);
 
-    path = malloc(pl + 1);
-    snprintf(path, pl + 1, "%s/%s%s.%s", config.cover_art_cache_dir, prefix, img_md5_str, ext);
-    int cover_fd = open(path, O_WRONLY | O_CREAT | O_EXCL, S_IRWXU | S_IRGRP | S_IROTH);
-    if (cover_fd > 0) {
-      // write the contents
-      if (write(cover_fd, buf, len) < len) {
-        warn("Writing cover art file \"%s\" failed!", path);
-        free(path);
-        path = NULL;
-      }
-      close(cover_fd);
+      path = malloc(pl + 1);
+      snprintf(path, pl + 1, "%s/%s%s.%s", config.cover_art_cache_dir, prefix, img_md5_str, ext);
+      int cover_fd = open(path, O_WRONLY | O_CREAT | O_EXCL, S_IRWXU | S_IRGRP | S_IROTH);
+      if (cover_fd > 0) {
+        // write the contents
+        if (write(cover_fd, buf, len) < len) {
+          warn("Writing cover art file \"%s\" failed!", path);
+          free(path);
+          path = NULL;
+        }
+        close(cover_fd);
 
-      // now delete all other files, if there are any
-      DIR *d;
-      struct dirent *dir;
-      d = opendir(config.cover_art_cache_dir);
-      if (d) {
-        int fnl = strlen(prefix) + strlen(img_md5_str) + 1 + strlen(ext) + 1;
+        // now delete all other files, if requested
+        if (config.retain_coverart == 0) {
+          DIR *d;
+          struct dirent *dir;
+          d = opendir(config.cover_art_cache_dir);
+          if (d) {
+            int fnl = strlen(prefix) + strlen(img_md5_str) + 1 + strlen(ext) + 1;
 
-        char *full_filename = malloc(fnl);
-        if (full_filename == NULL)
-          die("Can't allocate memory at metadata_write_image_file.");
-        memset(full_filename, 0, fnl);
-        snprintf(full_filename, fnl, "%s%s.%s", prefix, img_md5_str, ext);
-        int dir_fd = open(config.cover_art_cache_dir, O_DIRECTORY);
-        if (dir_fd > 0) {
-          while ((dir = readdir(d)) != NULL) {
-            if (dir->d_type == DT_REG) {
-              if (strcmp(full_filename, dir->d_name) != 0) {
-                if (unlinkat(dir_fd, dir->d_name, 0) != 0) {
-                  debug(1, "Error %d deleting cover art file \"%s\".", errno, dir->d_name);
+            char *full_filename = malloc(fnl);
+            if (full_filename == NULL)
+              die("Can't allocate memory at metadata_write_image_file.");
+            memset(full_filename, 0, fnl);
+            snprintf(full_filename, fnl, "%s%s.%s", prefix, img_md5_str, ext);
+            int dir_fd = open(config.cover_art_cache_dir, O_DIRECTORY);
+            if (dir_fd > 0) {
+              while ((dir = readdir(d)) != NULL) {
+                if (dir->d_type == DT_REG) {
+                  if (strcmp(full_filename, dir->d_name) != 0) {
+                    if (unlinkat(dir_fd, dir->d_name, 0) != 0) {
+                      debug(1, "Error %d deleting cover art file \"%s\".", errno, dir->d_name);
+                    }
+                  }
                 }
               }
+            } else {
+              debug(1, "Can't open the directory for deletion.");
             }
+            free(full_filename);
+            closedir(d);
           }
-        } else {
-          debug(1, "Can't open the directory for deletion.");
         }
-        free(full_filename);
-        closedir(d);
+      } else {
+        //      if (errno == EEXIST)
+        //        debug(1, "Cover art file \"%s\" already exists!", path);
+        //      else {
+        if (errno != EEXIST) {
+          warn("Could not open file \"%s\" for writing cover art", path);
+          free(path);
+          path = NULL;
+        }
       }
     } else {
-      //      if (errno == EEXIST)
-      //        debug(1, "Cover art file \"%s\" already exists!", path);
-      //      else {
-      if (errno != EEXIST) {
-        warn("Could not open file \"%s\" for writing cover art", path);
-        free(path);
-        path = NULL;
-      }
+      debug(1, "Couldn't access or create the cover art cache directory \"%s\".",
+            config.cover_art_cache_dir);
     }
-  } else {
-    debug(1, "Couldn't access or create the cover art cache directory \"%s\".",
-          config.cover_art_cache_dir);
   }
   return path;
 }
@@ -455,7 +459,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       metadata_hub_modify_prolog();
       debug(2, "MH Picture received, length %u bytes.", length);
       char uri[2048];
-      if (length > 16) {
+      if ((length > 16) && (strcmp(config.cover_art_cache_dir,"")!=0)) { // if it's okay to write the file
         char *pathname = metadata_write_image_file(data, length);
         snprintf(uri, sizeof(uri), "file://%s", pathname);
         free(pathname);

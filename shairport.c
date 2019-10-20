@@ -836,6 +836,19 @@ int parse_options(int argc, char **argv) {
         config.metadata_pipename = (char *)str;
       }
 
+      if (config_lookup_string(config.cfg, "metadata.cover_art_cache_directory", &str)) {
+        config.cover_art_cache_dir = (char *)str;
+      }
+
+      if (config_lookup_string(config.cfg, "metadata.retain_cover_art", &str)) {
+        if (strcasecmp(str, "no") == 0)
+          config.retain_coverart = 0;
+        else if (strcasecmp(str, "yes") == 0)
+          config.retain_coverart = 1;
+        else
+          die("Invalid metadata retain_cover_art option choice \"%s\". It should be \"yes\" or "
+              "\"no\"");
+      }
       if (config_lookup_string(config.cfg, "metadata.socket_address", &str)) {
         config.metadata_sockaddr = (char *)str;
       }
