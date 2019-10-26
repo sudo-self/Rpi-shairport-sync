@@ -854,7 +854,7 @@ int parse_options(int argc, char **argv) {
         config.cover_art_cache_dir = (char *)str;
       }
 
-      if (config_lookup_string(config.cfg, "metadata.retain_cover_art", &str)) {
+      if (config_lookup_string(config.cfg, "diagnostics.retain_cover_art", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.retain_coverart = 0;
         else if (strcasecmp(str, "yes") == 0)

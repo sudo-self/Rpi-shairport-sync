@@ -585,7 +585,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
   int release_buffer = 0;         // on exit, don't deallocate the buffer if everything was okay
   char *buf = malloc(buflen + 1); // add a NUL at the end
   if (!buf) {
-    warn("rtsp_read_request: can't get a buffer.");
+    warn("Connection %d: rtsp_read_request: can't get a buffer.", conn->connection_number);
     return (rtsp_read_request_response_error);
   }
   pthread_cleanup_push(malloc_cleanup, buf);
@@ -595,7 +595,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
   while (msg_size < 0) {
     if (conn->stop != 0) {
-      debug(3, "RTSP conversation thread %d shutdown requested.", conn->connection_number);
+      debug(3, "Connection %d: shutdown requested.", conn->connection_number);
       reply = rtsp_read_request_response_immediate_shutdown_requested;
       goto shutdown;
     }
@@ -604,7 +604,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
     if (nread == 0) {
       // a blocking read that returns zero means eof -- implies connection closed
-      debug(3, "RTSP conversation thread %d -- connection closed.", conn->connection_number);
+      debug(3, "Connection %d: -- connection closed.", conn->connection_number);
       reply = rtsp_read_request_response_channel_closed;
       goto shutdown;
     }
@@ -613,7 +613,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       if (errno == EINTR)
         continue;
       if (errno == EAGAIN) {
-        debug(1, "Getting Error 11 -- EAGAIN from a blocking read!");
+        debug(1, "Connection %d: getting Error 11 -- EAGAIN from a blocking read!", conn->connection_number);
         continue;
       }
       if (errno != ECONNRESET) {
@@ -643,8 +643,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       msg_size = msg_handle_line(the_packet, buf);
 
       if (!(*the_packet)) {
-        warn("Closing the session because an RTSP header was missing in an incoming packet.");
-        reply = rtsp_read_request_response_read_error;
+        debug(1,"Connection %d: rtsp_read_request can't find an RTSP header.", conn->connection_number);
+        reply = rtsp_read_request_response_bad_packet;
         goto shutdown;
       }
 
@@ -657,7 +657,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
   if (msg_size > buflen) {
     buf = realloc(buf, msg_size + 1);
     if (!buf) {
-      warn("too much content");
+      warn("Connection %d: too much content.", conn->connection_number);
       reply = rtsp_read_request_response_error;
       goto shutdown;
     }
@@ -2409,16 +2409,6 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       debug(debug_level, "Connection %d: RTSP Response:", conn->connection_number);
       debug_print_msg_headers(debug_level, resp);
 
-      /*
-      fd_set writefds;
-      FD_ZERO(&writefds);
-      FD_SET(conn->fd, &writefds);
-      do {
-        memory_barrier();
-      } while (conn->stop == 0 &&
-               pselect(conn->fd + 1, NULL, &writefds, NULL, NULL, &pselect_sigset) <= 0);
-      */
-
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
@@ -2469,6 +2459,17 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         } else {
           tstop = 1;
+        }
+      } else if (reply == rtsp_read_request_response_bad_packet) {
+        char *response_text = "RTSP/1.0 400 Bad Request\r\nServer: AirTunes/105.1\r\n\r\n";
+        ssize_t reply = write(conn->fd, response_text, strlen(response_text));
+        if (reply == -1) {
+          char errorstring[1024];
+          strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+          debug(1, "rtsp_read_request_response_bad_packet write response error %d: \"%s\".", errno, (char *)errorstring);
+        } else if (reply != (ssize_t)strlen(response_text)) {
+          debug(1, "rtsp_read_request_response_bad_packet write %d bytes requested but %d written.", strlen(response_text),
+                reply);
         }
       } else {
         debug(1, "Connection %d: rtsp_read_request error %d, packet ignored.",
