@@ -1,7 +1,10 @@
-Version 3.3.3d10
+Version 3.3.3d11
 ====
 **Bug Fix**
 * Fixed a crashing bug -- if a plain HTTP packet (in fact, any packet that didn't have an RTSP-style header) was sent to the TCP session port (usually port 5000), Shairport Sync would crash! Thanks to @[dubo-dubon-duponey](https://github.com/dubo-dubon-duponey) for reporting. Fixes [#921](https://github.com/mikebrady/shairport-sync/issues/921).
+
+**Pesky Change**
+* The setting `retain_cover_art` is now part of the `diagnostics` group. Set it to `"yes"` to retain cover art cached by the D-Bus, MPRIS or `mqtt` interfaces. Your directory may fill up if you leave it set!
 
 Version 3.3.3d9
 ====
