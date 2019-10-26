@@ -1,10 +1,14 @@
+Version 3.3.3d10
+====
+**Bug Fix**
+* Fixed a crashing bug -- if a plain HTTP packet (in fact, any packet that didn't have an RTSP-style header) was sent to the TCP session port (usually port 5000), Shairport Sync would crash! Thanks to @[dubo-dubon-duponey](https://github.com/dubo-dubon-duponey) for reporting. Fixes #921.
+
 Version 3.3.3d9
 ====
 
-**Enhamcements**
-* Expose two `metadata` settings related to handling cover art:
-  1. The setting `cover_art_cache_directory` allows you to specify where cover art files will be cached if Shairport Sync has been built with native D-Bus, MPRIS or MQTT support. The default is `/tmp/shairport-sync/.cache/coverart`. If you set it to an empty list: `""`, caching is disabled. This might be useful in, say, an embedded device, or wherever you want to minimise file writing.
-  2. The setting `retain_cover_art` is normally set to `"no"` so that cover art cache files are deleted when no longer needed. Set it `"yes"` to retain them permanently. Be aware that cover art files might take up considerable space after a while.
+**Enhancements**
+* Expose a `metadata` setting related to handling cover art:
+  * The setting `cover_art_cache_directory` allows you to specify where cover art files will be cached if Shairport Sync has been built with native D-Bus, MPRIS or MQTT support. The default is `/tmp/shairport-sync/.cache/coverart`. If you set it to an empty list: `""`, caching is disabled. This might be useful in, say, an embedded device, or wherever you want to minimise file writing.
 
 Version 3.3.3d8
 ====
