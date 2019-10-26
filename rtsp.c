@@ -392,8 +392,9 @@ static char *nextline(char *in, int inbuf) {
     if (*in == '\r') {
       *in++ = 0;
       out = in;
+      inbuf--;
     }
-    if (*in == '\n') {
+    if ((*in == '\n') && (inbuf)) {
       *in++ = 0;
       out = in;
     }
@@ -569,13 +570,15 @@ int msg_handle_line(rtsp_message **pmsg, char *line) {
   }
 
 fail:
+  debug(3,"msg_handle_line fail");
   msg_free(pmsg);
+  *pmsg = NULL;
   return 0;
 }
 
 enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_message **the_packet) {
 
-  *the_packet = NULL; // need this for erro handling
+  *the_packet = NULL; // need this for error handling
 
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
@@ -622,6 +625,17 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       reply = rtsp_read_request_response_read_error;
       goto shutdown;
     }
+
+/* // this outputs the message received    
+    {
+    void *pt = malloc(nread+1);
+    memset(pt, 0, nread+1);
+    memcpy(pt, buf + inbuf, nread);
+    debug(1, "Incoming string on port: \"%s\"",pt);
+    free(pt);    
+    }
+*/
+    
     inbuf += nread;
 
     char *next;
@@ -629,8 +643,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       msg_size = msg_handle_line(the_packet, buf);
 
       if (!(*the_packet)) {
-        warn("no RTSP header received");
-        reply = rtsp_read_request_response_bad_packet;
+        warn("Closing the session because an RTSP header was missing in an incoming packet.");
+        reply = rtsp_read_request_response_read_error;
         goto shutdown;
       }
 
