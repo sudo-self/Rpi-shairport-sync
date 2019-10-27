@@ -1,7 +1,40 @@
-Version 3.3.2
-===
+Version 3.3.3
+====
 Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
 
+**Bug Fixes**
+* Fixes a deferred crash that occurred in Ubuntu 14.04: the `shairport-sync` daemon would silently die after a fairly long period. It typically happened just after a DHCP address was renewed. The problem seemed to be related to having more than one `avahi` threaded polling loop (though this isn't documented anywhere). The fix was to consolidate the `avahi` stuff down to one threaded polling loop. Addresses issue [#895](https://github.com/mikebrady/shairport-sync/issues/895). Thanks to [Hans (the) MCUdude](https://github.com/MCUdude) for reporting and for initial troubleshooting.
+
+* Fixes a potential crash when an incomplete `fmtp` parameter set is sent by the requesting client. Thanks to [Angus71](https://github.com/Angus71) for the fault report and for the repair.
+
+* Fixed a potential crash -- if a plain HTTP packet (in fact, any packet that didn't have an RTSP-style header) was sent to the TCP session port (usually port 5000), Shairport Sync would crash! Thanks to @[dubo-dubon-duponey](https://github.com/dubo-dubon-duponey) for reporting. Fixes [#921](https://github.com/mikebrady/shairport-sync/issues/921).
+
+* A fix ensures the hardware mixer of an `alsa` device is detected and initialised before responding to the first volume setting.
+
+* Fixes were made to the MPRIS and native D-Bus interfaces. In particular, situations where artwork is absent are better handled, and the remote interface and advanced remote interface `availability` properties should be more resilient in the face of network problems. Addresses issue [#890](https://github.com/mikebrady/shairport-sync/issues/890).  Improvements were made to the detection of the remote services available when an audio source is playing. If the source is minimally compatible, e.g. iOS, Shairport Sync's `org.gnome.ShairportSync.RemoteControl` native `dbus` interface becomes "`available`". If the source is iTunes, then the `org.gnome.ShairportSync.AdvancedRemoteControl` interface also becomes `available`. Artwork, metadata, status and limited remote control facilities are accessible through these interfaces when they are in the `available` state. Thanks to [exoqrtx](https://github.com/exoqrtx) for bringing these issues to light and for testing.
+
+* Fixes an error whereby the `'pvol'`volume metadata was no longer sent if Shairport Sync was configured to ignore volume control information coming from the audio source. Addresses issue [#903](https://github.com/mikebrady/shairport-sync/issues/903). Thanks to [Jordan Bass](https://github.com/jorbas) for reporting the regression and for identifying the commit and code in which the regression occurred.
+
+**Enhancements**
+* Instead of returning `EXIT_FAILURE`, return `EXIT_WITH_SUCCESS` on early exit with either "version" (`–version` or `-V`) or "help" (`–help` or `-h`) arguments. Thanks to [Henrik Nilsson](https://github.com/henriknil) for the patch.
+
+* Normalises the `'pvol`' volume outputs so that when both the software and hardware attenuators are in use to extend the overall attenuation range, the maximum output level corresponds to the maximum output level of the hardware mixer.
+
+* Add the option of including the file and line number of each log entry's source. The option is on by default and is settable in the configuration file and in the `dbus` interface.
+
+* Rewrite the logic for identifying missing packets of audio and for asking for resends. It seems more robust -- there was a suspicion of the previous logic that resend requests were not made for some missing packets. In addition, requests for resends of continuous sequences of packets are rolled into one.
+
+* Expose the advanced settings controlling the resend request logic. The new settings are in the `general` section:
+  * `resend_control_first_check_time` is the time allowed to elapse before a packet is considered missing, defaulting to 0.1 sec. UDP packets don't always arrive in order and they don't need to be re-requested just because they arrive out of sequence. Essentially, therefore, this parameter is to prevent needless resend requests for packets that are already in transit.
+  * `resend_control_check_interval_time` is the interval between repeated requests for a missing packet, defaulting to 0.25 seconds. 
+  * `resend_control_last_check_time` is the time by which the last check should be done before the estimated time of a missing packet's transfer to the output buffer, defaulting to 0.1 seconds. In other words, if a packet is still missing 0.1 seconds before it is due to be transferred to the DAC's output buffer, don't bother asking for a resend.
+
+* Exposes two advanced `metadata` settings related to handling cover art:
+  * The setting `cover_art_cache_directory` allows you to specify where cover art files will be cached if Shairport Sync has been built with native D-Bus, MPRIS or MQTT support. The default is `/tmp/shairport-sync/.cache/coverart`. If you set it to an empty list: `""`, caching is disabled. This might be useful in, say, an embedded device, or wherever you want to minimise file writing.
+  * The setting `retain_cover_art` is part of the `diagnostics` group. Set it to `"yes"` to retain cover art cached by the D-Bus, MPRIS or `mqtt` interfaces. Your directory may fill up if you leave it set!
+
+Version 3.3.2
+===
 **Bug Fixes**
 * Fix a bug that sometimes caused a crash when a service name was specified in the configuration file. The fix was to be more systematic in allocating and deallocating memory for temporary strings. Thanks to [Chris Boot](https://github.com/bootc), [Ari Sovijarvi](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577#5), [Bernhard Übelacker](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577#10) and [Jeroen Massar](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577#17) for the bug report. Fixes [Debian Bug report #925577]( https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=925577) and supercedes [Pull Request #879](https://github.com/mikebrady/shairport-sync/pull/879).
 * Correct some documentation typos – thanks again to [Chris Boot](https://github.com/bootc).
