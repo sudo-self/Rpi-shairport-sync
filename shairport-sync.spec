@@ -1,5 +1,5 @@
 Name:           shairport-sync
-Version:        3.3.2
+Version:        3.3.3
 Release:        1%{?dist}
 Summary:        AirTunes emulator. Multi-Room with Audio Synchronisation
 # MIT licensed except for tinysvcmdns under BSD, 
@@ -66,6 +66,8 @@ getent passwd %{name} &> /dev/null || useradd --system -c "%{name} User" \
 %license LICENSES
 
 %changelog
+* Sun Oct 27 2019 Mike Brady <mikebrady@eircom.net) 3.3.3
+- Bug fixes and minor enhancements.
 * Fri Jul 26 2019 Mike Brady <mikebrady@eircom.net) 3.3.2
 - Minor bug fixes.
 * Wed Jun 05 2019 Mike Brady <mikebrady@eircom.net) 3.3.1
@@ -81,12 +83,12 @@ getent passwd %{name} &> /dev/null || useradd --system -c "%{name} User" \
 * Thu Dec 21 2017 Mike Brady <mikebrady@eircom.net> 3.1.7
 - Bug fix for unexpectedly resuming play at full volume from iOS 11.2 and macOS 10.3.2.
 * Mon Dec 11 2017 Mike Brady <mikebrady@eircom.net> 3.1.5
-- Bug fixes and better compatability with iOS 11.2 and mac OS 10.13.2.
+- Bug fixes and better compatibility with iOS 11.2 and mac OS 10.13.2.
 - Better AirPlay synchronisation.
 * Wed Sep 13 2017 Bill Peck <bpeck@redhat.com> 3.1.2-1
 - New upstream release
 - The default value for the alsa setting mute_using_playback_switch has
-  been changed to "no" for compatability with other audio players on the
+  been changed to "no" for compatibility with other audio players on the
   same machine. Because of this you may need to unmute your audio device
   if you are upgrading from an older release.
 - Fixed bugs that made Shairport Sync drop out or become unavailable when

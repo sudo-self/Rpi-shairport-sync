@@ -122,12 +122,44 @@ static void ab_resync(rtsp_conn_info *conn) {
   int i;
   for (i = 0; i < BUFFER_FRAMES; i++) {
     conn->audio_buffer[i].ready = 0;
-    conn->audio_buffer[i].resend_level = 0;
+    conn->audio_buffer[i].resend_request_number = 0;
+    conn->audio_buffer[i].resend_time = 0; // this is either zero or the time the last resend was requested.
+    conn->audio_buffer[i].initialisation_time = 0; // this is either the time the packet was received or the time it was noticed the packet was missing.    
     conn->audio_buffer[i].sequence_number = 0;
   }
   conn->ab_synced = 0;
   conn->last_seqno_read = -1;
   conn->ab_buffering = 1;
+}
+
+// given starting and ending points as unsigned 16-bit integers running modulo 2^16, returns the
+// position of x in the interval in *pos
+// returns true if x is actually within the buffer
+
+int position_in_modulo_uint16_t_buffer(uint16_t x, uint16_t start, uint16_t end, uint16_t *pos) {
+  int response = 0; // not in the buffer
+  if (start <= end) {
+    if (x < start) { // this means that it's up around the wrap
+      if (pos)
+        *pos = UINT16_MAX - start + 1 + x;
+    } else {
+      if (pos)
+        *pos = x - start;
+      if (x < end)
+        response = 1;
+    }
+  } else if ((x >= start)) { // && (x <= UINT16_MAX)) { // always true
+    response = 1;
+    if (pos)
+      *pos = x - start;
+  } else {
+    if (pos)
+      *pos = UINT16_MAX - start + 1 + x;
+    if (x < end) {
+      response = 1;
+    }
+  }
+  return response;
 }
 
 // given starting and ending points as unsigned 32-bit integers running modulo 2^32, returns the
@@ -146,7 +178,7 @@ int position_in_modulo_uint32_t_buffer(uint32_t x, uint32_t start, uint32_t end,
       if (x < end)
         response = 1;
     }
-  } else if ((x >= start) && (x <= UINT32_MAX)) {
+  } else if ((x >= start)) { // && (x <= UINT32_MAX)) { // always true
     response = 1;
     if (pos)
       *pos = x - start;
@@ -170,7 +202,7 @@ static inline seq_t SUCCESSOR(seq_t x) {
 
 // used in seq_diff and seq_order
 
-// anything with ORDINATE in it must be proctected by the ab_mutex
+// anything with ORDINATE in it must be protected by the ab_mutex
 static inline int32_t ORDINATE(seq_t x, seq_t base) {
   int32_t p = x;    // int32_t from seq_t, i.e. uint16_t, so okay
   int32_t q = base; // int32_t from seq_t, i.e. uint16_t, so okay
@@ -432,6 +464,8 @@ static void free_audio_buffers(rtsp_conn_info *conn) {
     free(conn->audio_buffer[i].data);
 }
 
+int first_possibly_missing_frame = -1;
+
 void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, int len,
                        rtsp_conn_info *conn) {
 
@@ -444,11 +478,11 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
   }
 
   debug_mutex_lock(&conn->ab_mutex, 30000, 0);
+  uint64_t time_now = get_absolute_time_in_fp();
   conn->packet_count++;
   conn->packet_count_since_flush++;
-  conn->time_of_last_audio_packet = get_absolute_time_in_fp();
+  conn->time_of_last_audio_packet = time_now;
   if (conn->connection_state_to_output) { // if we are supposed to be processing these packets
-
     if ((conn->flush_rtp_timestamp != 0) && (actual_timestamp != conn->flush_rtp_timestamp) &&
         (modulo_32_offset(actual_timestamp, conn->flush_rtp_timestamp) <
          conn->input_rate * 10)) { // if it's less than 10 seconds
@@ -459,19 +493,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       conn->initial_reference_time = 0;
       conn->initial_reference_timestamp = 0;
     } else {
-      /*
-        if ((conn->flush_rtp_timestamp != 0) &&
-            (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) > conn->input_rate / 5)
-        &&
-            (modulo_32_offset(conn->flush_rtp_timestamp, actual_timestamp) < conn->input_rate)) {
-          // between 0.2 and 1 second
-          debug(2, "Dropping flush request in player_put_packet");
-          conn->flush_rtp_timestamp = 0;
-        }
-      */
-
       abuf_t *abuf = 0;
-
       if (!conn->ab_synced) {
         // if this is the first packet...
         debug(3, "syncing to seqno %u.", seqno);
@@ -479,42 +501,20 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
         conn->ab_read = seqno;
         conn->ab_synced = 1;
       }
-
-      // here, we should check for missing frames
-      int resend_interval = (((250 * 44100) / 352) / 1000); // approximately 250 ms intervals
-      const int number_of_resend_attempts = 8;
-      int latency_based_resend_interval =
-          (conn->latency) / (number_of_resend_attempts * conn->max_frames_per_packet);
-      if (latency_based_resend_interval > resend_interval)
-        resend_interval = latency_based_resend_interval;
-
-      if (conn->resend_interval != resend_interval) {
-        debug(2, "Resend interval for latency of %u frames is %d frames.", conn->latency,
-              resend_interval);
-        conn->resend_interval = resend_interval;
-      }
-
       if (conn->ab_write ==
           seqno) { // if this is the expected packet (which could be the first packet...)
-        uint64_t reception_time = get_absolute_time_in_fp();
         if (conn->input_frame_rate_starting_point_is_valid == 0) {
           if ((conn->packet_count_since_flush >= 500) && (conn->packet_count_since_flush <= 510)) {
-            conn->frames_inward_measurement_start_time = reception_time;
+            conn->frames_inward_measurement_start_time = time_now;
             conn->frames_inward_frames_received_at_measurement_start_time = actual_timestamp;
             conn->input_frame_rate_starting_point_is_valid = 1; // valid now
           }
         }
-
-        conn->frames_inward_measurement_time = reception_time;
+        conn->frames_inward_measurement_time = time_now;
         conn->frames_inward_frames_received_at_measurement_time = actual_timestamp;
-
         abuf = conn->audio_buffer + BUFIDX(seqno);
         conn->ab_write = SUCCESSOR(seqno); // move the write pointer to the next free space
       } else if (seq_order(conn->ab_write, seqno, conn->ab_read)) { // newer than expected
-        // if (ORDINATE(seqno)>(BUFFER_FRAMES*7)/8)
-        // debug(1,"An interval of %u frames has opened, with ab_read: %u, ab_write: %u and
-        // seqno:
-        // %u.",seq_diff(ab_read,seqno),ab_read,ab_write,seqno);
         int32_t gap = seq_diff(conn->ab_write, seqno, conn->ab_read);
         if (gap <= 0)
           debug(1, "Unexpected gap size: %d.", gap);
@@ -522,8 +522,10 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
         for (i = 0; i < gap; i++) {
           abuf = conn->audio_buffer + BUFIDX(seq_sum(conn->ab_write, i));
           abuf->ready = 0; // to be sure, to be sure
-          abuf->resend_level = 0;
-          // abuf->timestamp = 0;
+          abuf->resend_request_number = 0;
+          abuf->initialisation_time = time_now; // this represents when the packet was noticed to be missing
+          abuf->status = 1 << 0; // signifying missing
+          abuf->resend_time = 0;
           abuf->given_timestamp = 0;
           abuf->sequence_number = 0;
         }
@@ -532,80 +534,116 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
         //        rtp_request_resend(ab_write, gap);
         //        resend_requests++;
         conn->ab_write = SUCCESSOR(seqno);
-      } else if (seq_order(conn->ab_read, seqno, conn->ab_read)) { // late but not yet played
+      } else if (seq_order(conn->ab_read, seqno, conn->ab_read)) { // older than expected but not too late
         conn->late_packets++;
         abuf = conn->audio_buffer + BUFIDX(seqno);
-        /*
-        if (abuf->ready)
-                debug(1,"Late apparently duplicate packet received that is %d packets
-        late.",seq_diff(seqno, conn->ab_write, conn->ab_read));
-        else
-                debug(1,"Late packet received that is %d packets late.",seq_diff(seqno,
-        conn->ab_write, conn->ab_read));
-              */
       } else { // too late.
-
-        // debug(1,"Too late packet received that is %d packets late.",seq_diff(seqno,
-        // conn->ab_write, conn->ab_read));
         conn->too_late_packets++;
       }
-      // pthread_mutex_unlock(&ab_mutex);
 
       if (abuf) {
         int datalen = conn->max_frames_per_packet;
+        abuf->initialisation_time = time_now;
+        abuf->resend_time = 0;
         if (audio_packet_decode(abuf->data, &datalen, data, len, conn) == 0) {
           abuf->ready = 1;
+          abuf->status = 0; // signifying that it was received
           abuf->length = datalen;
-          // abuf->timestamp = ltimestamp;
           abuf->given_timestamp = actual_timestamp;
           abuf->sequence_number = seqno;
         } else {
           debug(1, "Bad audio packet detected and discarded.");
           abuf->ready = 0;
-          abuf->resend_level = 0;
-          // abuf->timestamp = 0;
+          abuf->status = 1 << 1; // bad packet, discarded
+          abuf->resend_request_number = 0;
           abuf->given_timestamp = 0;
           abuf->sequence_number = 0;
         }
       }
 
-      // pthread_mutex_lock(&ab_mutex);
       int rc = pthread_cond_signal(&conn->flowcontrol);
       if (rc)
         debug(1, "Error signalling flowcontrol.");
+      
+      // resend checks
+      {
+      	uint64_t minimum_wait_time = (uint64_t)(config.resend_control_first_check_time * (uint64_t)0x100000000);
+      	uint64_t resend_repeat_interval = (uint64_t)(config.resend_control_check_interval_time * (uint64_t)0x100000000);
+      	uint64_t minimum_remaining_time = (uint64_t)((config.resend_control_last_check_time + config.audio_backend_buffer_desired_length)* (uint64_t)0x100000000);
+      	uint64_t latency_time = (uint64_t)(conn->latency * (uint64_t)0x100000000);
+      	latency_time = latency_time / (uint64_t)conn->input_rate;
+      	        
+        int x;  // this is the first frame to be checked
+        // if we detected a first empty frame before and if it's still in the buffer!
+        if ((first_possibly_missing_frame >= 0) && (position_in_modulo_uint16_t_buffer(first_possibly_missing_frame, conn->ab_read, conn->ab_write, NULL))) {
+          x = first_possibly_missing_frame;
+        } else {
+          x = conn->ab_read;
+        }
+        
+        first_possibly_missing_frame = -1; // has not been set
+        
+      	int missing_frame_run_count = 0;
+      	int start_of_missing_frame_run = -1;
+        int number_of_missing_frames = 0;
+        while (x != conn->ab_write) {
+          abuf_t *check_buf = conn->audio_buffer + BUFIDX(x);
+          if (!check_buf->ready) {
+            if (first_possibly_missing_frame < 0)
+              first_possibly_missing_frame = x;
+            number_of_missing_frames++;
+            // debug(1, "frame %u's initialisation_time is 0x%" PRIx64 ", latency_time is 0x%" PRIx64 ", time_now is 0x%" PRIx64 ", minimum_remaining_time is 0x%" PRIx64 ".", x, check_buf->initialisation_time, latency_time, time_now, minimum_remaining_time);
+            int too_late = ((check_buf->initialisation_time < (time_now - latency_time)) || ((check_buf->initialisation_time - (time_now - latency_time)) < minimum_remaining_time));
+            int too_early = ((time_now - check_buf->initialisation_time) < minimum_wait_time);
+            int too_soon_after_last_request = ((check_buf->resend_time != 0) && ((time_now - check_buf->resend_time) < resend_repeat_interval)); // time_now can never be less than the time_tag
 
-      // if it's at the expected time, do a look back for missing packets
-      // but release the ab_mutex when doing a resend
-      if (!conn->ab_buffering) {
-        int j;
-        for (j = 1; j <= number_of_resend_attempts; j++) {
-          // check j times, after a short period of has elapsed, assuming 352 frames per packet
-          // the higher the step_exponent, the less it will try. 1 means it will try very
-          // hard. 2.0 seems good.
-          float step_exponent = 2.0;
-          int back_step = (int)(resend_interval * pow(j, step_exponent));
-          int k;
-          for (k = -1; k <= 1; k++) {
-            if ((back_step + k) <
-                seq_diff(conn->ab_read, conn->ab_write,
-                         conn->ab_read)) { // if it's within the range of frames in use...
-              int item_to_check = (conn->ab_write - (back_step + k)) & 0xffff;
-              seq_t next = item_to_check;
-              abuf_t *check_buf = conn->audio_buffer + BUFIDX(next);
-              if ((!check_buf->ready) &&
-                  (check_buf->resend_level <
-                   j)) { // prevent multiple requests from the same level of lookback
-                check_buf->resend_level = j;
-                if (config.disable_resend_requests == 0) {
-                  debug_mutex_unlock(&conn->ab_mutex, 3);
-                  rtp_request_resend(next, 1, conn);
-                  conn->resend_requests++;
-                  debug_mutex_lock(&conn->ab_mutex, 20000, 1);
-                }
+            if (too_late)
+              check_buf->status |= 1<<2; // too late
+            else
+              check_buf->status &= 0xFF-(1<<2); // not too late
+            if (too_early)
+              check_buf->status |= 1<<3; // too early
+            else
+              check_buf->status &= 0xFF-(1<<3); // not too early                            
+            if (too_soon_after_last_request)
+              check_buf->status |= 1<<4; // too soon after last request
+            else
+              check_buf->status &= 0xFF-(1<<4); // not too soon after last request
+                            
+            if ((!too_soon_after_last_request) && (!too_late) && (!too_early)){
+              if (start_of_missing_frame_run == -1) {
+                start_of_missing_frame_run = x;
+                missing_frame_run_count = 1;
+              } else {
+                missing_frame_run_count++;
               }
+              check_buf->resend_time = time_now; // setting the time to now because we are definitely going to take action
+              check_buf->resend_request_number++;
+              debug(3,"Frame %d is missing with ab_read of %u and ab_write of %u.", x, conn->ab_read, conn->ab_write);            
             }
+            // if (too_late) {
+            //   debug(1,"too late to get missing frame %u.", x);
+            // }
+          }
+          //if (number_of_missing_frames != 0)
+          //  debug(1,"check with x = %u, ab_read = %u, ab_write = %u, first_possibly_missing_frame = %d.", x, conn->ab_read, conn->ab_write, first_possibly_missing_frame);
+          x = (x + 1) & 0xffff;
+          if (((check_buf->ready) || (x == conn->ab_write)) && (missing_frame_run_count > 0)) {
+          // send a resend request
+          	if (missing_frame_run_count > 1)
+          	  debug(2,"request resend of %d packets starting at seqno %u.", missing_frame_run_count, start_of_missing_frame_run);         
+            if (config.disable_resend_requests == 0) {
+              debug_mutex_unlock(&conn->ab_mutex, 3);
+              rtp_request_resend(start_of_missing_frame_run, missing_frame_run_count, conn);
+              debug_mutex_lock(&conn->ab_mutex, 20000, 1);
+              conn->resend_requests++;
+            }      
+            start_of_missing_frame_run = -1;
+            missing_frame_run_count = 0;
           }
         }
+        if (number_of_missing_frames == 0)
+          first_possibly_missing_frame = conn->ab_write;
       }
     }
   }
@@ -697,10 +735,7 @@ static inline void process_sample(int32_t sample, char **outp, enum sps_format_t
       break;
     }
     dither_mask -= 1;
-    // int64_t r = r64i();
-    int64_t r = ranarray64i(); // use an array of precalculated pseudorandom numbers rather than
-                               // calculating them on the fly. Should be easier on low-powered
-                               // processors
+    int64_t r = r64i();
 
     int64_t tpdf = (r & dither_mask) - (conn->previous_random_number & dither_mask);
     conn->previous_random_number = r;
@@ -936,7 +971,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                    "timestamp: %" PRIu32 ".",
                 curframe->sequence_number, curframe->given_timestamp, conn->flush_rtp_timestamp);
           curframe->ready = 0;
-          curframe->resend_level = 0;
+          curframe->resend_request_number = 0;
           curframe = NULL; // this will be returned and will cause the loop to go around again
           conn->initial_reference_time = 0;
           conn->initial_reference_timestamp = 0;
@@ -1333,7 +1368,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       curframe->given_timestamp = 0; // indicate a silent frame should be substituted
     }
     curframe->ready = 0;
-    curframe->resend_level = 0;
   }
   conn->ab_read = SUCCESSOR(conn->ab_read);
   pthread_cleanup_pop(1);
@@ -1921,7 +1955,7 @@ void *player_thread_func(void *arg) {
   while (1) {
     pthread_testcancel();                     // allow a pthread_cancel request to take effect.
     abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not
-                                              // guaranteed that they'll aways be executed
+                                              // guaranteed that they'll always be executed
     if (inframe) {
       inbuf = inframe->data;
       inbuflength = inframe->length;
@@ -1931,8 +1965,8 @@ void *player_thread_func(void *arg) {
         //          debug(3, "Play frame %d.", play_number);
         conn->play_number_after_flush++;
         if (inframe->given_timestamp == 0) {
-          debug(3, "Player has supplied a silent frame, (possibly frame %u) for play number %d.",
-                SUCCESSOR(conn->last_seqno_read), play_number);
+          debug(1, "Player has supplied a silent frame, (possibly frame %u) for play number %d, status 0x%X after %u resend requests.",
+                SUCCESSOR(conn->last_seqno_read), play_number, inframe->status, inframe->resend_request_number);
           conn->last_seqno_read = (SUCCESSOR(conn->last_seqno_read) &
                                    0xffff); // manage the packet out of sequence minder
 
@@ -1942,7 +1976,7 @@ void *player_thread_func(void *arg) {
             debug(1, "Failed to allocate memory for a silent frame silence buffer.");
           } else {
             // the player may change the contents of the buffer, so it has to be zeroed each time;
-            // might as well malloc and freee it locally
+            // might as well malloc and free it locally
             conn->previous_random_number = generate_zero_frames(
                 silence, conn->max_frames_per_packet * conn->output_sample_ratio,
                 config.output_format, conn->enable_dither, conn->previous_random_number);
@@ -1964,7 +1998,7 @@ void *player_thread_func(void *arg) {
             debug(1, "Failed to allocate memory for a flush silence buffer.");
           } else {
             // the player may change the contents of the buffer, so it has to be zeroed each time;
-            // might as well malloc and freee it locally
+            // might as well malloc and free it locally
             conn->previous_random_number = generate_zero_frames(
                 silence, conn->max_frames_per_packet * conn->output_sample_ratio,
                 config.output_format, conn->enable_dither, conn->previous_random_number);
@@ -2475,6 +2509,8 @@ void *player_thread_func(void *arg) {
           // mark the frame as finished
           inframe->given_timestamp = 0;
           inframe->sequence_number = 0;
+          inframe->resend_time = 0;
+          inframe->initialisation_time = 0;
 
           // update the watchdog
           if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
@@ -2692,7 +2728,6 @@ void *player_thread_func(void *arg) {
 
 void player_volume_without_notification(double airplay_volume, rtsp_conn_info *conn) {
   debug_mutex_lock(&conn->volume_control_mutex, 5000, 1);
-  debug(2, "player_volume_without_notification %f", airplay_volume);
   // first, see if we are hw only, sw only, both with hw attenuation on the top or both with sw
   // attenuation on top
 
@@ -2704,6 +2739,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
 
   int32_t hw_max_db = 0, hw_min_db = 0; // zeroed to quieten an incorrect uninitialised warning
   int32_t sw_max_db = 0, sw_min_db = -9630;
+  
   if (config.output->parameters) {
     volume_mode = vol_hw_only;
     audio_parameters audio_information;
@@ -2873,20 +2909,25 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
       if (config.logOutputLevel) {
         inform("Output Level set to: %.2f dB.", scaled_attenuation / 100.0);
       }
-
+      
 #ifdef CONFIG_METADATA
+  // here, send the 'pvol' metadata message when the airplay volume information
+  // is being used by shairport sync to control the output volume
       char *dv = malloc(128); // will be freed in the metadata thread
       if (dv) {
         memset(dv, 0, 128);
-        if (config.ignore_volume_control == 1)
-          snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, 0.0, 0.0, 0.0);
-        else
+        if (volume_mode == vol_both) {
+          // normalise the maximum output to the hardware device's max output
+          snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, (scaled_attenuation - max_db + hw_max_db) / 100.0,
+                   (min_db - max_db + hw_max_db) / 100.0, (max_db - max_db + hw_max_db) / 100.0);        
+        } else {
           snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, scaled_attenuation / 100.0,
                    min_db / 100.0, max_db / 100.0);
+        }
         send_ssnc_metadata('pvol', dv, strlen(dv), 1);
       }
 #endif
-      // here, store the volume for possible use in the future
+
 
       if (config.output->mute)
         config.output->mute(0);
@@ -2898,6 +2939,22 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
             volume_mode, airplay_volume, software_attenuation, hardware_attenuation);
     }
   }
+
+#ifdef CONFIG_METADATA
+ else {
+      // here, send the 'pvol' metadata message when the airplay volume information
+      // is being used by shairport sync to control the output volume
+      char *dv = malloc(128); // will be freed in the metadata thread
+      if (dv) {
+        memset(dv, 0, 128);
+        snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, 0.0, 0.0, 0.0);
+        send_ssnc_metadata('pvol', dv, strlen(dv), 1);
+      }
+  }
+#endif
+
+ 
+  // here, store the volume for possible use in the future
   config.airplay_volume = airplay_volume;
   debug_mutex_unlock(&conn->volume_control_mutex, 3);
 }

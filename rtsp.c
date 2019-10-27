@@ -392,8 +392,9 @@ static char *nextline(char *in, int inbuf) {
     if (*in == '\r') {
       *in++ = 0;
       out = in;
+      inbuf--;
     }
-    if (*in == '\n') {
+    if ((*in == '\n') && (inbuf)) {
       *in++ = 0;
       out = in;
     }
@@ -569,20 +570,22 @@ int msg_handle_line(rtsp_message **pmsg, char *line) {
   }
 
 fail:
+  debug(3,"msg_handle_line fail");
   msg_free(pmsg);
+  *pmsg = NULL;
   return 0;
 }
 
 enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_message **the_packet) {
 
-  *the_packet = NULL; // need this for erro handling
+  *the_packet = NULL; // need this for error handling
 
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
   int release_buffer = 0;         // on exit, don't deallocate the buffer if everything was okay
   char *buf = malloc(buflen + 1); // add a NUL at the end
   if (!buf) {
-    warn("rtsp_read_request: can't get a buffer.");
+    warn("Connection %d: rtsp_read_request: can't get a buffer.", conn->connection_number);
     return (rtsp_read_request_response_error);
   }
   pthread_cleanup_push(malloc_cleanup, buf);
@@ -591,17 +594,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
   int msg_size = -1;
 
   while (msg_size < 0) {
-    /*
-fd_set readfds;
-FD_ZERO(&readfds);
-FD_SET(conn->fd, &readfds);
-do {
-  memory_barrier();
-} while (conn->stop == 0 &&
-         pselect(conn->fd + 1, &readfds, NULL, NULL, NULL, &pselect_sigset) <= 0);
-*/
     if (conn->stop != 0) {
-      debug(3, "RTSP conversation thread %d shutdown requested.", conn->connection_number);
+      debug(3, "Connection %d: shutdown requested.", conn->connection_number);
       reply = rtsp_read_request_response_immediate_shutdown_requested;
       goto shutdown;
     }
@@ -610,7 +604,7 @@ do {
 
     if (nread == 0) {
       // a blocking read that returns zero means eof -- implies connection closed
-      debug(3, "RTSP conversation thread %d -- connection closed.", conn->connection_number);
+      debug(3, "Connection %d: -- connection closed.", conn->connection_number);
       reply = rtsp_read_request_response_channel_closed;
       goto shutdown;
     }
@@ -619,7 +613,7 @@ do {
       if (errno == EINTR)
         continue;
       if (errno == EAGAIN) {
-        debug(1, "Getting Error 11 -- EAGAIN from a blocking read!");
+        debug(1, "Connection %d: getting Error 11 -- EAGAIN from a blocking read!", conn->connection_number);
         continue;
       }
       if (errno != ECONNRESET) {
@@ -631,6 +625,17 @@ do {
       reply = rtsp_read_request_response_read_error;
       goto shutdown;
     }
+
+/* // this outputs the message received    
+    {
+    void *pt = malloc(nread+1);
+    memset(pt, 0, nread+1);
+    memcpy(pt, buf + inbuf, nread);
+    debug(1, "Incoming string on port: \"%s\"",pt);
+    free(pt);    
+    }
+*/
+    
     inbuf += nread;
 
     char *next;
@@ -638,7 +643,7 @@ do {
       msg_size = msg_handle_line(the_packet, buf);
 
       if (!(*the_packet)) {
-        warn("no RTSP header received");
+        debug(1,"Connection %d: rtsp_read_request can't find an RTSP header.", conn->connection_number);
         reply = rtsp_read_request_response_bad_packet;
         goto shutdown;
       }
@@ -652,7 +657,7 @@ do {
   if (msg_size > buflen) {
     buf = realloc(buf, msg_size + 1);
     if (!buf) {
-      warn("too much content");
+      warn("Connection %d: too much content.", conn->connection_number);
       reply = rtsp_read_request_response_error;
       goto shutdown;
     }
@@ -684,16 +689,6 @@ do {
       }
     }
 
-    /*
-    fd_set readfds;
-    FD_ZERO(&readfds);
-    FD_SET(conn->fd, &readfds);
-    do {
-      memory_barrier();
-    } while (conn->stop == 0 &&
-             pselect(conn->fd + 1, &readfds, NULL, NULL, NULL, &pselect_sigset) <= 0);
-    */
-
     if (conn->stop != 0) {
       debug(1, "RTSP shutdown requested.");
       reply = rtsp_read_request_response_immediate_shutdown_requested;
@@ -711,8 +706,17 @@ do {
     if (nread < 0) {
       if (errno == EINTR)
         continue;
-      perror("read failure");
-      reply = rtsp_read_request_response_error;
+      if (errno == EAGAIN) {
+        debug(1, "Getting Error 11 -- EAGAIN from a blocking read!");
+        continue;
+      }
+      if (errno != ECONNRESET) {
+        char errorstring[1024];
+        strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+        debug(1, "Connection %d: rtsp_read_request_response_read_error %d: \"%s\".",
+              conn->connection_number, errno, (char *)errorstring);
+      }
+      reply = rtsp_read_request_response_read_error;
       goto shutdown;
     }
     inbuf += nread;
@@ -1137,7 +1141,7 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 //    Specifically, it's the "X-Apple-Client-Name" string
 //    'snua' -- A "user agent" -- e.g. "iTunes/12..." -- has opened a play
 //    session. Specifically, it's the "User-Agent" string
-//    The next two two tokens are to facilitiate remote control of the source.
+//    The next two two tokens are to facilitate remote control of the source.
 //    There is some information at http://nto.github.io/AirPlay.html about
 //    remote control of the source.
 //
@@ -1866,10 +1870,28 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     if (pfmtp) {
       conn->stream.type = ast_apple_lossless;
       debug(3, "An ALAC stream has been detected.");
-      unsigned int i;
-      for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
-        conn->stream.fmtp[i] = atoi(strsep(&pfmtp, " \t"));
-      // here we should check the sanity ot the fmtp values
+
+      // Set reasonable connection defaults
+      conn->stream.fmtp[0] = 96;
+      conn->stream.fmtp[1] = 352;
+      conn->stream.fmtp[2] = 0;
+      conn->stream.fmtp[3] = 16;
+      conn->stream.fmtp[4] = 40;
+      conn->stream.fmtp[5] = 10;
+      conn->stream.fmtp[6] = 14;
+      conn->stream.fmtp[7] = 2;
+      conn->stream.fmtp[8] = 255;
+      conn->stream.fmtp[9] = 0;
+      conn->stream.fmtp[10] = 0;
+      conn->stream.fmtp[11] = 44100;
+
+      unsigned int i = 0;
+      unsigned int max_param = sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]);
+      char* found;
+      while ((found = strsep(&pfmtp, " \t")) != NULL && i < max_param) {
+        conn->stream.fmtp[i++] = atoi(found);          
+      }
+      // here we should check the sanity of the fmtp values
       // for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
       //  debug(1,"  fmtp[%2d] is: %10d",i,conn->stream.fmtp[i]);
 
@@ -2387,16 +2409,6 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       debug(debug_level, "Connection %d: RTSP Response:", conn->connection_number);
       debug_print_msg_headers(debug_level, resp);
 
-      /*
-      fd_set writefds;
-      FD_ZERO(&writefds);
-      FD_SET(conn->fd, &writefds);
-      do {
-        memory_barrier();
-      } while (conn->stop == 0 &&
-               pselect(conn->fd + 1, NULL, &writefds, NULL, NULL, &pselect_sigset) <= 0);
-      */
-
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
@@ -2447,6 +2459,17 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         } else {
           tstop = 1;
+        }
+      } else if (reply == rtsp_read_request_response_bad_packet) {
+        char *response_text = "RTSP/1.0 400 Bad Request\r\nServer: AirTunes/105.1\r\n\r\n";
+        ssize_t reply = write(conn->fd, response_text, strlen(response_text));
+        if (reply == -1) {
+          char errorstring[1024];
+          strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+          debug(1, "rtsp_read_request_response_bad_packet write response error %d: \"%s\".", errno, (char *)errorstring);
+        } else if (reply != (ssize_t)strlen(response_text)) {
+          debug(1, "rtsp_read_request_response_bad_packet write %d bytes requested but %d written.", strlen(response_text),
+                reply);
         }
       } else {
         debug(1, "Connection %d: rtsp_read_request error %d, packet ignored.",

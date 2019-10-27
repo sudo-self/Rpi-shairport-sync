@@ -106,6 +106,7 @@
 
 #ifdef CONFIG_LIBDAEMON
 pid_t pid;
+int this_is_the_daemon_process = 0;
 #endif
 
 int killOption = 0;
@@ -115,42 +116,6 @@ int daemonisewithout = 0;
 // static int shutting_down = 0;
 char configuration_file_path[4096 + 1];
 char actual_configuration_file_path[4096 + 1];
-
-static void sig_ignore(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
-                       __attribute__((unused)) void *baz) {}
-static void sig_shutdown(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
-                         __attribute__((unused)) void *baz) {
-  debug(2, "shutdown requested...");
-#ifdef CONFIG_LIBDAEMON
-  if (pid == 0) {
-    daemon_retval_send(255);
-    daemon_pid_file_remove();
-  }
-#endif
-  exit(EXIT_SUCCESS);
-}
-
-static void sig_child(__attribute__((unused)) int foo, __attribute__((unused)) siginfo_t *bar,
-                      __attribute__((unused)) void *baz) {
-  // wait for child processes to exit
-  pid_t pid;
-  while ((pid = waitpid((pid_t)-1, 0, WNOHANG)) > 0) {
-  }
-}
-
-static void sig_disconnect_audio_output(__attribute__((unused)) int foo,
-                                        __attribute__((unused)) siginfo_t *bar,
-                                        __attribute__((unused)) void *baz) {
-  debug(1, "disconnect audio output requested.");
-  set_requested_connection_state_to_output(0);
-}
-
-static void sig_connect_audio_output(__attribute__((unused)) int foo,
-                                     __attribute__((unused)) siginfo_t *bar,
-                                     __attribute__((unused)) void *baz) {
-  debug(1, "connect audio output requested.");
-  set_requested_connection_state_to_output(1);
-}
 
 void print_version(void) {
   char *version_string = get_version_string();
@@ -437,20 +402,21 @@ int parse_options(int argc, char **argv) {
 // i.e. when reducing volume, reduce the sw first before reducing the software.
 // this is because some hw mixers mute at the bottom of their range, and they don't always advertise
 // this fact
+  config.resend_control_first_check_time = 0.10; // wait this many seconds before requesting the resending of a missing packet
+  config.resend_control_check_interval_time = 0.25; // wait this many seconds before again requesting the resending of a missing packet
+  config.resend_control_last_check_time = 0.10; // give up if the packet is still missing this close to when it's needed
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
   config.scan_interval_when_active =
       1; // number of seconds between DACP server scans when playing something
   config.scan_interval_when_inactive =
-      3; // number of seconds between DACP server scans playing nothing
+      1; // number of seconds between DACP server scans when playing nothing
   config.scan_max_bad_response_count =
       5; // number of successive bad results to ignore before giving up
-  config.scan_max_inactive_count =
-      (15 * 60) / config.scan_interval_when_inactive; // number of scans to do before stopping if
-                                                      // not made active again (15 minutes)
-//  config.scan_max_inactive_count = 5; // number of scans to do before stopping if not made active
-//  again (15 minutes )
+  //config.scan_max_inactive_count =
+  //    (365 * 24 * 60 * 60) / config.scan_interval_when_inactive; // number of scans to do before stopping if
+                                                      // not made active again (not used)
 #endif
 
   // config_setting_t *setting;
@@ -611,6 +577,17 @@ int parse_options(int argc, char **argv) {
               "between 0 and 3, "
               "inclusive.",
               value);
+      }
+
+      /* Get the config.debugger_show_file_and_line in debug messages setting. */
+      if (config_lookup_string(config.cfg, "diagnostics.log_show_file_and_line", &str)) {
+        if (strcasecmp(str, "no") == 0)
+          config.debugger_show_file_and_line = 0;
+        else if (strcasecmp(str, "yes") == 0)
+          config.debugger_show_file_and_line = 1;
+        else
+          die("Invalid diagnostics log_show_file_and_line option choice \"%s\". It should be "
+              "\"yes\" or \"no\"");
       }
 
       /* Get the show elapsed time in debug messages setting. */
@@ -789,6 +766,44 @@ int parse_options(int argc, char **argv) {
         } else
           die("Invalid alac_decoder option choice \"%s\". It should be \"hammerton\" or \"apple\"");
       }
+      
+      
+      /* Get the resend control settings. */
+      if (config_lookup_float(config.cfg, "general.resend_control_first_check_time",
+                              &dvalue)) {
+        if ((dvalue >= 0.0) && (dvalue <= 3.0))
+          config.resend_control_first_check_time = dvalue;
+        else
+          warn("Invalid general resend_control_first_check_time setting \"%d\". It should "
+              "be "
+              "between 0.0 and 3.0, "
+              "inclusive. The setting remains at %f seconds.",
+              dvalue, config.resend_control_first_check_time);
+      }
+
+      if (config_lookup_float(config.cfg, "general.resend_control_check_interval_time",
+                              &dvalue)) {
+        if ((dvalue >= 0.0) && (dvalue <= 3.0))
+          config.resend_control_check_interval_time = dvalue;
+        else
+          warn("Invalid general resend_control_check_interval_time setting \"%d\". It should "
+              "be "
+              "between 0.0 and 3.0, "
+              "inclusive. The setting remains at %f seconds.",
+              dvalue, config.resend_control_check_interval_time);
+      }
+
+      if (config_lookup_float(config.cfg, "general.resend_control_last_check_time",
+                              &dvalue)) {
+        if ((dvalue >= 0.0) && (dvalue <= 3.0))
+          config.resend_control_last_check_time = dvalue;
+        else
+          warn("Invalid general resend_control_last_check_time setting \"%d\". It should "
+              "be "
+              "between 0.0 and 3.0, "
+              "inclusive. The setting remains at %f seconds.",
+              dvalue, config.resend_control_last_check_time);
+      }
 
       /* Get the default latency. Deprecated! */
       if (config_lookup_int(config.cfg, "latencies.default", &value))
@@ -832,6 +847,22 @@ int parse_options(int argc, char **argv) {
         config.metadata_sockmsglength = value < 500 ? 500 : value > 65000 ? 65000 : value;
       }
 
+#endif
+
+#ifdef CONFIG_METADATA_HUB
+      if (config_lookup_string(config.cfg, "metadata.cover_art_cache_directory", &str)) {
+        config.cover_art_cache_dir = (char *)str;
+      }
+
+      if (config_lookup_string(config.cfg, "diagnostics.retain_cover_art", &str)) {
+        if (strcasecmp(str, "no") == 0)
+          config.retain_coverart = 0;
+        else if (strcasecmp(str, "yes") == 0)
+          config.retain_coverart = 1;
+        else
+          die("Invalid metadata retain_cover_art option choice \"%s\". It should be \"yes\" or "
+              "\"no\"");
+      }
 #endif
 
       if (config_lookup_string(config.cfg, "sessioncontrol.run_this_before_play_begins", &str)) {
@@ -1143,7 +1174,7 @@ int parse_options(int argc, char **argv) {
   /* Check if we are called with -d or --daemon or -j or justDaemoniseNoPIDFile options*/
   if ((daemonisewith != 0) || (daemonisewithout != 0)) {
     fprintf(stderr, "%s was built without libdaemon, so does not support daemonisation using the "
-                    "-d, --deamon, -j or --justDaemoniseNoPIDFile options\n",
+                    "-d, --daemon, -j or --justDaemoniseNoPIDFile options\n",
             config.appName);
     exit(EXIT_FAILURE);
   }
@@ -1227,46 +1258,6 @@ void *dbus_thread_func(__attribute__((unused)) void *arg) {
 }
 #endif
 
-void signal_setup(void) {
-  // mask off all signals before creating threads.
-  // this way we control which thread gets which signals.
-  // for now, we don't care which thread gets the following.
-  sigset_t set;
-  sigfillset(&set);
-  sigdelset(&set, SIGINT);
-  sigdelset(&set, SIGTERM);
-  sigdelset(&set, SIGHUP);
-  sigdelset(&set, SIGSTOP);
-  sigdelset(&set, SIGCHLD);
-  sigdelset(&set, SIGUSR2);
-  pthread_sigmask(SIG_BLOCK, &set, NULL);
-
-  // SIGUSR1 is used to interrupt a thread if blocked in pselect
-  pthread_sigmask(SIG_SETMASK, NULL, &pselect_sigset);
-  sigdelset(&pselect_sigset, SIGUSR1);
-
-  // setting this to SIG_IGN would prevent signalling any threads.
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(sa));
-  sa.sa_flags = SA_SIGINFO;
-  sa.sa_sigaction = &sig_ignore;
-  sigaction(SIGUSR1, &sa, NULL);
-
-  sa.sa_flags = SA_SIGINFO | SA_RESTART;
-  sa.sa_sigaction = &sig_shutdown;
-  sigaction(SIGINT, &sa, NULL);
-  sigaction(SIGTERM, &sa, NULL);
-
-  sa.sa_sigaction = &sig_disconnect_audio_output;
-  sigaction(SIGUSR2, &sa, NULL);
-
-  sa.sa_sigaction = &sig_connect_audio_output;
-  sigaction(SIGHUP, &sa, NULL);
-
-  sa.sa_sigaction = &sig_child;
-  sigaction(SIGCHLD, &sa, NULL);
-}
-
 #ifdef CONFIG_LIBDAEMON
 char pid_file_path_string[4096] = "\0";
 
@@ -1278,19 +1269,34 @@ const char *pid_file_proc(void) {
 }
 #endif
 
-void main_cleanup_handler(__attribute__((unused)) void *arg) {
-  // it doesn't look like this is called when the main function is cancelled with a pthread cancel.
-  debug(1, "main cleanup handler called.");
+
+void exit_function() {
+
+// the following is to ensure that if libdaemon has been included
+// that most of this code will be skipped when the parent process is exiting
+// exec
+#ifdef CONFIG_LIBDAEMON
+  if (this_is_the_daemon_process) { //this is the daemon that is exiting
+#endif
+  debug(1, "exit function called...");
+
+/*
+Actually, there is no terminate_mqtt() function.
 #ifdef CONFIG_MQTT
   if (config.mqtt_enabled) {
-    // terminate_mqtt();
+    terminate_mqtt(); 
   }
 #endif
+*/
 
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
+
+/*
+Actually, there is no stop_mpris_service() function.
 #ifdef CONFIG_MPRIS_INTERFACE
-// stop_mpris_service();
+  stop_mpris_service();
 #endif
+*/
 #ifdef CONFIG_DBUS_INTERFACE
   stop_dbus_service();
 #endif
@@ -1327,34 +1333,25 @@ void main_cleanup_handler(__attribute__((unused)) void *arg) {
   pthread_join(soxr_time_check_thread, NULL);
 #endif
 
+  
+  if (conns)
+    free(conns); // make sure the connections have been deleted first
+
+  if (config.service_name)
+    free(config.service_name);
+
+  if (config.regtype)
+    free(config.regtype);
+
 #ifdef CONFIG_LIBDAEMON
-  // only do this if you are the daemon
-  if (pid == 0) {
-    daemon_retval_send(0);
-    daemon_pid_file_remove();
-    daemon_signal_done();
+  daemon_retval_send(0);
+  daemon_pid_file_remove();
+  daemon_signal_done();
+  if (config.computed_piddir)
+    free(config.computed_piddir);
   }
 #endif
 
-  debug(2, "Exit...");
-  exit(EXIT_SUCCESS);
-}
-
-void exit_function() {
-  debug(1, "exit function called...");
-  main_cleanup_handler(NULL);
-  if (conns)
-    free(conns); // make sure the connections have been deleted first
-  if (config.service_name)
-    free(config.service_name);
-  if (config.regtype)
-    free(config.regtype);
-#ifdef CONFIG_LIBDAEMON
-  if (config.computed_piddir)
-    free(config.computed_piddir);
-#endif
-  if (ranarray)
-    free((void *)ranarray);
   if (config.cfg)
     config_destroy(config.cfg);
   if (config.appName)
@@ -1363,6 +1360,18 @@ void exit_function() {
 }
 
 int main(int argc, char **argv) {
+  /* Check if we are called with -V or --version parameter */
+  if (argc >= 2 && ((strcmp(argv[1], "-V") == 0) || (strcmp(argv[1], "--version") == 0))) {
+    print_version();
+    exit(EXIT_SUCCESS);
+  }
+
+  /* Check if we are called with -h or --help parameter */
+  if (argc >= 2 && ((strcmp(argv[1], "-h") == 0) || (strcmp(argv[1], "--help") == 0))) {
+    usage(argv[0]);
+    exit(EXIT_SUCCESS);
+  }
+
 #ifdef CONFIG_LIBDAEMON
   pid = getpid();
 #endif
@@ -1424,6 +1433,8 @@ int main(int argc, char **argv) {
   // config.statistics_requested = 0; // don't print stats in the log
   // config.userSuppliedLatency = 0; // zero means none supplied
 
+  config.debugger_show_file_and_line =
+      1;                         // by default, log the file and line of the originating message
   config.debugger_show_relative_time =
       1;                         // by default, log the  time back to the previous debug message
   config.resyncthreshold = 0.05; // 50 ms
@@ -1464,22 +1475,6 @@ int main(int argc, char **argv) {
 
   r64init(0);
 
-  // initialise the randomw number array
-
-  r64arrayinit();
-
-  /* Check if we are called with -V or --version parameter */
-  if (argc >= 2 && ((strcmp(argv[1], "-V") == 0) || (strcmp(argv[1], "--version") == 0))) {
-    print_version();
-    exit(EXIT_FAILURE);
-  }
-
-  /* Check if we are called with -h or --help parameter */
-  if (argc >= 2 && ((strcmp(argv[1], "-h") == 0) || (strcmp(argv[1], "--help") == 0))) {
-    usage(argv[0]);
-    exit(EXIT_FAILURE);
-  }
-
 #ifdef CONFIG_LIBDAEMON
 
   /* Reset signal handlers */
@@ -1494,7 +1489,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  /* Set indentification string for the daemon for both syslog and PID file */
+  /* Set identification string for the daemon for both syslog and PID file */
   daemon_pid_file_ident = daemon_log_ident = daemon_ident_from_argv0(argv[0]);
 
   daemon_pid_file_proc = pid_file_proc;
@@ -1581,6 +1576,8 @@ int main(int argc, char **argv) {
       }
       return ret;
     } else { /* pid == 0 means we are the daemon */
+    
+      this_is_the_daemon_process = 1; // 
 
       /* Close FDs */
       if (daemon_close_all(-1) < 0) {
@@ -1625,8 +1622,6 @@ int main(int argc, char **argv) {
   main_thread_id = pthread_self();
   if (!main_thread_id)
     debug(1, "Main thread is set up to be NULL!");
-
-  signal_setup();
 
   // make sure the program can create files that group and world can read
   umask(S_IWGRP | S_IWOTH);
@@ -1696,7 +1691,7 @@ int main(int argc, char **argv) {
   debug(1, "statistics_requester status is %d.", config.statistics_requested);
 #if CONFIG_LIBDAEMON
   debug(1, "daemon status is %d.", config.daemonise);
-  debug(1, "deamon pid file path is \"%s\".", pid_file_proc());
+  debug(1, "daemon pid file path is \"%s\".", pid_file_proc());
 #endif
   debug(1, "rtsp listening port is %d.", config.port);
   debug(1, "udp base port is %d.", config.udp_port_base);

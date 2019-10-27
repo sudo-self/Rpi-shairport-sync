@@ -100,6 +100,10 @@ enum sps_format_t {
 const char *sps_format_description_string(enum sps_format_t format);
 
 typedef struct {
+  double resend_control_first_check_time; // wait this long before asking for a missing packet to be resent
+  double resend_control_check_interval_time; // wait this long between making requests
+  double resend_control_last_check_time; // if the packet is missing this close to the time of use, give up
+  pthread_mutex_t lock;
   config_t *cfg;
   int endianness;
   double airplay_volume; // stored here for reloading when necessary
@@ -176,6 +180,7 @@ typedef struct {
   int logOutputLevel;              // log output level
   int debugger_show_elapsed_time;  // in the debug message, display the time since startup
   int debugger_show_relative_time; // in the debug message, display the time since the last one
+  int debugger_show_file_and_line; // in the debug message, display the filename and line number
   int statistics_requested, use_negotiated_latencies;
   enum playback_mode_type playback_mode;
   char *cmd_start, *cmd_stop, *cmd_set_volume, *cmd_unfixable;
@@ -247,6 +252,8 @@ typedef struct {
 
 #ifdef CONFIG_METADATA_HUB
   char *cover_art_cache_dir;
+  int retain_coverart;
+
   int scan_interval_when_active;   // number of seconds between DACP server scans when playing
                                    // something (1)
   int scan_interval_when_inactive; // number of seconds between DACP server scans playing nothing
@@ -265,6 +272,10 @@ typedef struct {
 #endif
 
 } shairport_cfg;
+
+// accessors to config for multi-thread access
+double get_config_airplay_volume();
+void set_config_airplay_volume(double v);
 
 uint32_t nctohl(const uint8_t *p); // read 4 characters from *p and do ntohl on them
 uint16_t nctohs(const uint8_t *p); // read 2 characters from *p and do ntohs on them
@@ -295,11 +306,6 @@ void r64init(uint64_t seed);
 uint64_t r64u();
 int64_t r64i();
 
-uint64_t *ranarray;
-void r64arrayinit();
-uint64_t ranarray64u();
-int64_t ranarray64i();
-
 // if you are breaking in to a session, you need to avoid the ports of the current session
 // if you are law-abiding, then you can reuse the ports.
 // so, you can reset the free UDP ports minder when you're legit, and leave it otherwise
@@ -313,10 +319,15 @@ uint16_t nextFreeUDPPort();
 
 volatile int debuglev;
 
-void die(const char *format, ...);
-void warn(const char *format, ...);
-void inform(const char *format, ...);
-void debug(int level, const char *format, ...);
+void _die(const char *filename, const int linenumber, const char *format, ...);
+void _warn(const char *filename, const int linenumber, const char *format, ...);
+void _inform(const char *filename, const int linenumber, const char *format, ...);
+void _debug(const char *filename, const int linenumber, int level, const char *format, ...);
+
+#define die(...) _die(__FILE__, __LINE__, __VA_ARGS__)
+#define debug(...) _debug(__FILE__, __LINE__, __VA_ARGS__)
+#define warn(...) _warn(__FILE__, __LINE__, __VA_ARGS__)
+#define inform(...) _inform(__FILE__, __LINE__, __VA_ARGS__)
 
 uint8_t *base64_dec(char *input, int *outlen);
 char *base64_enc(uint8_t *input, int length);
@@ -362,6 +373,13 @@ void shairport_shutdown();
 
 extern sigset_t pselect_sigset;
 
+pthread_mutex_t the_conn_lock;
+
+#define conn_lock(arg)                                                                             \
+  pthread_mutex_lock(&the_conn_lock);                                                              \
+  arg;                                                                                             \
+  pthread_mutex_unlock(&the_conn_lock);
+
 // wait for the specified time in microseconds -- it checks every 20 milliseconds
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
                                 const char *debugmessage, int debuglevel);
@@ -383,6 +401,19 @@ void pthread_cleanup_debug_mutex_unlock(void *arg);
   if (_debug_mutex_lock(mu, t, #mu, __FILE__, __LINE__, d) == 0)                                   \
   pthread_cleanup_push(pthread_cleanup_debug_mutex_unlock, (void *)mu)
 
+#define config_lock                                                                                \
+  if (pthread_mutex_trylock(&config.lock) != 0) {                                                  \
+    debug(1, "config_lock: cannot acquire config.lock");                                           \
+  }
+
+#define config_unlock pthread_mutex_unlock(&config.lock)
+
+pthread_mutex_t r64_mutex;
+
+#define r64_lock pthread_mutex_lock(&r64_mutex)
+
+#define r64_unlock pthread_mutex_unlock(&r64_mutex)
+
 char *get_version_string(); // mallocs a string space -- remember to free it afterwards
 
 void sps_nanosleep(const time_t sec,
@@ -392,5 +423,7 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
                              int with_dither, int64_t random_number_in);
 
 void malloc_cleanup(void *arg);
+
+int string_update_with_size(char **str, int *flag, char *s, size_t len);
 
 #endif // _COMMON_H

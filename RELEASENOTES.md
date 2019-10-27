@@ -143,7 +143,7 @@ Version 3.2RC2
 Version 3.2RC1
 ====
 **Enhancements**
-* Shairport Sync now offers an IPC interface via D-Bus. It provides an incomplete but functional MPRIS interface and also provides a native Shairport Sync interface. Both provide some metadata and some remote control. The native D-Bus interface permits remote control of the current AirPlay or iTunes client. It includes status information about whether the remote control connection is viable or not, i.e. whether it can still be used to control the client. A remote control connection to the audio client becomes valid when the client starts AirPlaying to Shairport Sync. The connections remains valid until the audio source deselects Shairport Sync for AirPlay, or until the client disappears, or until another client starts AirPlaying to Shairport Sync. After 15 minutes of inactivity, the remote contol connection will be dropped. 
+* Shairport Sync now offers an IPC interface via D-Bus. It provides an incomplete but functional MPRIS interface and also provides a native Shairport Sync interface. Both provide some metadata and some remote control. The native D-Bus interface permits remote control of the current AirPlay or iTunes client. It includes status information about whether the remote control connection is viable or not, i.e. whether it can still be used to control the client. A remote control connection to the audio client becomes valid when the client starts AirPlaying to Shairport Sync. The connections remains valid until the audio source deselects Shairport Sync for AirPlay, or until the client disappears, or until another client starts AirPlaying to Shairport Sync. After 15 minutes of inactivity, the remote control connection will be dropped.
 * OpenBSD compatibility. Shairport Sync now compiles on OpenBSD -- please consult the OpenBSD note for details.
 * A new `general` option `volume_control_profile`, for advanced use only, with two options: `"standard"` which uses the standard volume control profile -- this has a higher transfer profile at low volumes and a lower transfer profile at high volumes --  or `"flat"` which uses a uniform transfer profile to linearly scale the output mixer's dB according to the AirPlay volume.
 * Some DACs have a feature that the lowest permissible "attenuation" value that the built-in hardware mixer can be set to is not an attenuation value at all – it is in fact a command to mute the output completely. Shairport Sync has always checked for this feature, basically in order to ignore it when getting the true range of attenuation values offered by the mixer.
@@ -167,7 +167,7 @@ However, with this enhancement, Shairport Sync can actually use this feature to 
 **Other Changes**
 * `clip` and `svip` metadata messages are now only generated for a play connection, not for all connections (e.g. connections that just enquire if the service is present).
 * `pfls` and `prsm` metadata messages are less frequent, especially when a play session starts.
-* Shairport Sync now uses about an extra half megabyte of RAM for compatability with TuneBlade's option to have a very long latency -- up to five seconds.
+* Shairport Sync now uses about an extra half megabyte of RAM for compatibility with TuneBlade's option to have a very long latency -- up to five seconds.
 * Only ask for missing packets to be resent once, and if any error occurs making the request, stop for 10 seconds.
 * Include the `-pthread` flag -- including the pthread library with `-lpthread` isn't always enough.
 * Add optional timing annotations to debug messages -- see the new settings in the diagnostic stanza of the configuration file.
@@ -184,7 +184,7 @@ Version 3.1.7
 * Stable 3.1.5 and 3.1.6 skipped to synchronise the shairport-sync.spec file contents with the release.
 
 **Enhancement**
-* The metdata output stream can include a `dapo` message carrying the DACP port number to be used when communicating with the DACP remote control. This might be useful because the port number is actually pretty hard to find and requires the use of asynchronous mdns operations. You must be using the Avahi mdns back end.
+* The metadata output stream can include a `dapo` message carrying the DACP port number to be used when communicating with the DACP remote control. This might be useful because the port number is actually pretty hard to find and requires the use of asynchronous mdns operations. You must be using the Avahi mdns back end.
 
 Version 3.1.4
 ====
@@ -216,7 +216,7 @@ Shairport Sync is more stable playing audio from YouTube and SoundCloud on the M
 * When you update from a previous version of Shairport Sync, your output device may have been left in a muted state. You should use a command line tool like `alsamixer` or `amixer` to unmute the output device before further use.
 
 **Change of Default**
-* The default value for the `alsa` setting `mute_using_playback_switch` has been changed to `"no"` for compatability with other audio players on the same machine. The reason is that when this setting is set to `"yes"`, the output device will be muted when Shairport Sync releases it. Unfortunately, other audio players using the output device expect it to be unmuted, causing problems. Thanks to [Tim Curtis](https://github.com/moodeaudio) at [Moode Audio](http://moodeaudio.org) and [Peter Pablo](https://github.com/PeterPablo) for clarifying the issue.
+* The default value for the `alsa` setting `mute_using_playback_switch` has been changed to `"no"` for compatibility with other audio players on the same machine. The reason is that when this setting is set to `"yes"`, the output device will be muted when Shairport Sync releases it. Unfortunately, other audio players using the output device expect it to be unmuted, causing problems. Thanks to [Tim Curtis](https://github.com/moodeaudio) at [Moode Audio](http://moodeaudio.org) and [Peter Pablo](https://github.com/PeterPablo) for clarifying the issue.
 
 **Bug Fixes**
 * Fixed bugs that made Shairport Sync drop out or become unavailable when playing YouTube videos, SoundCloud streams etc. from the Mac. Background: there has been a persistent problem with Shairport Sync becoming unavailable after playing, say, a YouTube clip in a browser on the Mac. Shairport Sync 3.1.2 incorporates a change to how certain AirPlay messages are handled. Introduced in nascent form in 3.1.1, further follow-on changes have improved the handling of player lock and have simplified and improved the handling of unexpected loss of connection. Shairport Sync also now works properly with SoundCloud clips played in a browser on the Mac.
@@ -243,7 +243,7 @@ Version 3.1 brings two new backends, optional loudness and convolution filters, 
 
 **Pesky Changes You Should Know About**
 * The `audio_backend_buffer_desired_length_in_seconds` and `audio_backend_latency_offset_in_seconds` settings have been moved from individual backend stanzas to the `general` stanza. They now have an effect on every type of backend.
-* If you are using a System V (aka `systemv`) installation, please note that the default location for PID file has moved -- it is now stored at `/var/run/shairport-sync/shairport-sync.pid`. This change is needed to improve security a little and to improve compatability across platforms. If you're not doing anything strange, this should make no difference.
+* If you are using a System V (aka `systemv`) installation, please note that the default location for PID file has moved -- it is now stored at `/var/run/shairport-sync/shairport-sync.pid`. This change is needed to improve security a little and to improve compatibility across platforms. If you're not doing anything strange, this should make no difference.
 
 **Enhancements**
 * Resynchronisation, which happens when the synchronisation is incorrect by more than 50 ms by default, should be a lot less intrusive when it occurs – it should now either insert silence or skip frames, as appropriate. 
@@ -345,7 +345,7 @@ Version 3.0d20 – Development Version
 Note: all Version 3 changes are summarized above.
 
 **Bug Fix**
-* Fix a small and generally silent error in configure.ac so that it only looks for the systemd direcotry if systemd has been chosen. It caused a warning when cross-compiling.
+* Fix a small and generally silent error in configure.ac so that it only looks for the systemd directory if systemd has been chosen. It caused a warning when cross-compiling.
 
 Version 3.0d19 – Development Version
 ----
@@ -488,7 +488,7 @@ The following is a summary of the bug fixes and enhancements since version 2.8.3
 * Metadata can now be provided via UDP -- thanks to [faceless2](https://github.com/faceless2).
 
 * Statistics output is more machine readable -- thanks to [Jörg Krause](https://github.com/joerg-krause)
-* The `shairport-sync.spec` file has been updated for compatability with building Debian packages using `checkinstall` -- thanks to [vru1](https://github.com/vru1).
+* The `shairport-sync.spec` file has been updated for compatibility with building Debian packages using `checkinstall` -- thanks to [vru1](https://github.com/vru1).
 
 Version 2.8.3.11 – Development Version
 ----
@@ -609,13 +609,13 @@ For full details, please refer to the release notes here, back as far as 2.9.1.
 
 Version 2.9.2 – Development Version
 ----
-Version 2.9.2 focusses on further bug fixes and stability improvements.
+Version 2.9.2 focuses on further bug fixes and stability improvements.
 * Enhanced stability: an important bug has been fixed in the handling of missing audio frames – i.e. what happens when a frame of audio is truly missing, after all attempts to fetch it have been unsuccessful. The bug would cause Shairport Sync to do an unnecessary resynchronisation, or, if resync was turned off, to jump out of sync. This is a long-standing bug – thanks to [Jörg Krause](https://github.com/joerg-krause) for identifying it.
 * An extra diagnostic has been added which gives the mean, standard deviation and maximum values for inter-packet reception time on the audio port. It may be useful for exploring line quality.
 
 Version 2.9.1 – Development Version
 ----
-Version 2.9.1 focusses on bug fixes and stability improvements.
+Version 2.9.1 focuses on bug fixes and stability improvements.
 * Stability improvements are concentrated on what happens when a play sessions ends and is followed immediately by a new session. This happens in iOS 9.2 when you click to the next track or to the previous track. It also happens playing YouTube videos when a Mac's System Audio is routed through AirPlay. Thanks to [Tim Curtis](https://github.com/moodeaudio) for help with these issues.
 * A workaround for an apparent flushing issue in TuneBlade has been included. Thanks to [gibman](https://github.com/gibman) for reporting this issue.
 * A number of bug fixes have been made to `configure.ac` – thanks to [Jörg Krause](https://github.com/joerg-krause).
@@ -694,7 +694,7 @@ Version 2.7.5 -- Development Version
 Version 2.7.4 -- Development Version
 ----
 **Enhancements**
-* Use the correct method for finding the `systemd` unit path, as recomended by debain maintainers and
+* Use the correct method for finding the `systemd` unit path, as recommended by Debian maintainers and
 http://www.freedesktop.org/software/systemd/man/daemon.html#Installing%20Systemd%20Service%20Files. Thanks to [dantheperson](https://github.com/dantheperson).
 * Rather than hardwire the path `/usr/local/bin` as the path to the shairport-sync executable, the value of `$PREFIX` is now used during configuration. Thanks to [Nick Steel](https://github.com/kingosticks).
 * Add some extra diagnostic messages if the hardware buffer in the DAC is smaller than desired.
@@ -726,7 +726,7 @@ Version 2.7.1 -- Development Version
 Version 2.7 -- Development Version
 ----
 **New Features**
-* Extend the volume range for some DACs. Background: some of the cheaper DACS have a very small volume range (that is, the ratio of the highest to the lowest volume, expressed in decibels, is very small). In some really cheap DACs it's only around 30 dB. That means that the difference betweeen the lowest and highest volume settings isn't large enough. With the new feature, if you set the `general` `volume_range_db` to more than the hardware mixer's range, Shairport Sync will combine the hardware mixer's range with a software attenuator to give the desired range. For example, suppose you want a volume range of 70 dB and the hardware mixer offers only 30 dB, then Shairport Sync will make up the other 40 dB with a software attenuator. One drawback is that, when the volume is being changed, there may be a slight delay (0.15 seconds by default) as the audio, whose volume may have been adjusted in software, propagates through the system. Another slight possible drawback is a slightly heavier load on the processor.
+* Extend the volume range for some DACs. Background: some of the cheaper DACS have a very small volume range (that is, the ratio of the highest to the lowest volume, expressed in decibels, is very small). In some really cheap DACs it's only around 30 dB. That means that the difference between the lowest and highest volume settings isn't large enough. With the new feature, if you set the `general` `volume_range_db` to more than the hardware mixer's range, Shairport Sync will combine the hardware mixer's range with a software attenuator to give the desired range. For example, suppose you want a volume range of 70 dB and the hardware mixer offers only 30 dB, then Shairport Sync will make up the other 40 dB with a software attenuator. One drawback is that, when the volume is being changed, there may be a slight delay (0.15 seconds by default) as the audio, whose volume may have been adjusted in software, propagates through the system. Another slight possible drawback is a slightly heavier load on the processor.
 * Check for underflow a little better when buffer aliasing occurs on very bad connections...
 * Add extra debug messages to the alsa back end to diagnose strange DACs.
 * Add configuration file for the `libao` back end -- to change the buffer size and the latency offset, same as for stdout.
@@ -748,7 +748,7 @@ This is basically version 2.4.2 with two small fixes. It's been bumped to 2.6 be
 
 Version 2.4.2
 ----
-This release has important enhancements, bug fixes and documentation updates. It also appears to bring compatiblity with Synology NAS devices.
+This release has important enhancements, bug fixes and documentation updates. It also appears to bring compatibility with Synology NAS devices.
 
 
 **New Features**
@@ -767,7 +767,7 @@ Using source-specified latencies is now automatic unless non-standard static lat
 * Volume ratios expressed in decibels are now consistently denominated in voltage decibels rather than power decibels. The rationale is that the levels refer to voltage levels, and power is proportional to the square of voltage.
 Thus a ratio of levels of 65535 to 1 is 96.3 dB rather than the 48.15 dB used before.
 * The latency figure returned to the source as part of the response to an rtsp request packet is 11,025, which may (?) be meant to indicate the minimum latency the device is capable of. 
-* An experimental handler for a GET_PARAMETER rtsp request has been added. It does nothing except log the occurence.
+* An experimental handler for a GET_PARAMETER rtsp request has been added. It does nothing except log the occurrence.
 * The RTSP request dispatcher now logs an event whenever an unrecognised rtsp has been made.
 
 
@@ -779,8 +779,8 @@ This release has three small bug fixes and some small documentation updates.
 
 Changes from the previous stable version -- 2.4 -- are summarised here:
  * The USE_CUSTOM_LOCAL_STATE_DIR macro was still being used when it should have been USE_CUSTOM_PID_DIR. This could affect users using a custom location for the PID directory.
- * A compiler error has been fixed that occured if metadata was enabled and tinysvcmdns was included.
- * A crash has been fixed that occured if metadata was enabled and a metadata pipename was not specified.
+ * A compiler error has been fixed that occurred if metadata was enabled and tinysvcmdns was included.
+ * A crash has been fixed that occurred if metadata was enabled and a metadata pipe name was not specified.
 (Thanks to the contributors who reported bugs.)
  
 **Small Changes**
@@ -827,7 +827,7 @@ Version 2.3.12
 
 
 **Enhancements**
-* Larger range of interpolation. Shairport Sync was previously constrained not to make interpolations ("corrections") of more than about 1 per 1000 frames. This contraint has been relaxed, and it is now able to make corrections of up to 1 in 352 frames. This might result in a faster and undesirably sudden correction early during a play session, so a number of further changes have been made. The full set of these changes is as follows:
+* Larger range of interpolation. Shairport Sync was previously constrained not to make interpolations ("corrections") of more than about 1 per 1000 frames. This constraint has been relaxed, and it is now able to make corrections of up to 1 in 352 frames. This might result in a faster and undesirably sudden correction early during a play session, so a number of further changes have been made. The full set of these changes is as follows:
   * No corrections happen for the first five seconds.
   * Corrections of up to about 1 in 1000 for the next 25 seconds.
   * Corrections of up to 1 in 352 thereafter.
@@ -846,7 +846,7 @@ Bug fix
 * The "pipe" backend used output code that would block if the pipe didn't have a reader. This has been replaced by non-blocking code. Here are some implications:
   * When the pipe is created, Shairport Sync will not block if a reader isn't present.
   * If the pipe doesn't have a reader when Shairport Sync wants to output to it, the output will be discarded.
-  * If a reader disappears while writing is occuring, the write will time out after five seconds.
+  * If a reader disappears while writing is occurring, the write will time out after five seconds.
   * Shairport Sync will only close the pipe on termination.
 
 Version 2.3.9
@@ -1001,7 +1001,7 @@ Version 2.2
 -----
 * Enhancements:
  * New password option: `--password=SECRET`
- * New tolerance option: `--tolerance=FRAMES`. Use this option to specify the largest synchronisation error to allow before making corrections. The default is 88 frames, i.e. 2 milliseconds. The default tolerance is fine for streaming over wired ethernet; however, if some of the stream's path is via WiFi, or if the source is a third-party product, it may lead to much overcorrection -- i.e. the difference between "corrections" and "net correction" in the `--statistics` option. Increasing the tolerence may reduce the amount of overcorrection.
+ * New tolerance option: `--tolerance=FRAMES`. Use this option to specify the largest synchronisation error to allow before making corrections. The default is 88 frames, i.e. 2 milliseconds. The default tolerance is fine for streaming over wired ethernet; however, if some of the stream's path is via WiFi, or if the source is a third-party product, it may lead to much overcorrection -- i.e. the difference between "corrections" and "net correction" in the `--statistics` option. Increasing the tolerance may reduce the amount of overcorrection.
 
 Version 2.1.15
 -----
@@ -1056,7 +1056,7 @@ With this feature, you can allow Shairport Sync always to advertise and provide 
 	
 * Annoying things you should know about if you're updating from a previous version:
 	* Options `--with-openssl`, `--with-polarssl` have been replaced with a new option `--with-ssl=<option>` where `<option>` is either `openssl` or `polarssl`.
-	* Option `--with-localstatedir` has been replaced with `--with-piddir`. This compilation option allows you to specify the directory in which the PID file will be written. The directory must exist and be writable. Supercedes the `--with-localstatedir` and describes the intended functionality a little more accurately.
+	* Option `--with-localstatedir` has been replaced with `--with-piddir`. This compilation option allows you to specify the directory in which the PID file will be written. The directory must exist and be writable. Supersedes the `--with-localstatedir` and describes the intended functionality a little more accurately.
 
 * Bugfixes
 	* A small (?) bug in the flush logic has been corrected. Not causing any known problem.

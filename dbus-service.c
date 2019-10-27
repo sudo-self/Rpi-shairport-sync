@@ -25,6 +25,8 @@ guint ownerID = 0;
 
 void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)) void *userdata) {
   char response[100];
+  gboolean current_status, new_status;
+  
   const char *th;
   shairport_sync_advanced_remote_control_set_volume(shairportSyncAdvancedRemoteControlSkeleton,
                                                     argc->speaker_volume);
@@ -129,94 +131,99 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
         shairportSyncAdvancedRemoteControlSkeleton, response);
   }
 
+  
   switch (argc->shuffle_status) {
   case SS_NOT_AVAILABLE:
-    shairport_sync_advanced_remote_control_set_shuffle(shairportSyncAdvancedRemoteControlSkeleton,
-                                                       FALSE);
+    new_status = FALSE;
     break;
   case SS_OFF:
-    shairport_sync_advanced_remote_control_set_shuffle(shairportSyncAdvancedRemoteControlSkeleton,
-                                                       FALSE);
+    new_status = FALSE;
     break;
   case SS_ON:
-    shairport_sync_advanced_remote_control_set_shuffle(shairportSyncAdvancedRemoteControlSkeleton,
-                                                       TRUE);
+    new_status = TRUE;
     break;
   default:
-    debug(1, "This should never happen.");
+    new_status = FALSE;
+    debug(1, "Unknown shuffle status -- this should never happen.");
+  }
+  
+  current_status = shairport_sync_advanced_remote_control_get_shuffle(
+      shairportSyncAdvancedRemoteControlSkeleton);
+  
+  // only set this if it's different
+  if (current_status != new_status) {
+    debug(3, "Shuffle State should be changed");
+    shairport_sync_advanced_remote_control_set_shuffle(
+        shairportSyncAdvancedRemoteControlSkeleton, new_status);
   }
 
-  GVariantBuilder *dict_builder, *aa;
+  // Build the metadata array
+  debug(2, "Build metadata");
+  GVariantBuilder *dict_builder = g_variant_builder_new(G_VARIANT_TYPE("a{sv}"));
 
-  /* Build the metadata array */
-  // debug(1,"Build metadata");
-  dict_builder = g_variant_builder_new(G_VARIANT_TYPE("a{sv}"));
-
-  // Make up the artwork URI if we have one
+  // Add in the artwork URI if it exists.
   if (argc->cover_art_pathname) {
-    char artURIstring[1024];
-    snprintf(artURIstring, sizeof(artURIstring), "file://%s", argc->cover_art_pathname);
-    // debug(1,"artURI String: \"%s\".",artURIstring);
-    GVariant *artUrl = g_variant_new("s", artURIstring);
+    GVariant *artUrl = g_variant_new("s", argc->cover_art_pathname);
     g_variant_builder_add(dict_builder, "{sv}", "mpris:artUrl", artUrl);
   }
 
-  // Add the TrackID if we have one
-  if ((argc->track_metadata) && (argc->track_metadata->item_id)) {
+  // Add in the Track ID based on the 'mper' metadata if it is non-zero
+  if (argc->item_id != 0) {
     char trackidstring[128];
-    // debug(1, "Set ID using mper ID: \"%u\".",argc->item_id);
     snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/mper_%u",
-             argc->track_metadata->item_id);
+             argc->item_id);
     GVariant *trackid = g_variant_new("o", trackidstring);
     g_variant_builder_add(dict_builder, "{sv}", "mpris:trackid", trackid);
   }
 
-  // Add the track name if there is one
-  if ((argc->track_metadata) && (argc->track_metadata->track_name)) {
-    // debug(1, "Track name set to \"%s\".", argc->track_name);
-    GVariant *trackname = g_variant_new("s", argc->track_metadata->track_name);
-    g_variant_builder_add(dict_builder, "{sv}", "xesam:title", trackname);
+  // Add the track name if it exists
+  if (argc->track_name) {
+    GVariant *track_name = g_variant_new("s", argc->track_name);
+    g_variant_builder_add(dict_builder, "{sv}", "xesam:title", track_name);
   }
 
-  // Add the album name if there is one
-  if ((argc->track_metadata) && (argc->track_metadata->album_name)) {
-    // debug(1, "Album name set to \"%s\".", argc->album_name);
-    GVariant *albumname = g_variant_new("s", argc->track_metadata->album_name);
-    g_variant_builder_add(dict_builder, "{sv}", "xesam:album", albumname);
+  // Add the album name if it exists
+  if (argc->album_name) {
+    GVariant *album_name = g_variant_new("s", argc->album_name);
+    g_variant_builder_add(dict_builder, "{sv}", "xesam:album", album_name);
   }
 
-  // Add the artists if there are any (actually there will be at most one, but put it in an array)
-  if ((argc->track_metadata) && (argc->track_metadata->artist_name)) {
-    /* Build the artists array */
-    // debug(1,"Build artist array");
-    aa = g_variant_builder_new(G_VARIANT_TYPE("as"));
-    g_variant_builder_add(aa, "s", argc->track_metadata->artist_name);
-    GVariant *artists = g_variant_builder_end(aa);
-    g_variant_builder_unref(aa);
+  // Add the artist name if it exists
+  if (argc->artist_name) {
+    GVariantBuilder *artist_as = g_variant_builder_new(G_VARIANT_TYPE("as"));
+    g_variant_builder_add(artist_as, "s", argc->artist_name);
+    GVariant *artists = g_variant_builder_end(artist_as);
+    g_variant_builder_unref(artist_as);
     g_variant_builder_add(dict_builder, "{sv}", "xesam:artist", artists);
   }
 
-  // Add the genres if there are any (actually there will be at most one, but put it in an array)
-  if ((argc->track_metadata) && (argc->track_metadata->genre)) {
-    // debug(1,"Build genre");
-    aa = g_variant_builder_new(G_VARIANT_TYPE("as"));
-    g_variant_builder_add(aa, "s", argc->track_metadata->genre);
-    GVariant *genres = g_variant_builder_end(aa);
-    g_variant_builder_unref(aa);
-    g_variant_builder_add(dict_builder, "{sv}", "xesam:genre", genres);
+  // Add the genre if it exists
+  if (argc->genre) {
+    GVariantBuilder *genre_as = g_variant_builder_new(G_VARIANT_TYPE("as"));
+    g_variant_builder_add(genre_as, "s", argc->genre);
+    GVariant *genre = g_variant_builder_end(genre_as);
+    g_variant_builder_unref(genre_as);
+    g_variant_builder_add(dict_builder, "{sv}", "xesam:genre", genre);
   }
+
+  if (argc->songtime_in_milliseconds) {
+    uint64_t track_length_in_microseconds = argc->songtime_in_milliseconds;
+    track_length_in_microseconds *= 1000; // to microseconds in 64-bit precision
+                                          // Make up the track name and album name
+    // debug(1, "Set tracklength to %lu.", track_length_in_microseconds);
+    GVariant *tracklength = g_variant_new("x", track_length_in_microseconds);
+    g_variant_builder_add(dict_builder, "{sv}", "mpris:length", tracklength);
+  }  
 
   GVariant *dict = g_variant_builder_end(dict_builder);
   g_variant_builder_unref(dict_builder);
-
-  // debug(1,"Set metadata");
   shairport_sync_remote_control_set_metadata(shairportSyncRemoteControlSkeleton, dict);
 }
 
 static gboolean on_handle_set_volume(ShairportSyncAdvancedRemoteControl *skeleton,
                                      GDBusMethodInvocation *invocation, const gint volume,
                                      __attribute__((unused)) gpointer user_data) {
-  debug(1, "Set volume to %d.", volume);
+  debug(2, "Set volume to %d.", volume);
   dacp_set_volume(volume);
   shairport_sync_advanced_remote_control_complete_set_volume(skeleton, invocation);
   return TRUE;
@@ -352,6 +359,19 @@ gboolean notify_delta_time_callback(ShairportSyncDiagnostics *skeleton,
   return TRUE;
 }
 
+gboolean notify_file_and_line_callback(ShairportSyncDiagnostics *skeleton,
+                                    __attribute__((unused)) gpointer user_data) {
+  // debug(1, "\"notify_file_and_line_callback\" called.");
+  if (shairport_sync_diagnostics_get_file_and_line(skeleton)) {
+    config.debugger_show_file_and_line = 1;
+    debug(1, ">> start including file and line in logs");
+  } else {
+    config.debugger_show_file_and_line = 0;
+    debug(1, ">> stop including file and line in logs");
+  }
+  return TRUE;
+}
+
 gboolean notify_statistics_callback(ShairportSyncDiagnostics *skeleton,
                                     __attribute__((unused)) gpointer user_data) {
   // debug(1, "\"notify_statistics_callback\" called.");
@@ -410,10 +430,10 @@ gboolean notify_loudness_threshold_callback(ShairportSync *skeleton,
                                             __attribute__((unused)) gpointer user_data) {
   gdouble th = shairport_sync_get_loudness_threshold(skeleton);
   if ((th <= 0.0) && (th >= -100.0)) {
-    debug(1, ">> setting loudness threshhold to %f.", th);
+    debug(1, ">> setting loudness threshold to %f.", th);
     config.loudness_reference_volume_db = th;
   } else {
-    debug(1, ">> invalid loudness threshhold: %f. Ignored.", th);
+    debug(1, ">> invalid loudness threshold: %f. Ignored.", th);
     shairport_sync_set_loudness_threshold(skeleton, config.loudness_reference_volume_db);
   }
   return TRUE;
@@ -691,6 +711,9 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   g_signal_connect(shairportSyncDiagnosticsSkeleton, "notify::delta-time",
                    G_CALLBACK(notify_delta_time_callback), NULL);
 
+  g_signal_connect(shairportSyncDiagnosticsSkeleton, "notify::file-and-line",
+                   G_CALLBACK(notify_file_and_line_callback), NULL);
+
   g_signal_connect(shairportSyncRemoteControlSkeleton, "handle-fast-forward",
                    G_CALLBACK(on_handle_fast_forward), NULL);
   g_signal_connect(shairportSyncRemoteControlSkeleton, "handle-rewind",
@@ -845,6 +868,16 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
     shairport_sync_diagnostics_set_delta_time(
         SHAIRPORT_SYNC_DIAGNOSTICS(shairportSyncDiagnosticsSkeleton), TRUE);
     // debug(1, ">> delta time is not included in log entries");
+  }
+
+  if (config.debugger_show_file_and_line == 0) {
+    shairport_sync_diagnostics_set_file_and_line(
+        SHAIRPORT_SYNC_DIAGNOSTICS(shairportSyncDiagnosticsSkeleton), FALSE);
+    // debug(1, ">> file and line is included in log entries");
+  } else {
+    shairport_sync_diagnostics_set_file_and_line(
+        SHAIRPORT_SYNC_DIAGNOSTICS(shairportSyncDiagnosticsSkeleton), TRUE);
+    // debug(1, ">> file and line is not included in log entries");
   }
 
   shairport_sync_remote_control_set_player_state(shairportSyncRemoteControlSkeleton,

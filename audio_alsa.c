@@ -73,7 +73,7 @@ int mute(int do_mute); // returns true if it actually is allowed to use the mute
 static double set_volume;
 static int output_method_signalled = 0; // for reporting whether it's using mmap or not
 int delay_type_notified = -1; // for controlling the reporting of whether the output device can do
-                              // precison delays (e.g. alsa->pulsaudio virtual devices can't)
+                              // precision delays (e.g. alsa->pulsaudio virtual devices can't)
 int use_monotonic_clock = 0;  // this value will be set when the hardware is initialised
 
 audio_output audio_alsa = {
@@ -139,9 +139,8 @@ static long alsa_mix_mindb, alsa_mix_maxdb;
 
 static char *alsa_out_dev = "default";
 static char *alsa_mix_dev = NULL;
-static char *alsa_mix_ctrl = "Master";
+static char *alsa_mix_ctrl = NULL;
 static int alsa_mix_index = 0;
-static int hardware_mixer = 0;
 static int has_softvol = 0;
 
 int64_t dither_random_number_store = 0;
@@ -204,7 +203,7 @@ int precision_delay_available() {
     } else {
       pthread_cleanup_push(malloc_cleanup, silence);
       int use_dither = 0;
-      if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
+      if ((alsa_mix_ctrl == NULL) && (config.ignore_volume_control == 0) &&
           (config.airplay_volume != 0.0))
         use_dither = 1;
       dither_random_number_store =
@@ -279,7 +278,7 @@ void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; }
 // assuming pthread cancellation is disabled
 int open_mixer() {
   int response = 0;
-  if (hardware_mixer) {
+  if (alsa_mix_ctrl != NULL) {
     debug(3, "Open Mixer");
     int ret = 0;
     snd_mixer_selem_id_alloca(&alsa_mix_sid);
@@ -865,15 +864,17 @@ int open_alsa_device(int do_auto_setup) {
   return result;
 }
 
-int do_alsa_device_init_if_needed() {
+int prepare_mixer() {
   int response = 0;
-  // do any alsa device initialisation (general case) if needed
+  // do any alsa device initialisation (general case)
   // at present, this is only needed if a hardware mixer is being used
-  // if there's a hardware mixer, it needs to be initialised before first use
-  if (alsa_device_initialised == 0) {
-    alsa_device_initialised = 1;
-    if (hardware_mixer) {
-      debug(2, "alsa: hardware mixer init");
+  // if there's a hardware mixer, it needs to be initialised before use
+    if (alsa_mix_ctrl == NULL) {
+      audio_alsa.volume = NULL;
+      audio_alsa.parameters = NULL;
+      audio_alsa.mute = NULL;
+    } else {
+      debug(2, "alsa: hardware mixer prepare");
       int oldState;
       pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
 
@@ -975,9 +976,13 @@ int do_alsa_device_init_if_needed() {
       pthread_cleanup_pop(0);
       pthread_setcancelstate(oldState, NULL);
     }
-  }
   return response;
 }
+
+int alsa_device_init() {
+  return prepare_mixer();
+}
+
 
 static int init(int argc, char **argv) {
   // for debugging
@@ -1050,7 +1055,6 @@ static int init(int argc, char **argv) {
     /* Get the Mixer Control Name. */
     if (config_lookup_string(config.cfg, "alsa.mixer_control_name", &str)) {
       alsa_mix_ctrl = (char *)str;
-      hardware_mixer = 1;
     }
 
     /* Get the disable_synchronization setting. */
@@ -1325,7 +1329,6 @@ static int init(int argc, char **argv) {
       break;
     case 'c':
       alsa_mix_ctrl = optarg;
-      hardware_mixer = 1;
       break;
     case 'i':
       alsa_mix_index = strtol(optarg, NULL, 10);
@@ -1412,8 +1415,9 @@ static void start(__attribute__((unused)) int i_sample_rate,
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
   if (alsa_device_initialised == 0) {
-    debug(2, "alsa: start() calling do_alsa_device_init_if_needed.");
-    do_alsa_device_init_if_needed();
+    debug(1, "alsa: start() calling alsa_device_init.");
+    alsa_device_init();
+    alsa_device_initialised = 1;
   }
 }
 
@@ -1799,6 +1803,11 @@ int prepare(void) {
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 50000, 0);
 
   if (alsa_backend_state == abm_disconnected) {
+    if (alsa_device_initialised == 0) {
+      // debug(1, "alsa: prepare() calling alsa_device_init.");
+      alsa_device_init();
+      alsa_device_initialised = 1;
+    }
     ret = do_open(1); // do auto setup
     if (ret == 0)
       debug(2, "alsa: prepare() -- opened output device");
@@ -1891,7 +1900,7 @@ void volume(double vol) {
 static void linear_volume(double vol) {
   debug(2, "Setting linear volume to %f.", vol);
   set_volume = vol;
-  if (hardware_mixer && alsa_mix_handle) {
+  if ((alsa_mix_ctrl == NULL) && alsa_mix_handle) {
     double linear_volume = pow(10, vol);
     // debug(1,"Linear volume is %f.",linear_volume);
     long int_vol = alsa_mix_minv + (alsa_mix_maxv - alsa_mix_minv) *
@@ -1933,8 +1942,9 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
     }
     if ((config.keep_dac_busy != 0) && (alsa_device_initialised == 0)) {
       debug(2, "alsa: alsa_buffer_monitor_thread_code() calling "
-               "do_alsa_device_init_if_needed.");
-      do_alsa_device_init_if_needed();
+               "alsa_device_init.");
+      alsa_device_init();
+      alsa_device_initialised = 1;
     }
     int sleep_time_ms = (int)(config.disable_standby_mode_silence_scan_interval * 1000);
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 200000, 0);
@@ -1992,7 +2002,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
             int ret;
             pthread_cleanup_push(malloc_cleanup, silence);
             int use_dither = 0;
-            if ((hardware_mixer == 0) && (config.ignore_volume_control == 0) &&
+            if ((alsa_mix_ctrl == NULL) && (config.ignore_volume_control == 0) &&
                 (config.airplay_volume != 0.0))
               use_dither = 1;
             dither_random_number_store =

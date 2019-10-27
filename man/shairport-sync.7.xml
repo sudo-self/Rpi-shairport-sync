@@ -111,7 +111,7 @@
 	  i.e. the System Configuration Directory.)</p>
 	  
 	  
-	  <p>Within the configuration file, settings are organised into <i>groups</i>, for 
+	  <p>Within the configuration file, settings are organised into <i>groups</i>, for
 	  example, there is a "general" group of
 	  standard settings, and there is an "alsa" group with settings that pertain to the ALSA
 	  back end. Here is an example of a typical configuration file:</p>
@@ -223,7 +223,7 @@
 
     <option>
     <p><opt>udp_port_range=</opt><arg>range</arg><opt>;</opt></p>
-    <optdesc><p>Use this in conjunction with the previous setting to specify the 
+    <optdesc><p>Use this in conjunction with the previous setting to specify the
     <arg>range</arg> of ports that can be checked for availability. Only three ports are 
     needed.
     The default is 100, thus 100 ports will be checked from port 6001 upwards until three 
@@ -364,7 +364,7 @@
     <option>
     <p><opt>interface=</opt><arg>"name"</arg><opt>;</opt></p>
     <optdesc><p>Use this advanced setting if you want to confine Shairport Sync to the 
-    named interface. Leave it commented out to get the default bahaviour.</p></optdesc>
+    named interface. Leave it commented out to get the default behaviour.</p></optdesc>
     </option>
     
     <option>

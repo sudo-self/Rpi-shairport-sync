@@ -38,12 +38,14 @@ typedef struct time_ping_record {
 typedef uint16_t seq_t;
 
 typedef struct audio_buffer_entry { // decoded audio packets
-  int ready;
-  int resend_level;
-  // int64_t timestamp;
-  seq_t sequence_number;
-  uint32_t given_timestamp; // for debugging and checking
+  uint8_t ready;
+  uint8_t status; // flags
+  uint16_t resend_request_number;
   signed short *data;
+  seq_t sequence_number;
+  uint64_t initialisation_time; // the time the packet was added or the time it was noticed the packet was missing
+  uint64_t resend_time; // time of last resend request or zero
+  uint32_t given_timestamp; // for debugging and checking
   int length; // the length of the decoded data
 } abuf_t;
 
@@ -55,7 +57,7 @@ typedef struct audio_buffer_entry { // decoded audio packets
 // Resend requests will be spaced out evenly in the latency period, subject to a minimum interval of
 // about 0.25 seconds.
 // Each buffer occupies 352*4 bytes plus about, say, 64 bytes of overhead in various places, say
-// rougly 1,500 bytes per buffer.
+// roughly 1,500 bytes per buffer.
 // Thus, 2048 buffers will occupy about 3 megabytes -- no big deal in a normal machine but maybe a
 // problem in an embedded device.
 
