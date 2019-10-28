@@ -5,8 +5,11 @@
 #include "FFTConvolver.h"
 #include "Utilities.h"
 
-extern "C" void die(const char *format, ...);
-extern "C" void debug(int level, const char *format, ...);
+extern "C" void _die(const char *filename, const int linenumber, const char *format, ...);
+extern "C" void _debug(const char *filename, const int linenumber, int level, const char *format, ...);
+
+#define die(...) _die(__FILE__, __LINE__, __VA_ARGS__)
+#define debug(...) _debug(__FILE__, __LINE__, __VA_ARGS__)
 
 static fftconvolver::FFTConvolver convolver_l;
 static fftconvolver::FFTConvolver convolver_r;

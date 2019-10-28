@@ -298,7 +298,7 @@ AC_ARG_WITH(convolution, [  --with-convolution = choose audio DSP convolution su
   REQUESTED_CONVOLUTION=1
   AM_INIT_AUTOMAKE([subdir-objects])
   AC_DEFINE([CONFIG_CONVOLUTION], 1, [Needed by the compiler.])
-  AC_CHECK_LIB([sndfile], [sf_open], , AC_MSG_ERROR(Convolution support requires the sndfile library!))], )
+  AC_CHECK_LIB([sndfile], [sf_open], , AC_MSG_ERROR(Convolution support requires the sndfile library -- libsndfile1-dev suggested!))], )
 AM_CONDITIONAL([USE_CONVOLUTION], [test "x$REQUESTED_CONVOLUTION" = "x1"])
 
 # Look for dns_sd flag
