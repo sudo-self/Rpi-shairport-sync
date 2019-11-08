@@ -39,9 +39,9 @@ What else?
 * Metadata — Shairport Sync can deliver metadata supplied by the source, such as Album Name, Artist Name, Cover Art, etc. through a pipe or UDP socket to a recipient application program — see https://github.com/mikebrady/shairport-sync-metadata-reader for a sample recipient. Sources that supply metadata include iTunes and the Music app in iOS.
 * Compiles on Linux, Cygwin, FreeBSD, OpenBSD.
 * Outputs to [`alsa`](https://www.alsa-project.org/wiki/Main_Page), [`sndio`](http://www.sndio.org), [PulseAudio](https://www.freedesktop.org/wiki/Software/PulseAudio/), [JACK](http://jackaudio.org), to a unix pipe or to `STDOUT`. It also has limited support for [libao](https://xiph.org/ao/) and for [`soundio`](http://libsound.io).
-* An [MPRIS](https://specifications.freedesktop.org/mpris-spec/2.2/) interface, partially complete and very functional, including access to metadata and artwork, and some remote control.
+* An [MPRIS](https://specifications.freedesktop.org/mpris-spec/2.2/) interface, partially complete and very functional, including access to metadata and artwork, and some limited remote control.
 * An interface to [MQTT](https://en.wikipedia.org/wiki/MQTT), an often-used protocol in home automation projects.
-* A native D-Bus interface, including access to metadata and artwork, some remote control and some system settings.
+* A native D-Bus interface, including access to metadata and artwork, some limited remote control and some system settings.
  
 Heritage
 -------
@@ -93,7 +93,9 @@ If you wish to build and install the latest version of Shairport Sync on Debian,
 
 You should check to see if `shairport-sync` is already installed – you can use the command `$ which shairport-sync` to find where it is located, if installed. If it is installed you should delete it – you may need superuser privileges. After deleting, check again in case further copies are installed elsewhere. 
 
-You should also remove the initialisation script files `/etc/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed in necessary.
+You should also remove the startup script files `/etc/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed in necessary.
+
+If you removed any installations of Shairport Sync or any of its startup script files, you should reboot.
 
 **Determine The Configuration Needed**
 
@@ -240,7 +242,7 @@ SYNOPSIS
 
 ...
 ```
-If your system is definitely a `systemd` system, choose `--with-libdaemon --with-systemd` below. Otherwise, choose `--with-systemv`.
+If your system is definitely a `systemd` system, choose `--with-systemd` below. Otherwise, choose `--with-libdaemon --with-systemv`.
 
 **Choose the location of the configuration file**
 
@@ -248,7 +250,7 @@ A final consideration is the location of the configuration file `shairport-sync.
 
 **Sample `./configure` command with parameters for a typical Linux `systemd` installation:**
 
-Here is a recommended set of configuration options suitable for Linux installations that use `systemd`, such as Ubuntu 15.10 and later, and Raspbian Stretch and Jessie. It specifies both the ALSA and PulseAudio backends and includes a sample configuration file and an script for automatic startup on system boot:
+Here is a recommended set of configuration options suitable for Linux installations that use `systemd`, such as Ubuntu 15.10 and later, and Raspbian Buster, Stretch and Jessie. It specifies both the ALSA and PulseAudio backends and includes a sample configuration file and an script for automatic startup on system boot:
 
 `$ ./configure --sysconfdir=/etc --with-alsa --with-pa --with-avahi --with-ssl=openssl --with-metadata --with-soxr --with-systemd`
 

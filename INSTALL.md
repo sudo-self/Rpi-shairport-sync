@@ -1,6 +1,6 @@
 Simple Installation Instructions
 ==
-Here are simple instructions for building and installing Shairport Sync on a Raspberry Pi B, 2B, 3B or 3B+. It is assumed that the Pi is running Raspbian Stretch Lite – a GUI isn't needed, since Shairport Sync runs as a daemon program. For a more thorough treatment, please go to the [README.md](https://github.com/mikebrady/shairport-sync/blob/master/README.md#building-and-installing) page.
+Here are simple instructions for building and installing Shairport Sync on a Raspberry Pi B, 2B, 3B, 3B+ or 4B. It is assumed that the Pi is running Raspbian Buster Lite – a GUI isn't needed, since Shairport Sync runs as a daemon program. For a more thorough treatment, please go to the [README.md](https://github.com/mikebrady/shairport-sync/blob/master/README.md#building-and-installing) page.
 
 In the commands below, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `apt-get update` in superuser mode and you are in user mode, enter `sudo apt-get update`.
 
@@ -32,6 +32,12 @@ Remove it as follows:
 # rm /usr/local/bin/shairport-sync
 ```
 Do this until no more copies of `shairport-sync` are found.
+
+### Remove Old Startup Scripts
+You should also remove the startup script files `/etc/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed in necessary.
+
+### Reboot after Cleaning Up
+If you removed any installations of Shairport Sync or any of its startup script files in the last two steps, you should reboot.
 
 ### Build and Install
 Okay, now let's get the tools and sources for building and installing Shairport Sync.

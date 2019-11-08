@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.50])
-AC_INIT([shairport-sync], [3.3.3d11], [mikebrady@eircom.net])
+AC_INIT([shairport-sync], [3.3.5d0], [mikebrady@eircom.net])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([shairport.c])
 AC_CONFIG_HEADERS([config.h])
@@ -298,7 +298,7 @@ AC_ARG_WITH(convolution, [  --with-convolution = choose audio DSP convolution su
   REQUESTED_CONVOLUTION=1
   AM_INIT_AUTOMAKE([subdir-objects])
   AC_DEFINE([CONFIG_CONVOLUTION], 1, [Needed by the compiler.])
-  AC_CHECK_LIB([sndfile], [sf_open], , AC_MSG_ERROR(Convolution support requires the sndfile library!))], )
+  AC_CHECK_LIB([sndfile], [sf_open], , AC_MSG_ERROR(Convolution support requires the sndfile library -- libsndfile1-dev suggested!))], )
 AM_CONDITIONAL([USE_CONVOLUTION], [test "x$REQUESTED_CONVOLUTION" = "x1"])
 
 # Look for dns_sd flag
