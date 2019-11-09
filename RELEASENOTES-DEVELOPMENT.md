@@ -1,3 +1,12 @@
+Version 3.3.5d0
+====
+**Bug Fix**
+* Fixed a crashing bug when output format `"S24"` was chosen. Fixes the issue reported by [artenverho](https://github.com/artenverho) in [#927](https://github.com/mikebrady/shairport-sync/issues/927).
+
+Version 3.3.4
+====
+This version did not appear on the `development` branch -- it fixed a small compilation error.
+
 Version 3.3.3d11
 ====
 **Bug Fix**
