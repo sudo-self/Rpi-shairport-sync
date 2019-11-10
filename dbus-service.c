@@ -15,6 +15,10 @@
 
 #include "dbus-service.h"
 
+#ifdef CONFIG_CONVOLUTION
+#include <FFTConvolver/convolver.h>
+#endif
+
 int service_is_running = 0;
 
 ShairportSyncDiagnostics *shairportSyncDiagnosticsSkeleton = NULL;
@@ -413,14 +417,77 @@ gboolean notify_disable_standby_callback(ShairportSync *skeleton,
   return TRUE;
 }
 
-gboolean notify_loudness_filter_active_callback(ShairportSync *skeleton,
+#ifdef CONFIG_CONVOLUTION
+gboolean notify_convolution_callback(ShairportSync *skeleton,
                                                 __attribute__((unused)) gpointer user_data) {
-  // debug(1, "\"notify_loudness_filter_active_callback\" called.");
-  if (shairport_sync_get_loudness_filter_active(skeleton)) {
-    debug(1, ">> activating loudness filter");
+  // debug(1, "\"notify_convolution_callback\" called.");
+  if (shairport_sync_get_convolution(skeleton)) {
+    debug(1, ">> activating convolution");
+    config.convolution = 1;
+  } else {
+    debug(1, ">> deactivating convolution");
+    config.convolution = 0;
+  }
+  return TRUE;
+}
+#else
+gboolean notify_convolution_callback(__attribute__((unused)) ShairportSync *skeleton,
+                                                __attribute__((unused)) gpointer user_data) {
+  warn(">> Convolution support is not built in to this build of Shairport Sync.");
+  return TRUE;
+}
+#endif
+
+#ifdef CONFIG_CONVOLUTION
+gboolean notify_convolution_gain_callback(ShairportSync *skeleton,
+                                            __attribute__((unused)) gpointer user_data) {
+
+  gdouble th = shairport_sync_get_convolution_gain(skeleton);
+  if ((th <= 0.0) && (th >= -100.0)) {
+    debug(1, ">> setting convolution gain to %f.", th);
+    config.convolution_gain = th;
+  } else {
+    debug(1, ">> invalid convolution gain: %f. Ignored.", th);
+    shairport_sync_set_convolution_gain(skeleton, config.convolution_gain);
+  }
+  return TRUE;
+}
+#else
+gboolean notify_convolution_gain_callback(__attribute__((unused)) ShairportSync *skeleton,
+                                                __attribute__((unused)) gpointer user_data) {
+  warn(">> Convolution support is not built in to this build of Shairport Sync.");
+  return TRUE;
+}
+#endif
+#ifdef CONFIG_CONVOLUTION
+gboolean notify_convolution_impulse_response_file_callback(ShairportSync *skeleton,
+                                                __attribute__((unused)) gpointer user_data) {
+  char *th = (char *)shairport_sync_get_convolution_impulse_response_file(skeleton);
+  if (config.convolution_ir_file)
+    free(config.convolution_ir_file);
+  config.convolution_ir_file = strdup(th);
+  debug(1, ">> setting configuration impulse response filter file to \"%s\".", config.convolution_ir_file);
+  convolver_init(config.convolution_ir_file, config.convolution_max_length);
+  return TRUE;
+}
+#else
+gboolean notify_convolution_impulse_response_file_callback(__attribute__((unused)) ShairportSync *skeleton,
+                                                __attribute__((unused)) gpointer user_data) {
+  char *th = (char *)shairport_sync_get_convolution_impulse_response_file(skeleton);
+  return TRUE;
+}
+#endif
+
+
+
+gboolean notify_loudness_callback(ShairportSync *skeleton,
+                                                __attribute__((unused)) gpointer user_data) {
+  // debug(1, "\"notify_loudness_callback\" called.");
+  if (shairport_sync_get_loudness(skeleton)) {
+    debug(1, ">> activating loudness");
     config.loudness = 1;
   } else {
-    debug(1, ">> deactivating loudness filter");
+    debug(1, ">> deactivating loudness");
     config.loudness = 0;
   }
   return TRUE;
@@ -687,8 +754,14 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(notify_volume_control_profile_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::disable-standby",
                    G_CALLBACK(notify_disable_standby_callback), NULL);
-  g_signal_connect(shairportSyncSkeleton, "notify::loudness-filter-active",
-                   G_CALLBACK(notify_loudness_filter_active_callback), NULL);
+  g_signal_connect(shairportSyncSkeleton, "notify::convolution",
+                   G_CALLBACK(notify_convolution_callback), NULL);
+  g_signal_connect(shairportSyncSkeleton, "notify::convolution-gain",
+                   G_CALLBACK(notify_convolution_gain_callback), NULL);
+  g_signal_connect(shairportSyncSkeleton, "notify::convolution-impulse-response-file",
+                   G_CALLBACK(notify_convolution_impulse_response_file_callback), NULL);
+  g_signal_connect(shairportSyncSkeleton, "notify::loudness",
+                   G_CALLBACK(notify_loudness_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::loudness-threshold",
                    G_CALLBACK(notify_loudness_threshold_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::drift-tolerance",
@@ -824,11 +897,23 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   }
 
   if (config.loudness == 0) {
-    shairport_sync_set_loudness_filter_active(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
+    shairport_sync_set_loudness(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
   } else {
-    shairport_sync_set_loudness_filter_active(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
+    shairport_sync_set_loudness(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
   }
 
+#ifdef CONFIG_CONVOLUTION
+  if (config.convolution == 0) {
+    shairport_sync_set_convolution(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
+  } else {
+    shairport_sync_set_convolution(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
+  }
+  if (config.convolution_ir_file)
+    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton), config.convolution_ir_file);
+  else
+    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton), NULL);
+#endif
+  
   shairport_sync_set_version(SHAIRPORT_SYNC(shairportSyncSkeleton), PACKAGE_VERSION);
   char *vs = get_version_string();
   shairport_sync_set_version_string(SHAIRPORT_SYNC(shairportSyncSkeleton), vs);

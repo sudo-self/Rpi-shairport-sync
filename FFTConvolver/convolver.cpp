@@ -33,6 +33,9 @@ void convolver_init(const char* filename, int max_length)
   
   size_t l = sf_readf_float(file, buffer, size);
   assert(l == size);
+
+  convolver_l.reset(); // it is possible that init could be called more than once
+  convolver_r.reset(); // so it could be necessary to remove all previous settings
   
   if (info.channels == 1) {
     convolver_l.init(352, buffer, size);

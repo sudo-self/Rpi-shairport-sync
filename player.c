@@ -2902,8 +2902,8 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
 
         conn->fix_volume = temp_fix_volume;
 
-        if (config.loudness)
-          loudness_set_volume(software_attenuation / 100);
+        // if (config.loudness)
+        loudness_set_volume(software_attenuation / 100);
       }
 
       if (config.logOutputLevel) {
