@@ -1,3 +1,12 @@
+Version 3.3.5d1
+====
+**New Features**
+* Added to the D-Bus interface the ability to turn on and off convolution, to set the convolution gain and to change the convolution impulse response files. See examples in [sample dbus commands](https://github.com/mikebrady/shairport-sync/blob/development/documents/sample%20dbus%20commands). Note: for these commands to make sense, Shairport Sync must be built with support for convolution and the native D-Bus interface (`--with-convolution` and `--with-dbus-interface`) and fully installed.
+
+**Bug Fix**
+* Fixed a bug whereby if you enabled the Loudness filter via the D-Bus interface, the output disappeared until you changed the volume.
+
+
 Version 3.3.5d0
 ====
 **Bug Fix**
