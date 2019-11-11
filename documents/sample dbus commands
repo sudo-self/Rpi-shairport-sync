@@ -32,9 +32,17 @@ dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/Shair
 # Set Drift Tolerance to 1 millisecond
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync string:DriftTolerance variant:double:0.001
 
+# Is Loudness Enabled:
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync string:LoudnessThreshold
 
 # Enable Loudness Filter
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync string:Loudness variant:boolean:true
 
+# Get Loudness Threshold
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync string:LoudnessThreshold
+
+# Set Loudness Threshold
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync string:LoudnessThreshold variant:double:-15.0
 
 # Is Convolution enabled:
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync string:Convolution
@@ -50,3 +58,6 @@ dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/Shair
 
 # Get Convolution Impulse Response File:
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync string:ConvolutionImpulseResponseFile
+
+# Set Convolution Impulse Response File:
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync string:ConvolutionImpulseResponseFile variant:string:"/etc/shairport-sync/boom.wav"

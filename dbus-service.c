@@ -424,6 +424,7 @@ gboolean notify_convolution_callback(ShairportSync *skeleton,
   if (shairport_sync_get_convolution(skeleton)) {
     debug(1, ">> activating convolution");
     config.convolution = 1;
+    config.convolver_valid = convolver_init(config.convolution_ir_file, config.convolution_max_length);
   } else {
     debug(1, ">> deactivating convolution");
     config.convolution = 0;
@@ -467,7 +468,7 @@ gboolean notify_convolution_impulse_response_file_callback(ShairportSync *skelet
     free(config.convolution_ir_file);
   config.convolution_ir_file = strdup(th);
   debug(1, ">> setting configuration impulse response filter file to \"%s\".", config.convolution_ir_file);
-  convolver_init(config.convolution_ir_file, config.convolution_max_length);
+  config.convolver_valid = convolver_init(config.convolution_ir_file, config.convolution_max_length);
   return TRUE;
 }
 #else
@@ -910,8 +911,8 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   }
   if (config.convolution_ir_file)
     shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton), config.convolution_ir_file);
-  else
-    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton), NULL);
+//  else
+//    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton), NULL);
 #endif
   
   shairport_sync_set_version(SHAIRPORT_SYNC(shairportSyncSkeleton), PACKAGE_VERSION);

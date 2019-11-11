@@ -963,7 +963,7 @@ int parse_options(int argc, char **argv) {
 
       if (config_lookup_string(config.cfg, "dsp.convolution_ir_file", &str)) {
         config.convolution_ir_file = strdup(str);
-        convolver_init(config.convolution_ir_file, config.convolution_max_length);
+        config.convolver_valid = convolver_init(config.convolution_ir_file, config.convolution_max_length);
       }
 
       if (config.convolution && config.convolution_ir_file == NULL) {

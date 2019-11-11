@@ -1,72 +1,85 @@
 
 
-#include "convolver.h"
+#include <pthread.h>
 #include <sndfile.h>
+#include "convolver.h"
 #include "FFTConvolver.h"
 #include "Utilities.h"
 
-extern "C" void _die(const char *filename, const int linenumber, const char *format, ...);
+extern "C" void _warn(const char *filename, const int linenumber, const char *format, ...);
 extern "C" void _debug(const char *filename, const int linenumber, int level, const char *format, ...);
 
-#define die(...) _die(__FILE__, __LINE__, __VA_ARGS__)
+#define warn(...) _warn(__FILE__, __LINE__, __VA_ARGS__)
 #define debug(...) _debug(__FILE__, __LINE__, __VA_ARGS__)
 
-static fftconvolver::FFTConvolver convolver_l;
-static fftconvolver::FFTConvolver convolver_r;
+fftconvolver::FFTConvolver convolver_l;
+fftconvolver::FFTConvolver convolver_r;
+
+// always lock use this when accessing the playing conn value
+pthread_mutex_t convolver_lock = PTHREAD_MUTEX_INITIALIZER;
 
 
-void convolver_init(const char* filename, int max_length)
-{
+int convolver_init(const char* filename, int max_length) {
+  int success = 0;
   SF_INFO info;
-  assert(filename);
-  SNDFILE* file = sf_open(filename, SFM_READ, &info);
-  assert(file);
+  if (filename) {
+    SNDFILE* file = sf_open(filename, SFM_READ, &info);
+    if (file) {
   
-  if (info.samplerate != 44100)
-    die("Impulse file \"%s\" sample rate is %d Hz. Only 44100 Hz is supported", filename, info.samplerate);
+      if (info.samplerate == 44100)  {  
+        if ((info.channels == 1) || (info.channels == 2)) {
+          const size_t size = info.frames > max_length ? max_length : info.frames;
+          float buffer[size*info.channels];
   
-  if (info.channels != 1 && info.channels != 2)
-    die("Impulse file \"%s\" contains %d channels. Only 1 or 2 is supported.", filename, info.channels);
+          size_t l = sf_readf_float(file, buffer, size);
+          if (l != 0) {
+            pthread_mutex_lock(&convolver_lock);
+            convolver_l.reset(); // it is possible that init could be called more than once
+            convolver_r.reset(); // so it could be necessary to remove all previous settings
   
-  const size_t size = info.frames > max_length ? max_length : info.frames;
-  float buffer[size*info.channels];
-  
-  size_t l = sf_readf_float(file, buffer, size);
-  assert(l == size);
-
-  convolver_l.reset(); // it is possible that init could be called more than once
-  convolver_r.reset(); // so it could be necessary to remove all previous settings
-  
-  if (info.channels == 1) {
-    convolver_l.init(352, buffer, size);
-    convolver_r.init(352, buffer, size);
-  } else {
-    // deinterleave
-    float buffer_l[size];
-    float buffer_r[size];
+            if (info.channels == 1) {
+              convolver_l.init(352, buffer, size);
+              convolver_r.init(352, buffer, size);
+            } else {
+              // deinterleave
+              float buffer_l[size];
+              float buffer_r[size];
     
-    unsigned int i;
-    for (i=0; i<size; ++i)
-    {
-      buffer_l[i] = buffer[2*i+0];
-      buffer_r[i] = buffer[2*i+1];
+              unsigned int i;
+              for (i=0; i<size; ++i)
+              {
+                buffer_l[i] = buffer[2*i+0];
+                buffer_r[i] = buffer[2*i+1];
+              }
+    
+              convolver_l.init(352, buffer_l, size);
+              convolver_r.init(352, buffer_r, size);
+              
+            }
+            pthread_mutex_unlock(&convolver_lock);
+            success = 1;
+          }
+          debug(1, "IR initialized from \"%s\" with %d channels and %d samples", filename, info.channels, size);
+        } else {
+          warn("Impulse file \"%s\" contains %d channels. Only 1 or 2 is supported.", filename, info.channels);
+        }
+      } else {
+        warn("Impulse file \"%s\" sample rate is %d Hz. Only 44100 Hz is supported", filename, info.samplerate);
+      }
+      sf_close(file);
     }
-    
-    convolver_l.init(352, buffer_l, size);
-    convolver_r.init(352, buffer_r, size);
   }
-  
-  debug(1, "IR initialized from \"%s\" with %d channels and %d samples", filename, info.channels, size);
-  
-  sf_close(file);
+  return success;
 }
 
-void convolver_process_l(float* data, int length)
-{
+void convolver_process_l(float* data, int length) {
+  pthread_mutex_lock(&convolver_lock);
   convolver_l.process(data, data, length);
+  pthread_mutex_unlock(&convolver_lock);
 }
 
-void convolver_process_r(float* data, int length)
-{
+void convolver_process_r(float* data, int length) {
+  pthread_mutex_lock(&convolver_lock);
   convolver_r.process(data, data, length);
+  pthread_mutex_unlock(&convolver_lock);
 }
