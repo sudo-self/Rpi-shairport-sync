@@ -1339,9 +1339,11 @@ Actually, there is no stop_mpris_service() function.
 
   if (config.service_name)
     free(config.service_name);
-  
+    
+#ifdef CONFIG_CONVOLUTION  
   if (config.convolution_ir_file)
     free(config.convolution_ir_file);
+#endif
 
   if (config.regtype)
     free(config.regtype);

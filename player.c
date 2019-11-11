@@ -2370,15 +2370,18 @@ void *player_thread_func(void *arg) {
               
               int do_loudness = config.loudness;
     
+
+#ifdef CONFIG_CONVOLUTION
               int do_convolution = 0;
               if ((config.convolution) && (config.convolver_valid))
                 do_convolution = 1;
-                
+
               // we will apply the convolution gain if convolution is enabled, even if there is no valid convolution happening
               
               int convolution_is_enabled = 0;
               if (config.convolution)
                 convolution_is_enabled = 1;
+#endif
                 
               if (do_loudness
 #ifdef CONFIG_CONVOLUTION
