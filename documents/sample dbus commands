@@ -24,9 +24,6 @@ dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/Shair
 dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.RemoteControl.Play
 #Remote Control commands include: Play, Pause, PlayPause, Resume, Stop, Next, Previous, VolumeUp, VolumeDown, ToggleMute, FastForward, Rewind, ShuffleSongs
 
-# Set Volume using Advanced Remote Control
-dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.AdvancedRemoteControl.SetVolume int32:50
-
 # Get Drift Tolerance
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync string:DriftTolerance
 # Set Drift Tolerance to 1 millisecond
@@ -61,3 +58,15 @@ dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/Shair
 
 # Set Convolution Impulse Response File:
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync string:ConvolutionImpulseResponseFile variant:string:"/etc/shairport-sync/boom.wav"
+
+# Some commands and properties are accessible only through the AdvancedRemoteControl interface at org.gnome.ShairportSync.AdvancedRemoteControl
+# Unfortunately, only iTunes provides the functionality to allow the AdvancedRemoteControl stuff to work.
+# (The macOS "Music" app replacing iTunes appears to have no remote interface whatever (at least as far as is known).)
+
+# You can check to see if AdvancedRemoteControl is available using the command:
+
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync.AdvancedRemoteControl string:Available
+
+# Set Volume using Advanced Remote Control -- only works if the org.gnome.ShairportSync.AdvancedRemoteControl is available.
+dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.AdvancedRemoteControl.SetVolume int32:50
+
