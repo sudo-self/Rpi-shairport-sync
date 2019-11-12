@@ -1,5 +1,8 @@
 Version 3.3.5d1
 ====
+**Pesky Changes You May Not Be Able To Ignore**
+* Renamed the `LoudnessFilterActive` property in the D-Bus interface to `Loudness`. Updated [shairport-sync-dbus-test-client.c](https://github.com/mikebrady/shairport-sync/blob/master/shairport-sync-dbus-test-client.c) accordingly.
+
 **New Features**
 * Added to the D-Bus interface the ability to turn on and off convolution, to set the convolution gain and to change the convolution impulse response files. See examples in [sample dbus commands](https://github.com/mikebrady/shairport-sync/blob/development/documents/sample%20dbus%20commands). Note: for these commands to make sense, Shairport Sync must be built with support for convolution and the native D-Bus interface (`--with-convolution` and `--with-dbus-interface`) and fully installed.
 
