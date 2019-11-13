@@ -1,7 +1,21 @@
-Version 3.3.4
+Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
+
+Version 3.3.5
 ====
 
-Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
+**Bug Fixes**
+* Fix a crashing bug if output format `S24` was chosen.
+* Fix a bug whereby if `Loudness` was enabled through the D-Bus interface, the output would be muted until the volume was changed.
+
+**Enhancements**
+* D-Bus interface enhancements: add `Convolution`, `ConvolutionGain` and `ConvolutionImpulseResponseFile` properties to the D-Bus interface. These properties can be set and changed at any time, even while playing.
+* Update the [sample dbus commands](https://github.com/mikebrady/shairport-sync/blob/master/documents/sample%20dbus%20commands) document.
+
+**Pesky Changes**
+* D-Bus interface change: the D-Bus `LoudnessFilterActive` property has been changed to `Loudness`. The sample D-Bus client has been updated accordingly.
+
+Version 3.3.4
+====
 
 This is Version 3.3.3 with a small compilation error fixed.
 
