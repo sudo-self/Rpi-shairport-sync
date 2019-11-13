@@ -5,7 +5,7 @@
 extern "C" {
 #endif
   
-void convolver_init(const char* file, int max_length);
+int convolver_init(const char* file, int max_length);
 void convolver_process_l(float* data, int length);
 void convolver_process_r(float* data, int length);
   

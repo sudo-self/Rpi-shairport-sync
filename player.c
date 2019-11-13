@@ -2365,9 +2365,27 @@ void *player_thread_func(void *arg) {
                 amount_to_stuff = 0; // no stuffing if it's been disabled
 
               // Apply DSP here
-              if (config.loudness
+              
+              // check the state of loudness and convolution flags here and don't change them for the frame
+              
+              int do_loudness = config.loudness;
+    
+
 #ifdef CONFIG_CONVOLUTION
-                  || config.convolution
+              int do_convolution = 0;
+              if ((config.convolution) && (config.convolver_valid))
+                do_convolution = 1;
+
+              // we will apply the convolution gain if convolution is enabled, even if there is no valid convolution happening
+              
+              int convolution_is_enabled = 0;
+              if (config.convolution)
+                convolution_is_enabled = 1;
+#endif
+                
+              if (do_loudness
+#ifdef CONFIG_CONVOLUTION
+                  || convolution_is_enabled
 #endif
                   ) {
                 int32_t *tbuf32 = (int32_t *)conn->tbuf;
@@ -2383,10 +2401,11 @@ void *player_thread_func(void *arg) {
 
 #ifdef CONFIG_CONVOLUTION
                 // Apply convolution
-                if (config.convolution) {
+                if (do_convolution) {
                   convolver_process_l(fbuf_l, inbuflength);
                   convolver_process_r(fbuf_r, inbuflength);
-
+                }
+                if (convolution_is_enabled) {
                   float gain = pow(10.0, config.convolution_gain / 20.0);
                   for (i = 0; i < inbuflength; ++i) {
                     fbuf_l[i] *= gain;
@@ -2395,7 +2414,7 @@ void *player_thread_func(void *arg) {
                 }
 #endif
 
-                if (config.loudness) {
+                if (do_loudness) {
                   // Apply volume and loudness
                   // Volume must be applied here because the loudness filter will increase the
                   // signal level and it would saturate the int32_t otherwise
@@ -2902,8 +2921,8 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
 
         conn->fix_volume = temp_fix_volume;
 
-        if (config.loudness)
-          loudness_set_volume(software_attenuation / 100);
+        // if (config.loudness)
+        loudness_set_volume(software_attenuation / 100);
       }
 
       if (config.logOutputLevel) {

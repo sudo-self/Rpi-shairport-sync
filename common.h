@@ -230,7 +230,8 @@ typedef struct {
 
 #ifdef CONFIG_CONVOLUTION
   int convolution;
-  const char *convolution_ir_file;
+  int convolver_valid;
+  char *convolution_ir_file;
   float convolution_gain;
   int convolution_max_length;
 #endif

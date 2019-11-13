@@ -962,12 +962,12 @@ int parse_options(int argc, char **argv) {
       }
 
       if (config_lookup_string(config.cfg, "dsp.convolution_ir_file", &str)) {
-        config.convolution_ir_file = str;
-        convolver_init(config.convolution_ir_file, config.convolution_max_length);
+        config.convolution_ir_file = strdup(str);
+        config.convolver_valid = convolver_init(config.convolution_ir_file, config.convolution_max_length);
       }
 
       if (config.convolution && config.convolution_ir_file == NULL) {
-        die("Convolution enabled but no convolution_ir_file provided");
+        warn("Convolution enabled but no convolution_ir_file provided");
       }
 #endif
       if (config_lookup_string(config.cfg, "dsp.loudness", &str)) {
@@ -1339,6 +1339,11 @@ Actually, there is no stop_mpris_service() function.
 
   if (config.service_name)
     free(config.service_name);
+    
+#ifdef CONFIG_CONVOLUTION  
+  if (config.convolution_ir_file)
+    free(config.convolution_ir_file);
+#endif
 
   if (config.regtype)
     free(config.regtype);
