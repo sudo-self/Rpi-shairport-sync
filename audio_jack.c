@@ -433,6 +433,7 @@ int play(void *buf, int samples) {
         if (e)
           die("Error during soxr process: %s", e);
 
+        in += i_done * NPORTS; // advance our input buffer
         samples -= i_done;
         thisbuf -= o_done;
         jack_ringbuffer_write_advance(jackbuf, o_done * jack_sample_size * NPORTS);
