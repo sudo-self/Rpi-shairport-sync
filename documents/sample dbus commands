@@ -60,8 +60,8 @@ dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/Shair
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync string:ConvolutionImpulseResponseFile variant:string:"/etc/shairport-sync/boom.wav"
 
 # Some commands and properties are accessible only through the AdvancedRemoteControl interface.
-# Unfortunately, only iTunes provides the functionality to allow the AdvancedRemoteControl interface to work.
-# (The macOS "Music" app replacing iTunes appears to have no remote interface whatever (at least as far as is known).)
+# However, only iTunes or the macOS Music app from 10.15.2 onwards
+# provide the functionality needed for the AdvancedRemoteControl interface to work.
 
 # You can check to see if AdvancedRemoteControl is available using the command:
 
