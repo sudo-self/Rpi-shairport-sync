@@ -3,7 +3,7 @@ Shairport Sync
 =============
 Shairport Sync is an AirPlay audio player – it plays audio streamed from iTunes, iOS, Apple TV and macOS devices and AirPlay sources such as Quicktime Player and [ForkedDaapd](http://ejurgensen.github.io/forked-daapd/), among others.
 
-Audio played by a Shairport Sync-powered device stays synchronised with the source and hence with similar devices playing the same source. In this way, synchronised multi-room audio is possible for players that support it, such as iTunes.
+Audio played by a Shairport Sync-powered device stays synchronised with the source and hence with similar devices playing the same source. In this way, synchronised multi-room audio is possible for players that support it, such as iTunes and the macOS Music app.
 
 Shairport Sync runs on Linux, FreeBSD and OpenBSD. It does not support AirPlay video or photo streaming.
 
@@ -36,7 +36,7 @@ What else?
 * Output frame rates of 44,100, 88,200, 176,000 or 352,000 frames per second.
 * Fast Response — With hardware volume control, response is instantaneous; otherwise the response time is 0.20 seconds with `alsa`, 0.35 seconds with `sndio`.
 * Non-Interruptible — Shairport Sync sends back a "busy" signal if it's already playing audio from another source, so other sources can't disrupt an existing Shairport Sync session. (If a source disappears without warning, the session automatically terminates after two minutes and the device becomes available again.)
-* Metadata — Shairport Sync can deliver metadata supplied by the source, such as Album Name, Artist Name, Cover Art, etc. through a pipe or UDP socket to a recipient application program — see https://github.com/mikebrady/shairport-sync-metadata-reader for a sample recipient. Sources that supply metadata include iTunes and the Music app in iOS.
+* Metadata — Shairport Sync can deliver metadata supplied by the source, such as Album Name, Artist Name, Cover Art, etc. through a pipe or UDP socket to a recipient application program — see https://github.com/mikebrady/shairport-sync-metadata-reader for a sample recipient. Sources that supply metadata include iTunes and the Music app in macOS and iOS.
 * Compiles on Linux, Cygwin, FreeBSD, OpenBSD.
 * Outputs to [`alsa`](https://www.alsa-project.org/wiki/Main_Page), [`sndio`](http://www.sndio.org), [PulseAudio](https://www.freedesktop.org/wiki/Software/PulseAudio/), [JACK](http://jackaudio.org), to a unix pipe or to `STDOUT`. It also has limited support for [libao](https://xiph.org/ao/) and for [`soundio`](http://libsound.io).
 * An [MPRIS](https://specifications.freedesktop.org/mpris-spec/2.2/) interface, partially complete and very functional, including access to metadata and artwork, and some limited remote control.
@@ -504,7 +504,7 @@ general = {
 Metadata
 --------
 
-Shairport Sync can deliver metadata supplied by the source, such as Album Name, Artist Name, Cover Art, etc. through a pipe or UDP socket to a recipient application program — see https://github.com/mikebrady/shairport-sync-metadata-reader for a sample recipient. Sources that supply metadata include iTunes and the Music app in iOS.
+Shairport Sync can deliver metadata supplied by the source, such as Album Name, Artist Name, Cover Art, etc. through a pipe or UDP socket to a recipient application program — see https://github.com/mikebrady/shairport-sync-metadata-reader for a sample recipient. Sources that supply metadata include iTunes and the Music app in macOS and iOS.
 
 **Metadata broadcasting over UDP**
 
