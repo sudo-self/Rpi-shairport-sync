@@ -592,6 +592,8 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
         // debug(1,"dacp_monitor_thread_code: command: \"%s\"",command);
         result = dacp_send_command(command, &response, &le);
         // debug(1,"Response to \"%s\" is %d.",command,result);
+        // remember: unless the revision_number you pass in is 1,
+        // response will be 200 only if there's something new to report.
         if (result == 200) {
           // if (0) {
           char *sp = response;

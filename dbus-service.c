@@ -337,6 +337,19 @@ static gboolean on_handle_volume_down(ShairportSyncRemoteControl *skeleton,
   return TRUE;
 }
 
+static gboolean on_handle_set_airplay_volume(ShairportSyncRemoteControl *skeleton,
+                                     GDBusMethodInvocation *invocation, const gdouble volume,
+                                     __attribute__((unused)) gpointer user_data) {
+  debug(2, "Set airplay volume to %.6f.", volume);
+  char command[256] = "";
+  snprintf(command, sizeof(command), "setproperty?dmcp.device-volume=%.6f", volume);
+  send_simple_dacp_command(command);
+  shairport_sync_remote_control_complete_set_airplay_volume(skeleton, invocation);
+  return TRUE;
+}
+
+
+
 gboolean notify_elapsed_time_callback(ShairportSyncDiagnostics *skeleton,
                                       __attribute__((unused)) gpointer user_data) {
   // debug(1, "\"notify_elapsed_time_callback\" called.");
@@ -714,11 +727,29 @@ static gboolean on_handle_quit(ShairportSync *skeleton, GDBusMethodInvocation *i
 static gboolean on_handle_remote_command(ShairportSync *skeleton, GDBusMethodInvocation *invocation,
                                          const gchar *command,
                                          __attribute__((unused)) gpointer user_data) {
-  debug(1, "RemoteCommand with command \"%s\".", command);
-  send_simple_dacp_command((const char *)command);
-  shairport_sync_complete_remote_command(skeleton, invocation);
+  debug(1, "RemoteCommand with command \"%s\".", command);  
+  int reply = 0;
+  char *server_reply = NULL;
+  ssize_t reply_size = 0;
+  reply = dacp_send_command((const char *)command, &server_reply, &reply_size);
+  char *server_reply_hex = alloca(reply_size * 2 + 1);
+  if (server_reply_hex) {
+    char *p = server_reply_hex;
+    if (server_reply) {
+      char *q = server_reply;
+      int i;
+      for (i = 0; i < reply_size; i++) {
+        snprintf(p, 3, "%02X", *q);
+        p += 2;
+        q++;
+      }
+    }
+    *p = '\0';
+  }
+  shairport_sync_complete_remote_command(skeleton, invocation, reply, server_reply_hex);
   return TRUE;
 }
+
 
 static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name,
                                   __attribute__((unused)) gpointer user_data) {
@@ -814,6 +845,9 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(on_handle_volume_up), NULL);
   g_signal_connect(shairportSyncRemoteControlSkeleton, "handle-volume-down",
                    G_CALLBACK(on_handle_volume_down), NULL);
+  g_signal_connect(shairportSyncRemoteControlSkeleton, "handle-set-airplay-volume",
+                   G_CALLBACK(on_handle_set_airplay_volume), NULL);
+
 
   g_signal_connect(shairportSyncAdvancedRemoteControlSkeleton, "handle-set-volume",
                    G_CALLBACK(on_handle_set_volume), NULL);

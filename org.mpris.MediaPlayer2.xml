@@ -41,6 +41,9 @@
 			<annotation name="org.qtproject.QtDBus.QtTypeName" value="QVariantMap"/>
 		</property>
 		<property name='Volume' type='d' access='read'/>
+		<method name='SetVolume'>
+      <arg name='volume' type='d' direction='in' />
+    </method>
 		<property name='Position' type='x' access='read'/>
 		<property name='MinimumRate' type='d' access='read'/>
 		<property name='MaximumRate' type='d' access='read'/>

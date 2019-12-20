@@ -14,10 +14,28 @@
 #include "metadata_hub.h"
 #include "mpris-service.h"
 
+double airplay_volume_to_mpris_volume(double sp) {
+  if (sp < -30.0)
+    sp = -30.0;
+  if (sp > 0.0)
+    sp = 0.0;
+  sp = (sp/30.0)+1;
+  return sp;
+}
+
+double mpris_volume_to_airplay_volume(double sp) {
+  sp = (sp-1.0)*30.0;
+  if (sp < -30.0)
+    sp = -30.0;
+  if (sp > 0.0)
+    sp = 0.0;
+  return sp;
+}
+
 void mpris_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)) void *userdata) {
   // debug(1, "MPRIS metadata watcher called");
   char response[100];
-
+  media_player2_player_set_volume(mprisPlayerPlayerSkeleton, airplay_volume_to_mpris_volume(argc->airplay_volume));
   switch (argc->repeat_status) {
   case RS_NOT_AVAILABLE:
     strcpy(response, "Not Available");
@@ -229,6 +247,18 @@ static gboolean on_handle_play(MediaPlayer2Player *skeleton, GDBusMethodInvocati
   return TRUE;
 }
 
+static gboolean on_handle_set_volume(MediaPlayer2Player *skeleton,
+                              GDBusMethodInvocation *invocation, const gdouble volume,
+                               __attribute__((unused)) gpointer user_data) {
+  double ap_volume = mpris_volume_to_airplay_volume(volume);
+  debug(2, "Set mpris volume to %.6f, i.e. airplay volume to %.6f.", volume, ap_volume);
+  char command[256] = "";
+  snprintf(command, sizeof(command), "setproperty?dmcp.device-volume=%.6f", ap_volume);
+  send_simple_dacp_command(command);
+  media_player2_player_complete_play(skeleton, invocation);
+  return TRUE;
+}
+
 static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *name,
                                    __attribute__((unused)) gpointer user_data) {
 
@@ -254,7 +284,6 @@ static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *nam
 
   media_player2_player_set_playback_status(mprisPlayerPlayerSkeleton, "Stopped");
   media_player2_player_set_loop_status(mprisPlayerPlayerSkeleton, "None");
-  media_player2_player_set_volume(mprisPlayerPlayerSkeleton, 0.5);
   media_player2_player_set_minimum_rate(mprisPlayerPlayerSkeleton, 1.0);
   media_player2_player_set_maximum_rate(mprisPlayerPlayerSkeleton, 1.0);
   media_player2_player_set_can_go_next(mprisPlayerPlayerSkeleton, TRUE);
@@ -274,6 +303,9 @@ static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *nam
   g_signal_connect(mprisPlayerPlayerSkeleton, "handle-next", G_CALLBACK(on_handle_next), NULL);
   g_signal_connect(mprisPlayerPlayerSkeleton, "handle-previous", G_CALLBACK(on_handle_previous),
                    NULL);
+  g_signal_connect(mprisPlayerPlayerSkeleton, "handle-set-volume", G_CALLBACK(on_handle_set_volume),
+                   NULL);
+  
 
   add_metadata_watcher(mpris_metadata_watcher, NULL);
 

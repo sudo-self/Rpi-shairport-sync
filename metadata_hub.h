@@ -129,7 +129,7 @@ typedef struct metadata_bundle {
 
   int speaker_volume; // this is the actual speaker volume, allowing for the main volume and the
                       // speaker volume control
-  int airplay_volume;
+  double airplay_volume;
 
   metadata_watcher watchers[number_of_watchers]; // functions to call if the metadata is changed.
   void *watchers_data[number_of_watchers];       // their individual data
