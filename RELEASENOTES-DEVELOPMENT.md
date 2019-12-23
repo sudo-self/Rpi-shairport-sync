@@ -1,3 +1,12 @@
+Version 3.3.6d2
+====
+**New Features**
+* Resampling has been added for the [Jack Audio](http://jackaudio.org) backend. This can be used to up-sample to 192kHz. Thanks to [Pieter De Gendt](https://github.com/pdgendt) for this addition.
+
+Version 3.3.6d1
+====
+This is release version 3.3.5.
+
 Version 3.3.5d1
 ====
 **Pesky Changes You May Not Be Able To Ignore**

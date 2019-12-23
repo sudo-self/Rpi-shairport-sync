@@ -29,10 +29,18 @@
 #include <jack/jack.h>
 #include <jack/ringbuffer.h>
 
-// Two-channel, 16bit audio:
-static const int bytes_per_frame = 4;
-// Four seconds buffer -- should be plenty
-#define buffer_size (44100 * 4 * bytes_per_frame)
+#ifdef CONFIG_SOXR
+#include <soxr.h>
+#endif
+
+#define NPORTS 2
+
+typedef jack_default_audio_sample_t sample_t;
+
+#define jack_sample_size sizeof(sample_t)
+
+// Two-channel, 32bit audio:
+static const int bytes_per_frame = NPORTS * jack_sample_size;
 
 static pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -62,7 +70,6 @@ audio_output audio_jack = {.name = "jack",
 
 // This also affects deinterlacing.
 // So make it exactly the number of incoming audio channels!
-#define NPORTS 2
 static jack_port_t *port[NPORTS];
 static const char *port_name[NPORTS] = {"out_L", "out_R"};
 
@@ -76,7 +83,36 @@ static int flush_please = 0;
 static jack_latency_range_t latest_latency_range[NPORTS];
 static int64_t time_of_latest_transfer;
 
-static inline jack_default_audio_sample_t sample_conv(short sample) {
+#ifdef CONFIG_SOXR
+typedef struct soxr_quality {
+  int quality;
+  const char *name;
+} soxr_quality_t;
+
+static soxr_quality_t soxr_quality_table[] = {
+    { SOXR_VHQ, "very high" },
+    { SOXR_HQ,  "high"      },
+    { SOXR_MQ,  "medium"    },
+    { SOXR_LQ,  "low"       },
+    { SOXR_QQ,  "quick"     },
+    { -1,       NULL        }
+};
+
+static int parse_soxr_quality_name(const char *name) {
+  for (soxr_quality_t *s = soxr_quality_table; s->name != NULL; ++s) {
+    if (!strcmp(s->name, name)) {
+      return s->quality;
+    }
+  }
+  return -1;
+}
+
+static soxr_t              soxr = NULL;
+static soxr_quality_spec_t quality_spec;
+static soxr_io_spec_t      io_spec;
+#endif
+
+static inline sample_t sample_conv(short sample) {
   // It sounds correct, but I don't understand it.
   // Zero int needs to be zero float. Check.
   // Plus 32767 int is 1.0. Check.
@@ -86,17 +122,17 @@ static inline jack_default_audio_sample_t sample_conv(short sample) {
   return ((sample < 0) ? (-1.0 * sample / SHRT_MIN) : (1.0 * sample / SHRT_MAX));
 }
 
-static void deinterleave_and_convert(const char *interleaved_input_buffer,
-                                     jack_default_audio_sample_t *jack_output_buffer[],
-                                     jack_nframes_t offset, jack_nframes_t nframes) {
+static void deinterleave(const char *interleaved_input_buffer,
+                         sample_t *jack_output_buffer[],
+                         jack_nframes_t offset, jack_nframes_t nframes) {
   jack_nframes_t f;
   // We're dealing with 16bit audio here:
-  short *ifp = (short *)interleaved_input_buffer;
+  sample_t *ifp = (sample_t *)interleaved_input_buffer;
   // Zero-copy, we're working directly on the target and destination buffers,
   // so deal with an offset for the second part of the input ringbuffer
   for (f = offset; f < (nframes + offset); f++) {
     for (int i = 0; i < NPORTS; i++) {
-      jack_output_buffer[i][f] = sample_conv(*ifp++);
+      jack_output_buffer[i][f] = *ifp++;
     }
   }
 }
@@ -107,7 +143,7 @@ static void deinterleave_and_convert(const char *interleaved_input_buffer,
 // output, no file access, no mutexes...
 // The JACK ringbuffer we use to get the data in here is explicitly lock-free.
 static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
-  jack_default_audio_sample_t *buffer[NPORTS];
+  sample_t *buffer[NPORTS];
   // Expect an array of two elements because of possible ringbuffer wrap-around:
   jack_ringbuffer_data_t v[2] = {0};
   jack_nframes_t i, thisbuf;
@@ -115,7 +151,7 @@ static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
   int frames_required = 0;
 
   for (i = 0; i < NPORTS; i++) {
-    buffer[i] = (jack_default_audio_sample_t *)jack_port_get_buffer(port[i], nframes);
+    buffer[i] = (sample_t *)jack_port_get_buffer(port[i], nframes);
   }
   if (flush_please) {
     // We just move the read pointer ahead without doing anything with the data.
@@ -131,7 +167,7 @@ static int process(jack_nframes_t nframes, __attribute__((unused)) void *arg) {
       } else {
         frames_required = thisbuf;
       }
-      deinterleave_and_convert(v[i].buf, buffer, frames_written, frames_required);
+      deinterleave(v[i].buf, buffer, frames_written, frames_required);
       frames_written += frames_required;
       nframes -= frames_required;
     }
@@ -175,6 +211,7 @@ static void info(const char *desc) { inform("JACK information: \"%s\"", desc); }
 
 int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   int i;
+  int bufsz = -1;
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.500;
   // Below this, soxr interpolation will not occur -- it'll be basic interpolation
@@ -183,6 +220,9 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
 
   // Do the "general" audio  options. Note, these options are in the "general" stanza!
   parse_general_audio_options();
+#ifdef CONFIG_SOXR
+  config.jack_soxr_resample_quality = -1; // don't resample by default
+#endif
 
   // Now the options specific to the backend, from the "jack" stanza:
   if (config.cfg != NULL) {
@@ -193,13 +233,25 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     if (config_lookup_string(config.cfg, "jack.autoconnect_pattern", &str)) {
       config.jack_autoconnect_pattern = (char *)str;
     }
+#ifdef CONFIG_SOXR
+    if (config_lookup_string(config.cfg, "jack.soxr_resample_quality", &str)) {
+      debug(1, "SOXR quality %s", str);
+      config.jack_soxr_resample_quality = parse_soxr_quality_name(str);
+    }
+#endif
+    if (config_lookup_int(config.cfg, "jack.bufsz", &bufsz) && bufsz <= 0)
+      die("jack: bufsz must be > 0");
   }
   if (config.jack_client_name == NULL)
     config.jack_client_name = strdup("shairport-sync");
 
-  jackbuf = jack_ringbuffer_create(buffer_size);
+  // by default a buffer that can hold up to 4 seconds of 48kHz samples
+  if (bufsz <= 0)
+    bufsz = 48000 * 4 * bytes_per_frame;
+
+  jackbuf = jack_ringbuffer_create((size_t)bufsz);
   if (jackbuf == NULL)
-    die("Can't allocate %d bytes for the JACK ringbuffer.", buffer_size);
+    die("Can't allocate %d bytes for the JACK ringbuffer.", bufsz);
   // Lock the ringbuffer into memory so that it never gets paged out, which would
   // break realtime constraints.
   jack_ringbuffer_mlock(jackbuf);
@@ -213,6 +265,12 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     die("Could not start JACK server. JackStatus is %x", status);
   }
   sample_rate = jack_get_sample_rate(client);
+#ifdef CONFIG_SOXR
+  if (config.jack_soxr_resample_quality >= SOXR_QQ) {
+    quality_spec = soxr_quality_spec(config.jack_soxr_resample_quality, 0);
+    io_spec = soxr_io_spec(SOXR_INT16_I, SOXR_FLOAT32_I);
+  } else
+#endif
   if (sample_rate != 44100) {
     die("The JACK server is running at the wrong sample rate (%d) for Shairport Sync."
         " Must be 44100 Hz.",
@@ -287,14 +345,38 @@ void jack_deinit() {
     warn("Error closing jack client");
   pthread_mutex_unlock(&client_mutex);
   jack_ringbuffer_free(jackbuf);
+#ifdef CONFIG_SOXR
+  if (soxr) {
+    soxr_delete(soxr);
+    soxr = NULL;
+  }
+#endif
 }
 
-void jack_start(__attribute__((unused)) int i_sample_rate,
+void jack_start(int i_sample_rate,
                 __attribute__((unused)) int i_sample_format) {
   // Nothing to do, JACK client has already been set up at jack_init().
   // Also, we have no say over the sample rate or sample format of JACK,
-  // We convert the 16bit samples to float, and die if the sample rate is != 44k1.
-  // FIXME: later, resampling would be nice. Fold into soxr if possible.
+  // We convert the 16bit samples to float, and die if the sample rate is != 44k1 without soxr.
+#ifdef CONFIG_SOXR
+  if (config.jack_soxr_resample_quality >= SOXR_QQ) {
+    // we might improve a bit with soxr_clear if the sample_rate doesn't change
+    if (soxr) {
+      soxr_delete(soxr);
+    }
+    soxr_error_t e = NULL;
+    soxr = soxr_create(i_sample_rate,
+                       sample_rate,
+                       NPORTS,
+                       &e,
+                       &io_spec,
+                       &quality_spec,
+                       NULL);
+    if (!soxr) {
+      die("Unable to create soxr resampler for JACK: %s", e);
+    }
+  }
+#endif
 }
 
 void jack_flush() {
@@ -319,7 +401,7 @@ int jack_delay(long *the_delay) {
   debug(2, "audio_occupancy_now is %d.", audio_occupancy_now);
   pthread_mutex_unlock(&buffer_mutex);
 
-  int64_t frames_processed_since_latest_latency_check = (delta * 44100) >> 32;
+  int64_t frames_processed_since_latest_latency_check = (delta * sample_rate) >> 32;
   // debug(1,"delta: %" PRId64 " frames.",frames_processed_since_latest_latency_check);
   // jack_latency is set by the graph() callback, it's the average of the maximum
   // latencies of all our output ports. Adjust this constant baseline delay according
@@ -330,18 +412,54 @@ int jack_delay(long *the_delay) {
 }
 
 int play(void *buf, int samples) {
-  // debug(1,"jack_play of %d samples.",samples);
-  // copy the samples into the queue
-  size_t bytes_to_transfer, bytes_transferred;
-  bytes_to_transfer = samples * bytes_per_frame;
+  jack_ringbuffer_data_t v[2] = {0};
+  size_t i, j, c;
+  jack_nframes_t thisbuf;
   // It's ok to lock here since we're not in the realtime callback:
   pthread_mutex_lock(&buffer_mutex);
-  bytes_transferred = jack_ringbuffer_write(jackbuf, buf, bytes_to_transfer);
+  jack_ringbuffer_get_write_vector(jackbuf, v);
+  short *in = (short *)buf;
+  sample_t *out;
+  for (i = 0; i < 2; ++i) {
+    thisbuf = v[i].len / (jack_sample_size * NPORTS); // #samples per channel
+    out = (sample_t *)v[i].buf;
+#ifdef CONFIG_SOXR
+    if (soxr) {
+      size_t i_done, o_done;
+      soxr_error_t e;
+      while (samples > 0 && thisbuf > 0) {
+        e = soxr_process(soxr,
+                         (soxr_in_t)in,
+                         samples,
+                         &i_done,
+                         (soxr_out_t)out,
+                         thisbuf,
+                         &o_done);
+        if (e)
+          die("Error during soxr process: %s", e);
+
+        in += i_done * NPORTS; // advance our input buffer
+        samples -= i_done;
+        thisbuf -= o_done;
+        jack_ringbuffer_write_advance(jackbuf, o_done * jack_sample_size * NPORTS);
+      }
+    } else {
+#endif
+    j = 0;
+    for (j = 0; j < thisbuf && samples > 0; ++j) {
+      for (c = 0; c < NPORTS; ++c)
+        out[j * NPORTS + c] = sample_conv(*in++);
+      --samples;
+    }
+    jack_ringbuffer_write_advance(jackbuf, j * jack_sample_size * NPORTS);
+#ifdef CONFIG_SOXR
+    }
+#endif
+  }
   time_of_latest_transfer = get_absolute_time_in_fp();
   pthread_mutex_unlock(&buffer_mutex);
-  if (bytes_transferred < bytes_to_transfer) {
-    warn("JACK ringbuffer overrun. Only wrote %d of %d bytes.", bytes_transferred,
-         bytes_to_transfer);
+  if (samples) {
+    warn("JACK ringbuffer overrun. Dropped %d samples.", samples);
   }
   return 0;
 }
