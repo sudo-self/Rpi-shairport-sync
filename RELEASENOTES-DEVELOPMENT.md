@@ -1,4 +1,4 @@
-Versioon 3.3.6d3
+Version 3.3.6d3
 ====
 **New Features**
 * Add `SetAirplayVolume` to the native D-Bus `RemoteControl` interface.
