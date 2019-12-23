@@ -1,3 +1,16 @@
+Versioon 3.3.6d3
+====
+**New Features**
+* Add `SetAirplayVolume` to the native D-Bus `RemoteControl` interface.
+* Add `SetVolume` to the `MPRIS` interface.
+
+**Bug Fixes**
+* Hook up the `Volume` property in the `MPRIS` interface.
+
+**Enhancements**
+* Modify `RemoteCommand` in the D-Bus interface to return the HTTP status and response in hex.
+* Add a few sample commands, including `MPRIS` commands, to the [Sample D-Bus Commands](https://github.com/mikebrady/shairport-sync/blob/development/documents/sample%20dbus%20commands) document.
+
 Version 3.3.6d2
 ====
 **New Features**
