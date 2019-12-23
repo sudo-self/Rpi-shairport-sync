@@ -41,8 +41,6 @@ typedef jack_default_audio_sample_t sample_t;
 
 // Two-channel, 32bit audio:
 static const int bytes_per_frame = NPORTS * jack_sample_size;
-// Four seconds buffer -- should be plenty
-#define buffer_size (48000u * 4u * bytes_per_frame)
 
 static pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -86,12 +84,12 @@ static jack_latency_range_t latest_latency_range[NPORTS];
 static int64_t time_of_latest_transfer;
 
 #ifdef CONFIG_SOXR
-typedef struct soxr_recipe {
-  int recipe;
+typedef struct soxr_quality {
+  int quality;
   const char *name;
-} soxr_recipe_t;
+} soxr_quality_t;
 
-static soxr_recipe_t soxr_quality_table[] = {
+static soxr_quality_t soxr_quality_table[] = {
     { SOXR_VHQ, "very high" },
     { SOXR_HQ,  "high"      },
     { SOXR_MQ,  "medium"    },
@@ -100,10 +98,10 @@ static soxr_recipe_t soxr_quality_table[] = {
     { -1,       NULL        }
 };
 
-static int parse_soxr_recipe_name(const char *name) {
-  for (soxr_recipe_t *s = soxr_quality_table; s->name != NULL; ++s) {
+static int parse_soxr_quality_name(const char *name) {
+  for (soxr_quality_t *s = soxr_quality_table; s->name != NULL; ++s) {
     if (!strcmp(s->name, name)) {
-      return s->recipe;
+      return s->quality;
     }
   }
   return -1;
@@ -213,6 +211,7 @@ static void info(const char *desc) { inform("JACK information: \"%s\"", desc); }
 
 int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   int i;
+  int bufsz = -1;
   config.audio_backend_latency_offset = 0;
   config.audio_backend_buffer_desired_length = 0.500;
   // Below this, soxr interpolation will not occur -- it'll be basic interpolation
@@ -222,7 +221,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   // Do the "general" audio  options. Note, these options are in the "general" stanza!
   parse_general_audio_options();
 #ifdef CONFIG_SOXR
-  config.jack_soxr_resample_recipe = -1; // don't resample by default
+  config.jack_soxr_resample_quality = -1; // don't resample by default
 #endif
 
   // Now the options specific to the backend, from the "jack" stanza:
@@ -235,18 +234,24 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
       config.jack_autoconnect_pattern = (char *)str;
     }
 #ifdef CONFIG_SOXR
-    if (config_lookup_string(config.cfg, "jack.soxr_resample_recipe", &str)) {
+    if (config_lookup_string(config.cfg, "jack.soxr_resample_quality", &str)) {
       debug(1, "SOXR quality %s", str);
-      config.jack_soxr_resample_recipe = parse_soxr_recipe_name(str);
+      config.jack_soxr_resample_quality = parse_soxr_quality_name(str);
     }
 #endif
+    if (config_lookup_int(config.cfg, "jack.bufsz", &bufsz) && bufsz <= 0)
+      die("jack: bufsz must be > 0");
   }
   if (config.jack_client_name == NULL)
     config.jack_client_name = strdup("shairport-sync");
 
-  jackbuf = jack_ringbuffer_create(buffer_size);
+  // by default a buffer that can hold up to 4 seconds of 48kHz samples
+  if (bufsz <= 0)
+    bufsz = 48000 * 4 * bytes_per_frame;
+
+  jackbuf = jack_ringbuffer_create((size_t)bufsz);
   if (jackbuf == NULL)
-    die("Can't allocate %d bytes for the JACK ringbuffer.", buffer_size);
+    die("Can't allocate %d bytes for the JACK ringbuffer.", bufsz);
   // Lock the ringbuffer into memory so that it never gets paged out, which would
   // break realtime constraints.
   jack_ringbuffer_mlock(jackbuf);
@@ -261,8 +266,8 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   }
   sample_rate = jack_get_sample_rate(client);
 #ifdef CONFIG_SOXR
-  if (config.jack_soxr_resample_recipe >= SOXR_QQ) {
-    quality_spec = soxr_quality_spec(config.jack_soxr_resample_recipe, 0);
+  if (config.jack_soxr_resample_quality >= SOXR_QQ) {
+    quality_spec = soxr_quality_spec(config.jack_soxr_resample_quality, 0);
     io_spec = soxr_io_spec(SOXR_INT16_I, SOXR_FLOAT32_I);
   } else
 #endif
@@ -354,7 +359,7 @@ void jack_start(int i_sample_rate,
   // Also, we have no say over the sample rate or sample format of JACK,
   // We convert the 16bit samples to float, and die if the sample rate is != 44k1 without soxr.
 #ifdef CONFIG_SOXR
-  if (config.jack_soxr_resample_recipe >= SOXR_QQ) {
+  if (config.jack_soxr_resample_quality >= SOXR_QQ) {
     // we might improve a bit with soxr_clear if the sample_rate doesn't change
     if (soxr) {
       soxr_delete(soxr);

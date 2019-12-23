@@ -271,7 +271,7 @@ typedef struct {
   char *jack_client_name;
   char *jack_autoconnect_pattern;
 #ifdef CONFIG_SOXR
-  int jack_soxr_resample_recipe;
+  int jack_soxr_resample_quality;
 #endif
 #endif
 
