@@ -1,3 +1,11 @@
+Version 3.3.6d4
+====
+**Bug Fix**
+* Fix an incompatibilty with Forked Daapd that was causing Forked Daapd to lock up. Thanks to [@tomgadow](https://github.com/tomgadow) and [@ejurgensen](https://github.com/ejurgensen) for their help in finding and (hopefully) fixing this issue.
+
+**Enhancements**
+* Add examples of using the RemoteControl interface's SetAirplayVolume feature to the shairport-sync-dbus-test-client source.
+
 Version 3.3.6d3
 ====
 **New Features**
