@@ -1,6 +1,6 @@
 /*
  * This file is part of Shairport Sync.
- * Copyright (c) Mike Brady 2018 -- 2019
+ * Copyright (c) Mike Brady 2018 -- 2020
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -330,7 +330,7 @@ static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *nam
                    NULL);
   g_signal_connect(mprisPlayerPlayerSkeleton, "handle-set-volume", G_CALLBACK(on_handle_set_volume),
                    NULL);
-  
+
 
   add_metadata_watcher(mpris_metadata_watcher, NULL);
 
