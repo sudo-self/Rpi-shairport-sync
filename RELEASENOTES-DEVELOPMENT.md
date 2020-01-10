@@ -1,10 +1,17 @@
-Version 3.3.6d4
+Version 3.3.6d5
 ====
 **Bug Fix**
 * Fix an incompatibilty with Forked Daapd that was causing Forked Daapd to lock up. Thanks to [@tomgadow](https://github.com/tomgadow) and [@ejurgensen](https://github.com/ejurgensen) for their help in finding and (hopefully) fixing this issue. Addresses Issue [#953](https://github.com/mikebrady/shairport-sync/issues/953) and [Forked Daapd Issue #870](https://github.com/ejurgensen/forked-daapd/issues/870).
 
 **Enhancements**
-* Add examples of using the RemoteControl interface's SetAirplayVolume feature to the shairport-sync-dbus-test-client source.
+* Add some extra examples of using the RemoteControl interface's SetAirplayVolume feature to the shairport-sync-dbus-test-client source.
+
+**Pesky Changes You May Not Be Able To Ignore**
+* Renamed the `Server` property in the D-Bus interface to `Client`. The rather strange language in use has it that a player like iTunes is a "client" of the AirPlay device like Shairport Sync, which is therefore considered the "server". The newly-renamed "Client" property is the IP number of the player.
+
+Version 3.3.6d4
+====
+A fix for issue #953 that wouldn't work.
 
 Version 3.3.6d3
 ====
