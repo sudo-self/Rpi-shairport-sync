@@ -53,6 +53,7 @@ typedef struct {
   char dacp_id[256];                   // the DACP ID string
   uint16_t port;                       // zero if no port discovered
   short connection_family;             // AF_INET6 or AF_INET
+  int always_use_revision_number_1;    // for dealing with forked-daapd;
   uint32_t scope_id;                   // if it's an ipv6 connection, this will be its scope id
   char ip_string[INET6_ADDRSTRLEN];    // the ip string pointing to the client
   uint32_t active_remote_id;           // send this when you want to send remote control commands
@@ -226,10 +227,8 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
           struct timeval tv;
           tv.tv_sec = 0;
           tv.tv_usec = 500000;
-          // Don't place a timeout on the receive side of these calls, as some clients may provide
-          // a "long poll" mechanism whereby a reply will not be sent until a change has occurred
-          // if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
-          //   debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
+          if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
+             debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
           if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
             debug(1, "dacp_send_command: error %d setting send timeout.", errno);
 
@@ -284,12 +283,8 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
               memset(buffer, 0, sizeof(buffer));
               while (needmore && !looperror) {
                 const char *data = buffer;
-
-                // Don't place a timeout on the receive, as some clients may provide
-                // a "long poll" mechanism whereby a reply will not be sent until a change has occurred
-
-                // if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
-                //  debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
+                if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
+                  debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
                 ssize_t ndata = recv(sockfd, buffer, sizeof(buffer), 0);
                 // debug(3, "Received %d bytes: \"%s\".", ndata, buffer);
                 if (ndata <= 0) {
@@ -413,8 +408,20 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
     dacp_server.connection_family = conn->connection_ip_family;
     dacp_server.scope_id = conn->self_scope_id;
     strncpy(dacp_server.ip_string, conn->client_ip_string, INET6_ADDRSTRLEN);
-    debug(3, "set_dacp_server_information set IP to \"%s\" and DACP id to \"%s\".",
+    debug(2, "set_dacp_server_information set IP to \"%s\" and DACP id to \"%s\".",
           dacp_server.ip_string, dacp_server.dacp_id);
+
+    // If the client is forked-daapd, then we always use revision number 1
+    // because otherwise the return read will hang in a "long poll" if there
+    // are no changes.
+    // This is different to other AirPlay clients
+    // which return immediately with a 403 code if there are no changes.
+    dacp_server.always_use_revision_number_1 = 0;
+    char *p = strstr(conn->UserAgent, "forked-daapd");
+    if ((p != 0) && (p == conn->UserAgent)) {// must exist and be at the start of the UserAgent string
+      dacp_server.always_use_revision_number_1 = 1;
+    }
+
 
     mdns_dacp_monitor_set_id(dacp_server.dacp_id);
 
@@ -480,6 +487,7 @@ void dacp_monitor_thread_code_cleanup(__attribute__((unused)) void *arg) {
 
 void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
   int scan_index = 0;
+  int always_use_revision_number_1 = 0;
   // char server_reply[10000];
   // debug(1, "DACP monitor thread started.");
   // wait until we get a valid port number to begin monitoring it
@@ -515,6 +523,8 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
       bad_result_count = 0;
       idle_scan_count = 0;
     }
+
+    always_use_revision_number_1 = dacp_server.always_use_revision_number_1; // set this while access is locked
 
     result = dacp_get_volume(&the_volume); // just want the http code
     pthread_cleanup_pop(1);
@@ -604,6 +614,8 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
       char *response = NULL;
       int32_t item_size;
       char command[1024] = "";
+      if (always_use_revision_number_1 != 0) // for forked-daapd
+        revision_number = 1;
       snprintf(command, sizeof(command) - 1, "playstatusupdate?revision-number=%d",
                revision_number);
       // debug(1,"dacp_monitor_thread_code: command: \"%s\"",command);
@@ -641,7 +653,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
               case 'cmsr': // revision number
                 t = sp - item_size;
                 revision_number = ntohl(*(uint32_t *)(t));
-                // debug(1,"    Serial Number: %d", revision_number);
+                // debug(1,"New revision number received: %d", revision_number);
                 break;
               case 'caps': // play status
                 t = sp - item_size;
@@ -1003,7 +1015,7 @@ int dacp_set_include_speaker_volume(int64_t machine_number, int32_t vo) {
   snprintf(message, sizeof(message),
            "setproperty?include-speaker-id=%" PRId64 "&dmcp.volume=%" PRId32 "", machine_number,
            vo);
-  debug(1, "sending \"%s\"", message);
+  debug(2, "sending \"%s\"", message);
   return send_simple_dacp_command(message);
   // should return 204
 }
@@ -1013,7 +1025,7 @@ int dacp_set_speaker_volume(int64_t machine_number, int32_t vo) {
   memset(message, 0, sizeof(message));
   snprintf(message, sizeof(message), "setproperty?speaker-id=%" PRId64 "&dmcp.volume=%" PRId32 "",
            machine_number, vo);
-  debug(1, "sending \"%s\"", message);
+  debug(2, "sending \"%s\"", message);
   return send_simple_dacp_command(message);
   // should return 204
 }

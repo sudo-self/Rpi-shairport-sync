@@ -79,6 +79,7 @@ typedef struct {
 typedef struct {
   int connection_number;     // for debug ID purposes, nothing else...
   int resend_interval;       // this is really just for debugging
+  char *UserAgent;           // free this on teardown
   int AirPlayVersion;        // zero if not an AirPlay session. Used to help calculate latency
   uint32_t latency;          // the actual latency used for this play session
   uint32_t minimum_latency;  // set if an a=min-latency: line appears in the ANNOUNCE message; zero
