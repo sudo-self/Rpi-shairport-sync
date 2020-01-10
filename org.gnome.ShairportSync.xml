@@ -13,7 +13,7 @@
     <property name="DriftTolerance" type="d" access="readwrite" />
     <method name="RemoteCommand">
       <arg name="command" type="s" direction="in" />
-      <arg name="reply" type="i" direction="out" />      
+      <arg name="reply" type="i" direction="out" />
       <arg name="response" type="s" direction="out" />
     </method>
     <property name="VolumeControlProfile" type="s" access="readwrite" />
@@ -45,7 +45,7 @@
 		<method name='VolumeDown'/>
 		<property name='PlayerState' type='s' access='read'/>
 		<property name='ProgressString' type='s' access='read'/>
-		<property name='Server' type='s' access='read'/>
+		<property name='Client' type='s' access='read'/>
 		<property name='AirplayVolume' type='d' access='read'/>
     <method name="SetAirplayVolume">
       <arg name="volume" type="d" direction="in" />
