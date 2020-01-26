@@ -1,5 +1,5 @@
 
-Resporing issues and Making Pull Requests
+Reporting Issues and Making Pull Requests
 ====
 
 Pull Requests
