@@ -1,5 +1,5 @@
 
-Contributing to Shairport Sync
+Reporting Issues and Making Pull Requests
 ====
 
 Pull Requests
