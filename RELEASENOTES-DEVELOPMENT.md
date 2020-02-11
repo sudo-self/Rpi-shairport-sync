@@ -1,3 +1,8 @@
+Version 3.3.6d6
+====
+**Bug Fix**
+* Add a SIGCHLD handler to remove completed processes that were used to perform and program "hooks" without waiting for completion. Thanks to [patrickjane](https://github.com/patrickjane) for reporting the bug and for suggesting a solution. Addresses Issue [#968](https://github.com/mikebrady/shairport-sync/issues/968).
+
 Version 3.3.6d5
 ====
 **Bug Fix**
