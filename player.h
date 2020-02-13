@@ -63,17 +63,17 @@ typedef struct audio_buffer_entry { // decoded audio packets
 
 #define BUFFER_FRAMES 1024
 
-enum audio_stream_type {
+typedef enum {
   ast_unknown,
   ast_uncompressed, // L16/44100/2
   ast_apple_lossless,
-} ast_type;
+} audio_stream_type;
 
 typedef struct {
   int encrypted;
   uint8_t aesiv[16], aeskey[16];
   int32_t fmtp[12];
-  enum audio_stream_type type;
+  audio_stream_type type;
 } stream_cfg;
 
 typedef struct {

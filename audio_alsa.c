@@ -123,7 +123,7 @@ int frame_size; // in bytes for interleaved stereo
 int alsa_device_initialised; // boolean to ensure the initialisation is only
                              // done once
 
-enum yndk_type precision_delay_available_status =
+yndk_type precision_delay_available_status =
     YNDK_DONT_KNOW; // initially, we don't know if the device can do precision delay
 
 snd_pcm_t *alsa_handle = NULL;
@@ -159,14 +159,14 @@ int volume_based_mute_is_active =
 snd_pcm_sframes_t (*alsa_pcm_write)(snd_pcm_t *, const void *, snd_pcm_uframes_t) = snd_pcm_writei;
 
 int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                               enum yndk_type *using_update_timestamps);
+                               yndk_type *using_update_timestamps);
 int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                              enum yndk_type *using_update_timestamps);
+                              yndk_type *using_update_timestamps);
 
 // use this to allow the use of standard or precision delay calculations, with standard the, uh,
 // standard.
 int (*delay_and_status)(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                        enum yndk_type *using_update_timestamps) = standard_delay_and_status;
+                        yndk_type *using_update_timestamps) = standard_delay_and_status;
 
 // this will return true if the DAC can return precision delay information and false if not
 // if it is not yet known, it will test the output device to find out
@@ -216,7 +216,7 @@ int precision_delay_available() {
       do_play(silence, frames_of_silence);
       pthread_cleanup_pop(1);
       // now we can get the delay, and we'll note if it uses update timestamps
-      enum yndk_type uses_update_timestamps;
+      yndk_type uses_update_timestamps;
       snd_pcm_state_t state;
       snd_pcm_sframes_t delay;
       int ret = precision_delay_and_status(&state, &delay, &uses_update_timestamps);
@@ -392,7 +392,7 @@ format_record fr[] = {
 // be added at the lowest possible level.
 // Hence, selecting the greatest bit depth is always either beneficial or neutral.
 
-enum sps_format_t auto_format_check_sequence[] = {
+sps_format_t auto_format_check_sequence[] = {
     SPS_FORMAT_S32,    SPS_FORMAT_S32_LE,  SPS_FORMAT_S32_BE,  SPS_FORMAT_S24, SPS_FORMAT_S24_LE,
     SPS_FORMAT_S24_BE, SPS_FORMAT_S24_3LE, SPS_FORMAT_S24_3BE, SPS_FORMAT_S16, SPS_FORMAT_S16_LE,
     SPS_FORMAT_S16_BE, SPS_FORMAT_S8,      SPS_FORMAT_U8,
@@ -508,12 +508,12 @@ int actual_open_alsa_device(int do_auto_setup) {
     }
   } else { // auto format
     int number_of_formats_to_try;
-    enum sps_format_t *formats;
+    sps_format_t *formats;
     formats = auto_format_check_sequence;
     number_of_formats_to_try = sizeof(auto_format_check_sequence) / sizeof(sps_format_t);
     int i = 0;
     int format_found = 0;
-    enum sps_format_t trial_format = SPS_FORMAT_UNKNOWN;
+    sps_format_t trial_format = SPS_FORMAT_UNKNOWN;
     while ((i < number_of_formats_to_try) && (format_found == 0)) {
       trial_format = formats[i];
       sf = fr[trial_format].alsa_code;
@@ -1422,7 +1422,7 @@ static void start(__attribute__((unused)) int i_sample_rate,
 }
 
 int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                              enum yndk_type *using_update_timestamps) {
+                              yndk_type *using_update_timestamps) {
   int ret = 0;
   if (using_update_timestamps)
     *using_update_timestamps = YNDK_NO;
@@ -1444,7 +1444,7 @@ int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
 }
 
 int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                               enum yndk_type *using_update_timestamps) {
+                               yndk_type *using_update_timestamps) {
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
 

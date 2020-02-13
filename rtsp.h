@@ -3,8 +3,8 @@
 
 #include "player.h"
 
-rtsp_conn_info *playing_conn;
-rtsp_conn_info **conns;
+extern rtsp_conn_info *playing_conn;
+extern rtsp_conn_info **conns;
 
 void rtsp_listen_loop(void);
 // void rtsp_shutdown_stream(void);

@@ -660,7 +660,7 @@ int32_t rand_in_range(int32_t exclusive_range_limit) {
   return sp >> 32;
 }
 
-static inline void process_sample(int32_t sample, char **outp, enum sps_format_t format, int volume,
+static inline void process_sample(int32_t sample, char **outp, sps_format_t format, int volume,
                                   int dither, rtsp_conn_info *conn) {
   /*
   {
@@ -1392,7 +1392,7 @@ static inline int32_t mean_32(int32_t a, int32_t b) {
 // formats accepted so far include U8, S8, S16, S24, S24_3LE, S24_3BE and S32
 
 // stuff: 1 means add 1; 0 means do nothing; -1 means remove 1
-static int stuff_buffer_basic_32(int32_t *inptr, int length, enum sps_format_t l_output_format,
+static int stuff_buffer_basic_32(int32_t *inptr, int length, sps_format_t l_output_format,
                                  char *outptr, int stuff, int dither, rtsp_conn_info *conn) {
   int tstuff = stuff;
   char *l_outptr = outptr;
@@ -1458,7 +1458,7 @@ double longest_soxr_execution_time_us = 0.0;
 int64_t packets_processed = 0;
 
 int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
-                         enum sps_format_t l_output_format, char *outptr, int stuff, int dither,
+                         sps_format_t l_output_format, char *outptr, int stuff, int dither,
                          rtsp_conn_info *conn) {
   if (scratchBuffer == NULL) {
     die("soxr scratchBuffer not initialised.");

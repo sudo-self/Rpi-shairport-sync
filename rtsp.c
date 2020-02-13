@@ -89,7 +89,8 @@ enum rtsp_read_request_response {
   rtsp_read_request_response_error
 };
 
-// Mike Brady's part...
+rtsp_conn_info *playing_conn;
+rtsp_conn_info **conns;
 
 int metadata_running = 0;
 
