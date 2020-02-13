@@ -24,10 +24,10 @@
 #endif
 
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
-enum dbus_session_type {
+typedef enum {
   DBT_system = 0, // use the session bus
   DBT_session,    // use the system bus
-} dbt_type;
+} dbus_session_type;
 #endif
 
 #define sps_extra_code_output_stalled 32768
@@ -245,10 +245,10 @@ typedef struct {
   yna_type use_precision_timing; // defaults to no
 
 #if defined(CONFIG_DBUS_INTERFACE)
-  enum dbus_session_type dbus_service_bus_type;
+  dbus_session_type dbus_service_bus_type;
 #endif
 #if defined(CONFIG_MPRIS_INTERFACE)
-  enum dbus_session_type mpris_service_bus_type;
+  dbus_session_type mpris_service_bus_type;
 #endif
 
 #ifdef CONFIG_METADATA_HUB

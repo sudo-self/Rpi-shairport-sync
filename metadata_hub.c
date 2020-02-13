@@ -58,6 +58,8 @@
 #include <openssl/md5.h>
 #endif
 
+struct metadata_bundle metadata_store;
+
 int metadata_hub_initialised = 0;
 
 pthread_rwlock_t metadata_hub_re_lock = PTHREAD_RWLOCK_INITIALIZER;

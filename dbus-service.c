@@ -45,6 +45,8 @@
 #include <FFTConvolver/convolver.h>
 #endif
 
+ShairportSync *shairportSyncSkeleton;
+
 int service_is_running = 0;
 
 ShairportSyncDiagnostics *shairportSyncDiagnosticsSkeleton = NULL;

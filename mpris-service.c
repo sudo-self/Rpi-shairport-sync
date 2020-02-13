@@ -39,6 +39,9 @@
 #include "metadata_hub.h"
 #include "mpris-service.h"
 
+MediaPlayer2 *mprisPlayerSkeleton;
+MediaPlayer2Player *mprisPlayerPlayerSkeleton;
+
 double airplay_volume_to_mpris_volume(double sp) {
   if (sp < -30.0)
     sp = -30.0;

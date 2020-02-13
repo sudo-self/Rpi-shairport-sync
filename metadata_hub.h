@@ -5,25 +5,25 @@
 
 #define number_of_watchers 2
 
-enum play_status_type {
+typedef enum {
   PS_NOT_AVAILABLE = 0,
   PS_STOPPED,
   PS_PAUSED,
   PS_PLAYING,
 } play_status_type;
 
-enum active_state_type {
+typedef enum {
   AM_INACTIVE = 0,
   AM_ACTIVE,
 } active_state_type;
 
-enum shuffle_status_type {
+typedef enum {
   SS_NOT_AVAILABLE = 0,
   SS_OFF,
   SS_ON,
 } shuffle_status_type;
 
-enum repeat_status_type {
+typedef enum {
   RS_NOT_AVAILABLE = 0,
   RS_OFF,
   RS_ONE,
@@ -59,9 +59,9 @@ typedef struct metadata_bundle {
   // used detect transitions between server activity being on or off
   // e.g. to reease metadata when a server goes inactive, but not if it's permanently
   // inactive.
-  enum play_status_type play_status;
-  enum shuffle_status_type shuffle_status;
-  enum repeat_status_type repeat_status;
+  play_status_type play_status;
+  shuffle_status_type shuffle_status;
+  repeat_status_type repeat_status;
 
   // the following pertain to the track playing
 
@@ -123,9 +123,9 @@ typedef struct metadata_bundle {
 
   // end
 
-  enum play_status_type
+  play_status_type
       player_state; // this is the state of the actual player itself, which can be a bit noisy.
-  enum active_state_type active_state;
+  active_state_type active_state;
 
   int speaker_volume; // this is the actual speaker volume, allowing for the main volume and the
                       // speaker volume control
@@ -136,7 +136,7 @@ typedef struct metadata_bundle {
 
 } metadata_bundle;
 
-struct metadata_bundle metadata_store;
+extern struct metadata_bundle metadata_store;
 
 void add_metadata_watcher(metadata_watcher fn, void *userdata);
 
