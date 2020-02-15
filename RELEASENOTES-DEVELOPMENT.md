@@ -1,12 +1,19 @@
+Version 3.3.6d7
+====
+**Bug Fix**
+* Make Shairport Sync compile in the forthcoming Fedora 32. Fedora 32 uses GCC-10 which [defaults to `-fno-common`](https://gcc.gnu.org/gcc-10/porting_to.html) exposing a number of issues with Shairport Sync – multiple definitions of some `enum`s and failure to define certain variables as `extern`.
+
+  Version 3.3.6d7 is an attempt to clear up all these errors. Many thanks to [Bill Peck](https://github.com/p3ck) for his ongoing support, for bringing this issue to notice and for developing a workaround. Address issue [#973](https://github.com/mikebrady/shairport-sync/issues/973).
+
 Version 3.3.6d6
 ====
 **Bug Fix**
-* Add a SIGCHLD handler to remove completed processes that were used to perform and program "hooks" without waiting for completion. Thanks to [patrickjane](https://github.com/patrickjane) for reporting the bug and for suggesting a solution. Addresses Issue [#968](https://github.com/mikebrady/shairport-sync/issues/968).
+* Add a `SIGCHLD` handler to remove completed processes that were used to perform and program "hooks" without waiting for completion and thus prevent them from becoming zombie processes. Thanks to [patrickjane](https://github.com/patrickjane) for reporting the bug and for suggesting a solution. Addresses issue [#968](https://github.com/mikebrady/shairport-sync/issues/968).
 
 Version 3.3.6d5
 ====
 **Bug Fix**
-* Fix an incompatibilty with Forked Daapd that was causing Forked Daapd to lock up. Thanks to [@tomgadow](https://github.com/tomgadow) and [@ejurgensen](https://github.com/ejurgensen) for their help in finding and (hopefully) fixing this issue. Addresses Issue [#953](https://github.com/mikebrady/shairport-sync/issues/953) and [Forked Daapd Issue #870](https://github.com/ejurgensen/forked-daapd/issues/870).
+* Fix an incompatibilty with Forked Daapd that was causing Forked Daapd to lock up. Thanks to [@tomgadow](https://github.com/tomgadow) and [@ejurgensen](https://github.com/ejurgensen) for their help in finding and (hopefully) fixing this issue. Addresses issue [#953](https://github.com/mikebrady/shairport-sync/issues/953) and [Forked Daapd Issue #870](https://github.com/ejurgensen/forked-daapd/issues/870).
 
 **Enhancements**
 * Add some extra examples of using the RemoteControl interface's SetAirplayVolume feature to the shairport-sync-dbus-test-client source.
