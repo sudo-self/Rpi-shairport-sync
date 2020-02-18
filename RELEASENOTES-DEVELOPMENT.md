@@ -1,7 +1,24 @@
 Version 3.3.6d7
 ====
 **Bug Fix**
-* Make Shairport Sync compile in the forthcoming Fedora 32. Fedora 32 uses GCC-10 which [defaults to `-fno-common`](https://gcc.gnu.org/gcc-10/porting_to.html) exposing a number of issues with Shairport Sync – multiple definitions of some `enum`s and failure to define certain variables as `extern`.
+* Treat the `mper` (Persistent ID of a track) metadata attribute as the 64-bit item that it really is rather than a 32-bit item as hithereto. Output it as a hexadecimal number on the MPRIS and D-Bus interfaces to correspond with the format of the persistent id obtained from AppleScript. E.g:
+
+```
+tell application "Music"
+	get the {persistent ID} of the current track
+end tell
+```
+resulting in:
+```
+{"FD84B4B40FA33A85"}
+```
+**Other Changes**
+* Include the `-fno-common` flag in the compilation options to detect incorrect definitions of global variables and multiple definitions of `enum` data types.
+
+Version 3.3.6d7
+====
+**Bug Fix**
+* Make Shairport Sync compile in the forthcoming Fedora 33. Fedora 33 uses GCC-10 which [defaults to `-fno-common`](https://gcc.gnu.org/gcc-10/porting_to.html) exposing a number of issues with Shairport Sync – multiple definitions of some `enum`s and failure to define certain variables as `extern`.
 
   Version 3.3.6d7 is an attempt to clear up all these errors. Many thanks to [Bill Peck](https://github.com/p3ck) for his ongoing support, for bringing this issue to notice and for developing a workaround. Address issue [#973](https://github.com/mikebrady/shairport-sync/issues/973).
 
