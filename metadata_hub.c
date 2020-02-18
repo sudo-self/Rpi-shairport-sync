@@ -547,7 +547,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
     case 'pffr': // this is sent when the first frame has been received
     case 'prsm':
       metadata_hub_modify_prolog();
-      int changed = (metadata_store.player_state != PS_PLAYING);
+      changed = (metadata_store.player_state != PS_PLAYING);
       metadata_store.player_state = PS_PLAYING;
       metadata_hub_modify_epilog(changed);
       break;
