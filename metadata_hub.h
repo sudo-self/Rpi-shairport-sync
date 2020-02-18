@@ -68,7 +68,7 @@ typedef struct metadata_bundle {
   char *cover_art_pathname;
   int cover_art_pathname_changed;
 
-  uint32_t item_id; // seems to be a track ID -- see itemid in DACP.c
+  uint64_t item_id; // seems to be a track ID -- see itemid in DACP.c
   int item_id_changed;
   int item_id_received; // important for deciding if the track information should be ignored.
 

@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "config.h"
 
@@ -204,7 +205,7 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
   // Add in the Track ID based on the 'mper' metadata if it is non-zero
   if (argc->item_id != 0) {
     char trackidstring[128];
-    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/mper_%u",
+    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/%" PRIX64 "",
              argc->item_id);
     GVariant *trackid = g_variant_new("o", trackidstring);
     g_variant_builder_add(dict_builder, "{sv}", "mpris:trackid", trackid);
@@ -517,7 +518,7 @@ gboolean notify_convolution_impulse_response_file_callback(ShairportSync *skelet
 #else
 gboolean notify_convolution_impulse_response_file_callback(__attribute__((unused)) ShairportSync *skeleton,
                                                 __attribute__((unused)) gpointer user_data) {
-  char *th = (char *)shairport_sync_get_convolution_impulse_response_file(skeleton);
+  __attribute__((unused)) char *th = (char *)shairport_sync_get_convolution_impulse_response_file(skeleton);
   return TRUE;
 }
 #endif
