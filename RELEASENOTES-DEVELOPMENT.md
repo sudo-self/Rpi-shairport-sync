@@ -1,3 +1,8 @@
+Version 3.3.6d10
+====
+**Bug Fix**
+* Brown-bag fix -- do what 3.3.6d9 was supposed to do!
+
 Version 3.3.6d9
 ====
 **Bug Fix**
