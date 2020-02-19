@@ -6,7 +6,7 @@ Version 3.3.6d10
 Version 3.3.6d9
 ====
 **Bug Fix**
-* Fix a bug in the provision of metadata which would on occasion cause metadata from the previous track to be provided. Thanks to [HiFiBerry](https://github.com/hifiberry) for reporting. This bugfix addresses issue [#972](https://github.com/mikebrady/shairport-sync/issues/972).
+* Fix a bug in the provision of metadata which would on occasion cause metadata from the previous track to be provided. Thanks to [Tuomas Hämäläinen](https://github.com/tuomashamalainen) and [HiFiBerry](https://github.com/hifiberry) for reporting. This bugfix addresses issue [#972](https://github.com/mikebrady/shairport-sync/issues/972).
 
 Version 3.3.6d8
 ====
@@ -38,7 +38,7 @@ Thanks to to Scott Simon (https://github.com/zutroy97) for finding a related bug
 Version 3.3.6d7
 ====
 **Bug Fix**
-* Make Shairport Sync compile in the forthcoming Fedora 33. Fedora 33 uses GCC-10 which [defaults to `-fno-common`](https://gcc.gnu.org/gcc-10/porting_to.html) exposing a number of issues with Shairport Sync – multiple definitions of some `enum`s and failure to define certain variables as `extern`.
+* Make Shairport Sync compile in the forthcoming Fedora 32. Fedora 32 uses GCC-10 which [defaults to `-fno-common`](https://gcc.gnu.org/gcc-10/porting_to.html) exposing a number of issues with Shairport Sync – multiple definitions of some `enum`s and failure to define certain variables as `extern`.
 
   Version 3.3.6d7 is an attempt to clear up all these errors. Many thanks to [Bill Peck](https://github.com/p3ck) for his ongoing support, for bringing this issue to notice and for developing a workaround. Address issue [#973](https://github.com/mikebrady/shairport-sync/issues/973).
 
