@@ -1554,7 +1554,7 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, sps_format_t f
 int string_update_with_size(char **str, int *flag, char *s, size_t len) {
   if (*str) {
     if ((s) && (len)) {
-      if ((len == strlen(*str)) && (strncmp(*str, s, len) != 0)) {
+      if ((len != strlen(*str)) || (strncmp(*str, s, len) != 0)) {
         free(*str);
         *str = strndup(s, len);
         *flag = 1;
