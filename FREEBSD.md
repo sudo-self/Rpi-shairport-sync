@@ -60,7 +60,7 @@ Next, configure the build and compile it:
 
 ```
 $ autoreconf -i -f
-./configure  --with-avahi --with-ssl=openssl  --with-sndio --with-libdaemon --with-os=freebsd --with-freebsd-service
+./configure  --with-libdaemon --with-avahi --with-ssl=openssl  --with-sndio --with-libdaemon --with-os=freebsd --with-freebsd-service
 $ make
 ```
 Add `--with-alsa` if you wish to include the ALSA back end. Omit the `--with-sndio` if you don't want the `sndio` back end. Omit the `--with-freebsd-service` if you don't want to install a FreeBSD startup script, runtime folder and user and group -- see below for more details.
