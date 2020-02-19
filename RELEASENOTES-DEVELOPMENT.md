@@ -6,7 +6,7 @@ Version 3.3.6d9
 Version 3.3.6d8
 ====
 **Bug Fixes**
-* Tidy up compilation of the `audio-dummy` and `audio-soundio` back ends when the `fno-common` flag is used. 
+* Tidy up compilation of the `audio-dummy` and `audio-soundio` back ends when the `-fno-common` flag is used. 
 * Remove a superflous extra definition of a variable which would cause it to be used uninitialised.
 
 Version 3.3.6d7
