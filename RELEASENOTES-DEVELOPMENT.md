@@ -1,6 +1,6 @@
 Version 3.3.6d9
 ====
-**Bug Fixes**
+**Bug Fix**
 * Fix a bug in the provision of metadata which would on occasion cause metadata from the previous track to be provided. Thanks to [HiFiBerry](https://github.com/hifiberry) for reporting. This bugfix addresses issue [#972](https://github.com/mikebrady/shairport-sync/issues/972).
 
 Version 3.3.6d8
