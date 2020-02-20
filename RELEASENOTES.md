@@ -1,5 +1,28 @@
 Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
 
+Version 3.3.6
+====
+**New Features**
+* Resampling has been added for the [Jack Audio](http://jackaudio.org) backend. This can be used to up-sample to 192kHz. Thanks to [Pieter De Gendt](https://github.com/pdgendt) for this addition.
+
+**Enhancements**
+* Add `SetAirplayVolume` to the native D-Bus `RemoteControl` interface.
+* Add `SetVolume` to the `MPRIS` interface.
+* Add a few sample commands, including `MPRIS` commands, to the [Sample D-Bus Commands](https://github.com/mikebrady/shairport-sync/blob/master/documents/sample%20dbus%20commands) document.
+
+
+**Bug Fixes**
+* Add a `SIGCHLD` handler to remove completed processes that were used to perform and program "hooks" without waiting for completion and thus prevent them from becoming zombie processes. Thanks to [patrickjane](https://github.com/patrickjane) for reporting the bug and for suggesting a solution. Addresses issue [#968](https://github.com/mikebrady/shairport-sync/issues/968).
+* Fix a bug in the provision of metadata which would on occasion cause metadata from the previous track to be provided. Thanks to [Tuomas Hämäläinen](https://github.com/tuomashamalainen) and [HiFiBerry](https://github.com/hifiberry) for reporting. This bugfix addresses issue [#972](https://github.com/mikebrady/shairport-sync/issues/972).
+* Make Shairport Sync compile in the forthcoming Fedora 32. Fedora 32 uses GCC-10 which [defaults to `-fno-common`](https://gcc.gnu.org/gcc-10/porting_to.html) exposing a number of issues with Shairport Sync – multiple definitions of some `enum`s and failure to define certain variables as `extern`. Many thanks to [Bill Peck](https://github.com/p3ck) for bringing this issue to notice. Address issue [#973](https://github.com/mikebrady/shairport-sync/issues/973).
+* Treat the `mper` (Persistent ID of a track) metadata attribute as the 64-bit item that it really is rather than a 32-bit item as hithereto. Output it as a hexadecimal number on the MPRIS and D-Bus interfaces to correspond with the format of the persistent id obtained from AppleScript. Thanks to to Scott Simon (https://github.com/zutroy97) for finding a related bug in the [shairport-sync-metadata-reader](https://github.com/mikebrady/shairport-sync-metadata-reader).
+* Hook up the `Volume` property in the `MPRIS` interface.
+* Fix an incompatibilty with Forked Daapd that was causing Forked Daapd to lock up. Thanks to [@tomgadow](https://github.com/tomgadow) and [@ejurgensen](https://github.com/ejurgensen) for their help in finding and (hopefully) fixing this issue. Addresses issue [#953](https://github.com/mikebrady/shairport-sync/issues/953) and [Forked Daapd Issue #870](https://github.com/ejurgensen/forked-daapd/issues/870).
+* Other minor bug fixes.
+
+**Pesky Changes You Might Not Be Able To Ignore**
+* Renamed the `Server` property in the D-Bus interface to `Client`. The rather strange language in use has it that a player like iTunes is a "client" of the AirPlay device like Shairport Sync, which is therefore considered the "server". The newly-renamed "Client" property is the IP number of the player.
+
 Version 3.3.5
 ====
 
