@@ -1,4 +1,4 @@
-Version 3.3.6d11
+Version 3.3.6d11 = Version 3.3.6
 ====
 **Bug Fix**
 * Avoid using `strndup` as it seems older versions of OpenWrt do not recognise it.
