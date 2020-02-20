@@ -66,6 +66,8 @@ getent passwd %{name} &> /dev/null || useradd --system -c "%{name} User" \
 %license LICENSES
 
 %changelog
+* Thu Feb 20 2020 Mike Brady <mikebradydublin@icloud.com) 3.3.6
+- Jack resampling, bug fixes and additions to the D-Bus and MPRIS interfaces.
 * Wed Nov 13 2019 Mike Brady <mikebrady@eircom.net) 3.3.5
 - Bug fixes and additions to the D-Bus interface.
 * Mon Oct 28 2019 Mike Brady <mikebrady@eircom.net) 3.3.4
