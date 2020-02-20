@@ -1556,7 +1556,11 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len) {
     if ((s) && (len)) {
       if ((len != strlen(*str)) || (strncmp(*str, s, len) != 0)) {
         free(*str);
-        *str = strndup(s, len);
+        //*str = strndup(s, len); // it seems that OpenWrt 12 doesn't have this
+        char *p = malloc(len + 1);
+        memcpy(p,s,len);
+        p[len] = '\0';
+        *str = p;
         *flag = 1;
       } else {
         *flag = 0;
@@ -1569,7 +1573,11 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len) {
     }
   } else { // old string is NULL
     if ((s) && (len)) {
-      *str = strndup(s, len);
+      //*str = strndup(s, len); // it seems that OpenWrt 12 doesn't have this
+      char *p = malloc(len + 1);
+      memcpy(p,s,len);
+      p[len] = '\0';
+      *str = p;
       *flag = 1;
     } else {
       // old string is NULL and new string is NULL or length 0
