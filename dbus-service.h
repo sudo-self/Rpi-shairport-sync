@@ -3,7 +3,7 @@
 #define DBUS_SERVICE_H
 
 #include "dbus-interface.h"
-ShairportSync *shairportSyncSkeleton;
+extern ShairportSync *shairportSyncSkeleton;
 
 int start_dbus_service();
 void stop_dbus_service();

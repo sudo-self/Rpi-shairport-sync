@@ -32,6 +32,8 @@ void relinquish_dacp_server_information(rtsp_conn_info *conn); // tell the DACP 
                                                                // longer associated with it.
 void dacp_monitor_port_update_callback(
     char *dacp_id, uint16_t port); // a callback to say the port is no longer in use
+
+int dacp_send_command(const char *command, char **body, ssize_t *bodysize);
 int send_simple_dacp_command(const char *command);
 
 int dacp_set_include_speaker_volume(int64_t machine_number, int32_t vo);

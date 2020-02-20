@@ -87,6 +87,10 @@
 void set_alsa_out_dev(char *);
 #endif
 
+config_t config_file_stuff;
+pthread_t main_thread_id;
+uint64_t fp_time_at_startup, fp_time_at_last_debug_message;
+
 // always lock use this when accessing the fp_time_at_last_debug_message
 static pthread_mutex_t debug_timing_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -96,7 +100,7 @@ const char *sps_format_description_string_array[] = {
     "unknown", "S8",      "U8",      "S16", "S16_LE", "S16_BE", "S24",  "S24_LE",
     "S24_BE",  "S24_3LE", "S24_3BE", "S32", "S32_LE", "S32_BE", "auto", "invalid"};
 
-const char *sps_format_description_string(enum sps_format_t format) {
+const char *sps_format_description_string(sps_format_t format) {
   if ((format >= SPS_FORMAT_UNKNOWN) && (format <= SPS_FORMAT_AUTO))
     return sps_format_description_string_array[format];
   else
@@ -1381,7 +1385,7 @@ char *get_version_string() {
   return version_string;
 }
 
-int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_format_t format,
+int64_t generate_zero_frames(char *outp, size_t number_of_frames, sps_format_t format,
                              int with_dither, int64_t random_number_in) {
   // return the last random number used
   // assuming the buffer has been assigned
@@ -1550,9 +1554,13 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_forma
 int string_update_with_size(char **str, int *flag, char *s, size_t len) {
   if (*str) {
     if ((s) && (len)) {
-      if (strncmp(*str, s, len) != 0) {
+      if ((len != strlen(*str)) || (strncmp(*str, s, len) != 0)) {
         free(*str);
-        *str = strndup(s, len);
+        //*str = strndup(s, len); // it seems that OpenWrt 12 doesn't have this
+        char *p = malloc(len + 1);
+        memcpy(p,s,len);
+        p[len] = '\0';
+        *str = p;
         *flag = 1;
       } else {
         *flag = 0;
@@ -1565,7 +1573,11 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len) {
     }
   } else { // old string is NULL
     if ((s) && (len)) {
-      *str = strndup(s, len);
+      //*str = strndup(s, len); // it seems that OpenWrt 12 doesn't have this
+      char *p = malloc(len + 1);
+      memcpy(p,s,len);
+      p[len] = '\0';
+      *str = p;
       *flag = 1;
     } else {
       // old string is NULL and new string is NULL or length 0

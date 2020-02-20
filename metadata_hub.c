@@ -5,7 +5,7 @@
  * then you need a metadata hub,
  * where everything is stored
  * This file is part of Shairport Sync.
- * Copyright (c) Mike Brady 2017--2018
+ * Copyright (c) Mike Brady 2017--2020
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -38,6 +38,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 #include "config.h"
 
@@ -57,6 +58,8 @@
 #ifdef CONFIG_OPENSSL
 #include <openssl/md5.h>
 #endif
+
+struct metadata_bundle metadata_store;
 
 int metadata_hub_initialised = 0;
 
@@ -301,28 +304,33 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
   // all the following items of metadata are contained in one metadata packet
   // they are preceded by an 'ssnc' 'mdst' item and followed by an 'ssnc 'mden' item.
 
-  uint32_t ui;
   char *cs;
   int changed = 0;
   if (type == 'core') {
     switch (code) {
-    case 'mper':
-      ui = ntohl(*(uint32_t *)data);
-      debug(2, "MH Item ID seen: \"%u\" of length %u.", ui, length);
-      if (ui != metadata_store.item_id) {
-        metadata_store.item_id = ui;
-        metadata_store.item_id_changed = 1;
-        metadata_store.item_id_received = 1;
-        debug(2, "MH Item ID set to: \"%u\"", metadata_store.item_id);
-      }
+    case 'mper': {
+        // get the 64-bit number as a uint64_t by reading two uint32_t s and combining them
+        uint64_t vl = ntohl(*(uint32_t*)data); // get the high order 32 bits
+        vl = vl << 32; // shift them into the correct location
+        uint64_t ul = ntohl(*(uint32_t*)(data+sizeof(uint32_t))); // and the low order 32 bits
+        vl = vl + ul;
+        debug(2, "MH Item ID seen: \"%" PRIx64 "\" of length %u.", vl, length);
+        if (vl != metadata_store.item_id) {
+          metadata_store.item_id = vl;
+          metadata_store.item_id_changed = 1;
+          metadata_store.item_id_received = 1;
+          debug(2, "MH Item ID set to: \"%" PRIx64 "\"", metadata_store.item_id);
+        }
+      }      
       break;
-    case 'astm':
-      ui = ntohl(*(uint32_t *)data);
-      debug(2, "MH Song Time seen: \"%u\" of length %u.", ui, length);
-      if (ui != metadata_store.songtime_in_milliseconds) {
-        metadata_store.songtime_in_milliseconds = ui;
-        metadata_store.songtime_in_milliseconds_changed = 1;
-        debug(2, "MH Song Time set to: \"%u\"", metadata_store.songtime_in_milliseconds);
+    case 'astm': {
+        uint32_t ui = ntohl(*(uint32_t *)data);
+        debug(2, "MH Song Time seen: \"%u\" of length %u.", ui, length);
+        if (ui != metadata_store.songtime_in_milliseconds) {
+          metadata_store.songtime_in_milliseconds = ui;
+          metadata_store.songtime_in_milliseconds_changed = 1;
+          debug(2, "MH Song Time set to: \"%u\"", metadata_store.songtime_in_milliseconds);
+        }
       }
       break;
     case 'asal':
@@ -539,7 +547,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
     case 'pffr': // this is sent when the first frame has been received
     case 'prsm':
       metadata_hub_modify_prolog();
-      int changed = (metadata_store.player_state != PS_PLAYING);
+      changed = (metadata_store.player_state != PS_PLAYING);
       metadata_store.player_state = PS_PLAYING;
       metadata_hub_modify_epilog(changed);
       break;

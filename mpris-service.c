@@ -1,5 +1,31 @@
+/*
+ * This file is part of Shairport Sync.
+ * Copyright (c) Mike Brady 2018 -- 2020
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ */
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "config.h"
 
@@ -14,10 +40,31 @@
 #include "metadata_hub.h"
 #include "mpris-service.h"
 
+MediaPlayer2 *mprisPlayerSkeleton;
+MediaPlayer2Player *mprisPlayerPlayerSkeleton;
+
+double airplay_volume_to_mpris_volume(double sp) {
+  if (sp < -30.0)
+    sp = -30.0;
+  if (sp > 0.0)
+    sp = 0.0;
+  sp = (sp/30.0)+1;
+  return sp;
+}
+
+double mpris_volume_to_airplay_volume(double sp) {
+  sp = (sp-1.0)*30.0;
+  if (sp < -30.0)
+    sp = -30.0;
+  if (sp > 0.0)
+    sp = 0.0;
+  return sp;
+}
+
 void mpris_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)) void *userdata) {
   // debug(1, "MPRIS metadata watcher called");
   char response[100];
-
+  media_player2_player_set_volume(mprisPlayerPlayerSkeleton, airplay_volume_to_mpris_volume(argc->airplay_volume));
   switch (argc->repeat_status) {
   case RS_NOT_AVAILABLE:
     strcpy(response, "Not Available");
@@ -128,8 +175,7 @@ void mpris_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)
   // Add in the Track ID based on the 'mper' metadata if it is non-zero
   if (argc->item_id != 0) {
     char trackidstring[128];
-    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/mper_%u",
-             argc->item_id);
+    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/%" PRIX64 "", argc->item_id);
     GVariant *trackid = g_variant_new("o", trackidstring);
     g_variant_builder_add(dict_builder, "{sv}", "mpris:trackid", trackid);
   }
@@ -229,6 +275,18 @@ static gboolean on_handle_play(MediaPlayer2Player *skeleton, GDBusMethodInvocati
   return TRUE;
 }
 
+static gboolean on_handle_set_volume(MediaPlayer2Player *skeleton,
+                              GDBusMethodInvocation *invocation, const gdouble volume,
+                               __attribute__((unused)) gpointer user_data) {
+  double ap_volume = mpris_volume_to_airplay_volume(volume);
+  debug(2, "Set mpris volume to %.6f, i.e. airplay volume to %.6f.", volume, ap_volume);
+  char command[256] = "";
+  snprintf(command, sizeof(command), "setproperty?dmcp.device-volume=%.6f", ap_volume);
+  send_simple_dacp_command(command);
+  media_player2_player_complete_play(skeleton, invocation);
+  return TRUE;
+}
+
 static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *name,
                                    __attribute__((unused)) gpointer user_data) {
 
@@ -254,7 +312,6 @@ static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *nam
 
   media_player2_player_set_playback_status(mprisPlayerPlayerSkeleton, "Stopped");
   media_player2_player_set_loop_status(mprisPlayerPlayerSkeleton, "None");
-  media_player2_player_set_volume(mprisPlayerPlayerSkeleton, 0.5);
   media_player2_player_set_minimum_rate(mprisPlayerPlayerSkeleton, 1.0);
   media_player2_player_set_maximum_rate(mprisPlayerPlayerSkeleton, 1.0);
   media_player2_player_set_can_go_next(mprisPlayerPlayerSkeleton, TRUE);
@@ -274,6 +331,9 @@ static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *nam
   g_signal_connect(mprisPlayerPlayerSkeleton, "handle-next", G_CALLBACK(on_handle_next), NULL);
   g_signal_connect(mprisPlayerPlayerSkeleton, "handle-previous", G_CALLBACK(on_handle_previous),
                    NULL);
+  g_signal_connect(mprisPlayerPlayerSkeleton, "handle-set-volume", G_CALLBACK(on_handle_set_volume),
+                   NULL);
+
 
   add_metadata_watcher(mpris_metadata_watcher, NULL);
 

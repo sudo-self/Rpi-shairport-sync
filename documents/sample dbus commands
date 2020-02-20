@@ -1,3 +1,6 @@
+# For the "Native" Shairport Sync D-Bus Interface support, Shairport Sync must be built with the D-Bus interface support. Add the '--with-dbus-interface' flag at the ./configure stage.
+# There is a simple test client that you can have built -- add the '--with-dbus-test-client' flag at the ./configure stage. You'll get an executable called shairport-sync-dbus-test-client
+
 # Get Log Verbosity
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync.Diagnostics string:Verbosity
 # Return Log Verbosity
@@ -59,6 +62,11 @@ dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/Shair
 # Set Convolution Impulse Response File:
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync string:ConvolutionImpulseResponseFile variant:string:"/etc/shairport-sync/boom.wav"
 
+# Set Airplay Volume using Remote Control. Airplay Volume is between -30.0 and 0.0 and maps linearly onto the slider, with -30.0 being lowest and 0.0 being highest.
+dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.RemoteControl.SetAirplayVolume double:-10.0
+
+
+# AdvancedRemoteControl interface.
 # Some commands and properties are accessible only through the AdvancedRemoteControl interface.
 # However, only iTunes or the macOS Music app from 10.15.2 onwards
 # provide the functionality needed for the AdvancedRemoteControl interface to work.
@@ -70,3 +78,10 @@ dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/Shair
 # Set Volume using Advanced Remote Control -- only works if the org.gnome.ShairportSync.AdvancedRemoteControl is available.
 dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.AdvancedRemoteControl.SetVolume int32:50
 
+
+# MPRIS interface commands.
+# For MPRIS support, Shairport Sync must be built with the MPRIS interface support. Add the '--with-mpris-interface' flag at the ./configure stage.
+# There is a simple test client that you can have built -- add the '--with-mpris-test-client' flag at the ./configure stage. You'll get an executable called shairport-sync-mpris-test-client.
+# This is mostly compatible with the MPRIS standard, except that Volume is read-only, with a separate SetVolume method.
+# Set Volume, which must be between 0.0 and 1.0 and maps linearly onto the slider.
+dbus-send --system --print-reply --type=method_call --dest=org.mpris.MediaPlayer2.ShairportSync '/org/mpris/MediaPlayer2' org.mpris.MediaPlayer2.Player.SetVolume double:0.3

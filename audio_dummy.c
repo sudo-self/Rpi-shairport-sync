@@ -34,17 +34,11 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-int Fs;
-long long starttime, samples_played;
-
 static int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) { return 0; }
 
 static void deinit(void) {}
 
 static void start(int sample_rate, __attribute__((unused)) int sample_format) {
-  Fs = sample_rate;
-  starttime = 0;
-  samples_played = 0;
   debug(1, "dummy audio output started at Fs=%d Hz\n", sample_rate);
 }
 

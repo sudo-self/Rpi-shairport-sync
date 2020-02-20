@@ -89,7 +89,8 @@ enum rtsp_read_request_response {
   rtsp_read_request_response_error
 };
 
-// Mike Brady's part...
+rtsp_conn_info *playing_conn;
+rtsp_conn_info **conns;
 
 int metadata_running = 0;
 
@@ -626,16 +627,16 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       goto shutdown;
     }
 
-/* // this outputs the message received    
+/* // this outputs the message received
     {
     void *pt = malloc(nread+1);
     memset(pt, 0, nread+1);
     memcpy(pt, buf + inbuf, nread);
     debug(1, "Incoming string on port: \"%s\"",pt);
-    free(pt);    
+    free(pt);
     }
 */
-    
+
     inbuf += nread;
 
     char *next;
@@ -1889,7 +1890,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
       unsigned int max_param = sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]);
       char* found;
       while ((found = strsep(&pfmtp, " \t")) != NULL && i < max_param) {
-        conn->stream.fmtp[i++] = atoi(found);          
+        conn->stream.fmtp[i++] = atoi(found);
       }
       // here we should check the sanity of the fmtp values
       // for (i = 0; i < sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]); i++)
@@ -1930,6 +1931,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     }
     hdr = msg_get_header(req, "User-Agent");
     if (hdr) {
+      conn->UserAgent = strdup(hdr);
       debug(2, "Play connection from user agent \"%s\" on RTSP conversation thread %d.", hdr,
             conn->connection_number);
       // if the user agent is AirPlay and has a version number of 353 or less (from iOS 11.1,2)
@@ -2265,6 +2267,11 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   if (conn->dacp_id) {
     free(conn->dacp_id);
     conn->dacp_id = NULL;
+  }
+
+  if (conn->UserAgent) {
+    free(conn->UserAgent);
+    conn->UserAgent = NULL;
   }
 
   // remove flow control and mutexes

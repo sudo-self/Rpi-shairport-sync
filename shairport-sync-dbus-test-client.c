@@ -1,3 +1,28 @@
+/*
+ * This file is part of Shairport Sync.
+ * Copyright (c) Mike Brady 2019
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ */
 #include "dbus-interface.h"
 #include <popt.h>
 #include <stdio.h>
@@ -40,8 +65,7 @@ void on_properties_changed(__attribute__((unused)) GDBusProxy *proxy, GVariant *
   }
 }
 
-void notify_loudness_callback(ShairportSync *proxy,
-                                            __attribute__((unused)) gpointer user_data) {
+void notify_loudness_callback(ShairportSync *proxy, __attribute__((unused)) gpointer user_data) {
   //  printf("\"notify_loudness_callback\" called with a gpointer of
   //  %lx.\n",(int64_t)user_data);
   gboolean ebl = shairport_sync_get_loudness(proxy);
@@ -162,28 +186,63 @@ int main(int argc, char *argv[]) {
   g_signal_connect(proxy4, "notify::volume", G_CALLBACK(notify_volume_callback),
                    "ShairportSync.AdvancedRemoteControl");
 
+
+
   g_print("Starting test...\n");
 
+  g_print("Using the RemoteControl interface, play for five seconds, pause for five seconds and then resume play...\n");
+  g_print("Play...\n");
+  shairport_sync_remote_control_call_play(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), NULL, NULL, 0);
+  sleep(5);
+  g_print("Pause...\n");
+  shairport_sync_remote_control_call_pause(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), NULL, NULL, 0);
+  sleep(5);
+  g_print("Play...\n");
+  shairport_sync_remote_control_call_play(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), NULL, NULL, 0);
+  sleep(5);
+  g_print("Using the RemoteControl interface, set AirPlay Volume (range -30 to 0) to -30, -20, -10, 0 and -15 for five seconds each...\n");
+  g_print("Set AirPlay Volume (range -30 to 0) to -30\n");
+  shairport_sync_remote_control_call_set_airplay_volume(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), -30, NULL, NULL, 0);
+  sleep(5);
+  g_print("Set AirPlay Volume (range -30 to 0) to -20\n");
+  shairport_sync_remote_control_call_set_airplay_volume(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), -20, NULL, NULL, 0);
+  sleep(5);
+  g_print("Set AirPlay Volume (range -30 to 0) to -10\n");
+  shairport_sync_remote_control_call_set_airplay_volume(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), -10, NULL, NULL, 0);
+  sleep(5);
+  g_print("Set AirPlay Volume (range -30 to 0) to -0\n");
+  shairport_sync_remote_control_call_set_airplay_volume(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), 0, NULL, NULL, 0);
+  sleep(5);
+  g_print("Set AirPlay Volume (range -30 to 0) to -15\n");
+  shairport_sync_remote_control_call_set_airplay_volume(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), -15, NULL, NULL, 0);
+  sleep(5);
+
+  g_print("Using the AdvancedRemoteControl interface, set Volume to 20%%, 100%%, 40%% and 60%% for five seconds each...\n");
+  g_print("Set Volume to 20%%\n");
   shairport_sync_advanced_remote_control_call_set_volume(
       SHAIRPORT_SYNC_ADVANCED_REMOTE_CONTROL(proxy4), 20, NULL, NULL, 0);
   sleep(5);
+  g_print("Set Volume to 100%%\n");
   shairport_sync_advanced_remote_control_call_set_volume(
       SHAIRPORT_SYNC_ADVANCED_REMOTE_CONTROL(proxy4), 100, NULL, NULL, 0);
   sleep(5);
+  g_print("Set Volume to 40%%\n");
   shairport_sync_advanced_remote_control_call_set_volume(
       SHAIRPORT_SYNC_ADVANCED_REMOTE_CONTROL(proxy4), 40, NULL, NULL, 0);
   sleep(5);
+  g_print("Set Volume to 50%%\n");
   shairport_sync_advanced_remote_control_call_set_volume(
-      SHAIRPORT_SYNC_ADVANCED_REMOTE_CONTROL(proxy4), 60, NULL, NULL, 0);
-        
-  sleep(5);
-  g_print("Volume up for five seconds...\n");
-  shairport_sync_remote_control_call_volume_up(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), NULL, NULL, NULL);
+      SHAIRPORT_SYNC_ADVANCED_REMOTE_CONTROL(proxy4), 50, NULL, NULL, 0);
 
   sleep(5);
-  g_print("Volume down\n");
-  shairport_sync_remote_control_call_volume_down(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), NULL, NULL, NULL);
-  
+  g_print("Using the RemoteControl interface, increase volume for five seconds...\n");
+  shairport_sync_remote_control_call_volume_up(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), NULL, NULL,
+                                               NULL);
+  sleep(5);
+  g_print("Using the RemoteControl interface, decrease volume...\n");
+  shairport_sync_remote_control_call_volume_down(SHAIRPORT_SYNC_REMOTE_CONTROL(proxy3), NULL, NULL,
+                                                 NULL);
+
   /*
   // sleep(1);
     shairport_sync_set_loudness_filter_active(SHAIRPORT_SYNC(proxy), TRUE);
@@ -201,6 +260,7 @@ int main(int argc, char *argv[]) {
 
     shairport_sync_call_remote_command(SHAIRPORT_SYNC(proxy), "string",NULL,NULL,NULL);
     */
+  sleep(1);
   g_print("Finished test. Listening for property changes...\n");
   // g_main_loop_quit(loop);
   pthread_join(dbus_thread, NULL);

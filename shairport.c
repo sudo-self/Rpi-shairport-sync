@@ -170,7 +170,7 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
                  outbuffer, buffer_length + 1, &odone, // Output.
                  &io_spec,                             // Input, output and transfer spec.
                  NULL, NULL);                          // Default configuration.
-    
+
     io_spec.itype = SOXR_INT32_I;
     io_spec.otype = SOXR_INT32_I;
     io_spec.scale = 1.0; // this seems to crash if not = 1.0
@@ -766,8 +766,8 @@ int parse_options(int argc, char **argv) {
         } else
           die("Invalid alac_decoder option choice \"%s\". It should be \"hammerton\" or \"apple\"");
       }
-      
-      
+
+
       /* Get the resend control settings. */
       if (config_lookup_float(config.cfg, "general.resend_control_first_check_time",
                               &dvalue)) {
@@ -1197,14 +1197,14 @@ int parse_options(int argc, char **argv) {
   char hostname[100];
   gethostname(hostname, 100);
 
-  
-  
+
+
   char *i0;
   if (raw_service_name == NULL)
     i0 = strdup("%H"); // this is the default it the Service Name wasn't specified
   else
     i0 = strdup(raw_service_name);
- 
+
   // here, do the substitutions for %h, %H, %v and %V
   char *i1 = str_replace(i0, "%h", hostname);
   if ((hostname[0] >= 'a') && (hostname[0] <= 'z'))
@@ -1284,7 +1284,7 @@ void exit_function() {
 Actually, there is no terminate_mqtt() function.
 #ifdef CONFIG_MQTT
   if (config.mqtt_enabled) {
-    terminate_mqtt(); 
+    terminate_mqtt();
   }
 #endif
 */
@@ -1333,14 +1333,14 @@ Actually, there is no stop_mpris_service() function.
   pthread_join(soxr_time_check_thread, NULL);
 #endif
 
-  
+
   if (conns)
     free(conns); // make sure the connections have been deleted first
 
   if (config.service_name)
     free(config.service_name);
-    
-#ifdef CONFIG_CONVOLUTION  
+
+#ifdef CONFIG_CONVOLUTION
   if (config.convolution_ir_file)
     free(config.convolution_ir_file);
 #endif
@@ -1362,6 +1362,16 @@ Actually, there is no stop_mpris_service() function.
   if (config.appName)
     free(config.appName);
   // probably should be freeing malloc'ed memory here, including strdup-created strings...
+}
+
+// for removing zombie script processes
+// see: http://www.microhowto.info/howto/reap_zombie_processes_using_a_sigchld_handler.html
+// used with thanks.
+
+void handle_sigchld(__attribute__((unused)) int sig) {
+  int saved_errno = errno;
+  while (waitpid((pid_t)(-1), 0, WNOHANG) > 0) {}
+  errno = saved_errno;
 }
 
 int main(int argc, char **argv) {
@@ -1581,8 +1591,8 @@ int main(int argc, char **argv) {
       }
       return ret;
     } else { /* pid == 0 means we are the daemon */
-    
-      this_is_the_daemon_process = 1; // 
+
+      this_is_the_daemon_process = 1; //
 
       /* Close FDs */
       if (daemon_close_all(-1) < 0) {
@@ -1624,6 +1634,18 @@ int main(int argc, char **argv) {
 
 #endif
   debug(1, "Started!");
+
+  // install a zombie process reaper
+  // see: http://www.microhowto.info/howto/reap_zombie_processes_using_a_sigchld_handler.html
+  struct sigaction sa;
+  sa.sa_handler = &handle_sigchld;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+  if (sigaction(SIGCHLD, &sa, 0) == -1) {
+    perror(0);
+    exit(1);
+  }
+
   main_thread_id = pthread_self();
   if (!main_thread_id)
     debug(1, "Main thread is set up to be NULL!");

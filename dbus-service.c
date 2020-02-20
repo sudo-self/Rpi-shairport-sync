@@ -1,6 +1,33 @@
+/*
+ * This file is part of Shairport Sync.
+ * Copyright (c) Mike Brady 2018 -- 2019
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or
+ * sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "config.h"
 
@@ -19,6 +46,8 @@
 #include <FFTConvolver/convolver.h>
 #endif
 
+ShairportSync *shairportSyncSkeleton;
+
 int service_is_running = 0;
 
 ShairportSyncDiagnostics *shairportSyncDiagnosticsSkeleton = NULL;
@@ -30,7 +59,7 @@ guint ownerID = 0;
 void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)) void *userdata) {
   char response[100];
   gboolean current_status, new_status;
-  
+
   const char *th;
   shairport_sync_advanced_remote_control_set_volume(shairportSyncAdvancedRemoteControlSkeleton,
                                                     argc->speaker_volume);
@@ -38,8 +67,10 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
   shairport_sync_remote_control_set_airplay_volume(shairportSyncRemoteControlSkeleton,
                                                    argc->airplay_volume);
 
-  shairport_sync_remote_control_set_server(shairportSyncRemoteControlSkeleton, argc->client_ip);
+  shairport_sync_remote_control_set_client(shairportSyncRemoteControlSkeleton, argc->client_ip);
 
+
+  // although it's a DACP server, the server is in fact, part of the the AirPlay "client" (their term).
   if (argc->dacp_server_active) {
     shairport_sync_remote_control_set_available(shairportSyncRemoteControlSkeleton, TRUE);
   } else {
@@ -135,7 +166,7 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
         shairportSyncAdvancedRemoteControlSkeleton, response);
   }
 
-  
+
   switch (argc->shuffle_status) {
   case SS_NOT_AVAILABLE:
     new_status = FALSE;
@@ -150,10 +181,10 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
     new_status = FALSE;
     debug(1, "Unknown shuffle status -- this should never happen.");
   }
-  
+
   current_status = shairport_sync_advanced_remote_control_get_shuffle(
       shairportSyncAdvancedRemoteControlSkeleton);
-  
+
   // only set this if it's different
   if (current_status != new_status) {
     debug(3, "Shuffle State should be changed");
@@ -174,7 +205,7 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
   // Add in the Track ID based on the 'mper' metadata if it is non-zero
   if (argc->item_id != 0) {
     char trackidstring[128];
-    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/mper_%u",
+    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/%" PRIX64 "",
              argc->item_id);
     GVariant *trackid = g_variant_new("o", trackidstring);
     g_variant_builder_add(dict_builder, "{sv}", "mpris:trackid", trackid);
@@ -217,7 +248,7 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
     // debug(1, "Set tracklength to %lu.", track_length_in_microseconds);
     GVariant *tracklength = g_variant_new("x", track_length_in_microseconds);
     g_variant_builder_add(dict_builder, "{sv}", "mpris:length", tracklength);
-  }  
+  }
 
   GVariant *dict = g_variant_builder_end(dict_builder);
   g_variant_builder_unref(dict_builder);
@@ -336,6 +367,19 @@ static gboolean on_handle_volume_down(ShairportSyncRemoteControl *skeleton,
   shairport_sync_remote_control_complete_volume_down(skeleton, invocation);
   return TRUE;
 }
+
+static gboolean on_handle_set_airplay_volume(ShairportSyncRemoteControl *skeleton,
+                                     GDBusMethodInvocation *invocation, const gdouble volume,
+                                     __attribute__((unused)) gpointer user_data) {
+  debug(2, "Set airplay volume to %.6f.", volume);
+  char command[256] = "";
+  snprintf(command, sizeof(command), "setproperty?dmcp.device-volume=%.6f", volume);
+  send_simple_dacp_command(command);
+  shairport_sync_remote_control_complete_set_airplay_volume(skeleton, invocation);
+  return TRUE;
+}
+
+
 
 gboolean notify_elapsed_time_callback(ShairportSyncDiagnostics *skeleton,
                                       __attribute__((unused)) gpointer user_data) {
@@ -474,7 +518,7 @@ gboolean notify_convolution_impulse_response_file_callback(ShairportSync *skelet
 #else
 gboolean notify_convolution_impulse_response_file_callback(__attribute__((unused)) ShairportSync *skeleton,
                                                 __attribute__((unused)) gpointer user_data) {
-  char *th = (char *)shairport_sync_get_convolution_impulse_response_file(skeleton);
+  __attribute__((unused)) char *th = (char *)shairport_sync_get_convolution_impulse_response_file(skeleton);
   return TRUE;
 }
 #endif
@@ -715,10 +759,28 @@ static gboolean on_handle_remote_command(ShairportSync *skeleton, GDBusMethodInv
                                          const gchar *command,
                                          __attribute__((unused)) gpointer user_data) {
   debug(1, "RemoteCommand with command \"%s\".", command);
-  send_simple_dacp_command((const char *)command);
-  shairport_sync_complete_remote_command(skeleton, invocation);
+  int reply = 0;
+  char *client_reply = NULL;
+  ssize_t reply_size = 0;
+  reply = dacp_send_command((const char *)command, &client_reply, &reply_size);
+  char *client_reply_hex = alloca(reply_size * 2 + 1);
+  if (client_reply_hex) {
+    char *p = client_reply_hex;
+    if (client_reply) {
+      char *q = client_reply;
+      int i;
+      for (i = 0; i < reply_size; i++) {
+        snprintf(p, 3, "%02X", *q);
+        p += 2;
+        q++;
+      }
+    }
+    *p = '\0';
+  }
+  shairport_sync_complete_remote_command(skeleton, invocation, reply, client_reply_hex);
   return TRUE;
 }
+
 
 static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name,
                                   __attribute__((unused)) gpointer user_data) {
@@ -814,6 +876,9 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(on_handle_volume_up), NULL);
   g_signal_connect(shairportSyncRemoteControlSkeleton, "handle-volume-down",
                    G_CALLBACK(on_handle_volume_down), NULL);
+  g_signal_connect(shairportSyncRemoteControlSkeleton, "handle-set-airplay-volume",
+                   G_CALLBACK(on_handle_set_airplay_volume), NULL);
+
 
   g_signal_connect(shairportSyncAdvancedRemoteControlSkeleton, "handle-set-volume",
                    G_CALLBACK(on_handle_set_volume), NULL);
@@ -914,7 +979,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 //  else
 //    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton), NULL);
 #endif
-  
+
   shairport_sync_set_version(SHAIRPORT_SYNC(shairportSyncSkeleton), PACKAGE_VERSION);
   char *vs = get_version_string();
   shairport_sync_set_version_string(SHAIRPORT_SYNC(shairportSyncSkeleton), vs);

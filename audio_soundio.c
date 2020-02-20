@@ -7,9 +7,6 @@
 
 #include <soundio/soundio.h>
 
-int Fs;
-long long starttime, samples_played;
-
 struct SoundIoOutStream *outstream;
 struct SoundIo *soundio;
 struct SoundIoDevice *device;
@@ -129,9 +126,6 @@ static void deinit(void) {
 }
 
 static void start(int sample_rate, int sample_format) {
-  Fs = sample_rate;
-  starttime = 0;
-  samples_played = 0;
   int err;
 
   debug(1, "soundion rate: %d, format: %d", sample_rate, sample_format);

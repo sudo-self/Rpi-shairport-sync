@@ -114,8 +114,8 @@ uint8_t *join_nlabel(const uint8_t *n1, const uint8_t *n2) {
 
   s = malloc(len1 + len2 + 1);
   if (s) {
-    strncpy((char *)s, (char *)n1, len1);
-    strncpy((char *)s + len1, (char *)n2, len2);
+    memcpy((char *)s, (char *)n1, len1);
+    memcpy((char *)s + len1, (char *)n2, len2);
     s[len1 + len2] = '\0';
   } else {
     die("can not allocate memory for \"s\" in tinysvcmdns");
@@ -200,7 +200,7 @@ uint8_t *create_label(const char *txt) {
   s = malloc(len + 2);
   if (s) {
     s[0] = len;
-    strncpy((char *)s + 1, txt, len);
+    memcpy((char *)s + 1, txt, len);
     s[len + 1] = '\0';
   } else {
     die("can not allocate memory for \"s\" 2 in tinysvcmdns.");
@@ -222,7 +222,7 @@ uint8_t *create_nlabel(const char *name) {
   if (label == NULL)
     return NULL;
 
-  strncpy((char *)label + 1, name, len);
+  memcpy((char *)label + 1, name, len);
   label[len + 1] = '\0';
 
   p = label;
@@ -1466,7 +1466,7 @@ int close_pipe(int s) {
 
 // main loop to receive, process and send out MDNS replies
 // also handles MDNS service announces
-static void main_loop(struct mdnsd *svr) {
+void* main_loop(struct mdnsd *svr) {
   fd_set sockfd_set;
   int max_fd = svr->sockfd;
   char notify_buf[2]; // buffer for reading of notify_pipe
@@ -1568,6 +1568,7 @@ static void main_loop(struct mdnsd *svr) {
   close_pipe(svr->sockfd);
 
   svr->stop_flag = 2;
+  return NULL;
 }
 
 /////////////////////////////////////////////////////
@@ -1723,7 +1724,7 @@ struct mdnsd *mdnsd_start() {
   pthread_attr_init(&attr);
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-  if (pthread_create(&tid, &attr, (void *(*)(void *))main_loop, (void *)server) != 0) {
+  if (pthread_create(&tid, &attr, (void * (*)(void *))&main_loop, (void *)server) != 0) {
     pthread_mutex_destroy(&server->data_lock);
     free(server);
     return NULL;

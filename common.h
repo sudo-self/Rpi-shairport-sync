@@ -24,34 +24,34 @@
 #endif
 
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
-enum dbus_session_type {
+typedef enum {
   DBT_system = 0, // use the session bus
   DBT_session,    // use the system bus
-} dbt_type;
+} dbus_session_type;
 #endif
 
 #define sps_extra_code_output_stalled 32768
 #define sps_extra_code_output_state_cannot_make_ready 32769
 
 // yeah/no/auto
-enum yna_type { YNA_AUTO = -1, YNA_NO = 0, YNA_YES = 1 } yna_type;
+typedef enum { YNA_AUTO = -1, YNA_NO = 0, YNA_YES = 1 } yna_type;
 
 // yeah/no/dont-care
-enum yndk_type { YNDK_DONT_KNOW = -1, YNDK_NO = 0, YNDK_YES = 1 } yndk_type;
+typedef enum { YNDK_DONT_KNOW = -1, YNDK_NO = 0, YNDK_YES = 1 } yndk_type;
 
-enum endian_type {
+typedef enum {
   SS_LITTLE_ENDIAN = 0,
   SS_PDP_ENDIAN,
   SS_BIG_ENDIAN,
 } endian_type;
 
-enum stuffing_type {
+typedef enum {
   ST_basic = 0, // straight deletion or insertion of a frame in a 352-frame packet
   ST_soxr,      // use libsoxr to make a 352 frame packet one frame longer or shorter
   ST_auto,      // use soxr if compiled for it and if the soxr_index is low enough
-} s_type;
+} stuffing_type;
 
-enum playback_mode_type {
+typedef enum {
   ST_stereo = 0,
   ST_mono,
   ST_reverse_stereo,
@@ -59,26 +59,26 @@ enum playback_mode_type {
   ST_right_only,
 } playback_mode_type;
 
-enum volume_control_profile_type {
+typedef enum {
   VCP_standard = 0,
   VCP_flat,
 } volume_control_profile_type;
 
-enum decoders_supported_type {
+typedef enum {
   decoder_hammerton = 0,
   decoder_apple_alac,
 } decoders_supported_type;
 
-enum disable_standby_mode_type {
+typedef enum {
   disable_standby_off = 0,
   disable_standby_auto,
   disable_standby_always
-};
+} disable_standby_mode_type;
 
 // the following enum is for the formats recognised -- currently only S16LE is recognised for input,
 // so these are output only for the present
 
-enum sps_format_t {
+typedef enum {
   SPS_FORMAT_UNKNOWN = 0,
   SPS_FORMAT_S8,
   SPS_FORMAT_U8,
@@ -97,7 +97,7 @@ enum sps_format_t {
   SPS_FORMAT_INVALID,
 } sps_format_t;
 
-const char *sps_format_description_string(enum sps_format_t format);
+const char *sps_format_description_string(sps_format_t format);
 
 typedef struct {
   double resend_control_first_check_time; // wait this long before asking for a missing packet to be resent
@@ -182,12 +182,12 @@ typedef struct {
   int debugger_show_relative_time; // in the debug message, display the time since the last one
   int debugger_show_file_and_line; // in the debug message, display the filename and line number
   int statistics_requested, use_negotiated_latencies;
-  enum playback_mode_type playback_mode;
+  playback_mode_type playback_mode;
   char *cmd_start, *cmd_stop, *cmd_set_volume, *cmd_unfixable;
   char *cmd_active_start, *cmd_active_stop;
   int cmd_blocking, cmd_start_returns_output;
   double tolerance; // allow this much drift before attempting to correct it
-  enum stuffing_type packet_stuffing;
+  stuffing_type packet_stuffing;
   int soxr_delay_index;
   int soxr_delay_threshold; // the soxr delay must be less or equal to this for soxr interpolation
                             // to be enabled under the auto setting
@@ -221,10 +221,10 @@ typedef struct {
                                 // attenuators, lowering the volume, use all the hw attenuation
                                 // before using
                                 // sw attenuation
-  enum volume_control_profile_type volume_control_profile;
+  volume_control_profile_type volume_control_profile;
 
   int output_format_auto_requested; // true if the configuration requests auto configuration
-  enum sps_format_t output_format;
+  sps_format_t output_format;
   int output_rate_auto_requested; // true if the configuration requests auto configuration
   unsigned int output_rate;
 
@@ -240,15 +240,15 @@ typedef struct {
   float loudness_reference_volume_db;
   int alsa_use_hardware_mute;
   double alsa_maximum_stall_time;
-  enum disable_standby_mode_type disable_standby_mode;
+  disable_standby_mode_type disable_standby_mode;
   volatile int keep_dac_busy;
-  enum yna_type use_precision_timing; // defaults to no
+  yna_type use_precision_timing; // defaults to no
 
 #if defined(CONFIG_DBUS_INTERFACE)
-  enum dbus_session_type dbus_service_bus_type;
+  dbus_session_type dbus_service_bus_type;
 #endif
 #if defined(CONFIG_MPRIS_INTERFACE)
-  enum dbus_session_type mpris_service_bus_type;
+  dbus_session_type mpris_service_bus_type;
 #endif
 
 #ifdef CONFIG_METADATA_HUB
@@ -270,6 +270,9 @@ typedef struct {
 #ifdef CONFIG_JACK
   char *jack_client_name;
   char *jack_autoconnect_pattern;
+#ifdef CONFIG_SOXR
+  int jack_soxr_resample_quality;
+#endif
 #endif
 
 } shairport_cfg;
@@ -318,7 +321,7 @@ int64_t r64i();
 void resetFreeUDPPort();
 uint16_t nextFreeUDPPort();
 
-volatile int debuglev;
+extern volatile int debuglev;
 
 void _die(const char *filename, const int linenumber, const char *format, ...);
 void _warn(const char *filename, const int linenumber, const char *format, ...);
@@ -349,17 +352,17 @@ double vol2attn(double vol, long max_db, long min_db);
 uint64_t get_absolute_time_in_fp(void);
 
 // time at startup for debugging timing
-uint64_t fp_time_at_startup, fp_time_at_last_debug_message;
+extern uint64_t fp_time_at_startup, fp_time_at_last_debug_message;
 
 // this is for reading an unsigned 32 bit number, such as an RTP timestamp
 
 uint32_t uatoi(const char *nptr);
 
 // this is for allowing us to cancel the whole program
-pthread_t main_thread_id;
+extern pthread_t main_thread_id;
 
-shairport_cfg config;
-config_t config_file_stuff;
+extern shairport_cfg config;
+extern config_t config_file_stuff;
 
 int config_set_lookup_bool(config_t *cfg, char *where, int *dst);
 
@@ -374,7 +377,7 @@ void shairport_shutdown();
 
 extern sigset_t pselect_sigset;
 
-pthread_mutex_t the_conn_lock;
+extern pthread_mutex_t the_conn_lock;
 
 #define conn_lock(arg)                                                                             \
   pthread_mutex_lock(&the_conn_lock);                                                              \
@@ -409,7 +412,7 @@ void pthread_cleanup_debug_mutex_unlock(void *arg);
 
 #define config_unlock pthread_mutex_unlock(&config.lock)
 
-pthread_mutex_t r64_mutex;
+extern pthread_mutex_t r64_mutex;
 
 #define r64_lock pthread_mutex_lock(&r64_mutex)
 
@@ -420,7 +423,7 @@ char *get_version_string(); // mallocs a string space -- remember to free it aft
 void sps_nanosleep(const time_t sec,
                    const long nanosec); // waits for this time, even through interruptions
 
-int64_t generate_zero_frames(char *outp, size_t number_of_frames, enum sps_format_t format,
+int64_t generate_zero_frames(char *outp, size_t number_of_frames, sps_format_t format,
                              int with_dither, int64_t random_number_in);
 
 void malloc_cleanup(void *arg);

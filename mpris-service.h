@@ -4,8 +4,8 @@
 
 #include "mpris-interface.h"
 
-MediaPlayer2 *mprisPlayerSkeleton;
-MediaPlayer2Player *mprisPlayerPlayerSkeleton;
+extern MediaPlayer2 *mprisPlayerSkeleton;
+extern MediaPlayer2Player *mprisPlayerPlayerSkeleton;
 
 int start_mpris_service();
 
