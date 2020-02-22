@@ -101,7 +101,7 @@ const char *sps_format_description_string_array[] = {
     "S24_BE",  "S24_3LE", "S24_3BE", "S32", "S32_LE", "S32_BE", "auto", "invalid"};
 
 const char *sps_format_description_string(sps_format_t format) {
-  if ((format >= SPS_FORMAT_UNKNOWN) && (format <= SPS_FORMAT_AUTO))
+  if (format <= SPS_FORMAT_AUTO)
     return sps_format_description_string_array[format];
   else
     return sps_format_description_string_array[SPS_FORMAT_INVALID];
