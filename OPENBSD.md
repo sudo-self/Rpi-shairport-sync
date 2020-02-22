@@ -29,7 +29,7 @@ Building
 
 Install the following packages (e.g. using `pkg_add` in superuser mode) needed to download and build Shairport Sync:
 ```
-autoconf automake popt libconfig git
+# pkg_add autoconf automake popt libconfig git
 ```
 Add the relevant shell variable definitions for Autoconf and Automake -- they could be placed in the user's `.profile` file to be automatically executed at login:
 ```
@@ -41,10 +41,9 @@ Now, download Shairport Sync from GitHub:
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
 ```
-Next, switch to the `development` branch, configure the build and compile it:
+Next, configure and compile shairport-sync:
 ```
-$ git checkout development
-$ autoreconf -i -f
+$ autoreconf -fi
 $ ./configure --sysconfdir=/etc --with-avahi --with-ssl=openssl --with-libdaemon --with-sndio --with-os=openbsd
 $ make
 ```
