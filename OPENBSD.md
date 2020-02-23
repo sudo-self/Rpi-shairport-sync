@@ -52,7 +52,8 @@ $ cd shairport-sync
 Next, configure and compile shairport-sync:
 ```
 $ autoreconf -fi
-$ ./configure --sysconfdir=/etc --with-avahi --with-ssl=openssl --with-libdaemon --with-sndio --with-os=openbsd
+$ ./configure --sysconfdir=/etc --with-avahi --with-ssl=openssl --with-libdaemon \
+     --with-sndio --with-os=openbsd
 $ make
 ```
 The application is called `shairport-sync`. Check that it's running correctly by executing the following command:
