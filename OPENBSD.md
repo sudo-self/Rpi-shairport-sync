@@ -1,12 +1,12 @@
 Shairport Sync on OpenBSD
 ----
-This is an initial note about installing Shairport Sync on OpenBSD. Shairport Sync compiles and runs natively on OpenBSD using the `sndio` back end.
+This is a note about installing Shairport Sync on OpenBSD. Shairport Sync compiles and runs natively on OpenBSD using the `sndio` back end.
 
 Unlike FreeBSD, it seems that OpenBSD does not use the directory `/usr/local/etc` as a system configuration directory ("`sysconfdir`") but follows the same practice as Linux in using `/etc` as the default `sysconfdir`.
 
 General
 ----
-This build was done on a default build of `OpenBSD 6.2 GENERIC.MP#134 amd64`. Following [this guide](https://www.openbsd.org/faq/faq15.html), `/etc/installurl` was created with the to refer to the standard repository:
+This build was done on a default build of `OpenBSD 6.6 GENERIC.MP#5 amd64`. Following [this guide](https://www.openbsd.org/faq/faq15.html), `/etc/installurl` was created with the to refer to the standard repository:
 ```
 https://ftp.openbsd.org/pub/OpenBSD
 ```
@@ -39,10 +39,10 @@ Install the following packages (e.g. using `pkg_add` in superuser mode) needed t
 ```
 # pkg_add autoconf automake popt libconfig git
 ```
-Note the versions of `autoconf` and `automake` you choose (`2.69` and `1.15` at the time of writing) and add them as shell variable definitions for -- they could be placed in the user's `.profile` file to be automatically executed at login:
+Note the versions of `autoconf` and `automake` you choose (`2.69` and `1.16` at the time of writing) and add them as shell variable definitions for -- they could be placed in the user's `.profile` file to be automatically executed at login:
 ```
 export AUTOCONF_VERSION=2.69
-export AUTOMAKE_VERSION=1.15
+export AUTOMAKE_VERSION=1.16
 ```
 Now, download Shairport Sync from GitHub:
 ```
@@ -61,7 +61,7 @@ $ ./shairport-sync -V
 ```
 This will execute the application and it will return its version information and terminate, for example:
 ```
-3.2-libdaemon-OpenSSL-Avahi-sndio-sysconfdir:/etc
+3.3.6-libdaemon-OpenSSL-Avahi-sndio-sysconfdir:/etc
 ```
 There is no make install yet -- you're on your own.
 
