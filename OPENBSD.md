@@ -6,17 +6,17 @@ Unlike FreeBSD, it seems that OpenBSD does not use the directory `/usr/local/etc
 
 General
 ----
-This build was done on a default build of `OpenBSD 6.2 GENERIC.MP#134 amd64`. Following [this guide](https://www.openbsd.org/faq/faq15.html), `/etc/installurl` was created with the contents:
+This build was done on a default build of `OpenBSD 6.2 GENERIC.MP#134 amd64`. Following [this guide](https://www.openbsd.org/faq/faq15.html), `/etc/installurl` was created with the to refer to the standard repository:
 ```
 https://ftp.openbsd.org/pub/OpenBSD
 ```
-You might have a [closer or faster](https://www.openbsd.org/ftp.html) repository.
+You might have a [closer or faster](https://www.openbsd.org/ftp.html) repository to use instead.
 
 Next, although it may not always be necessary, apply any outstanding system updates and [update the packages](https://unix.stackexchange.com/questions/23579/how-to-apply-updates-on-openbsd-netbsd-and-freebsd).
 
 First, update the system:
 ```
-syspatch
+# syspatch
 ```
 Now update the packages:
 ```
