@@ -10,7 +10,15 @@ This build was done on a default build of `OpenBSD 6.2 GENERIC.MP#134 amd64`. Fo
 ```
 https://ftp.openbsd.org/pub/OpenBSD
 ```
-Next, although it may not always be necessary, [update the packages](https://unix.stackexchange.com/questions/23579/how-to-apply-updates-on-openbsd-netbsd-and-freebsd).
+You might have a [closer or faster](https://www.openbsd.org/ftp.html) repository.
+
+Next, although it may not always be necessary, apply any outstanding system updates and [update the packages](https://unix.stackexchange.com/questions/23579/how-to-apply-updates-on-openbsd-netbsd-and-freebsd).
+
+First, update the system:
+```
+syspatch
+```
+Now update the packages:
 ```
 # pkg_add -Uu
 ```
@@ -31,7 +39,7 @@ Install the following packages (e.g. using `pkg_add` in superuser mode) needed t
 ```
 # pkg_add autoconf automake popt libconfig git
 ```
-Add the relevant shell variable definitions for Autoconf and Automake -- they could be placed in the user's `.profile` file to be automatically executed at login:
+Note the versions of `autoconf` and `automake` you choose (`2.69` and `1.15` at the time of writing) and add them as shell variable definitions for -- they could be placed in the user's `.profile` file to be automatically executed at login:
 ```
 export AUTOCONF_VERSION=2.69
 export AUTOMAKE_VERSION=1.15
@@ -59,5 +67,5 @@ There is no make install yet -- you're on your own.
 
 Using the `sndio` backend
 ----
-The `sndio` back end does not have a hardware volume control facility.
+The `sndio` back end does not yet have a hardware volume control facility.
 You should set the volume to maximum before use, using, for example, the `mixerctl` command.
