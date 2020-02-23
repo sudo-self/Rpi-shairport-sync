@@ -350,6 +350,7 @@ double vol2attn(double vol, long max_db, long min_db);
 
 // return a monolithic (always increasing) time in nanoseconds
 uint64_t get_absolute_time_in_fp(void);
+uint64_t get_absolute_time_in_ns(void);
 
 // time at startup for debugging timing
 extern uint64_t fp_time_at_startup, fp_time_at_last_debug_message;

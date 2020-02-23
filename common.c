@@ -1013,6 +1013,46 @@ uint64_t get_absolute_time_in_fp() {
   return time_now_fp;
 }
 
+uint64_t get_absolute_time_in_ns() {
+  uint64_t time_now_ns;
+
+#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
+  struct timespec tn;
+  // can't use CLOCK_MONOTONIC_RAW as it's not implemented in OpenWrt
+  clock_gettime(CLOCK_MONOTONIC, &tn);
+  uint64_t tnnsec = tn.tv_sec;
+  tnnsec = tnnsec * 1000000000;
+  uint64_t tnjnsec = tn.tv_nsec;
+  time_now_ns = tnnsec + tnjnsec;
+#endif
+
+#ifdef COMPILE_FOR_OSX
+  uint64_t time_now_mach;
+  uint64_t elapsedNano;
+  static mach_timebase_info_data_t sTimebaseInfo = {0, 0};
+
+  time_now_mach = mach_absolute_time();
+
+  // If this is the first time we've run, get the timebase.
+  // We can use denom == 0 to indicate that sTimebaseInfo is
+  // uninitialised because it makes no sense to have a zero
+  // denominator in a fraction.
+
+  if (sTimebaseInfo.denom == 0) {
+    debug(1, "Mac initialise timebase info.");
+    (void)mach_timebase_info(&sTimebaseInfo);
+  }
+
+  // Do the maths. We hope that the multiplication doesn't
+  // overflow; the price you pay for working in fixed point.
+
+  // this gives us nanoseconds
+  time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
+#endif
+
+  return time_now_ns;
+}
+
 ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, int timeout) {
   // timeout is in milliseconds
   void *ibuf = (void *)buf;
