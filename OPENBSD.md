@@ -1,6 +1,6 @@
 Shairport Sync on OpenBSD
 ----
-This is a note about installing Shairport Sync on OpenBSD. Shairport Sync compiles and runs natively on OpenBSD using the `sndio` back end.
+This is a note about installing Shairport Sync on OpenBSD. Shairport Sync compiles and runs natively on OpenBSD using the `sndio` back end. For information on `sndio` please follow [this link](http://www.sndio.org).
 
 Unlike FreeBSD, it seems that OpenBSD does not use the directory `/usr/local/etc` as a system configuration directory ("`sysconfdir`") but follows the same practice as Linux in using `/etc` as the default `sysconfdir`.
 
