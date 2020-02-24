@@ -177,7 +177,7 @@ typedef struct {
   // RTP stuff
   // only one RTP session can be active at a time.
   int rtp_running;
-  uint64_t rtp_time_of_last_resend_request_error_fp;
+  uint64_t rtp_time_of_last_resend_request_error_ns;
 
   char client_ip_string[INET6_ADDRSTRLEN]; // the ip string pointing to the client
   char self_ip_string[INET6_ADDRSTRLEN];   // the ip string being used by this program -- it

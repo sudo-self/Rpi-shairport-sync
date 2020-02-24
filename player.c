@@ -478,7 +478,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
   }
 
   debug_mutex_lock(&conn->ab_mutex, 30000, 0);
-  uint64_t time_now = get_absolute_time_in_fp();
+  uint64_t time_now = get_absolute_time_in_ns();
   conn->packet_count++;
   conn->packet_count_since_flush++;
   conn->time_of_last_audio_packet = time_now;
@@ -567,10 +567,10 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
 
       // resend checks
       {
-      	uint64_t minimum_wait_time = (uint64_t)(config.resend_control_first_check_time * (uint64_t)0x100000000);
-      	uint64_t resend_repeat_interval = (uint64_t)(config.resend_control_check_interval_time * (uint64_t)0x100000000);
-      	uint64_t minimum_remaining_time = (uint64_t)((config.resend_control_last_check_time + config.audio_backend_buffer_desired_length)* (uint64_t)0x100000000);
-      	uint64_t latency_time = (uint64_t)(conn->latency * (uint64_t)0x100000000);
+      	uint64_t minimum_wait_time = (uint64_t)(config.resend_control_first_check_time * (uint64_t)1000000000);
+      	uint64_t resend_repeat_interval = (uint64_t)(config.resend_control_check_interval_time * (uint64_t)1000000000);
+      	uint64_t minimum_remaining_time = (uint64_t)((config.resend_control_last_check_time + config.audio_backend_buffer_desired_length)* (uint64_t)1000000000);
+      	uint64_t latency_time = (uint64_t)(conn->latency * (uint64_t)1000000000);
       	latency_time = latency_time / (uint64_t)conn->input_rate;
 
         int x;  // this is the first frame to be checked
@@ -902,7 +902,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                        (void *)conn); // undo what's been done so far
   do {
     // get the time
-    local_time_now = get_absolute_time_in_fp(); // type okay
+    local_time_now = get_absolute_time_in_ns(); // type okay
     // debug(3, "buffer_get_frame is iterating");
 
     int rco = get_requested_connection_state_to_output();
@@ -1057,8 +1057,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               if (local_time_now > conn->first_packet_time_to_play) {
                 uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
-                lateness = (lateness * 1000000) >> 32; // microseconds
-                debug(3, "First packet is %" PRIu64 " microseconds late! Flushing 0.5 seconds",
+                debug(3, "First packet is %" PRIu64 " nanoseconds late! Flushing 0.5 seconds",
                       lateness);
                 do_flush(conn->first_packet_timestamp + 5 * 4410, conn);
               }
@@ -1097,8 +1096,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
             if (local_time_now > conn->first_packet_time_to_play) {
               uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
-              lateness = (lateness * 1000000) >> 32; // microseconds
-              debug(3, "Gone past starting time by %" PRIu64 " microseconds.", lateness);
+              debug(3, "Gone past starting time by %" PRIu64 " nanoseconds.", lateness);
               have_sent_prefiller_silence = 1;
               conn->ab_buffering = 0;
 
@@ -1123,7 +1121,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               int64_t lead_in_time = -1;
               if (config.audio_backend_silent_lead_in_time >= 0)
                 lead_in_time =
-                    (int64_t)(config.audio_backend_silent_lead_in_time * (int64_t)0x100000000);
+                    (int64_t)(config.audio_backend_silent_lead_in_time * (int64_t)1000000000);
               // debug(1,"Lead time is %llx at fpttp
               // %llx.",lead_time,conn->first_packet_time_to_play);
               if ((lead_in_time < 0) || (lead_time <= lead_in_time)) {
@@ -1330,15 +1328,15 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     wait = (conn->ab_buffering || (do_wait != 0) || (!conn->ab_synced));
 
     if (wait) {
-      uint64_t time_to_wait_for_wakeup_fp =
-          ((uint64_t)1 << 32) / conn->input_rate; // this is time period of one frame
-      time_to_wait_for_wakeup_fp *= 2 * 352;      // two full 352-frame packets
-      time_to_wait_for_wakeup_fp /= 3;            // two thirds of a packet time
+      uint64_t time_to_wait_for_wakeup_ns =
+          1000000000 / conn->input_rate; // this is time period of one frame
+      time_to_wait_for_wakeup_ns *= 2 * 352;      // two full 352-frame packets
+      time_to_wait_for_wakeup_ns /= 3;            // two thirds of a packet time
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-      uint64_t time_of_wakeup_fp = local_time_now + time_to_wait_for_wakeup_fp;
-      uint64_t sec = time_of_wakeup_fp >> 32;
-      uint64_t nsec = ((time_of_wakeup_fp & 0xffffffff) * 1000000000) >> 32;
+      uint64_t time_of_wakeup_ns = local_time_now + time_to_wait_for_wakeup_ns;
+      uint64_t sec = time_of_wakeup_ns / 1000000000;
+      uint64_t nsec = time_of_wakeup_ns % 1000000000;
 
       struct timespec time_of_wakeup;
       time_of_wakeup.tv_sec = sec;
@@ -1350,8 +1348,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         debug(3, "pthread_cond_timedwait returned error code %d.", rc);
 #endif
 #ifdef COMPILE_FOR_OSX
-      uint64_t sec = time_to_wait_for_wakeup_fp >> 32;
-      uint64_t nsec = ((time_to_wait_for_wakeup_fp & 0xffffffff) * 1000000000) >> 32;
+      uint64_t sec = time_to_wait_for_wakeup_ns / 1000000000;
+      uint64_t nsec = time_to_wait_for_wakeup_ns % 1000000000;
       struct timespec time_to_wait;
       time_to_wait.tv_sec = sec;
       time_to_wait.tv_nsec = nsec;
@@ -2102,11 +2100,7 @@ void *player_thread_func(void *arg) {
           rt = rt * conn->output_sample_ratio;
           nt = nt * conn->output_sample_ratio;
 
-          uint64_t local_time_now = get_absolute_time_in_fp(); // types okay
-          // struct timespec tn;
-          // clock_gettime(CLOCK_MONOTONIC,&tn);
-          // uint64_t
-          // local_time_now=((uint64_t)tn.tv_sec<<32)+((uint64_t)tn.tv_nsec<<32)/1000000000;
+          uint64_t local_time_now = get_absolute_time_in_ns(); // types okay
 
           int64_t td = 0; // td is the time difference between the reference timestamp time and the
                           // present time. Only used to calculate td_in_frames
@@ -2117,14 +2111,13 @@ void *player_thread_func(void *arg) {
             td = local_time_now - reference_timestamp_time; // this is the positive value.
                                                             // Conversion is positive uint64_t to
                                                             // int64_t, thus okay
-            td_in_frames = (td * config.output_rate) >> 32;
+            td_in_frames = (td * config.output_rate) / 1000000000;
           } else {
             td = reference_timestamp_time - local_time_now; // this is the absolute value, which
                                                             // should be negated. Conversion is
                                                             // positive uint64_t to int64_t, thus
                                                             // okay.
-            td_in_frames = (td * config.output_rate) >>
-                           32; // use the absolute td value for the present. Types okay
+            td_in_frames = (td * config.output_rate) / 1000000000 ; // use the absolute td value for the present. Types okay
             td_in_frames = -td_in_frames;
             td = -td; // should be okay, as the range of values should be very small w.r.t 64 bits
           }
@@ -2346,8 +2339,7 @@ void *player_thread_func(void *arg) {
                 if ((local_time_now) && (conn->first_packet_time_to_play) &&
                     (local_time_now >= conn->first_packet_time_to_play)) {
 
-                  int64_t tp = (local_time_now - conn->first_packet_time_to_play) >>
-                               32; // seconds int64_t from uint64_t which is always positive, so ok
+                  int64_t tp = (local_time_now - conn->first_packet_time_to_play) / 1000000000; // seconds int64_t from uint64_t which is always positive, so ok
 
                   if (tp < 5)
                     amount_to_stuff = 0; // wait at least five seconds
@@ -2601,14 +2593,9 @@ void *player_thread_func(void *arg) {
             frames_received = conn->frames_inward_frames_received_at_measurement_time -
                               conn->frames_inward_frames_received_at_measurement_start_time;
             conn->input_frame_rate =
-                (1.0 * frames_received) /
+                (1.0E9 * frames_received) /
                 elapsed_reception_time; // an IEEE double calculation with two 64-bit integers
-            conn->input_frame_rate =
-                conn->input_frame_rate * (uint64_t)0x100000000; // this should just change the
-                                                                // [binary] exponent in the IEEE FP
-                                                                // representation; the mantissa
-                                                                // should be unaffected.
-          } else {
+           } else {
             conn->input_frame_rate = 0.0;
           }
 
@@ -2620,7 +2607,7 @@ void *player_thread_func(void *arg) {
               conn->frame_rate_status = 0;
             if (conn->frame_rate_status) {
               conn->frame_rate =
-                  (1000000000.0 * frames_played) /
+                  (1.0E9 * frames_played) /
                   elapsed_play_time; // an IEEE double calculation with two 64-bit integers
             } else {
               conn->frame_rate = 0.0;
