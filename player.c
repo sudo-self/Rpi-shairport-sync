@@ -124,7 +124,7 @@ static void ab_resync(rtsp_conn_info *conn) {
     conn->audio_buffer[i].ready = 0;
     conn->audio_buffer[i].resend_request_number = 0;
     conn->audio_buffer[i].resend_time = 0; // this is either zero or the time the last resend was requested.
-    conn->audio_buffer[i].initialisation_time = 0; // this is either the time the packet was received or the time it was noticed the packet was missing.    
+    conn->audio_buffer[i].initialisation_time = 0; // this is either the time the packet was received or the time it was noticed the packet was missing.
     conn->audio_buffer[i].sequence_number = 0;
   }
   conn->ab_synced = 0;
@@ -564,7 +564,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       int rc = pthread_cond_signal(&conn->flowcontrol);
       if (rc)
         debug(1, "Error signalling flowcontrol.");
-      
+
       // resend checks
       {
       	uint64_t minimum_wait_time = (uint64_t)(config.resend_control_first_check_time * (uint64_t)0x100000000);
@@ -572,7 +572,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
       	uint64_t minimum_remaining_time = (uint64_t)((config.resend_control_last_check_time + config.audio_backend_buffer_desired_length)* (uint64_t)0x100000000);
       	uint64_t latency_time = (uint64_t)(conn->latency * (uint64_t)0x100000000);
       	latency_time = latency_time / (uint64_t)conn->input_rate;
-      	        
+
         int x;  // this is the first frame to be checked
         // if we detected a first empty frame before and if it's still in the buffer!
         if ((first_possibly_missing_frame >= 0) && (position_in_modulo_uint16_t_buffer(first_possibly_missing_frame, conn->ab_read, conn->ab_write, NULL))) {
@@ -580,9 +580,9 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
         } else {
           x = conn->ab_read;
         }
-        
+
         first_possibly_missing_frame = -1; // has not been set
-        
+
       	int missing_frame_run_count = 0;
       	int start_of_missing_frame_run = -1;
         int number_of_missing_frames = 0;
@@ -604,12 +604,12 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
             if (too_early)
               check_buf->status |= 1<<3; // too early
             else
-              check_buf->status &= 0xFF-(1<<3); // not too early                            
+              check_buf->status &= 0xFF-(1<<3); // not too early
             if (too_soon_after_last_request)
               check_buf->status |= 1<<4; // too soon after last request
             else
               check_buf->status &= 0xFF-(1<<4); // not too soon after last request
-                            
+
             if ((!too_soon_after_last_request) && (!too_late) && (!too_early)){
               if (start_of_missing_frame_run == -1) {
                 start_of_missing_frame_run = x;
@@ -619,7 +619,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
               }
               check_buf->resend_time = time_now; // setting the time to now because we are definitely going to take action
               check_buf->resend_request_number++;
-              debug(3,"Frame %d is missing with ab_read of %u and ab_write of %u.", x, conn->ab_read, conn->ab_write);            
+              debug(3,"Frame %d is missing with ab_read of %u and ab_write of %u.", x, conn->ab_read, conn->ab_write);
             }
             // if (too_late) {
             //   debug(1,"too late to get missing frame %u.", x);
@@ -631,13 +631,13 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
           if (((check_buf->ready) || (x == conn->ab_write)) && (missing_frame_run_count > 0)) {
           // send a resend request
           	if (missing_frame_run_count > 1)
-          	  debug(2,"request resend of %d packets starting at seqno %u.", missing_frame_run_count, start_of_missing_frame_run);         
+          	  debug(2,"request resend of %d packets starting at seqno %u.", missing_frame_run_count, start_of_missing_frame_run);
             if (config.disable_resend_requests == 0) {
               debug_mutex_unlock(&conn->ab_mutex, 3);
               rtp_request_resend(start_of_missing_frame_run, missing_frame_run_count, conn);
               debug_mutex_lock(&conn->ab_mutex, 20000, 1);
               conn->resend_requests++;
-            }      
+            }
             start_of_missing_frame_run = -1;
             missing_frame_run_count = 0;
           }
@@ -1454,7 +1454,7 @@ static int stuff_buffer_basic_32(int32_t *inptr, int length, sps_format_t l_outp
 int32_t stat_n = 0;
 double stat_mean = 0.0;
 double stat_M2 = 0.0;
-double longest_soxr_execution_time_us = 0.0;
+double longest_soxr_execution_time = 0.0;
 int64_t packets_processed = 0;
 
 int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
@@ -1482,7 +1482,7 @@ int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
 
     size_t odone;
 
-    uint64_t soxr_start_time = get_absolute_time_in_fp();
+    uint64_t soxr_start_time = get_absolute_time_in_ns();
 
     soxr_error_t error = soxr_oneshot(length, length + tstuff, 2, // Rates and # of chans.
                                       inptr, length, NULL,        // Input.
@@ -1499,15 +1499,15 @@ int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
     // mean and variance calculations from "online_variance" algorithm at
     // https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm
 
-    double soxr_execution_time_us =
-        (((get_absolute_time_in_fp() - soxr_start_time) * 1000000) >> 32) * 1.0;
+    double soxr_execution_time =
+        (get_absolute_time_in_ns() - soxr_start_time) * 0.000000001;
     // debug(1,"soxr_execution_time_us: %10.1f",soxr_execution_time_us);
-    if (soxr_execution_time_us > longest_soxr_execution_time_us)
-      longest_soxr_execution_time_us = soxr_execution_time_us;
+    if (soxr_execution_time > longest_soxr_execution_time)
+      longest_soxr_execution_time = soxr_execution_time;
     stat_n += 1;
-    double stat_delta = soxr_execution_time_us - stat_mean;
+    double stat_delta = soxr_execution_time - stat_mean;
     stat_mean += stat_delta / stat_n;
-    stat_M2 += stat_delta * (soxr_execution_time_us - stat_mean);
+    stat_M2 += stat_delta * (soxr_execution_time - stat_mean);
 
     int i;
     int32_t *ip, *op;
@@ -1553,15 +1553,15 @@ int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
   }
 
   if (packets_processed % 1250 == 0) {
-    debug(3, "soxr_oneshot execution time in microseconds: mean, standard deviation and max "
+    debug(3, "soxr_oneshot execution time in nanoseconds: mean, standard deviation and max "
              "for %" PRId32 " interpolations in the last "
-             "1250 packets. %10.1f, %10.1f, %10.1f.",
+             "1250 packets. %10.6f, %10.6f, %10.6f.",
           stat_n, stat_mean, stat_n <= 1 ? 0.0 : sqrtf(stat_M2 / (stat_n - 1)),
-          longest_soxr_execution_time_us);
+          longest_soxr_execution_time);
     stat_n = 0;
     stat_mean = 0.0;
     stat_M2 = 0.0;
-    longest_soxr_execution_time_us = 0.0;
+    longest_soxr_execution_time = 0.0;
   }
 
   conn->amountStuffed = tstuff;
@@ -2365,11 +2365,11 @@ void *player_thread_func(void *arg) {
                 amount_to_stuff = 0; // no stuffing if it's been disabled
 
               // Apply DSP here
-              
+
               // check the state of loudness and convolution flags here and don't change them for the frame
-              
+
               int do_loudness = config.loudness;
-    
+
 
 #ifdef CONFIG_CONVOLUTION
               int do_convolution = 0;
@@ -2377,12 +2377,12 @@ void *player_thread_func(void *arg) {
                 do_convolution = 1;
 
               // we will apply the convolution gain if convolution is enabled, even if there is no valid convolution happening
-              
+
               int convolution_is_enabled = 0;
               if (config.convolution)
                 convolution_is_enabled = 1;
 #endif
-                
+
               if (do_loudness
 #ifdef CONFIG_CONVOLUTION
                   || convolution_is_enabled
@@ -2533,7 +2533,7 @@ void *player_thread_func(void *arg) {
 
           // update the watchdog
           if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
-            uint64_t time_now = get_absolute_time_in_fp();
+            uint64_t time_now = get_absolute_time_in_ns();
             debug_mutex_lock(&conn->watchdog_mutex, 1000, 0);
             conn->watchdog_bark_time = time_now;
             debug_mutex_unlock(&conn->watchdog_mutex, 0);
@@ -2620,12 +2620,8 @@ void *player_thread_func(void *arg) {
               conn->frame_rate_status = 0;
             if (conn->frame_rate_status) {
               conn->frame_rate =
-                  (1.0 * frames_played) /
+                  (1000000000.0 * frames_played) /
                   elapsed_play_time; // an IEEE double calculation with two 64-bit integers
-              conn->frame_rate =
-                  conn->frame_rate * (uint64_t)0x100000000; // this should just change the [binary]
-              // exponent in the IEEE FP representation;
-              // the mantissa should be unaffected.
             } else {
               conn->frame_rate = 0.0;
             }
@@ -2758,7 +2754,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
 
   int32_t hw_max_db = 0, hw_min_db = 0; // zeroed to quieten an incorrect uninitialised warning
   int32_t sw_max_db = 0, sw_min_db = -9630;
-  
+
   if (config.output->parameters) {
     volume_mode = vol_hw_only;
     audio_parameters audio_information;
@@ -2928,7 +2924,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
       if (config.logOutputLevel) {
         inform("Output Level set to: %.2f dB.", scaled_attenuation / 100.0);
       }
-      
+
 #ifdef CONFIG_METADATA
   // here, send the 'pvol' metadata message when the airplay volume information
   // is being used by shairport sync to control the output volume
@@ -2938,7 +2934,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         if (volume_mode == vol_both) {
           // normalise the maximum output to the hardware device's max output
           snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, (scaled_attenuation - max_db + hw_max_db) / 100.0,
-                   (min_db - max_db + hw_max_db) / 100.0, (max_db - max_db + hw_max_db) / 100.0);        
+                   (min_db - max_db + hw_max_db) / 100.0, (max_db - max_db + hw_max_db) / 100.0);
         } else {
           snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, scaled_attenuation / 100.0,
                    min_db / 100.0, max_db / 100.0);
@@ -2972,7 +2968,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
   }
 #endif
 
- 
+
   // here, store the volume for possible use in the future
   config.airplay_volume = airplay_volume;
   debug_mutex_unlock(&conn->volume_control_mutex, 3);

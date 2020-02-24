@@ -210,9 +210,6 @@ int precision_delay_available() {
           generate_zero_frames(silence, frames_of_silence, config.output_format,
                                use_dither, // i.e. with dither
                                dither_random_number_store);
-      // debug(1,"Play %d frames of silence with most_recent_write_time of
-      // %" PRIx64 ".",
-      //    frames_of_silence,most_recent_write_time);
       do_play(silence, frames_of_silence);
       pthread_cleanup_pop(1);
       // now we can get the delay, and we'll note if it uses update timestamps
@@ -254,8 +251,6 @@ static uint64_t frames_played_at_measurement_start_time;
 
 static uint64_t measurement_time;
 static uint64_t frames_played_at_measurement_time;
-
-volatile uint64_t most_recent_write_time;
 
 static uint64_t frames_sent_for_playing;
 static uint64_t frame_index;
@@ -1350,7 +1345,6 @@ static int init(int argc, char **argv) {
   // length of the queue
   // if the queue gets too short, stuff it with silence
 
-  most_recent_write_time = 0; // could be used by the alsa_buffer_monitor_thread_code
   pthread_create(&alsa_buffer_monitor_thread, NULL, &alsa_buffer_monitor_thread_code, NULL);
 
   return response;
@@ -1605,6 +1599,7 @@ int delay(long *the_delay) {
 }
 
 int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
+  // elapsed_time is in nanoseconds
   int response = 0; // zero means okay
   if (measurement_data_is_valid) {
     *elapsed_time = measurement_time - measurement_start_time;
@@ -1657,7 +1652,7 @@ int do_play(void *buf, int samples) {
         if ((frame_index == start_measurement_from_this_frame) ||
             ((frame_index > start_measurement_from_this_frame) && (frame_index % 32 == 0))) {
 
-          measurement_time = get_absolute_time_in_fp();
+          measurement_time = get_absolute_time_in_ns();
           frames_played_at_measurement_time = frames_sent_for_playing - my_delay - samples;
 
           if (frame_index == start_measurement_from_this_frame) {
@@ -1744,6 +1739,7 @@ int do_close() {
     // debug(1,"alsa: do_close() -- closing the output device");
     if ((derr = snd_pcm_drop(alsa_handle)))
       debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
+    usleep(5000);
     if ((derr = snd_pcm_hw_free(alsa_handle)))
       debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
 
@@ -1946,7 +1942,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
       alsa_device_init();
       alsa_device_initialised = 1;
     }
-    int sleep_time_ms = (int)(config.disable_standby_mode_silence_scan_interval * 1000);
+    int sleep_time_us = (int)(config.disable_standby_mode_silence_scan_interval * 1000000);
     pthread_cleanup_debug_mutex_lock(&alsa_mutex, 200000, 0);
     // check possible state transitions here
     if ((alsa_backend_state == abm_disconnected) && (config.keep_dac_busy != 0)) {
@@ -1974,57 +1970,51 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
       int reply;
       long buffer_size = 0;
       snd_pcm_state_t state;
-      uint64_t present_time = get_absolute_time_in_fp();
-      if ((most_recent_write_time == 0) || (present_time > most_recent_write_time)) {
-        reply = delay_and_status(&state, &buffer_size, NULL);
-        if (reply != 0) {
-          buffer_size = 0;
-          char errorstring[1024];
-          strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
-          debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
-                (char *)errorstring);
-        }
-        long buffer_size_threshold =
-            (long)(config.disable_standby_mode_silence_threshold * config.output_rate);
-        size_t size_of_silence_buffer;
-        if (buffer_size < buffer_size_threshold) {
-          uint64_t sleep_time_in_fp = sleep_time_ms;
-          sleep_time_in_fp = sleep_time_in_fp << 32;
-          sleep_time_in_fp = sleep_time_in_fp / 1000;
-          int frames_of_silence = 1024;
-          size_of_silence_buffer = frames_of_silence * frame_size;
-          void *silence = malloc(size_of_silence_buffer);
-          if (silence == NULL) {
-            warn("disable_standby_mode has been turned off because a memory allocation error "
-                 "occurred.");
-            error_detected = 1;
-          } else {
-            int ret;
-            pthread_cleanup_push(malloc_cleanup, silence);
-            int use_dither = 0;
-            if ((alsa_mix_ctrl == NULL) && (config.ignore_volume_control == 0) &&
-                (config.airplay_volume != 0.0))
-              use_dither = 1;
-            dither_random_number_store =
-                generate_zero_frames(silence, frames_of_silence, config.output_format,
-                                     use_dither, // i.e. with dither
-                                     dither_random_number_store);
-            ret = do_play(silence, frames_of_silence);
-            frame_count++;
-            pthread_cleanup_pop(1); // free malloced buffer
-            if (ret < 0) {
-              error_count++;
-              char errorstring[1024];
-              strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
-              debug(2, "alsa: alsa_buffer_monitor_thread_code error %d (\"%s\") writing %d samples "
-                       "to alsa device -- %d errors in %d trials.",
-                    ret, (char *)errorstring, frames_of_silence, error_count, frame_count);
-              if ((error_count > 40) && (frame_count < 100)) {
-                warn("disable_standby_mode has been turned off because too many underruns "
-                     "occurred. Is Shairport Sync outputting to a virtual device or running in a "
-                     "virtual machine?");
-                error_detected = 1;
-              }
+      reply = delay_and_status(&state, &buffer_size, NULL);
+      if (reply != 0) {
+        buffer_size = 0;
+        char errorstring[1024];
+        strerror_r(-reply, (char *)errorstring, sizeof(errorstring));
+        debug(1, "alsa: alsa_buffer_monitor_thread_code delay error %d: \"%s\".", reply,
+              (char *)errorstring);
+      }
+      long buffer_size_threshold =
+          (long)(config.disable_standby_mode_silence_threshold * config.output_rate);
+      size_t size_of_silence_buffer;
+      if (buffer_size < buffer_size_threshold) {
+        int frames_of_silence = 1024;
+        size_of_silence_buffer = frames_of_silence * frame_size;
+        void *silence = malloc(size_of_silence_buffer);
+        if (silence == NULL) {
+          warn("disable_standby_mode has been turned off because a memory allocation error "
+               "occurred.");
+          error_detected = 1;
+        } else {
+          int ret;
+          pthread_cleanup_push(malloc_cleanup, silence);
+          int use_dither = 0;
+          if ((alsa_mix_ctrl == NULL) && (config.ignore_volume_control == 0) &&
+              (config.airplay_volume != 0.0))
+            use_dither = 1;
+          dither_random_number_store =
+              generate_zero_frames(silence, frames_of_silence, config.output_format,
+                                   use_dither, // i.e. with dither
+                                   dither_random_number_store);
+          ret = do_play(silence, frames_of_silence);
+          frame_count++;
+          pthread_cleanup_pop(1); // free malloced buffer
+          if (ret < 0) {
+            error_count++;
+            char errorstring[1024];
+            strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
+            debug(2, "alsa: alsa_buffer_monitor_thread_code error %d (\"%s\") writing %d samples "
+                     "to alsa device -- %d errors in %d trials.",
+                  ret, (char *)errorstring, frames_of_silence, error_count, frame_count);
+            if ((error_count > 40) && (frame_count < 100)) {
+              warn("disable_standby_mode has been turned off because too many underruns "
+                   "occurred. Is Shairport Sync outputting to a virtual device or running in a "
+                   "virtual machine?");
+              error_detected = 1;
             }
           }
         }
@@ -2032,7 +2022,7 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
     }
     debug_mutex_unlock(&alsa_mutex, 0);
     pthread_cleanup_pop(0);       // release the mutex
-    usleep(sleep_time_ms * 1000); // has a cancellation point in it
+    usleep(sleep_time_us); // has a cancellation point in it
   }
   pthread_exit(NULL);
 }

@@ -201,7 +201,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
       // debug(1,"Error %d \"%s\" at getaddrinfo.",ires,gai_strerror(ires));
       response.code = 498; // Bad Address information for the DACP server
     } else {
-      uint64_t start_time = get_absolute_time_in_fp();
+      uint64_t start_time = get_absolute_time_in_ns();
       pthread_cleanup_push(addrinfo_cleanup, (void *)&res);
       // only do this one at a time -- not sure it is necessary, but better safe than sorry
 
@@ -352,10 +352,9 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
       }
       pthread_cleanup_pop(1); // this should free the addrinfo
       // freeaddrinfo(res);
-      uint64_t et = get_absolute_time_in_fp() - start_time;
-      et = (et * 1000000) >> 32; // microseconds
+      uint64_t et = get_absolute_time_in_ns() - start_time; // this will be in nanoseconds
       debug(3, "dacp_send_command: %f seconds, response code %d, command \"%s\".",
-            (1.0 * et) / 1000000, response.code, command);
+            (1.0 * et) / 1000000000, response.code, command);
     }
     *body = response.body;
     *bodysize = response.size;

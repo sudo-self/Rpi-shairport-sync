@@ -89,9 +89,9 @@ void set_alsa_out_dev(char *);
 
 config_t config_file_stuff;
 pthread_t main_thread_id;
-uint64_t fp_time_at_startup, fp_time_at_last_debug_message;
+uint64_t ns_time_at_startup, ns_time_at_last_debug_message;
 
-// always lock use this when accessing the fp_time_at_last_debug_message
+// always lock use this when accessing the ns_time_at_last_debug_message
 static pthread_mutex_t debug_timing_lock = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_mutex_t the_conn_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -218,14 +218,13 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
   char *s;
   if (debuglev) {
     pthread_mutex_lock(&debug_timing_lock);
-    uint64_t time_now = get_absolute_time_in_fp();
-    uint64_t time_since_start = time_now - fp_time_at_startup;
-    uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
-    fp_time_at_last_debug_message = time_now;
+    uint64_t time_now = get_absolute_time_in_ns();
+    uint64_t time_since_start = time_now - ns_time_at_startup;
+    uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
+    ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
-    uint64_t divisor = (uint64_t)1 << 32;
-    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
-                                    1.0 * time_since_last_debug_message / divisor, filename,
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                    1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *fatal error: ");
   } else {
     s = b;
@@ -247,14 +246,13 @@ void _warn(const char *filename, const int linenumber, const char *format, ...) 
   char *s;
   if (debuglev) {
     pthread_mutex_lock(&debug_timing_lock);
-    uint64_t time_now = get_absolute_time_in_fp();
-    uint64_t time_since_start = time_now - fp_time_at_startup;
-    uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
-    fp_time_at_last_debug_message = time_now;
+    uint64_t time_now = get_absolute_time_in_ns();
+    uint64_t time_since_start = time_now - ns_time_at_startup;
+    uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
+    ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
-    uint64_t divisor = (uint64_t)1 << 32;
-    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
-                                    1.0 * time_since_last_debug_message / divisor, filename,
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                    1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *warning: ");
   } else {
     s = b;
@@ -275,14 +273,13 @@ void _debug(const char *filename, const int linenumber, int level, const char *f
   char b[1024];
   b[0] = 0;
   pthread_mutex_lock(&debug_timing_lock);
-  uint64_t time_now = get_absolute_time_in_fp();
-  uint64_t time_since_start = time_now - fp_time_at_startup;
-  uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
-  fp_time_at_last_debug_message = time_now;
+  uint64_t time_now = get_absolute_time_in_ns();
+  uint64_t time_since_start = time_now - ns_time_at_startup;
+  uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
+  ns_time_at_last_debug_message = time_now;
   pthread_mutex_unlock(&debug_timing_lock);
-  uint64_t divisor = (uint64_t)1 << 32;
-  char *s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
-                                        1.0 * time_since_last_debug_message / divisor, filename,
+  char *s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                        1.0 * time_since_last_debug_message / 1000000000, filename,
                                         linenumber, " ");
   va_list args;
   va_start(args, format);
@@ -300,14 +297,13 @@ void _inform(const char *filename, const int linenumber, const char *format, ...
   char *s;
   if (debuglev) {
     pthread_mutex_lock(&debug_timing_lock);
-    uint64_t time_now = get_absolute_time_in_fp();
-    uint64_t time_since_start = time_now - fp_time_at_startup;
-    uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
-    fp_time_at_last_debug_message = time_now;
+    uint64_t time_now = get_absolute_time_in_ns();
+    uint64_t time_since_start = time_now - ns_time_at_startup;
+    uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
+    ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
-    uint64_t divisor = (uint64_t)1 << 32;
-    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
-                                    1.0 * time_since_last_debug_message / divisor, filename,
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                    1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " ");
   } else {
     s = b;
@@ -1133,7 +1129,9 @@ char *str_replace(const char *string, const char *substr, const char *replacemen
 
 /* from http://burtleburtle.net/bob/rand/smallprng.html */
 
-// this is not thread-safe, so we need a mutex on it to use it properly// always lock use this when accessing the fp_time_at_last_debug_message
+// this is not thread-safe, so we need a mutex on it to use it properly.
+// always lock use this when accessing the fp_time_at_last_debug_message
+
 pthread_mutex_t r64_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // typedef uint64_t u8;
@@ -1241,18 +1239,17 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 
   timeoutTime.tv_sec = time_then;
   timeoutTime.tv_nsec = time_then_nsec;
-  int64_t start_time = get_absolute_time_in_fp();
+  int64_t start_time = get_absolute_time_in_ns();
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
-  int64_t et = get_absolute_time_in_fp() - start_time;
+  int64_t et = get_absolute_time_in_ns() - start_time;
 
   if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
-    et = (et * 1000000) >> 32; // microseconds
     char errstr[1000];
     if (r == ETIMEDOUT)
       debug(debuglevel,
             "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
             "waiting time of %d microseconds. \"%s\".",
-            (1.0 * et) / 1000000, dally_time, debugmessage);
+            (1.0 * et) / 1000000000, dally_time, debugmessage);
     else
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
@@ -1301,7 +1298,7 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
     return pthread_mutex_lock(mutex);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  uint64_t time_at_start = get_absolute_time_in_fp();
+  uint64_t time_at_start = get_absolute_time_in_ns();
   char dstring[1000];
   memset(dstring, 0, sizeof(dstring));
   snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
@@ -1310,12 +1307,10 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
   int result = sps_pthread_mutex_timedlock(mutex, dally_time, dstring, debuglevel);
   if (result == ETIMEDOUT) {
     result = pthread_mutex_lock(mutex);
-    uint64_t time_delay = get_absolute_time_in_fp() - time_at_start;
-    uint64_t divisor = (uint64_t)1 << 32;
-    double delay = 1.0 * time_delay / divisor;
+    uint64_t time_delay = get_absolute_time_in_ns() - time_at_start;
     debug(debuglevel,
           "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.",
-          mutexname, dstring, (1.0 * dally_time) / 1000000, delay);
+          mutexname, dstring, (1.0 * dally_time) / 1000000, 0.000000001 * time_delay);
   }
   pthread_setcancelstate(oldState, NULL);
   return result;

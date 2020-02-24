@@ -286,7 +286,7 @@ void *player_watchdog_thread_code(void *arg) {
       uint64_t last_watchdog_bark_time = conn->watchdog_bark_time;
       debug_mutex_unlock(&conn->watchdog_mutex, 0);
       if (last_watchdog_bark_time != 0) {
-        uint64_t time_since_last_bark = (get_absolute_time_in_fp() - last_watchdog_bark_time) >> 32;
+        uint64_t time_since_last_bark = (get_absolute_time_in_ns() - last_watchdog_bark_time) / 1000000000;
         uint64_t ct = config.timeout; // go from int to 64-bit int
 
         if (time_since_last_bark >= ct) {
@@ -666,7 +666,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
   }
 
   uint64_t threshold_time =
-      get_absolute_time_in_fp() + ((uint64_t)15 << 32); // i.e. fifteen seconds from now
+      get_absolute_time_in_ns() + ((uint64_t)15000000000); // i.e. fifteen seconds from now
   int warning_message_sent = 0;
 
   const size_t max_read_chunk = 1024 * 1024 / 16;
@@ -679,7 +679,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
     // metadata
 
     if (warning_message_sent == 0) {
-      uint64_t time_now = get_absolute_time_in_fp();
+      uint64_t time_now = get_absolute_time_in_ns();
       if (time_now > threshold_time) { // it's taking too long
         debug(1, "Error receiving metadata from source -- transmission seems "
                  "to be stalled.");
@@ -2319,7 +2319,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_conn_info *conn = pconn;
 
   // create the watchdog mutex, initialise the watchdog time and start the watchdog thread;
-  conn->watchdog_bark_time = get_absolute_time_in_fp();
+  conn->watchdog_bark_time = get_absolute_time_in_ns();
   pthread_mutex_init(&conn->watchdog_mutex, NULL);
   pthread_create(&conn->player_watchdog_thread, NULL, &player_watchdog_thread_code, (void *)conn);
 

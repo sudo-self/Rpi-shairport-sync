@@ -143,10 +143,10 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
   int i;
 
   int number_of_iterations = 0;
-  uint64_t soxr_start_time = get_absolute_time_in_fp();
+  uint64_t soxr_start_time = get_absolute_time_in_ns();
   uint64_t loop_until_time =
-      (uint64_t)0x180000000 + soxr_start_time; // loop for a second and a half, max -- no need to be able to cancel it, do _don't even try_!
-  while (get_absolute_time_in_fp() < loop_until_time) {
+      (uint64_t)1500000000 + soxr_start_time; // loop for a second and a half, max -- no need to be able to cancel it, do _don't even try_!
+  while (get_absolute_time_in_ns() < loop_until_time) {
 
     number_of_iterations++;
     for (i = 0; i < buffer_length; i++) {
@@ -184,11 +184,11 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
                  NULL, NULL);                          // Default configuration.
   }
 
-  double soxr_execution_time_us =
-      (((get_absolute_time_in_fp() - soxr_start_time) * 1000000) >> 32) * 1.0;
+  double soxr_execution_time_ns =
+      (get_absolute_time_in_ns() - soxr_start_time) * 1.0;
   // free(outbuffer);
   // free(inbuffer);
-  config.soxr_delay_index = (int)(0.9 + soxr_execution_time_us / (number_of_iterations * 1000));
+  config.soxr_delay_index = (int)(0.9 + soxr_execution_time_ns / (number_of_iterations * 1000000));
   debug(2, "soxr_delay_index: %d.", config.soxr_delay_index);
   if ((config.packet_stuffing == ST_soxr) &&
       (config.soxr_delay_index > config.soxr_delay_threshold))
@@ -1393,8 +1393,8 @@ int main(int argc, char **argv) {
   conns = NULL; // no connections active
   memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
   memset(&config, 0, sizeof(config)); // also clears all strings, BTW
-  fp_time_at_startup = get_absolute_time_in_fp();
-  fp_time_at_last_debug_message = fp_time_at_startup;
+  ns_time_at_startup = get_absolute_time_in_ns();
+  ns_time_at_last_debug_message = ns_time_at_startup;
   // this is a bit weird, but necessary -- basename() may modify the argument passed in
   char *basec = strdup(argv[0]);
   char *bname = basename(basec);

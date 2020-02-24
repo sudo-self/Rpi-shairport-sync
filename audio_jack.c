@@ -395,13 +395,13 @@ int jack_delay(long *the_delay) {
   // occupancy after another transfer had occurred, so we could "lose" a full transfer
   // (e.g. 1024 frames @ 44,100 fps ~ 23.2 milliseconds)
   pthread_mutex_lock(&buffer_mutex);
-  int64_t time_now = get_absolute_time_in_fp();
-  int64_t delta = time_now - time_of_latest_transfer;
+  int64_t time_now = get_absolute_time_in_ns();
+  int64_t delta = time_now - time_of_latest_transfer; // nanoseconds
   size_t audio_occupancy_now = jack_ringbuffer_read_space(jackbuf) / bytes_per_frame;
   debug(2, "audio_occupancy_now is %d.", audio_occupancy_now);
   pthread_mutex_unlock(&buffer_mutex);
 
-  int64_t frames_processed_since_latest_latency_check = (delta * sample_rate) >> 32;
+  int64_t frames_processed_since_latest_latency_check = (delta * sample_rate) / 1000000000;
   // debug(1,"delta: %" PRId64 " frames.",frames_processed_since_latest_latency_check);
   // jack_latency is set by the graph() callback, it's the average of the maximum
   // latencies of all our output ports. Adjust this constant baseline delay according
@@ -456,7 +456,7 @@ int play(void *buf, int samples) {
     }
 #endif
   }
-  time_of_latest_transfer = get_absolute_time_in_fp();
+  time_of_latest_transfer = get_absolute_time_in_ns();
   pthread_mutex_unlock(&buffer_mutex);
   if (samples) {
     warn("JACK ringbuffer overrun. Dropped %d samples.", samples);
