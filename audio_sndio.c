@@ -247,7 +247,7 @@ static void stop() {
 }
 
 static void onmove_cb(__attribute__((unused)) void *arg, int delta) {
-  time_of_last_onmove_cb = get_absolute_time_in_fp();
+  time_of_last_onmove_cb = get_absolute_time_in_ns();
   at_least_one_onmove_cb_seen = 1;
   played += delta;
 }
@@ -258,10 +258,14 @@ static int delay(long *_delay) {
   if (at_least_one_onmove_cb_seen) { // when output starts, the onmove_cb callback will be made
     // calculate the difference in time between now and when the last callback occurred,
     // and use it to estimate the frames that would have been output
-    uint64_t time_difference = get_absolute_time_in_fp() - time_of_last_onmove_cb;
-    uint64_t frame_difference = time_difference * par.rate;
-    uint64_t frame_difference_big_integer = frame_difference >> 32;
-    estimated_extra_frames_output = frame_difference_big_integer;
+    uint64_t time_difference = get_absolute_time_in_ns() - time_of_last_onmove_cb;
+    uint64_t frame_difference = (time_difference * par.rate) / 1000000000;
+    estimated_extra_frames_output = frame_difference;    
+    // sanity check -- total estimate can not exceed frames written.
+    if ((estimated_extra_frames_output + played) > written/framesize) {
+      // debug(1,"play estimate fails sanity check, possibly due to running on a VM");
+      estimated_extra_frames_output = 0; // can't make any sensible guess
+    }    
     // debug(1,"Frames played to last cb: %d, estimated to current time:
     // %d.",played,estimated_extra_frames_output);
   }
