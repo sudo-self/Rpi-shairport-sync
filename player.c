@@ -1137,8 +1137,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                     resp = config.output->delay(&dac_delay);
                   if (resp == 0) {
                     int64_t gross_frame_gap =
-                        ((conn->first_packet_time_to_play - local_time_now) * config.output_rate) >>
-                        32;
+                        ((conn->first_packet_time_to_play - local_time_now) * config.output_rate) / 1000000000;
                     int64_t exact_frame_gap = gross_frame_gap - dac_delay;
                     // debug(1,"Exact and gross frame gaps are %" PRId64 " and %" PRId64 " frames,
                     // and the dac delay is %ld.", exact_frame_gap, gross_frame_gap, dac_delay);
