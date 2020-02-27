@@ -4,9 +4,9 @@ The installation and setup of Shairport Sync is straightforward on recent Linux 
 
 In this brief document will be listed some problems and some solutions, some provided by other users.
 
-1. Before starting, ensure that your software is up-to-date.
-2. Set the `interpolation` in the `general` section of the configuration file to `basic` as the `soxr` setting can cause lower-powered devices to bog down at critical times, e.g. see [this report](https://github.com/mikebrady/shairport-sync/issues/631#issuecomment-366305203).
-
+1. Before starting, ensure that your software is up-to-date. This document always refers to the most recent version of Shairport Sync -- see [here](https://github.com/mikebrady/shairport-sync/releases) for information about the most recent release.
+2. If you have set `interpolation` in the `general` section of the configuration file to to `soxr`, comment it out or set it to `auto` or `basic` as the `soxr` setting can cause lower-powered devices to bog down at critical times, e.g. see [this report](https://github.com/mikebrady/shairport-sync/issues/631#issuecomment-366305203).
+3. Ensure the volume setting of your output device is set to some reasonable value and ensure it is not muted. For ALSA devices, the `alsamixer` command-line tool is very good for this. For other sound systems, please consult the relevant documentation.
 
 ### WiFi adapter running in power-saving / low-power mode
 
