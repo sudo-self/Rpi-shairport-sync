@@ -1247,9 +1247,9 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
     char errstr[1000];
     if (r == ETIMEDOUT)
       debug(debuglevel,
-            "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
+            "timed out waiting for a mutex, having waited %f microseconds, with a maximum "
             "waiting time of %d microseconds. \"%s\".",
-            (1.0 * et) / 1000000000, dally_time, debugmessage);
+            (1.0E6 * et) / 1000000000, dally_time, debugmessage);
     else
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
@@ -1309,8 +1309,8 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
     result = pthread_mutex_lock(mutex);
     uint64_t time_delay = get_absolute_time_in_ns() - time_at_start;
     debug(debuglevel,
-          "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.",
-          mutexname, dstring, (1.0 * dally_time) / 1000000, 0.000000001 * time_delay);
+          "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f microseconds.",
+          mutexname, dstring, (1.0 * dally_time), 0.001 * time_delay);
   }
   pthread_setcancelstate(oldState, NULL);
   return result;

@@ -421,9 +421,6 @@ extern pthread_mutex_t r64_mutex;
 
 char *get_version_string(); // mallocs a string space -- remember to free it afterwards
 
-void sps_nanosleep(const time_t sec,
-                   const long nanosec); // waits for this time, even through interruptions
-
 int64_t generate_zero_frames(char *outp, size_t number_of_frames, sps_format_t format,
                              int with_dither, int64_t random_number_in);
 
