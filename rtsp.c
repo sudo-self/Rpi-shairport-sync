@@ -2335,6 +2335,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   pthread_condattr_init(&attr);
   pthread_condattr_setclock(&attr, CLOCK_MONOTONIC); // can't do this in OS X, and don't need it.
   rc = pthread_cond_init(&conn->flowcontrol, &attr);
+  pthread_condattr_destroy(&attr);
 #endif
 #ifdef COMPILE_FOR_OSX
   rc = pthread_cond_init(&conn->flowcontrol, NULL);

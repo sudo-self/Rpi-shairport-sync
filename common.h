@@ -100,6 +100,7 @@ typedef enum {
 const char *sps_format_description_string(sps_format_t format);
 
 typedef struct {
+  double missing_port_dacp_scan_interval_seconds; // if no DACP port number can be found, check at these intervals
   double resend_control_first_check_time; // wait this long before asking for a missing packet to be resent
   double resend_control_check_interval_time; // wait this long between making requests
   double resend_control_last_check_time; // if the packet is missing this close to the time of use, give up

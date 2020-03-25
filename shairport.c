@@ -405,6 +405,7 @@ int parse_options(int argc, char **argv) {
   config.resend_control_first_check_time = 0.10; // wait this many seconds before requesting the resending of a missing packet
   config.resend_control_check_interval_time = 0.25; // wait this many seconds before again requesting the resending of a missing packet
   config.resend_control_last_check_time = 0.10; // give up if the packet is still missing this close to when it's needed
+  config.missing_port_dacp_scan_interval_seconds = 2.0; // check at this interval if no DACP port number is known
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
