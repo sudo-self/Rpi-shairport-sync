@@ -806,6 +806,18 @@ int parse_options(int argc, char **argv) {
               dvalue, config.resend_control_last_check_time);
       }
 
+      if (config_lookup_float(config.cfg, "general.missing_port_dacp_scan_interval_seconds",
+                              &dvalue)) {
+        if ((dvalue >= 0.0) && (dvalue <= 300.0))
+          config.missing_port_dacp_scan_interval_seconds = dvalue;
+        else
+          warn("Invalid general missing_port_dacp_scan_interval_seconds setting \"%d\". It should "
+              "be "
+              "between 0.0 and 300.0, "
+              "inclusive. The setting remains at %f seconds.",
+              dvalue, config.missing_port_dacp_scan_interval_seconds);
+      }
+
       /* Get the default latency. Deprecated! */
       if (config_lookup_int(config.cfg, "latencies.default", &value))
         config.userSuppliedLatency = value;
