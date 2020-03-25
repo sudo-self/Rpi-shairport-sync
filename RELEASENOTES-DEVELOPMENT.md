@@ -1,3 +1,9 @@
+Version 3.3.7d3
+====
+
+**Enhancement**
+* While a player is active, the DACP port number to which to send remote commands should be broadcast over ZEROCONF/Bonjour. However, if that information is not available, Shairport Sync will now check for it every two seconds.
+
 Version 3.3.7d2
 ====
 **Pesky Changes**
