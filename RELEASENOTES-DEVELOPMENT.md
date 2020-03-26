@@ -1,6 +1,10 @@
+Version 3.3.7d4
+====
+**Bug Fix**
+* The DACP ID looks like a 64-bit number expressed in hexadecimal. It is normally quoted with leading zeroes removed, but in the `_dacp._tcp` service string, leading zeros are not removed from the DACP ID. The bug fix removes those leading zeroes.
+
 Version 3.3.7d3
 ====
-
 **Enhancement**
 * While a player is active, the DACP port number to which to send remote commands should be broadcast over ZEROCONF/Bonjour. However, if that information is not available, Shairport Sync will now check for it every two seconds.
 
@@ -10,7 +14,7 @@ Version 3.3.7d2
 * The underlying timing system has been moved from 64-bit fixed-point time representation (a là NTP) to a 64-bit unsigned nanoseconds representation. This should make precisely no difference to the functionality of Shairport Sync but the transition might behabve inadeventely introduced bugs. Problem reports gratefully received.
 
 **Enhancement**
-* The timing software in the `sndio` backend does some extra sanity checking on certain time estimates, it may help a little whne running on virtual machines.
+* The timing software in the `sndio` backend does some extra sanity checking on certain time estimates, it may help a little when running on virtual machines.
 
 Version 3.3.7d1
 ====
