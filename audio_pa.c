@@ -85,6 +85,11 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
   if (config.cfg != NULL) {
     const char *str;
 
+    /* Get the PulseAudio server name. */
+    if (config_lookup_string(config.cfg, "pa.server", &str)) {
+      config.pa_server = (char *)str;
+    }
+
     /* Get the Application Name. */
     if (config_lookup_string(config.cfg, "pa.application_name", &str)) {
       config.pa_application_name = (char *)str;
@@ -126,7 +131,8 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
   // Start the mainloop
   if (pa_threaded_mainloop_start(mainloop) != 0)
     die("could not start the pulseaudio threaded mainloop");
-  if (pa_context_connect(context, NULL, 0, NULL) != 0)
+
+  if (pa_context_connect(context, config.pa_server, 0, NULL) != 0)
     die("failed to connect to the pulseaudio context -- the error message is \"%s\".",
         pa_strerror(pa_context_errno(context)));
 
