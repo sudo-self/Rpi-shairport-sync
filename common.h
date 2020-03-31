@@ -114,6 +114,7 @@ typedef struct {
                       // on host %h"
 
 #ifdef CONFIG_PA
+  char *pa_server; // the pulseaudio server address that Shairport Sync will play on.
   char *pa_application_name; // the name under which Shairport Sync shows up as an "Application" in
                              // the Sound Preferences in most desktop Linuxes.
   // Defaults to "Shairport Sync". Shairport Sync must be playing to see it.
