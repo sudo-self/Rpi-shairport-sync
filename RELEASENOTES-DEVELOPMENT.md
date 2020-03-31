@@ -1,3 +1,6 @@
+**New Feature**
+* For the PulseAudio backend `pa`, add a new `server` entry to `pa` section of the configuration file, allowing you to specify a connection to a remote or a local system PulseAudio instance instead of letting PulseAudio choose. Thanks to [Guillaume Revaillot](https://github.com/grevaillot) for this new feature.
+
 Version 3.3.7d4
 ====
 **Bug Fix**
