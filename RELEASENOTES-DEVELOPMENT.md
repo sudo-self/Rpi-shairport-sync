@@ -14,7 +14,7 @@ Version 3.3.7d3
 Version 3.3.7d2
 ====
 **Pesky Changes**
-* The underlying timing system has been moved from 64-bit fixed-point time representation (a là NTP) to a 64-bit unsigned nanoseconds representation. This should make precisely no difference to the functionality of Shairport Sync but the transition might behabve inadeventely introduced bugs. Problem reports gratefully received.
+* The underlying timing system has been moved from 64-bit fixed-point time representation (a là NTP) to a 64-bit unsigned nanoseconds representation. This should make precisely no difference to the functionality of Shairport Sync but the transition might inadvertently have introduced bugs. Problem reports gratefully received.
 
 **Enhancement**
 * The timing software in the `sndio` backend does some extra sanity checking on certain time estimates, it may help a little when running on virtual machines.
