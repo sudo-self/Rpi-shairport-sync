@@ -407,6 +407,10 @@ int parse_options(int argc, char **argv) {
   config.resend_control_last_check_time = 0.10; // give up if the packet is still missing this close to when it's needed
   config.missing_port_dacp_scan_interval_seconds = 2.0; // check at this interval if no DACP port number is known
 
+  config.minimum_free_buffer_headroom = 125; // leave approximately one second's worth of buffers free after calculating the effective latency.
+  // e.g. if we have 1024 buffers or 352 frames = 8.17 seconds and we have a nominal latency of 2.0 seconds
+  // then we can add an offset of 5.17 seconds and still leave a second's worth of buffers for unexpected circumstances
+
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
   config.scan_interval_when_active =

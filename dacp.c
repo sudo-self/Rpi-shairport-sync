@@ -1248,7 +1248,7 @@ int dacp_get_volume(int32_t *the_actual_volume) {
     } else {
       debug(1, "Unexpected return code %d from dacp_get_speaker_list.", http_response);
     }
-  } else {
+  } else if (http_response != 400){
     debug(3, "Unexpected return code %d from dacp_get_client_volume.", http_response);
   }
   if (the_actual_volume) {

@@ -147,10 +147,10 @@ void parse_general_audio_options(void) {
     /* Get the desired buffer size setting in seconds. */
     if (config_lookup_float(config.cfg, "general.audio_backend_buffer_desired_length_in_seconds",
                             &dvalue)) {
-      if ((dvalue < 0) || (dvalue > 1.5)) {
+      if (dvalue < 0) {
         die("Invalid audio_backend_buffer_desired_length_in_seconds value: \"%f\". It "
-            "should be between 0 and "
-            "1.5, default is %.3f seconds",
+            "should be 0.0 or greater."
+            " The default is %.3f seconds",
             dvalue, config.audio_backend_buffer_desired_length);
       } else {
         config.audio_backend_buffer_desired_length = dvalue;
@@ -190,13 +190,7 @@ void parse_general_audio_options(void) {
     /* Get the latency offset in seconds. */
     if (config_lookup_float(config.cfg, "general.audio_backend_latency_offset_in_seconds",
                             &dvalue)) {
-      if ((dvalue < -1.75) || (dvalue > 1.75)) {
-        die("Invalid audio_backend_latency_offset_in_seconds \"%f\". It "
-            "should be between -1.75 and +1.75, default is 0 seconds",
-            dvalue);
-      } else {
         config.audio_backend_latency_offset = dvalue;
-      }
     }
 
     /* Get the desired length of the silent lead-in. */

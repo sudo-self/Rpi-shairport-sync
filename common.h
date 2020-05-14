@@ -215,6 +215,7 @@ typedef struct {
   double audio_backend_latency_offset; // this will be the offset in seconds to compensate for any
                                        // fixed latency there might be in the audio path
   double audio_backend_silent_lead_in_time; // the length of the silence that should precede a play.
+  uint32_t minimum_free_buffer_headroom; // when effective latency is calculated, ensure this number of buffers are unallocated
   double active_state_timeout; // the amount of time from when play ends to when the system leaves
                                // into the "active" mode.
   uint32_t volume_range_db; // the range, in dB, from max dB to min dB. Zero means use the mixer's

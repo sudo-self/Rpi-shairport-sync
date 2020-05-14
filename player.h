@@ -87,6 +87,7 @@ typedef struct {
   uint32_t maximum_latency;  // set if an a=max-latency: line appears in the ANNOUNCE message; zero
                              // otherwise
   int software_mute_enabled; // if we don't have a real mute that we can use
+  int unachievable_audio_backend_latency_offset_notified; // set when a latency warning is issued
 
   int fd;
   int authorized;   // set if a password is required and has been supplied
