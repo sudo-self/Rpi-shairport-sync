@@ -1048,7 +1048,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               uint64_t should_be_time;
               frame_to_local_time(conn->first_packet_timestamp + conn->latency +
-                                      (uint32_t)(config.audio_backend_latency_offset *
+                                      (int32_t)(config.audio_backend_latency_offset *
                                                  conn->input_rate), // this will go modulo 2^32
                                   &should_be_time,
                                   conn);
@@ -1069,7 +1069,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
             uint64_t should_be_time;
             frame_to_local_time(conn->first_packet_timestamp + conn->latency +
-                                    (uint32_t)(config.audio_backend_latency_offset *
+                                    (int32_t)(config.audio_backend_latency_offset *
                                                conn->input_rate), // this should go modulo 2^32
                                 &should_be_time,
                                 conn);
@@ -1304,7 +1304,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
         uint64_t time_to_play;
         frame_to_local_time(curframe->given_timestamp + conn->latency +
-                                (uint32_t)(config.audio_backend_latency_offset * conn->input_rate) -
+                                (int32_t)(config.audio_backend_latency_offset * conn->input_rate) -
                                 (uint32_t)(config.audio_backend_buffer_desired_length *
                                            conn->input_rate), // this will go modulo 2^32
                             &time_to_play,
