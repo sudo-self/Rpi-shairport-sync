@@ -1,3 +1,10 @@
+Version 3.3.7d5
+====
+**Bug Fixes and Enhancements**
+* Added code to do calculations involving the `audio_backend_latency_offset_in_seconds` and `audio_backend_silent_lead_in_time` settings correctly. Many thanks to [Tucker Kern](https://github.com/mill1000) for discovering a number of bugs associated with this and for [proposing a solution](https://github.com/mikebrady/shairport-sync/pull/1001). This prompted a closer investigation and a number of further improvements were made, and a few "hostages to fortune" removed.
+* Cleaned up the `audio_backend_silent_lead_in_time` setting by adding an `"auto"` setting.
+* Improved synchronisation accuracy with short silence lead-ins.
+
 **New Feature**
 * For the PulseAudio backend `pa`, add a new `server` entry to `pa` section of the configuration file, allowing you to specify a connection to a remote or a local system PulseAudio instance instead of letting PulseAudio choose. Thanks to [Guillaume Revaillot](https://github.com/grevaillot) for this new feature.
 
