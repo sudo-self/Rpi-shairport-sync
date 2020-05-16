@@ -388,7 +388,7 @@ int parse_options(int argc, char **argv) {
 
   config.resyncthreshold = 1.0 * fResyncthreshold / 44100;
   config.tolerance = 1.0 * fTolerance / 44100;
-  config.audio_backend_silent_lead_in_time = -1.0; // flag to indicate it has not been set
+  config.audio_backend_silent_lead_in_time_auto = 1; // start outputting silence as soon as packets start arriving
   config.airplay_volume = -18.0; // if no volume is ever set, default to initial default value if
                                  // nothing else comes in first.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
@@ -1788,7 +1788,10 @@ int main(int argc, char **argv) {
   debug(1, "audio_backend_buffer_interpolation_threshold_in_seconds is %f seconds.",
         config.audio_backend_buffer_interpolation_threshold_in_seconds);
   debug(1, "audio backend latency offset is %f seconds.", config.audio_backend_latency_offset);
-  debug(1, "audio backend silence lead-in time is %f seconds. A value -1.0 means use the default.",
+  if (config.audio_backend_silent_lead_in_time_auto == 1)
+    debug(1, "audio backend silence lead-in time is \"auto\".");
+  else
+  	debug(1, "audio backend silence lead-in time is %f seconds.",
         config.audio_backend_silent_lead_in_time);
   debug(1, "zeroconf regtype is \"%s\".", config.regtype);
   debug(1, "decoders_supported field is %d.", config.decoders_supported);
