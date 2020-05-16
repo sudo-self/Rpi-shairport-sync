@@ -4,7 +4,7 @@
 Version 3.3.7d4
 ====
 **Bug Fix**
-* The DACP ID looks like a 64-bit number expressed in hexadecimal. It is normally quoted with leading zeroes removed, but in the `_dacp._tcp` service string, leading zeros are not removed from the DACP ID. The bug fix removes those leading zeroes. Thanks to [julianc1969](https://github.com/juliandc1969) for tenaciously tracking down this bug!
+* The DACP ID looks like a 64-bit number expressed in hexadecimal. It is normally quoted with leading zeroes removed, but in the `_dacp._tcp` service string, leading zeros are not removed from the DACP ID. The bug fix removes those leading zeroes. Thanks to [julianc1969](https://github.com/juliandc1969) for tracking down this bug so tenaciously!
 
 Version 3.3.7d3
 ====
