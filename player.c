@@ -1151,7 +1151,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             		filler_size = initial_silence_frames;
             	else
             		filler_size = max_dac_delay / (minimum_adjustments_to_make + 1);
-            	debug(1,"Initial filler size: %" PRId64 " frames.", filler_size);
+            	// debug(1,"Initial filler size: %" PRId64 " frames.", filler_size);
             }
 
             if (local_time_now > conn->first_packet_time_to_play) {
@@ -1178,7 +1178,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               // do some calculations
               int64_t lead_time = conn->first_packet_time_to_play - local_time_now;
               if ((config.audio_backend_silent_lead_in_time_auto == 1) || (lead_time <= (int64_t)(config.audio_backend_silent_lead_in_time * (int64_t)1000000000))) {
-              	debug(1,"Lead time: %" PRId64 ".", lead_time);
+              	// debug(1,"Lead time: %" PRId64 ".", lead_time);
 
                 // debug(1,"Checking");
                 if (config.output->delay) {
