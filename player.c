@@ -1129,12 +1129,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             // setting
             // In fact, if should be some fraction of them, to allow for adjustment.
 
-						double adjustment_interval_seconds = 0.025;
-            int64_t minimum_adjustments_to_make = 3;
-            double initial_silence_seconds = 0.2;
-
-            int64_t adjustment_interval_frames = (int64_t)(adjustment_interval_seconds * conn->input_rate);
-            int64_t initial_silence_frames = (int64_t)(initial_silence_seconds * conn->input_rate);
+            int64_t adjustment_interval_frames = (int64_t)(config.lead_in_silence_adjustment_interval * conn->input_rate);
+            int64_t initial_silence_frames = (int64_t)(config.lead_in_silence_initial_period * conn->input_rate);
 
             int64_t max_dac_delay = effective_latency;
             if (config.audio_backend_silent_lead_in_time_auto == 0)
@@ -1146,11 +1142,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             int64_t filler_size = adjustment_interval_frames;
 
             if (have_sent_prefiller_silence == 0) {
-            	int64_t delay_before_adjustments = max_dac_delay - minimum_adjustments_to_make * adjustment_interval_frames;
+            	int64_t delay_before_adjustments = max_dac_delay - config.lead_in_silence_minimum_adjustments_to_make * adjustment_interval_frames;
             	if (delay_before_adjustments > initial_silence_frames)
             		filler_size = initial_silence_frames;
             	else
-            		filler_size = max_dac_delay / (minimum_adjustments_to_make + 1);
+            		filler_size = max_dac_delay / (config.lead_in_silence_minimum_adjustments_to_make + 1);
             	// debug(1,"Initial filler size: %" PRId64 " frames.", filler_size);
             }
 

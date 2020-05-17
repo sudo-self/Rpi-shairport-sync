@@ -751,9 +751,9 @@ int parse_options(int argc, char **argv) {
        * range set by the mixer. */
       if (config_lookup_int(config.cfg, "general.volume_range_db", &value)) {
         if ((value < 30) || (value > 150))
-          die("Invalid volume range  \"%sd\". It should be between 30 and 150 dB. Zero means use "
-              "the mixer's native range",
-              value);
+          die("Invalid volume range  %d dB. It should be between 30 and 150 dB. Zero means use "
+              "the mixer's native range. The setting reamins at %d.",
+              value, config.volume_range_db);
         else
           config.volume_range_db = value;
       }
@@ -779,7 +779,7 @@ int parse_options(int argc, char **argv) {
         if ((dvalue >= 0.0) && (dvalue <= 3.0))
           config.resend_control_first_check_time = dvalue;
         else
-          warn("Invalid general resend_control_first_check_time setting \"%d\". It should "
+          warn("Invalid general resend_control_first_check_time setting \"%f\". It should "
               "be "
               "between 0.0 and 3.0, "
               "inclusive. The setting remains at %f seconds.",
@@ -791,7 +791,7 @@ int parse_options(int argc, char **argv) {
         if ((dvalue >= 0.0) && (dvalue <= 3.0))
           config.resend_control_check_interval_time = dvalue;
         else
-          warn("Invalid general resend_control_check_interval_time setting \"%d\". It should "
+          warn("Invalid general resend_control_check_interval_time setting \"%f\". It should "
               "be "
               "between 0.0 and 3.0, "
               "inclusive. The setting remains at %f seconds.",
@@ -803,7 +803,7 @@ int parse_options(int argc, char **argv) {
         if ((dvalue >= 0.0) && (dvalue <= 3.0))
           config.resend_control_last_check_time = dvalue;
         else
-          warn("Invalid general resend_control_last_check_time setting \"%d\". It should "
+          warn("Invalid general resend_control_last_check_time setting \"%f\". It should "
               "be "
               "between 0.0 and 3.0, "
               "inclusive. The setting remains at %f seconds.",
@@ -815,7 +815,7 @@ int parse_options(int argc, char **argv) {
         if ((dvalue >= 0.0) && (dvalue <= 300.0))
           config.missing_port_dacp_scan_interval_seconds = dvalue;
         else
-          warn("Invalid general missing_port_dacp_scan_interval_seconds setting \"%d\". It should "
+          warn("Invalid general missing_port_dacp_scan_interval_seconds setting \"%f\". It should "
               "be "
               "between 0.0 and 300.0, "
               "inclusive. The setting remains at %f seconds.",
@@ -825,6 +825,40 @@ int parse_options(int argc, char **argv) {
       /* Get the default latency. Deprecated! */
       if (config_lookup_int(config.cfg, "latencies.default", &value))
         config.userSuppliedLatency = value;
+
+      /* Get the lead-in silence settings. */
+      if (config_lookup_float(config.cfg, "general.audio_backend_silent_lead_in_initial_period",
+                              &dvalue)) {
+        if ((dvalue >= 0.0) && (dvalue <= 3.0))
+          config.lead_in_silence_initial_period = dvalue;
+        else
+          warn("Invalid general audio_backend_silent_lead_in_initial_period setting \"%f\". It should "
+              "be "
+              "between 0.0 and 3.0, "
+              "inclusive. The setting remains at %f seconds.",
+              dvalue, config.lead_in_silence_initial_period);
+      }
+
+      if (config_lookup_int(config.cfg, "general.audio_backend_silent_lead_in_minimum_adjustments_to_make", &value)) {
+        if (value < 0)
+          die("Invalid audio_backend_silent_lead_in_minimum_adjustments_to_make range  \"%d\". It must be positive. The setting remains at %d.",
+              value, config.lead_in_silence_minimum_adjustments_to_make);
+        else
+          config.lead_in_silence_minimum_adjustments_to_make = value;
+      }
+
+      if (config_lookup_float(config.cfg, "general.audio_backend_silent_lead_in_adjustment_interval",
+                              &dvalue)) {
+        if ((dvalue >= 0.0) && (dvalue <= 3.0))
+          config.lead_in_silence_adjustment_interval = dvalue;
+        else
+          warn("Invalid general audio_backend_silent_lead_in_adjustment_interval setting \"%f\". It should "
+              "be "
+              "between 0.0 and 3.0, "
+              "inclusive. The setting remains at %f seconds.",
+              dvalue, config.lead_in_silence_adjustment_interval);
+      }
+
 
 #ifdef CONFIG_METADATA
       /* Get the metadata setting. */
@@ -1498,6 +1532,9 @@ int main(int argc, char **argv) {
   config.output_rate_auto_requested = 1;    // default auto select format
   config.decoders_supported =
       1 << decoder_hammerton; // David Hammerton's decoder supported by default
+  config.lead_in_silence_initial_period = 0.5; // the size of the first block of silence to send to the DAC
+  config.lead_in_silence_minimum_adjustments_to_make = 3; // make at least this number of checks  and timing adjustments
+  config.lead_in_silence_adjustment_interval = 0.025; // make checks and adjustments at this interval
 #ifdef CONFIG_APPLE_ALAC
   config.decoders_supported += 1 << decoder_apple_alac;
   config.use_apple_decoder = 1; // use the ALAC decoder by default if support has been included
@@ -1793,6 +1830,13 @@ int main(int argc, char **argv) {
   else
   	debug(1, "audio backend silence lead-in time is %f seconds.",
         config.audio_backend_silent_lead_in_time);
+
+  debug(1, "audio backend silent lead-in initial period is %f seconds.",
+        config.lead_in_silence_initial_period);
+  debug(1, "audio backend silent lead-in minimum adjustments to make is %d.", config.lead_in_silence_minimum_adjustments_to_make);
+  debug(1, "audio backend silent lead-in adjustment interval is %f seconds.",
+        config.lead_in_silence_adjustment_interval);
+
   debug(1, "zeroconf regtype is \"%s\".", config.regtype);
   debug(1, "decoders_supported field is %d.", config.decoders_supported);
   debug(1, "use_apple_decoder is %d.", config.use_apple_decoder);
