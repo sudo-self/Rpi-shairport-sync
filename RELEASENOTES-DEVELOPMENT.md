@@ -1,3 +1,9 @@
+Version 3.3.7d6
+====
+**Bug Fixes and Enhancements**
+* Clean up and improve the code to synchronise the first frame of audio. This should result in more accurate and reliable initial synchrnoisation, certainly to under a millisecond in normal usage. Sync should improve even when the silent lead-in time is as short as 0.3 seconds or when the `audio_backend_latency_offset_in_seconds` is as much as -1.7 seconds.
+* Removed a bug which would affect initial synchronisation if a flush command was received from the player at an inopportune time.
+
 Version 3.3.7d5
 ====
 **Bug Fixes and Enhancements**
