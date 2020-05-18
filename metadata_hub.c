@@ -35,10 +35,10 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <inttypes.h>
 
 #include "config.h"
 
@@ -173,39 +173,39 @@ char *metadata_write_image_file(const char *buf, int len) {
   // it will return a path to the image file allocated with malloc.
   // free it if you don't need it.
 
-  char *path = NULL; // this will be what is returned  
-  if (strcmp(config.cover_art_cache_dir,"") != 0) { // an empty string means do not write the file
+  char *path = NULL;                                 // this will be what is returned
+  if (strcmp(config.cover_art_cache_dir, "") != 0) { // an empty string means do not write the file
 
     uint8_t img_md5[16];
     // uint8_t ap_md5[16];
 
-  #ifdef CONFIG_OPENSSL
+#ifdef CONFIG_OPENSSL
     MD5_CTX ctx;
     MD5_Init(&ctx);
     MD5_Update(&ctx, buf, len);
     MD5_Final(img_md5, &ctx);
-  #endif
+#endif
 
-  #ifdef CONFIG_MBEDTLS
-  #if MBEDTLS_VERSION_MINOR >= 7
+#ifdef CONFIG_MBEDTLS
+#if MBEDTLS_VERSION_MINOR >= 7
     mbedtls_md5_context tctx;
     mbedtls_md5_starts_ret(&tctx);
     mbedtls_md5_update_ret(&tctx, (const unsigned char *)buf, len);
     mbedtls_md5_finish_ret(&tctx, img_md5);
-  #else
+#else
     mbedtls_md5_context tctx;
     mbedtls_md5_starts(&tctx);
     mbedtls_md5_update(&tctx, (const unsigned char *)buf, len);
     mbedtls_md5_finish(&tctx, img_md5);
-  #endif
-  #endif
+#endif
+#endif
 
-  #ifdef CONFIG_POLARSSL
+#ifdef CONFIG_POLARSSL
     md5_context tctx;
     md5_starts(&tctx);
     md5_update(&tctx, (const unsigned char *)buf, len);
     md5_finish(&tctx, img_md5);
-  #endif
+#endif
 
     char img_md5_str[33];
     memset(img_md5_str, 0, sizeof(img_md5_str));
@@ -232,8 +232,8 @@ char *metadata_write_image_file(const char *buf, int len) {
       // if it exists, we're done
       char *prefix = "cover-";
 
-      size_t pl = strlen(config.cover_art_cache_dir) + 1 + strlen(prefix) + strlen(img_md5_str) + 1 +
-                  strlen(ext);
+      size_t pl = strlen(config.cover_art_cache_dir) + 1 + strlen(prefix) + strlen(img_md5_str) +
+                  1 + strlen(ext);
 
       path = malloc(pl + 1);
       snprintf(path, pl + 1, "%s/%s%s.%s", config.cover_art_cache_dir, prefix, img_md5_str, ext);
@@ -309,30 +309,28 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
   if (type == 'core') {
     switch (code) {
     case 'mper': {
-        // get the 64-bit number as a uint64_t by reading two uint32_t s and combining them
-        uint64_t vl = ntohl(*(uint32_t*)data); // get the high order 32 bits
-        vl = vl << 32; // shift them into the correct location
-        uint64_t ul = ntohl(*(uint32_t*)(data+sizeof(uint32_t))); // and the low order 32 bits
-        vl = vl + ul;
-        debug(2, "MH Item ID seen: \"%" PRIx64 "\" of length %u.", vl, length);
-        if (vl != metadata_store.item_id) {
-          metadata_store.item_id = vl;
-          metadata_store.item_id_changed = 1;
-          metadata_store.item_id_received = 1;
-          debug(2, "MH Item ID set to: \"%" PRIx64 "\"", metadata_store.item_id);
-        }
-      }      
-      break;
-    case 'astm': {
-        uint32_t ui = ntohl(*(uint32_t *)data);
-        debug(2, "MH Song Time seen: \"%u\" of length %u.", ui, length);
-        if (ui != metadata_store.songtime_in_milliseconds) {
-          metadata_store.songtime_in_milliseconds = ui;
-          metadata_store.songtime_in_milliseconds_changed = 1;
-          debug(2, "MH Song Time set to: \"%u\"", metadata_store.songtime_in_milliseconds);
-        }
+      // get the 64-bit number as a uint64_t by reading two uint32_t s and combining them
+      uint64_t vl = ntohl(*(uint32_t *)data); // get the high order 32 bits
+      vl = vl << 32;                          // shift them into the correct location
+      uint64_t ul = ntohl(*(uint32_t *)(data + sizeof(uint32_t))); // and the low order 32 bits
+      vl = vl + ul;
+      debug(2, "MH Item ID seen: \"%" PRIx64 "\" of length %u.", vl, length);
+      if (vl != metadata_store.item_id) {
+        metadata_store.item_id = vl;
+        metadata_store.item_id_changed = 1;
+        metadata_store.item_id_received = 1;
+        debug(2, "MH Item ID set to: \"%" PRIx64 "\"", metadata_store.item_id);
       }
-      break;
+    } break;
+    case 'astm': {
+      uint32_t ui = ntohl(*(uint32_t *)data);
+      debug(2, "MH Song Time seen: \"%u\" of length %u.", ui, length);
+      if (ui != metadata_store.songtime_in_milliseconds) {
+        metadata_store.songtime_in_milliseconds = ui;
+        metadata_store.songtime_in_milliseconds_changed = 1;
+        debug(2, "MH Song Time set to: \"%u\"", metadata_store.songtime_in_milliseconds);
+      }
+    } break;
     case 'asal':
       cs = strndup(data, length);
       if (string_update(&metadata_store.album_name, &metadata_store.album_name_changed, cs)) {
@@ -467,7 +465,8 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       metadata_hub_modify_prolog();
       debug(2, "MH Picture received, length %u bytes.", length);
       char uri[2048];
-      if ((length > 16) && (strcmp(config.cover_art_cache_dir,"")!=0)) { // if it's okay to write the file
+      if ((length > 16) &&
+          (strcmp(config.cover_art_cache_dir, "") != 0)) { // if it's okay to write the file
         char *pathname = metadata_write_image_file(data, length);
         snprintf(uri, sizeof(uri), "file://%s", pathname);
         free(pathname);
@@ -526,14 +525,16 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       break;
     case 'pbeg':
       metadata_hub_modify_prolog();
-      changed = ((metadata_store.player_state != PS_PLAYING) || (metadata_store.player_thread_active == 0));
+      changed = ((metadata_store.player_state != PS_PLAYING) ||
+                 (metadata_store.player_thread_active == 0));
       metadata_store.player_state = PS_PLAYING;
       metadata_store.player_thread_active = 1;
       metadata_hub_modify_epilog(changed);
       break;
     case 'pend':
       metadata_hub_modify_prolog();
-      changed = ((metadata_store.player_state != PS_STOPPED) || (metadata_store.player_thread_active == 1));
+      changed = ((metadata_store.player_state != PS_STOPPED) ||
+                 (metadata_store.player_thread_active == 1));
       metadata_store.player_state = PS_STOPPED;
       metadata_store.player_thread_active = 0;
       metadata_hub_modify_epilog(changed);
@@ -554,10 +555,10 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
     case 'pvol': {
       metadata_hub_modify_prolog();
       // Note: it's assumed that the config.airplay volume has already been correctly set.
-      //int32_t actual_volume;
-      //int gv = dacp_get_volume(&actual_volume);
-      //metadata_hub_modify_prolog();
-      //if ((gv == 200) && (metadata_store.speaker_volume != actual_volume)) {
+      // int32_t actual_volume;
+      // int gv = dacp_get_volume(&actual_volume);
+      // metadata_hub_modify_prolog();
+      // if ((gv == 200) && (metadata_store.speaker_volume != actual_volume)) {
       //  metadata_store.speaker_volume = actual_volume;
       //  changed = 1;
       //}

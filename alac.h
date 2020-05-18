@@ -27,7 +27,6 @@
  *
  */
 
-
 #ifndef __ALAC__DECOMP_H
 #define __ALAC__DECOMP_H
 

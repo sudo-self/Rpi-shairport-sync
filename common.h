@@ -100,10 +100,13 @@ typedef enum {
 const char *sps_format_description_string(sps_format_t format);
 
 typedef struct {
-  double missing_port_dacp_scan_interval_seconds; // if no DACP port number can be found, check at these intervals
-  double resend_control_first_check_time; // wait this long before asking for a missing packet to be resent
+  double missing_port_dacp_scan_interval_seconds; // if no DACP port number can be found, check at
+                                                  // these intervals
+  double resend_control_first_check_time; // wait this long before asking for a missing packet to be
+                                          // resent
   double resend_control_check_interval_time; // wait this long between making requests
-  double resend_control_last_check_time; // if the packet is missing this close to the time of use, give up
+  double resend_control_last_check_time; // if the packet is missing this close to the time of use,
+                                         // give up
   pthread_mutex_t lock;
   config_t *cfg;
   int endianness;
@@ -114,7 +117,7 @@ typedef struct {
                       // on host %h"
 
 #ifdef CONFIG_PA
-  char *pa_server; // the pulseaudio server address that Shairport Sync will play on.
+  char *pa_server;           // the pulseaudio server address that Shairport Sync will play on.
   char *pa_application_name; // the name under which Shairport Sync shows up as an "Application" in
                              // the Sound Preferences in most desktop Linuxes.
   // Defaults to "Shairport Sync". Shairport Sync must be playing to see it.
@@ -212,15 +215,13 @@ typedef struct {
                                                  // buffer
   double disable_standby_mode_silence_scan_interval; // check the threshold this often
 
-  double lead_in_silence_initial_period; // the size of the first block of silence to send to the DAC
-  int lead_in_silence_minimum_adjustments_to_make; // make at least this number of checks  and timing adjustments
-  double lead_in_silence_adjustment_interval; // make checks and adjustments at this interval
-
   double audio_backend_latency_offset; // this will be the offset in seconds to compensate for any
                                        // fixed latency there might be in the audio path
-  int audio_backend_silent_lead_in_time_auto; // true if the lead-in time should be from as soon as packets are received
+  int audio_backend_silent_lead_in_time_auto; // true if the lead-in time should be from as soon as
+                                              // packets are received
   double audio_backend_silent_lead_in_time; // the length of the silence that should precede a play.
-  uint32_t minimum_free_buffer_headroom; // when effective latency is calculated, ensure this number of buffers are unallocated
+  uint32_t minimum_free_buffer_headroom; // when effective latency is calculated, ensure this number
+                                         // of buffers are unallocated
   double active_state_timeout; // the amount of time from when play ends to when the system leaves
                                // into the "active" mode.
   uint32_t volume_range_db; // the range, in dB, from max dB to min dB. Zero means use the mixer's

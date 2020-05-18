@@ -286,15 +286,17 @@ void *player_watchdog_thread_code(void *arg) {
       uint64_t last_watchdog_bark_time = conn->watchdog_bark_time;
       debug_mutex_unlock(&conn->watchdog_mutex, 0);
       if (last_watchdog_bark_time != 0) {
-        uint64_t time_since_last_bark = (get_absolute_time_in_ns() - last_watchdog_bark_time) / 1000000000;
+        uint64_t time_since_last_bark =
+            (get_absolute_time_in_ns() - last_watchdog_bark_time) / 1000000000;
         uint64_t ct = config.timeout; // go from int to 64-bit int
 
         if (time_since_last_bark >= ct) {
           conn->watchdog_barks++;
           if (conn->watchdog_barks == 1) {
             // debuglev = 3; // tell us everything.
-            debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
-                     "of the heart\".",
+            debug(1,
+                  "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
+                  "of the heart\".",
                   conn->connection_number);
             conn->stop = 1;
             pthread_cancel(conn->thread);
@@ -571,7 +573,7 @@ int msg_handle_line(rtsp_message **pmsg, char *line) {
   }
 
 fail:
-  debug(3,"msg_handle_line fail");
+  debug(3, "msg_handle_line fail");
   msg_free(pmsg);
   *pmsg = NULL;
   return 0;
@@ -614,7 +616,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       if (errno == EINTR)
         continue;
       if (errno == EAGAIN) {
-        debug(1, "Connection %d: getting Error 11 -- EAGAIN from a blocking read!", conn->connection_number);
+        debug(1, "Connection %d: getting Error 11 -- EAGAIN from a blocking read!",
+              conn->connection_number);
         continue;
       }
       if (errno != ECONNRESET) {
@@ -627,15 +630,15 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       goto shutdown;
     }
 
-/* // this outputs the message received
-    {
-    void *pt = malloc(nread+1);
-    memset(pt, 0, nread+1);
-    memcpy(pt, buf + inbuf, nread);
-    debug(1, "Incoming string on port: \"%s\"",pt);
-    free(pt);
-    }
-*/
+    /* // this outputs the message received
+        {
+        void *pt = malloc(nread+1);
+        memset(pt, 0, nread+1);
+        memcpy(pt, buf + inbuf, nread);
+        debug(1, "Incoming string on port: \"%s\"",pt);
+        free(pt);
+        }
+    */
 
     inbuf += nread;
 
@@ -644,7 +647,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       msg_size = msg_handle_line(the_packet, buf);
 
       if (!(*the_packet)) {
-        debug(1,"Connection %d: rtsp_read_request can't find an RTSP header.", conn->connection_number);
+        debug(1, "Connection %d: rtsp_read_request can't find an RTSP header.",
+              conn->connection_number);
         reply = rtsp_read_request_response_bad_packet;
         goto shutdown;
       }
@@ -851,9 +855,10 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
                     rtsp_message *resp) {
   debug(3, "Connection %d: OPTIONS", conn->connection_number);
   resp->respcode = 200;
-  msg_add_header(resp, "Public", "ANNOUNCE, SETUP, RECORD, "
-                                 "PAUSE, FLUSH, TEARDOWN, "
-                                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
+  msg_add_header(resp, "Public",
+                 "ANNOUNCE, SETUP, RECORD, "
+                 "PAUSE, FLUSH, TEARDOWN, "
+                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
 }
 
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
@@ -994,8 +999,9 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
             msg_add_header(resp, "Session", "1");
 
             resp->respcode = 200; // it all worked out okay
-            debug(1, "Connection %d: SETUP DACP-ID \"%s\" from %s to %s with UDP ports Control: "
-                     "%d, Timing: %d and Audio: %d.",
+            debug(1,
+                  "Connection %d: SETUP DACP-ID \"%s\" from %s to %s with UDP ports Control: "
+                  "%d, Timing: %d and Audio: %d.",
                   conn->connection_number, conn->dacp_id, &conn->client_ip_string,
                   &conn->self_ip_string, conn->local_control_port, conn->local_timing_port,
                   conn->local_audio_port);
@@ -1590,7 +1596,7 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
   char *ct = msg_get_header(req, "Content-Type");
 
   if (ct) {
-// debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
+    // debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
 
 #ifdef CONFIG_METADATA
     // It seems that the rtptime of the message is used as a kind of an ID that
@@ -1888,7 +1894,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 
       unsigned int i = 0;
       unsigned int max_param = sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]);
-      char* found;
+      char *found;
       while ((found = strsep(&pfmtp, " \t")) != NULL && i < max_param) {
         conn->stream.fmtp[i++] = atoi(found);
       }
@@ -2370,8 +2376,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (strcmp(req->method, "OPTIONS") !=
           0) // the options message is very common, so don't log it until level 3
         debug_level = 2;
-      debug(debug_level, "Connection %d: Received an RTSP Packet of type \"%s\":",
-            conn->connection_number, req->method),
+      debug(debug_level,
+            "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
+            req->method),
           debug_print_msg_headers(debug_level, req);
 
       apple_challenge(conn->fd, req, resp);
@@ -2420,8 +2427,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
-          debug(1, "Connection %d: Unable to write an RTSP message response. Terminating the "
-                   "connection.",
+          debug(1,
+                "Connection %d: Unable to write an RTSP message response. Terminating the "
+                "connection.",
                 conn->connection_number);
           struct linger so_linger;
           so_linger.l_onoff = 1; // "true"
@@ -2474,10 +2482,11 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         if (reply == -1) {
           char errorstring[1024];
           strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-          debug(1, "rtsp_read_request_response_bad_packet write response error %d: \"%s\".", errno, (char *)errorstring);
+          debug(1, "rtsp_read_request_response_bad_packet write response error %d: \"%s\".", errno,
+                (char *)errorstring);
         } else if (reply != (ssize_t)strlen(response_text)) {
-          debug(1, "rtsp_read_request_response_bad_packet write %d bytes requested but %d written.", strlen(response_text),
-                reply);
+          debug(1, "rtsp_read_request_response_bad_packet write %d bytes requested but %d written.",
+                strlen(response_text), reply);
         }
       } else {
         debug(1, "Connection %d: rtsp_read_request error %d, packet ignored.",
@@ -2690,7 +2699,7 @@ void rtsp_listen_loop(void) {
             debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
                   conn->connection_number, remote_ip4, rport, ip4, tport);
           }
-  #ifdef AF_INET6
+#ifdef AF_INET6
           if (local_info->SAFAMILY == AF_INET6) {
             // IPv6:
 
@@ -2707,7 +2716,7 @@ void rtsp_listen_loop(void) {
             debug(2, "Connection %d: new connection from [%s]:%u to self at [%s]:%u.",
                   conn->connection_number, remote_ip6, rport, ip6, tport);
           }
-  #endif
+#endif
 
         } else {
           debug(1, "Error figuring out Shairport Sync's own IP number.");
@@ -2735,8 +2744,8 @@ void rtsp_listen_loop(void) {
     pthread_cleanup_pop(1); // should never happen
   } else {
     warn("could not establish a service on port %d -- program terminating. Is another instance of "
-        "Shairport Sync running on this device?",
-        config.port);
+         "Shairport Sync running on this device?",
+         config.port);
   }
   // debug(1, "Oops -- fell out of the RTSP select loop");
 }

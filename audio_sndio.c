@@ -260,12 +260,12 @@ static int delay(long *_delay) {
     // and use it to estimate the frames that would have been output
     uint64_t time_difference = get_absolute_time_in_ns() - time_of_last_onmove_cb;
     uint64_t frame_difference = (time_difference * par.rate) / 1000000000;
-    estimated_extra_frames_output = frame_difference;    
+    estimated_extra_frames_output = frame_difference;
     // sanity check -- total estimate can not exceed frames written.
-    if ((estimated_extra_frames_output + played) > written/framesize) {
+    if ((estimated_extra_frames_output + played) > written / framesize) {
       // debug(1,"play estimate fails sanity check, possibly due to running on a VM");
       estimated_extra_frames_output = 0; // can't make any sensible guess
-    }    
+    }
     // debug(1,"Frames played to last cb: %d, estimated to current time:
     // %d.",played,estimated_extra_frames_output);
   }

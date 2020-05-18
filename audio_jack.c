@@ -89,14 +89,9 @@ typedef struct soxr_quality {
   const char *name;
 } soxr_quality_t;
 
-static soxr_quality_t soxr_quality_table[] = {
-    { SOXR_VHQ, "very high" },
-    { SOXR_HQ,  "high"      },
-    { SOXR_MQ,  "medium"    },
-    { SOXR_LQ,  "low"       },
-    { SOXR_QQ,  "quick"     },
-    { -1,       NULL        }
-};
+static soxr_quality_t soxr_quality_table[] = {{SOXR_VHQ, "very high"}, {SOXR_HQ, "high"},
+                                              {SOXR_MQ, "medium"},     {SOXR_LQ, "low"},
+                                              {SOXR_QQ, "quick"},      {-1, NULL}};
 
 static int parse_soxr_quality_name(const char *name) {
   for (soxr_quality_t *s = soxr_quality_table; s->name != NULL; ++s) {
@@ -107,9 +102,9 @@ static int parse_soxr_quality_name(const char *name) {
   return -1;
 }
 
-static soxr_t              soxr = NULL;
+static soxr_t soxr = NULL;
 static soxr_quality_spec_t quality_spec;
-static soxr_io_spec_t      io_spec;
+static soxr_io_spec_t io_spec;
 #endif
 
 static inline sample_t sample_conv(short sample) {
@@ -122,8 +117,7 @@ static inline sample_t sample_conv(short sample) {
   return ((sample < 0) ? (-1.0 * sample / SHRT_MIN) : (1.0 * sample / SHRT_MAX));
 }
 
-static void deinterleave(const char *interleaved_input_buffer,
-                         sample_t *jack_output_buffer[],
+static void deinterleave(const char *interleaved_input_buffer, sample_t *jack_output_buffer[],
                          jack_nframes_t offset, jack_nframes_t nframes) {
   jack_nframes_t f;
   // We're dealing with 16bit audio here:
@@ -271,7 +265,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
     io_spec = soxr_io_spec(SOXR_INT16_I, SOXR_FLOAT32_I);
   } else
 #endif
-  if (sample_rate != 44100) {
+      if (sample_rate != 44100) {
     die("The JACK server is running at the wrong sample rate (%d) for Shairport Sync."
         " Must be 44100 Hz.",
         sample_rate);
@@ -353,8 +347,7 @@ void jack_deinit() {
 #endif
 }
 
-void jack_start(int i_sample_rate,
-                __attribute__((unused)) int i_sample_format) {
+void jack_start(int i_sample_rate, __attribute__((unused)) int i_sample_format) {
   // Nothing to do, JACK client has already been set up at jack_init().
   // Also, we have no say over the sample rate or sample format of JACK,
   // We convert the 16bit samples to float, and die if the sample rate is != 44k1 without soxr.
@@ -365,13 +358,7 @@ void jack_start(int i_sample_rate,
       soxr_delete(soxr);
     }
     soxr_error_t e = NULL;
-    soxr = soxr_create(i_sample_rate,
-                       sample_rate,
-                       NPORTS,
-                       &e,
-                       &io_spec,
-                       &quality_spec,
-                       NULL);
+    soxr = soxr_create(i_sample_rate, sample_rate, NPORTS, &e, &io_spec, &quality_spec, NULL);
     if (!soxr) {
       die("Unable to create soxr resampler for JACK: %s", e);
     }
@@ -428,13 +415,7 @@ int play(void *buf, int samples) {
       size_t i_done, o_done;
       soxr_error_t e;
       while (samples > 0 && thisbuf > 0) {
-        e = soxr_process(soxr,
-                         (soxr_in_t)in,
-                         samples,
-                         &i_done,
-                         (soxr_out_t)out,
-                         thisbuf,
-                         &o_done);
+        e = soxr_process(soxr, (soxr_in_t)in, samples, &i_done, (soxr_out_t)out, thisbuf, &o_done);
         if (e)
           die("Error during soxr process: %s", e);
 
@@ -445,13 +426,13 @@ int play(void *buf, int samples) {
       }
     } else {
 #endif
-    j = 0;
-    for (j = 0; j < thisbuf && samples > 0; ++j) {
-      for (c = 0; c < NPORTS; ++c)
-        out[j * NPORTS + c] = sample_conv(*in++);
-      --samples;
-    }
-    jack_ringbuffer_write_advance(jackbuf, j * jack_sample_size * NPORTS);
+      j = 0;
+      for (j = 0; j < thisbuf && samples > 0; ++j) {
+        for (c = 0; c < NPORTS; ++c)
+          out[j * NPORTS + c] = sample_conv(*in++);
+        --samples;
+      }
+      jack_ringbuffer_write_advance(jackbuf, j * jack_sample_size * NPORTS);
 #ifdef CONFIG_SOXR
     }
 #endif

@@ -1578,9 +1578,11 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, sps_format_t f
   return previous_random_number;
 }
 
-// This will check the incoming string "s" of length "len" with the existing NUL-terminated string "str" and update "flag" accordingly.
+// This will check the incoming string "s" of length "len" with the existing NUL-terminated string
+// "str" and update "flag" accordingly.
 
-// Note: if the incoming string length is zero, then the a NULL is used; i.e. no zero-length strings are stored.
+// Note: if the incoming string length is zero, then the a NULL is used; i.e. no zero-length strings
+// are stored.
 
 // If the strings are different, the str is free'd and replaced by a pointer
 // to a newly strdup'd string and the flag is set
@@ -1593,7 +1595,7 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len) {
         free(*str);
         //*str = strndup(s, len); // it seems that OpenWrt 12 doesn't have this
         char *p = malloc(len + 1);
-        memcpy(p,s,len);
+        memcpy(p, s, len);
         p[len] = '\0';
         *str = p;
         *flag = 1;
@@ -1610,7 +1612,7 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len) {
     if ((s) && (len)) {
       //*str = strndup(s, len); // it seems that OpenWrt 12 doesn't have this
       char *p = malloc(len + 1);
-      memcpy(p,s,len);
+      memcpy(p, s, len);
       p[len] = '\0';
       *str = p;
       *flag = 1;

@@ -24,10 +24,10 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "config.h"
 
@@ -69,8 +69,8 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
 
   shairport_sync_remote_control_set_client(shairportSyncRemoteControlSkeleton, argc->client_ip);
 
-
-  // although it's a DACP server, the server is in fact, part of the the AirPlay "client" (their term).
+  // although it's a DACP server, the server is in fact, part of the the AirPlay "client" (their
+  // term).
   if (argc->dacp_server_active) {
     shairport_sync_remote_control_set_available(shairportSyncRemoteControlSkeleton, TRUE);
   } else {
@@ -166,7 +166,6 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
         shairportSyncAdvancedRemoteControlSkeleton, response);
   }
 
-
   switch (argc->shuffle_status) {
   case SS_NOT_AVAILABLE:
     new_status = FALSE;
@@ -188,8 +187,8 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
   // only set this if it's different
   if (current_status != new_status) {
     debug(3, "Shuffle State should be changed");
-    shairport_sync_advanced_remote_control_set_shuffle(
-        shairportSyncAdvancedRemoteControlSkeleton, new_status);
+    shairport_sync_advanced_remote_control_set_shuffle(shairportSyncAdvancedRemoteControlSkeleton,
+                                                       new_status);
   }
 
   // Build the metadata array
@@ -369,8 +368,9 @@ static gboolean on_handle_volume_down(ShairportSyncRemoteControl *skeleton,
 }
 
 static gboolean on_handle_set_airplay_volume(ShairportSyncRemoteControl *skeleton,
-                                     GDBusMethodInvocation *invocation, const gdouble volume,
-                                     __attribute__((unused)) gpointer user_data) {
+                                             GDBusMethodInvocation *invocation,
+                                             const gdouble volume,
+                                             __attribute__((unused)) gpointer user_data) {
   debug(2, "Set airplay volume to %.6f.", volume);
   char command[256] = "";
   snprintf(command, sizeof(command), "setproperty?dmcp.device-volume=%.6f", volume);
@@ -378,8 +378,6 @@ static gboolean on_handle_set_airplay_volume(ShairportSyncRemoteControl *skeleto
   shairport_sync_remote_control_complete_set_airplay_volume(skeleton, invocation);
   return TRUE;
 }
-
-
 
 gboolean notify_elapsed_time_callback(ShairportSyncDiagnostics *skeleton,
                                       __attribute__((unused)) gpointer user_data) {
@@ -408,7 +406,7 @@ gboolean notify_delta_time_callback(ShairportSyncDiagnostics *skeleton,
 }
 
 gboolean notify_file_and_line_callback(ShairportSyncDiagnostics *skeleton,
-                                    __attribute__((unused)) gpointer user_data) {
+                                       __attribute__((unused)) gpointer user_data) {
   // debug(1, "\"notify_file_and_line_callback\" called.");
   if (shairport_sync_diagnostics_get_file_and_line(skeleton)) {
     config.debugger_show_file_and_line = 1;
@@ -463,12 +461,13 @@ gboolean notify_disable_standby_callback(ShairportSync *skeleton,
 
 #ifdef CONFIG_CONVOLUTION
 gboolean notify_convolution_callback(ShairportSync *skeleton,
-                                                __attribute__((unused)) gpointer user_data) {
+                                     __attribute__((unused)) gpointer user_data) {
   // debug(1, "\"notify_convolution_callback\" called.");
   if (shairport_sync_get_convolution(skeleton)) {
     debug(1, ">> activating convolution");
     config.convolution = 1;
-    config.convolver_valid = convolver_init(config.convolution_ir_file, config.convolution_max_length);
+    config.convolver_valid =
+        convolver_init(config.convolution_ir_file, config.convolution_max_length);
   } else {
     debug(1, ">> deactivating convolution");
     config.convolution = 0;
@@ -477,7 +476,7 @@ gboolean notify_convolution_callback(ShairportSync *skeleton,
 }
 #else
 gboolean notify_convolution_callback(__attribute__((unused)) ShairportSync *skeleton,
-                                                __attribute__((unused)) gpointer user_data) {
+                                     __attribute__((unused)) gpointer user_data) {
   warn(">> Convolution support is not built in to this build of Shairport Sync.");
   return TRUE;
 }
@@ -485,7 +484,7 @@ gboolean notify_convolution_callback(__attribute__((unused)) ShairportSync *skel
 
 #ifdef CONFIG_CONVOLUTION
 gboolean notify_convolution_gain_callback(ShairportSync *skeleton,
-                                            __attribute__((unused)) gpointer user_data) {
+                                          __attribute__((unused)) gpointer user_data) {
 
   gdouble th = shairport_sync_get_convolution_gain(skeleton);
   if ((th <= 0.0) && (th >= -100.0)) {
@@ -499,34 +498,38 @@ gboolean notify_convolution_gain_callback(ShairportSync *skeleton,
 }
 #else
 gboolean notify_convolution_gain_callback(__attribute__((unused)) ShairportSync *skeleton,
-                                                __attribute__((unused)) gpointer user_data) {
+                                          __attribute__((unused)) gpointer user_data) {
   warn(">> Convolution support is not built in to this build of Shairport Sync.");
   return TRUE;
 }
 #endif
 #ifdef CONFIG_CONVOLUTION
 gboolean notify_convolution_impulse_response_file_callback(ShairportSync *skeleton,
-                                                __attribute__((unused)) gpointer user_data) {
+                                                           __attribute__((unused))
+                                                           gpointer user_data) {
   char *th = (char *)shairport_sync_get_convolution_impulse_response_file(skeleton);
   if (config.convolution_ir_file)
     free(config.convolution_ir_file);
   config.convolution_ir_file = strdup(th);
-  debug(1, ">> setting configuration impulse response filter file to \"%s\".", config.convolution_ir_file);
-  config.convolver_valid = convolver_init(config.convolution_ir_file, config.convolution_max_length);
+  debug(1, ">> setting configuration impulse response filter file to \"%s\".",
+        config.convolution_ir_file);
+  config.convolver_valid =
+      convolver_init(config.convolution_ir_file, config.convolution_max_length);
   return TRUE;
 }
 #else
-gboolean notify_convolution_impulse_response_file_callback(__attribute__((unused)) ShairportSync *skeleton,
-                                                __attribute__((unused)) gpointer user_data) {
-  __attribute__((unused)) char *th = (char *)shairport_sync_get_convolution_impulse_response_file(skeleton);
+gboolean notify_convolution_impulse_response_file_callback(__attribute__((unused))
+                                                           ShairportSync *skeleton,
+                                                           __attribute__((unused))
+                                                           gpointer user_data) {
+  __attribute__((unused)) char *th =
+      (char *)shairport_sync_get_convolution_impulse_response_file(skeleton);
   return TRUE;
 }
 #endif
 
-
-
 gboolean notify_loudness_callback(ShairportSync *skeleton,
-                                                __attribute__((unused)) gpointer user_data) {
+                                  __attribute__((unused)) gpointer user_data) {
   // debug(1, "\"notify_loudness_callback\" called.");
   if (shairport_sync_get_loudness(skeleton)) {
     debug(1, ">> activating loudness");
@@ -781,7 +784,6 @@ static gboolean on_handle_remote_command(ShairportSync *skeleton, GDBusMethodInv
   return TRUE;
 }
 
-
 static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name,
                                   __attribute__((unused)) gpointer user_data) {
 
@@ -823,8 +825,8 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(notify_convolution_gain_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::convolution-impulse-response-file",
                    G_CALLBACK(notify_convolution_impulse_response_file_callback), NULL);
-  g_signal_connect(shairportSyncSkeleton, "notify::loudness",
-                   G_CALLBACK(notify_loudness_callback), NULL);
+  g_signal_connect(shairportSyncSkeleton, "notify::loudness", G_CALLBACK(notify_loudness_callback),
+                   NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::loudness-threshold",
                    G_CALLBACK(notify_loudness_threshold_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::drift-tolerance",
@@ -878,7 +880,6 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(on_handle_volume_down), NULL);
   g_signal_connect(shairportSyncRemoteControlSkeleton, "handle-set-airplay-volume",
                    G_CALLBACK(on_handle_set_airplay_volume), NULL);
-
 
   g_signal_connect(shairportSyncAdvancedRemoteControlSkeleton, "handle-set-volume",
                    G_CALLBACK(on_handle_set_volume), NULL);
@@ -975,9 +976,11 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
     shairport_sync_set_convolution(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
   }
   if (config.convolution_ir_file)
-    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton), config.convolution_ir_file);
+    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton),
+                                                         config.convolution_ir_file);
 //  else
-//    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton), NULL);
+//    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton),
+//    NULL);
 #endif
 
   shairport_sync_set_version(SHAIRPORT_SYNC(shairportSyncSkeleton), PACKAGE_VERSION);

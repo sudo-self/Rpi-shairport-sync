@@ -74,9 +74,13 @@ uint64_t local_to_remote_time_difference_now(rtsp_conn_info *conn) {
 
   uint64_t result = conn->local_to_remote_time_difference;
   if (conn->local_to_remote_time_gradient >= 1.0) {
-    result = conn->local_to_remote_time_difference + (uint64_t)((conn->local_to_remote_time_gradient - 1.0) * time_since_last_local_to_remote_time_difference_measurement);
+    result = conn->local_to_remote_time_difference +
+             (uint64_t)((conn->local_to_remote_time_gradient - 1.0) *
+                        time_since_last_local_to_remote_time_difference_measurement);
   } else {
-    result = conn->local_to_remote_time_difference - (uint64_t)((1.0 - conn->local_to_remote_time_gradient) * time_since_last_local_to_remote_time_difference_measurement);
+    result = conn->local_to_remote_time_difference -
+             (uint64_t)((1.0 - conn->local_to_remote_time_gradient) *
+                        time_since_last_local_to_remote_time_difference_measurement);
   }
   return result;
 }
@@ -111,8 +115,7 @@ void *rtp_audio_receiver(void *arg) {
 
     uint64_t local_time_now_ns = get_absolute_time_in_ns();
     if (time_of_previous_packet_ns) {
-      float time_interval_us =
-          (local_time_now_ns - time_of_previous_packet_ns) * 0.001;
+      float time_interval_us = (local_time_now_ns - time_of_previous_packet_ns) * 0.001;
       time_of_previous_packet_ns = local_time_now_ns;
       if (time_interval_us > longest_packet_time_interval_us)
         longest_packet_time_interval_us = time_interval_us;
@@ -121,8 +124,9 @@ void *rtp_audio_receiver(void *arg) {
       stat_mean += stat_delta / stat_n;
       stat_M2 += stat_delta * (time_interval_us - stat_mean);
       if (stat_n % 2500 == 0) {
-        debug(2, "Packet reception interval stats: mean, standard deviation and max for the last "
-                 "2,500 packets in microseconds: %10.1f, %10.1f, %10.1f.",
+        debug(2,
+              "Packet reception interval stats: mean, standard deviation and max for the last "
+              "2,500 packets in microseconds: %10.1f, %10.1f, %10.1f.",
               stat_mean, sqrtf(stat_M2 / (stat_n - 1)), longest_packet_time_interval_us);
         stat_n = 0;
         stat_mean = 0.0;
@@ -290,7 +294,7 @@ void *rtp_control_receiver(void *arg) {
             ps = ps * 1000000000; // this many nanoseconds from the whole seconds
             pn = nctohl(&packet[12]);
             pn = pn * 1000000000;
-            pn = pn >> 32;        // this many nanoseconds from the fractional part
+            pn = pn >> 32; // this many nanoseconds from the fractional part
             remote_time_of_sync = ps + pn;
 
             // debug(1,"Remote Sync Time: " PRIu64 "",remote_time_of_sync);
@@ -354,9 +358,10 @@ void *rtp_control_receiver(void *arg) {
 
                 if (la != conn->latency) {
                   conn->latency = la;
-                  debug(3, "New latency detected: %" PRIu32 ", sync latency: %" PRIu32
-                           ", minimum latency: %" PRIu32 ", maximum "
-                           "latency: %" PRIu32 ", fixed offset: %" PRIu32 ".",
+                  debug(3,
+                        "New latency detected: %" PRIu32 ", sync latency: %" PRIu32
+                        ", minimum latency: %" PRIu32 ", maximum "
+                        "latency: %" PRIu32 ", fixed offset: %" PRIu32 ".",
                         la, sync_rtp_timestamp - rtp_timestamp_less_latency, conn->minimum_latency,
                         conn->maximum_latency, config.fixedLatencyOffset);
                 }
@@ -573,7 +578,7 @@ void *rtp_timing_receiver(void *arg) {
             ps = ps * 1000000000; // this many nanoseconds from the whole seconds
             pn = nctohl(&packet[20]);
             pn = pn * 1000000000;
-            pn = pn >> 32;        // this many nanoseconds from the fractional part
+            pn = pn >> 32; // this many nanoseconds from the fractional part
             distant_receive_time = ps + pn;
 
             // distant_transmit_time =
@@ -583,7 +588,7 @@ void *rtp_timing_receiver(void *arg) {
             ps = ps * 1000000000; // this many nanoseconds from the whole seconds
             pn = nctohl(&packet[28]);
             pn = pn * 1000000000;
-            pn = pn >> 32;        // this many nanoseconds from the fractional part
+            pn = pn >> 32; // this many nanoseconds from the fractional part
             distant_transmit_time = ps + pn;
 
             uint64_t remote_processing_time = 0;
@@ -777,7 +782,9 @@ void *rtp_timing_receiver(void *arg) {
             // debug(1,"local to remote time gradient is %12.2f ppm, based on %d
             // samples.",conn->local_to_remote_time_gradient*1000000,sample_count);
           } else {
-            debug(2, "Time ping turnaround time: " PRIu64 " ns -- it looks like a timing ping was lost.",
+            debug(2,
+                  "Time ping turnaround time: %" PRIu64
+                  " ns -- it looks like a timing ping was lost.",
                   return_time);
           }
         } else {
@@ -1029,7 +1036,7 @@ const int use_nominal_rate = 0; // specify whether to use the nominal input rate
 int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_conn_info *conn) {
   int result = 1;
   uint32_t fs = conn->input_rate;
-  *frames = fs; // default value to return
+  *frames = fs;       // default value to return
   *time = 1000000000; // default value to return
   if ((conn->initial_reference_time) && (conn->initial_reference_timestamp)) {
     //    uint32_t local_frames = conn->reference_timestamp - conn->initial_reference_timestamp;
@@ -1178,22 +1185,20 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
                    (struct sockaddr *)&conn->rtp_client_control_socket, msgsize) == -1) {
           char em[1024];
           strerror_r(errno, em, sizeof(em));
-          debug(2, "Error %d using sendto to request a resend: \"%s\".",
-                errno, em);
+          debug(2, "Error %d using sendto to request a resend: \"%s\".", errno, em);
           conn->rtp_time_of_last_resend_request_error_ns = time_of_sending_ns;
         } else {
           conn->rtp_time_of_last_resend_request_error_ns = 0;
         }
 
       } else {
-        debug(
-            3,
-            "Dropping resend request packet to simulate a bad network. Backing off for 0.3 "
-            "second.");
+        debug(3, "Dropping resend request packet to simulate a bad network. Backing off for 0.3 "
+                 "second.");
         conn->rtp_time_of_last_resend_request_error_ns = time_of_sending_ns;
       }
     } else {
-      debug(1, "Suppressing a resend request due to a resend sendto error in the last 0.3 seconds.");
+      debug(1,
+            "Suppressing a resend request due to a resend sendto error in the last 0.3 seconds.");
     }
   } else {
     // if (!request_sent) {

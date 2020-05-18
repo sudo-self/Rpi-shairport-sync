@@ -97,7 +97,7 @@ static void resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIn
       if (dacpid) {
         dacpid += strlen("iTunes_Ctrl_");
         while (*dacpid == '0')
-          dacpid++;   // remove any leading zeroes
+          dacpid++; // remove any leading zeroes
         if (strcmp(dacpid, dbs->dacp_id) == 0) {
           debug(3, "resolve_callback: client dacp_id \"%s\" dacp port: %u.", dbs->dacp_id, port);
 #ifdef CONFIG_DACP_CLIENT

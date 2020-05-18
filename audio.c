@@ -191,9 +191,8 @@ void parse_general_audio_options(void) {
     /* Get the latency offset in seconds. */
     if (config_lookup_float(config.cfg, "general.audio_backend_latency_offset_in_seconds",
                             &dvalue)) {
-        config.audio_backend_latency_offset = dvalue;
+      config.audio_backend_latency_offset = dvalue;
     }
-
 
     /* Check if the length of the silent lead-in ia set to \"auto\". */
     if (config_lookup_string(config.cfg, "general.audio_backend_silent_lead_in_time", &str)) {
@@ -201,7 +200,8 @@ void parse_general_audio_options(void) {
         config.audio_backend_silent_lead_in_time_auto = 1;
       } else {
         if (config.audio_backend_silent_lead_in_time_auto == 1)
-          warn("Invalid audio_backend_silent_lead_in_time \"%s\". It should be \"auto\" or the lead-in time in seconds. "
+          warn("Invalid audio_backend_silent_lead_in_time \"%s\". It should be \"auto\" or the "
+               "lead-in time in seconds. "
                "It remains set to \"auto\". Note: numbers should not be placed in quotes.",
                str);
         else
@@ -214,14 +214,16 @@ void parse_general_audio_options(void) {
     /* Get the desired length of the silent lead-in. */
     if (config_lookup_float(config.cfg, "general.audio_backend_silent_lead_in_time", &dvalue)) {
       if ((dvalue < 0.0) || (dvalue > 4)) {
-      	if (config.audio_backend_silent_lead_in_time_auto == 1)
-	        warn("Invalid audio_backend_silent_lead_in_time \"%f\". It "
-            "must be between 0.0 and 4.0 seconds. Omit the setting to use the automatic value. The setting remains at \"auto\".",
-            dvalue);
+        if (config.audio_backend_silent_lead_in_time_auto == 1)
+          warn("Invalid audio_backend_silent_lead_in_time \"%f\". It "
+               "must be between 0.0 and 4.0 seconds. Omit the setting to use the automatic value. "
+               "The setting remains at \"auto\".",
+               dvalue);
         else
-	        warn("Invalid audio_backend_silent_lead_in_time \"%f\". It "
-            "must be between 0.0 and 4.0 seconds. Omit the setting to use the automatic value. It remains set to %f.",
-            dvalue, config.audio_backend_silent_lead_in_time);
+          warn("Invalid audio_backend_silent_lead_in_time \"%f\". It "
+               "must be between 0.0 and 4.0 seconds. Omit the setting to use the automatic value. "
+               "It remains set to %f.",
+               dvalue, config.audio_backend_silent_lead_in_time);
       } else {
         config.audio_backend_silent_lead_in_time = dvalue;
         config.audio_backend_silent_lead_in_time_auto = 0;

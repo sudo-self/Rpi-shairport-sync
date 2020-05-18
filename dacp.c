@@ -154,7 +154,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
   // debug(1,"dacp_send_command: command is: \"%s\".",command);
 
   if (dacp_server.port == 0) {
-    debug(2, "No DACP port specified yet");
+    debug(3, "No DACP port specified yet");
     result = 490; // no port specified
   } else {
 
@@ -222,17 +222,15 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
           pthread_cleanup_push(connect_cleanup, (void *)&sockfd);
           // debug(2, "dacp_send_command: open socket %d.",sockfd);
 
-
           // This is for limiting the time to be spent waiting for a response.
 
           struct timeval tv;
           tv.tv_sec = 0;
           tv.tv_usec = 500000;
           if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
-             debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
+            debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
           if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
             debug(1, "dacp_send_command: error %d setting send timeout.", errno);
-
 
           // connect!
           // debug(1, "DACP socket created.");
@@ -418,7 +416,8 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
     // which return immediately with a 403 code if there are no changes.
     dacp_server.always_use_revision_number_1 = 0;
     char *p = strstr(conn->UserAgent, "forked-daapd");
-    if ((p != 0) && (p == conn->UserAgent)) {// must exist and be at the start of the UserAgent string
+    if ((p != 0) &&
+        (p == conn->UserAgent)) { // must exist and be at the start of the UserAgent string
       dacp_server.always_use_revision_number_1 = 1;
     }
 
@@ -505,14 +504,15 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
                (metadata_store.advanced_dacp_server_active != 0);
       metadata_store.dacp_server_active = 0;
       metadata_store.advanced_dacp_server_active = 0;
-      debug(2,
+      debug(3,
             "setting metadata_store.dacp_server_active and "
             "metadata_store.advanced_dacp_server_active to 0 with an update "
             "flag value of %d",
             ch);
       metadata_hub_modify_epilog(ch);
 
-      uint64_t time_to_wait_for_wakeup_ns = (uint64_t)(1000000000 * config.missing_port_dacp_scan_interval_seconds);
+      uint64_t time_to_wait_for_wakeup_ns =
+          (uint64_t)(1000000000 * config.missing_port_dacp_scan_interval_seconds);
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
       uint64_t time_of_wakeup_ns = get_absolute_time_in_ns() + time_to_wait_for_wakeup_ns;
@@ -534,11 +534,13 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
         result = pthread_cond_timedwait(&dacp_server_information_cv, &dacp_server_information_lock,
                                         &time_to_wait); // this is a pthread cancellation point
-        // debug(1, "result is %d, dacp_server.scan_enable is %d, time_to_wait_for_wakeup_ns is %" PRId64 ".", result, dacp_server.scan_enable, time_to_wait_for_wakeup_ns);
+        // debug(1, "result is %d, dacp_server.scan_enable is %d, time_to_wait_for_wakeup_ns is %"
+        // PRId64 ".", result, dacp_server.scan_enable, time_to_wait_for_wakeup_ns);
 
 #endif
 #ifdef COMPILE_FOR_OSX
-        result = pthread_cond_timedwait_relative_np(&dacp_server_information_cv, &dacp_server_information_lock, &time_to_wait);
+        result = pthread_cond_timedwait_relative_np(&dacp_server_information_cv,
+                                                    &dacp_server_information_lock, &time_to_wait);
 #endif
       }
       if (dacp_server.scan_enable == 1) {
@@ -547,12 +549,13 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
       }
     }
 
-    always_use_revision_number_1 = dacp_server.always_use_revision_number_1; // set this while access is locked
+    always_use_revision_number_1 =
+        dacp_server.always_use_revision_number_1; // set this while access is locked
 
     result = dacp_get_volume(&the_volume); // just want the http code
     pthread_cleanup_pop(1);
 
-    if (result == 490) {  // 490 means no port was specified
+    if (result == 490) { // 490 means no port was specified
       if ((dacp_server.dacp_id != NULL) && (strlen(dacp_server.dacp_id) != 0)) {
         // debug(1,"mdns_dacp_monitor_set_id");
         mdns_dacp_monitor_set_id(dacp_server.dacp_id);
@@ -597,8 +600,8 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
       else
         idle_scan_count = 0;
 
-      debug(3, "Scan Result: %d, Bad Scan Count: %d, Idle Scan Count: %d.", result, bad_result_count,
-            idle_scan_count);
+      debug(3, "Scan Result: %d, Bad Scan Count: %d, Idle Scan Count: %d.", result,
+            bad_result_count, idle_scan_count);
 
       /* not used
       // decide if idle for too long
@@ -934,8 +937,6 @@ void dacp_monitor_start() {
   rc = pthread_cond_init(&dacp_server_information_cv, NULL);
 #endif
 
-
-
   pthread_mutexattr_t mta;
 
   rc = pthread_mutexattr_init(&mta);
@@ -1248,7 +1249,7 @@ int dacp_get_volume(int32_t *the_actual_volume) {
     } else {
       debug(1, "Unexpected return code %d from dacp_get_speaker_list.", http_response);
     }
-  } else if (http_response != 400){
+  } else if (http_response != 400) {
     debug(3, "Unexpected return code %d from dacp_get_client_volume.", http_response);
   }
   if (the_actual_volume) {

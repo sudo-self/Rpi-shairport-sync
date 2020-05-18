@@ -43,10 +43,11 @@ typedef struct audio_buffer_entry { // decoded audio packets
   uint16_t resend_request_number;
   signed short *data;
   seq_t sequence_number;
-  uint64_t initialisation_time; // the time the packet was added or the time it was noticed the packet was missing
-  uint64_t resend_time; // time of last resend request or zero
-  uint32_t given_timestamp; // for debugging and checking
-  int length; // the length of the decoded data
+  uint64_t initialisation_time; // the time the packet was added or the time it was noticed the
+                                // packet was missing
+  uint64_t resend_time;         // time of last resend request or zero
+  uint32_t given_timestamp;     // for debugging and checking
+  int length;                   // the length of the decoded data
 } abuf_t;
 
 // default buffer size
