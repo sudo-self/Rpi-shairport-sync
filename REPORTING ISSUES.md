@@ -16,7 +16,7 @@ If your system uses `systemd`, as most recent Linuxes do, try using:
 ```
 $ sudo systemctl status shairport-sync
 ```
-You might get something lke this:
+You might get something like this:
 ```
 ● shairport-sync.service - Shairport Sync - AirPlay Audio Receiver
    Loaded: loaded (/lib/systemd/system/shairport-sync.service; disabled; vendor preset: enabled)
