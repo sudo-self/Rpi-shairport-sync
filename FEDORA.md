@@ -4,12 +4,13 @@ Fedora Installation Guide
 Install the toolchain and pre-requisites, if necessary:
 ```
 # yum install make automake gcc gcc-c++ kernel-devel
-# yum install alsa-lib-devel autoconf automake avahi-devel libconfig-devel libdaemon-devel openssl-devel popt-devel soxr-devel
+# yum install alsa-lib-devel autoconf automake avahi-devel libconfig-devel \
+    libdaemon-devel openssl-devel popt-devel soxr-devel rpmbuild
 ```
-Download the tarball from the "releases" tab on github or use `wget` and then use `rpmbuild`. This example is for version 2.6:
+Download the tarball from the "releases" tab on github or use `wget` and then use `rpmbuild`. Alternatively, download a tarball of the `master` branch, as in this example:
 ```
-$ wget -O shairport-sync-2.6.tar.gz https://github.com/mikebrady/shairport-sync/archive/2.6.tar.gz
-$ rpmbuild -ta shairport-sync-2.6.tar.gz
+$ wget -O shairport-sync-master.tar.gz https://github.com/mikebrady/shairport-sync/archive/master.tar.gz
+$ rpmbuild -ta shairport-sync-master.tar.gz
 ```
 The `-ta` means "build all from this tarball".
 
