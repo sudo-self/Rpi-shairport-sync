@@ -143,6 +143,7 @@ static void ab_resync(rtsp_conn_info *conn) {
   conn->ab_buffering = 1;
 }
 
+
 // given starting and ending points as unsigned 16-bit integers running modulo 2^16, returns the
 // position of x in the interval in *pos
 // returns true if x is actually within the buffer
@@ -173,94 +174,47 @@ int position_in_modulo_uint16_t_buffer(uint16_t x, uint16_t start, uint16_t end,
   return response;
 }
 
-// given starting and ending points as unsigned 32-bit integers running modulo 2^32, returns the
-// position of x in the interval in *pos
-// returns true if x is actually within the buffer
+static inline seq_t SUCCESSOR(seq_t x) {
+  return x + 1;
+}
 
-int position_in_modulo_uint32_t_buffer(uint32_t x, uint32_t start, uint32_t end, uint32_t *pos) {
-  int response = 0; // not in the buffer
-  if (start <= end) {
-    if (x < start) {
-      if (pos)
-        *pos = UINT32_MAX - start + 1 + x;
-    } else {
-      if (pos)
-        *pos = x - start;
-      if (x < end)
-        response = 1;
-    }
-  } else if ((x >= start)) { // && (x <= UINT32_MAX)) { // always true
-    response = 1;
-    if (pos)
-      *pos = x - start;
-  } else {
-    if (pos)
-      *pos = UINT32_MAX - start + 1 + x;
-    if (x < end) {
-      response = 1;
-    }
-  }
+// a minus b
+int16_t seq_diff(seq_t a, seq_t b) {
+	int16_t response;
+	seq_t diff = a - b;
+	seq_t invdiff = b - a;
+	if (diff < invdiff)
+		response = diff;
+	else
+		response = -invdiff;
   return response;
 }
 
-// this is used.
-static inline seq_t SUCCESSOR(seq_t x) {
-  uint32_t p = x & 0xffff;
-  p += 1;
-  p = p & 0xffff;
-  return p;
-}
-
-// used in seq_diff and seq_order
-
-// anything with ORDINATE in it must be protected by the ab_mutex
-static inline int32_t ORDINATE(seq_t x, seq_t base) {
-  int32_t p = x;    // int32_t from seq_t, i.e. uint16_t, so okay
-  int32_t q = base; // int32_t from seq_t, i.e. uint16_t, so okay
-  int32_t t = (p + 0x10000 - q) & 0xffff;
-  // we definitely will get a positive number in t at this point, but it might be a
-  // positive alias of a negative number, i.e. x might actually be "before" ab_read
-  // So, if the result is greater than 32767, we will assume its an
-  // alias and subtract 65536 from it
-  if (t >= 32767) {
-    // debug(1,"OOB: %u, ab_r: %u, ab_w: %u",x,ab_read,ab_write);
-    t -= 65536;
-  }
-  return t;
-}
-
-// wrapped number between two seq_t.
-int32_t seq_diff(seq_t a, seq_t b, seq_t base) {
-  int32_t diff = ORDINATE(b, base) - ORDINATE(a, base);
-  return diff;
-}
-
-// the sequence numbers will wrap pretty often.
-// this returns true if the second arg is after the first
-static inline int seq_order(seq_t a, seq_t b, seq_t base) {
-  int32_t d = ORDINATE(b, base) - ORDINATE(a, base);
-  return d > 0;
-}
-
 static inline seq_t seq_sum(seq_t a, seq_t b) {
-  //  uint32_t p = a & 0xffff;
-  //  uint32_t q = b & 0x0ffff;
-  uint32_t r = (a + b) & 0xffff;
-  return r;
+  return a + b;
 }
 
 // This orders u and v by picking the smaller of the two modulo differences
 // in unsigned modulo arithmetic and setting the sign of the result accordingly.
 
-// (Think of a modulo ring starting at 0 and circling around finally to
-// modulo-2, modulo-1 to 0 again. The ordering of u and v is always based on
-// the shorter way around the ring, taking the 0, 1, 2, ... direction as positive.)
+// if u - v gives the smaller modulo difference, then that modulo difference is returned
+// otherwise the negative of the  v - u modulo difference is returned.
 
-// The result will always fit in an int64_t,
+// (Think of a modulo ring starting at 0 and circling around clockwise finally to
+// modulo-2, modulo-1 to 0 again. To determine the ordering of the two numbers,
+// Find the shorter path between them around the ring.
+// If you go from v to u in the positive (0, 1, 2 ... or clockwise) direction,
+// then u is greater than (or "after") v.)
+
+// The result will always fit in an int64_t as it must be less or equal to half way
+// around the ring.
 // Due to the asymmetry of 2's complement representation, however,
 // if the difference is equal to modulo / 2, it is ambiguous as to whether
-// u is "before" v or v is "before" u.
-// and will be returned as - modulo / 2.
+// u is "after" or "before" (i.e. greater or less than) v.
+// and will be returned as -modulo / 2, that is, "before".
+// If that ever happens and there is a real ambiguity in the application,
+// the modulo chosen is too small.
+
 
 int64_t int64_mod_difference(const uint64_t u, const uint64_t v, const uint64_t modulo) {
 	int64_t response;
@@ -539,8 +493,9 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
         conn->ab_read = seqno;
         conn->ab_synced = 1;
       }
-      if (conn->ab_write ==
-          seqno) { // if this is the expected packet (which could be the first packet...)
+      int16_t write_point_gap = seq_diff(seqno,conn->ab_write); // this is the difference between
+      // the incoming packet number and the packet number that was expected.
+      if (write_point_gap == 0) { // if this is the expected packet (which could be the first packet...)
         if (conn->input_frame_rate_starting_point_is_valid == 0) {
           if ((conn->packet_count_since_flush >= 500) && (conn->packet_count_since_flush <= 510)) {
             conn->frames_inward_measurement_start_time = time_now;
@@ -552,12 +507,10 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
         conn->frames_inward_frames_received_at_measurement_time = actual_timestamp;
         abuf = conn->audio_buffer + BUFIDX(seqno);
         conn->ab_write = SUCCESSOR(seqno); // move the write pointer to the next free space
-      } else if (seq_order(conn->ab_write, seqno, conn->ab_read)) { // newer than expected
-        int32_t gap = seq_diff(conn->ab_write, seqno, conn->ab_read);
-        if (gap <= 0)
-          debug(1, "Unexpected gap size: %d.", gap);
+      } else if (write_point_gap > 0) { // newer than expected
+      	// initialise  the frames in between
         int i;
-        for (i = 0; i < gap; i++) {
+        for (i = 0; i < write_point_gap; i++) {
           abuf = conn->audio_buffer + BUFIDX(seq_sum(conn->ab_write, i));
           abuf->ready = 0; // to be sure, to be sure
           abuf->resend_request_number = 0;
@@ -568,13 +521,9 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
           abuf->given_timestamp = 0;
           abuf->sequence_number = 0;
         }
-        // debug(1,"N %d s %u.",seq_diff(ab_write,PREDECESSOR(seqno))+1,ab_write);
         abuf = conn->audio_buffer + BUFIDX(seqno);
-        //        rtp_request_resend(ab_write, gap);
-        //        resend_requests++;
         conn->ab_write = SUCCESSOR(seqno);
-      } else if (seq_order(conn->ab_read, seqno,
-                           conn->ab_read)) { // older than expected but not too late
+      } else if (seq_diff(seqno,conn->ab_read) > 0) { // older than expected but still not too late
         conn->late_packets++;
         abuf = conn->audio_buffer + BUFIDX(seqno);
       } else { // too late.
@@ -1035,11 +984,10 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         if (curframe->sequence_number != conn->ab_read) {
           // some kind of sync problem has occurred.
           if (BUFIDX(curframe->sequence_number) == BUFIDX(conn->ab_read)) {
-            // it looks like some kind of aliasing has happened
-            if (seq_order(conn->ab_read, curframe->sequence_number, conn->ab_read)) {
-              conn->ab_read = curframe->sequence_number;
-              debug(1, "Aliasing of buffer index -- reset.");
-            }
+            // it looks like aliasing has happened
+            // jump to the new incoming stuff...
+            conn->ab_read = curframe->sequence_number;
+            debug(1, "Aliasing of buffer index -- reset.");
           } else {
             debug(1, "Inconsistent sequence numbers detected");
           }
@@ -1789,9 +1737,9 @@ void *player_thread_func(void *arg) {
 
   debug(3, "Output frame bytes is %d.", conn->output_bytes_per_frame);
 
-  conn->dac_buffer_queue_minimum_length = (int64_t)(
+  conn->dac_buffer_queue_minimum_length = (uint64_t)(
       config.audio_backend_buffer_interpolation_threshold_in_seconds * config.output_rate);
-  debug(3, "dac_buffer_queue_minimum_length is %" PRId64 " frames.",
+  debug(3, "dac_buffer_queue_minimum_length is %" PRIu64 " frames.",
         conn->dac_buffer_queue_minimum_length);
 
   conn->session_corrections = 0;
@@ -2033,8 +1981,7 @@ void *player_thread_func(void *arg) {
                 "status 0x%X after %u resend requests.",
                 SUCCESSOR(conn->last_seqno_read), play_number, inframe->status,
                 inframe->resend_request_number);
-          conn->last_seqno_read = (SUCCESSOR(conn->last_seqno_read) &
-                                   0xffff); // manage the packet out of sequence minder
+          conn->last_seqno_read = SUCCESSOR(conn->last_seqno_read); // manage the packet out of sequence minder
 
           void *silence = malloc(conn->output_bytes_per_frame * conn->max_frames_per_packet *
                                  conn->output_sample_ratio);
@@ -2189,7 +2136,7 @@ void *player_thread_func(void *arg) {
           }
 
           conn->buffer_occupancy =
-              seq_diff(conn->ab_read, conn->ab_write, conn->ab_read); // int32_t from int32
+              seq_diff(conn->ab_write, conn->ab_read); // int32_t from int16_t
 
           if (conn->buffer_occupancy < minimum_buffer_occupancy)
             minimum_buffer_occupancy = conn->buffer_occupancy;
