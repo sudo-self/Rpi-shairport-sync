@@ -249,6 +249,30 @@ static inline seq_t seq_sum(seq_t a, seq_t b) {
   return r;
 }
 
+// This orders u and v by picking the smaller of the two modulo differences
+// in unsigned modulo arithmetic and setting the sign of the result accordingly.
+
+// (Think of a modulo ring starting at 0 and circling around finally to
+// modulo-2, modulo-1 to 0 again. The ordering of u and v is always based on
+// the shorter way around the ring, taking the 0, 1, 2, ... direction as positive.)
+
+// The result will always fit in an int64_t,
+// Due to the asymmetry of 2's complement representation, however,
+// if the difference is equal to modulo / 2, it is ambiguous as to whether
+// u is "before" v or v is "before" u.
+// and will be returned as - modulo / 2.
+
+int64_t int64_mod_difference(const uint64_t u, const uint64_t v, const uint64_t modulo) {
+	int64_t response;
+	uint64_t diff = (u - v) % modulo;
+	uint64_t invdiff = (v - u) % modulo;
+	if (diff < invdiff)
+		response = diff;
+	else
+		response = -invdiff;
+	return response;
+}
+
 void reset_input_flow_metrics(rtsp_conn_info *conn) {
   conn->play_number_after_flush = 0;
   conn->packet_count_since_flush = 0;
@@ -1793,7 +1817,7 @@ void *player_thread_func(void *arg) {
   int64_t tsum_of_sync_errors, tsum_of_corrections, tsum_of_insertions_and_deletions,
       tsum_of_drifts;
   int64_t previous_sync_error = 0, previous_correction = 0;
-  int64_t minimum_dac_queue_size = INT64_MAX;
+  uint64_t minimum_dac_queue_size = UINT64_MAX;
   int32_t minimum_buffer_occupancy = INT32_MAX;
   int32_t maximum_buffer_occupancy = INT32_MIN;
 
@@ -1808,7 +1832,7 @@ void *player_thread_func(void *arg) {
   conn->buffer_occupancy = 0;
 
   int play_samples = 0;
-  int64_t current_delay;
+  uint64_t current_delay;
   int play_number = 0;
   conn->play_number_after_flush = 0;
   //  int last_timestamp = 0; // for debugging only
@@ -2136,34 +2160,11 @@ void *player_thread_func(void *arg) {
           uint64_t reference_timestamp_time, remote_reference_timestamp_time;
           get_reference_timestamp_stuff(&reference_timestamp, &reference_timestamp_time,
                                         &remote_reference_timestamp_time, conn); // types okay
-          int64_t rt, nt;
-          rt = reference_timestamp;      // uint32_t to int64_t
+          uint64_t nt;
           nt = inframe->given_timestamp; // uint32_t to int64_t
-          rt = rt * conn->output_sample_ratio;
           nt = nt * conn->output_sample_ratio;
 
           uint64_t local_time_now = get_absolute_time_in_ns(); // types okay
-
-          int64_t td = 0; // td is the time difference between the reference timestamp time and the
-                          // present time. Only used to calculate td_in_frames
-          int64_t td_in_frames = 0; // td_in_frames is the number of frames between between the
-                                    // reference timestamp time and the present time
-
-          if (local_time_now >= reference_timestamp_time) {
-            td = local_time_now - reference_timestamp_time; // this is the positive value.
-                                                            // Conversion is positive uint64_t to
-                                                            // int64_t, thus okay
-            td_in_frames = (td * config.output_rate) / 1000000000;
-          } else {
-            td = reference_timestamp_time - local_time_now; // this is the absolute value, which
-                                                            // should be negated. Conversion is
-                                                            // positive uint64_t to int64_t, thus
-                                                            // okay.
-            td_in_frames = (td * config.output_rate) /
-                           1000000000; // use the absolute td value for the present. Types okay
-            td_in_frames = -td_in_frames;
-            td = -td; // should be okay, as the range of values should be very small w.r.t 64 bits
-          }
 
           // This is the timing error for the next audio frame in the DAC, if applicable
           int64_t sync_error = 0;
@@ -2202,15 +2203,16 @@ void *player_thread_func(void *arg) {
           // If any of these are false, we don't do any synchronisation stuff
 
           int resp = -1; // use this as a flag -- if negative, we can't rely on a real known delay
-          current_delay = -1; // use this as a failure flag
 
           if (config.output->delay) {
             long l_delay;
             resp = config.output->delay(&l_delay);
             if (resp == 0) { // no error
               current_delay = l_delay;
-              if (current_delay < 0) {
-                debug(2, "Underrun of %lld frames reported, but ignored.", current_delay);
+              if (l_delay >= 0)
+              	current_delay = l_delay;
+              else {
+                debug(2, "Underrun of %ld frames reported, but ignored.", l_delay);
                 current_delay =
                     0; // could get a negative value if there was underrun, but ignore it.
               }
@@ -2244,29 +2246,17 @@ void *player_thread_func(void *arg) {
 
             uint32_t should_be_frame_32;
             local_time_to_frame(local_time_now, &should_be_frame_32, conn);
-            int64_t should_be_frame = ((int64_t)should_be_frame_32) * conn->output_sample_ratio;
+            // int64_t should_be_frame = ((int64_t)should_be_frame_32) * conn->output_sample_ratio;
 
-            // int64_t absolute_difference_in_frames = td_in_frames + rt - should_be_frame;
-            // if (absolute_difference_in_frames < 0)
-            //  absolute_difference_in_frames = -absolute_difference_in_frames;
+            int64_t delay = int64_mod_difference(should_be_frame_32 * conn->output_sample_ratio, nt - current_delay, UINT32_MAX * conn->output_sample_ratio);
 
-            // if (absolute_difference_in_frames > 10 * conn->output_sample_ratio)
-            //  debug(1, "Difference between old and new frame number is %" PRId64 " frames.",
-            //        td_in_frames + rt - should_be_frame);
-            // this is the actual delay, including the latency we actually want, which will
-            // fluctuate a good bit about a potentially rising or falling trend.
+            //int64_t delay = should_be_frame - (nt - current_delay); // all int64_t
 
-            //            int64_t delay = td_in_frames + rt - (nt - current_delay); // all int64_t
-            // cut over to the new calculation method
-            int64_t delay = should_be_frame - (nt - current_delay); // all int64_t
+            // the original frame numbers are unsigned 32-bit integers that roll over modulo 2^32
+            // hence these delay figures will be unsigned numbers that roll over modulo 2^32 * conn->output_sample_ratio;
+            // therefore, calculating the delay must be done in the light of possible rollover
 
-            // td_in_frames + rt is the frame number that should be output at local_time_now.
 
-            // This is the timing error for the next audio frame in the DAC.
-
-            // if positive, it means that the packet will be late -- the delay is longer than
-            // requested
-            // if negative, the packet will be early -- the delay is less than expected.
 
             sync_error =
                 delay - ((int64_t)conn->latency * conn->output_sample_ratio +
@@ -2724,7 +2714,7 @@ void *player_thread_func(void *arg) {
                       "%*" PRIu64 "," /* late packets */
                       "%*" PRIu64 "," /* too late packets */
                       "%*" PRIu64 "," /* resend requests */
-                      "%*" PRId64 "," /* min DAC queue size */
+                      "%*" PRIu64 "," /* min DAC queue size */
                       "%*" PRId32 "," /* min buffer occupancy */
                       "%*" PRId32 "," /* max buffer occupancy */
                       "%*.2f,"        /* source nominal frame rate */
@@ -2757,7 +2747,7 @@ void *player_thread_func(void *arg) {
                          "%*" PRIu64 "," /* late packets */
                          "%*" PRIu64 "," /* too late packets */
                          "%*" PRIu64 "," /* resend requests */
-                         "%*" PRId64 "," /* min DAC queue size */
+                         "%*" PRIu64 "," /* min DAC queue size */
                          "%*" PRId32 "," /* min buffer occupancy */
                          "%*" PRId32 "," /* max buffer occupancy */
                          "%*.2f,"        /* source nominal frame rate */
@@ -2797,7 +2787,7 @@ void *player_thread_func(void *arg) {
               inform("No frames received in the last sampling interval.");
             }
           }
-          minimum_dac_queue_size = INT64_MAX;   // hack reset
+          minimum_dac_queue_size = UINT64_MAX;   // hack reset
           maximum_buffer_occupancy = INT32_MIN; // can't be less than this
           minimum_buffer_occupancy = INT32_MAX; // can't be more than this
           at_least_one_frame_seen = 0;
