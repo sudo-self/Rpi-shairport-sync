@@ -1,6 +1,9 @@
 Fedora Installation Guide
 -----
-
+Update everything...
+```
+# yum update
+```
 Install the toolchain and pre-requisites, if necessary:
 ```
 # yum install make automake gcc gcc-c++ kernel-devel
