@@ -50,6 +50,10 @@ typedef struct audio_buffer_entry { // decoded audio packets
   int length;                   // the length of the decoded data
 } abuf_t;
 
+typedef struct stats { // statistics for running averages
+  int64_t sync_error, correction, drift;
+} stats_t;
+
 // default buffer size
 // This needs to be a power of 2 because of the way BUFIDX(seqno) works.
 // 512 is the minimum for normal operation -- it gives 512*352/44100 or just over 4 seconds of
@@ -109,6 +113,10 @@ typedef struct {
   signed short *tbuf;
   int32_t *sbuf;
   char *outbuf;
+
+  // for generating running statistics...
+
+  stats_t *statistics;
 
   // for holding the output rate information until printed out at the end of a session
   double frame_rate;

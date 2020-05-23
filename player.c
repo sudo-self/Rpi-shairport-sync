@@ -1579,10 +1579,6 @@ int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
 }
 #endif
 
-typedef struct stats { // statistics for running averages
-  int64_t sync_error, correction, drift;
-} stats_t;
-
 void player_thread_initial_cleanup_handler(__attribute__((unused)) void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(3, "Connection %d: player thread main loop exit via player_thread_initial_cleanup_handler.",
@@ -1648,6 +1644,11 @@ void player_thread_cleanup_handler(void *arg) {
   if (conn->tbuf) {
     free(conn->tbuf);
     conn->tbuf = NULL;
+  }
+
+  if (conn->statistics) {
+  	free(conn->statistics);
+  	conn->statistics = NULL;
   }
   free_audio_buffers(conn);
   if (conn->stream.type == ast_apple_lossless)
@@ -1756,9 +1757,10 @@ void *player_thread_func(void *arg) {
   conn->connection_state_to_output = get_requested_connection_state_to_output();
 // this is about half a minute
 //#define trend_interval 3758
+
+// this is about 8 seconds
 #define trend_interval 1003
 
-  stats_t statistics[trend_interval];
   int number_of_statistics, oldest_statistic, newest_statistic;
   int at_least_one_frame_seen = 0;
   int at_least_one_frame_seen_this_session = 0;
@@ -1853,9 +1855,6 @@ void *player_thread_func(void *arg) {
 
   // we need an intermediate "transition" buffer
 
-  // if ((input_rate!=config.output_rate) || (input_bit_depth!=output_bit_depth)) {
-  // debug(1,"Define tbuf of length
-  // %d.",output_bytes_per_frame*(max_frames_per_packet*output_sample_ratio+max_frame_size_change));
   conn->tbuf = malloc(
       sizeof(int32_t) * 2 *
       (conn->max_frames_per_packet * conn->output_sample_ratio + conn->max_frame_size_change));
@@ -1883,6 +1882,10 @@ void *player_thread_func(void *arg) {
                                  // be used as a null operand, so we'll use it like that too
   int sync_error_out_of_bounds =
       0; // number of times in a row that there's been a serious sync error
+
+  conn->statistics = malloc(sizeof(stats_t)*trend_interval);
+  if (conn->statistics == NULL)
+  	die("Failed to allocate a statistics buffer");
 
   conn->framesProcessedInThisEpoch = 0;
   conn->framesGeneratedInThisEpoch = 0;
@@ -2565,34 +2568,34 @@ void *player_thread_func(void *arg) {
           // valid samples and the number of times sync wasn't checked due to non availability of a
           // delay figure.
           // for the present, stats are only updated when sync has been checked
-          if (sync_error != -1) {
+          if (config.output->delay != NULL) {
             if (number_of_statistics == trend_interval) {
               // here we remove the oldest statistical data and take it from the summaries as well
-              tsum_of_sync_errors -= statistics[oldest_statistic].sync_error;
-              tsum_of_drifts -= statistics[oldest_statistic].drift;
-              if (statistics[oldest_statistic].correction > 0)
-                tsum_of_insertions_and_deletions -= statistics[oldest_statistic].correction;
+              tsum_of_sync_errors -= conn->statistics[oldest_statistic].sync_error;
+              tsum_of_drifts -= conn->statistics[oldest_statistic].drift;
+              if (conn->statistics[oldest_statistic].correction > 0)
+                tsum_of_insertions_and_deletions -= conn->statistics[oldest_statistic].correction;
               else
-                tsum_of_insertions_and_deletions += statistics[oldest_statistic].correction;
-              tsum_of_corrections -= statistics[oldest_statistic].correction;
+                tsum_of_insertions_and_deletions += conn->statistics[oldest_statistic].correction;
+              tsum_of_corrections -= conn->statistics[oldest_statistic].correction;
               oldest_statistic = (oldest_statistic + 1) % trend_interval;
               number_of_statistics--;
             }
 
-            statistics[newest_statistic].sync_error = sync_error;
-            statistics[newest_statistic].correction = conn->amountStuffed;
+            conn->statistics[newest_statistic].sync_error = sync_error;
+            conn->statistics[newest_statistic].correction = conn->amountStuffed;
 
             if (number_of_statistics == 0)
-              statistics[newest_statistic].drift = 0;
+              conn->statistics[newest_statistic].drift = 0;
             else
-              statistics[newest_statistic].drift =
+              conn->statistics[newest_statistic].drift =
                   sync_error - previous_sync_error - previous_correction;
 
             previous_sync_error = sync_error;
             previous_correction = conn->amountStuffed;
 
             tsum_of_sync_errors += sync_error;
-            tsum_of_drifts += statistics[newest_statistic].drift;
+            tsum_of_drifts += conn->statistics[newest_statistic].drift;
             if (conn->amountStuffed > 0) {
               tsum_of_insertions_and_deletions += conn->amountStuffed;
             } else {
@@ -3034,17 +3037,10 @@ int player_play(rtsp_conn_info *conn) {
   if (pt == NULL)
     die("Couldn't allocate space for pthread_t");
   conn->player_thread = pt;
-  size_t size = (PTHREAD_STACK_MIN + 256 * 1024);
-  pthread_attr_t tattr;
-  pthread_attr_init(&tattr);
-  int rc = pthread_attr_setstacksize(&tattr, size);
-  if (rc)
-    debug(1, "Error setting stack size for player_thread: %s", strerror(errno));
-  // finished initialising.
-  rc = pthread_create(pt, &tattr, player_thread_func, (void *)conn);
+  int rc = pthread_create(pt, NULL, player_thread_func, (void *)conn);
   if (rc)
     debug(1, "Error creating player_thread: %s", strerror(errno));
-  pthread_attr_destroy(&tattr);
+
 #ifdef CONFIG_METADATA
   debug(2, "pbeg");
   send_ssnc_metadata('pbeg', NULL, 0, 1); // contains cancellation points
