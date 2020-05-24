@@ -56,10 +56,7 @@ static int play(void *buf, int samples) {
 }
 
 static void stop(void) {
-  // Flush stdout when play stops instead
-	if (fd > 0)
-		if (fsync(fd) != 0)
-			    debug(1, "Error flushing STDOUT when play stopped: \"%s\".", strerror(errno));
+  // Do nothing when play stops
 }
 
 static int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {

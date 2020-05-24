@@ -19,7 +19,7 @@ For more about the motivation behind Shairport Sync, please see the wiki at http
 
 Synchronisation, Latency, "Stuffing"
 ---------
-The AirPlay protocol uses an agreed *latency* – the time difference, or delay, between the time represented by a sound sample's `timestamp` and the time it is actually played by the audio output device, typically a Digital to Audio Converter (DAC). The latency to be used is specified by the audio source when it negotiates with Shairport Sync. Most sources set a latency of two seconds. Recent versions of iTunes and forkedDaapd use a latency of just over 2.25 seconds. A latency of this length allows AirPlay players to correct for network delays, processing time variations and so on. 
+The AirPlay protocol uses an agreed *latency* – the time difference, or delay, between the time represented by a sound sample's `timestamp` and the time it is actually played by the audio output device, typically a Digital to Audio Converter (DAC). The latency to be used is specified by the audio source when it negotiates with Shairport Sync. Most sources set a latency of two seconds. Recent versions of iTunes and forkedDaapd use a latency of just over 2.25 seconds. A latency of this length allows AirPlay players to correct for network delays, processing time variations and so on.
 
 As mentioned previously, Shairport Sync implements full audio synchronisation when used with `alsa`, `sndio` or PulseAudio systems. This is done by monitoring the timestamps present in data coming from the audio source and the timing information from the audio system, e.g. `alsa`. To maintain the  latency required for exact synchronisation, if the output device is running slow relative to the source, Shairport Sync will delete frames of audio to allow the device to keep up. If the output device is running fast, Shairport Sync will insert frames to keep time. The number of frames inserted or deleted is so small as to be almost inaudible on normal audio material. Frames are inserted or deleted as necessary at pseudorandom intervals. Alternatively, with `libsoxr` support, Shairport Sync can resample the audio feed to ensure the output device can keep up. This is less obtrusive than insertion and deletion but requires a good deal of processing power — most embedded devices probably can't support it. The process of insertion/deletion or resampling is rather inelegantly called “stuffing”.
 
@@ -42,7 +42,7 @@ What else?
 * An [MPRIS](https://specifications.freedesktop.org/mpris-spec/2.2/) interface, partially complete and very functional, including access to metadata and artwork, and some limited remote control.
 * An interface to [MQTT](https://en.wikipedia.org/wiki/MQTT), an often-used protocol in home automation projects.
 * A native D-Bus interface, including access to metadata and artwork, some limited remote control and some system settings.
- 
+
 Heritage
 -------
 Shairport Sync is a substantial rewrite of the fantastic work done in Shairport 1.0 by James Laird and others — please see https://github.com/abrasive/shairport/blob/master/README.md#contributors-to-version-1x for a list of the contributors to Shairport 1.x and Shairport 0.x. From a "heritage" point of view, Shairport Sync is a fork of Shairport 1.0.
@@ -65,7 +65,7 @@ See [here](https://github.com/mikebrady/shairport-sync/blob/master/INSTALL.md) f
 
 Shairport Sync may already be available as a package in your Linux distribution (search for `shairport-sync` – the package named `shairport` is a different program). Packages are available on recent versions of Debian, Ubuntu, Arch, OpenWrt and possibly more:
 
-**Ubuntu:** A `shairport-sync` installer package is available for Ubuntu. Additionally, a Personal Package Archives for Shairport Sync master and development branches are available at https://launchpad.net/~dantheperson. 
+**Ubuntu:** A `shairport-sync` installer package is available for Ubuntu. Additionally, a Personal Package Archives for Shairport Sync master and development branches are available at https://launchpad.net/~dantheperson.
 
 **Debian:** shairport-sync is in the Debian archive.
 
@@ -75,7 +75,7 @@ Shairport Sync may already be available as a package in your Linux distribution 
 
 To build and install the latest version of Shairport Sync, an [Arch Linux build and installation guide](https://github.com/mikebrady/shairport-sync-for-arch-linux) is available, based on original work by [Elia Cereda](https://github.com/EliaCereda).
 
-**Mac OS X:** A HomeBrew package exists for Shairport Sync. With HomeBrew installed, Shairport Sync can be installed using the command: 
+**Mac OS X:** A HomeBrew package exists for Shairport Sync. With HomeBrew installed, Shairport Sync can be installed using the command:
 ```
 $brew install shairport-sync
 ```
@@ -91,7 +91,7 @@ If you wish to build and install the latest version of Shairport Sync on Debian,
 
 **Remove Old Versions of Shairport Sync and its Startup Scripts**
 
-You should check to see if `shairport-sync` is already installed – you can use the command `$ which shairport-sync` to find where it is located, if installed. If it is installed you should delete it – you may need superuser privileges. After deleting, check again in case further copies are installed elsewhere. 
+You should check to see if `shairport-sync` is already installed – you can use the command `$ which shairport-sync` to find where it is located, if installed. If it is installed you should delete it – you may need superuser privileges. After deleting, check again in case further copies are installed elsewhere.
 
 You should also remove the startup script files `/etc/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed in necessary.
 
@@ -123,13 +123,13 @@ If PulseAudio in not installed, you'll get something like this:
 ```
 $  pactl info
 -bash: pactl: command not found
-$ 
+$
 ```
 If your system does not use PulseAudio, then it is likely that it uses the Advanced Linux Sound Architecture (ALSA), so you should build Shairport Sync with the ALSA backend. By the way, many systems with PulseAudio also have ALSA (in fact, PulseAudio is effectively a client of ALSA); in those cases you should choose the PulseAudio backend.
 
 If PulseAudio is not installed, there is no necessity to install it for Shairport Sync. In fact, Shairport Sync works better without it.
 
-**Building** 
+**Building**
 
 To build Shairport Sync from sources on Debian, Ubuntu, Raspbian, etc. follow these instructions.
 
@@ -179,7 +179,7 @@ $ autoreconf -i -f
 
 (Don't worry -- there's a recommended set of configuration options further down.)
 
-- `--with-alsa` include the ALSA backend module to audio to be output through the Advanced Linux Sound Architecture (ALSA) system directly. This is recommended for highest quality. 
+- `--with-alsa` include the ALSA backend module to audio to be output through the Advanced Linux Sound Architecture (ALSA) system directly. This is recommended for highest quality.
 - `--with-pa` include the PulseAudio audio back end. This is recommended if your Linux installation already has PulseAudio installed. Although ALSA would be better, it requires direct and exclusive access to to a real (hardware) soundcard, and this is often impractical if PulseAudio is installed.
 - `--with-stdout` include an optional backend module to enable raw audio to be output through standard output (stdout).
 - `--with-pipe` include an optional backend module to enable raw audio to be output through a unix pipe.
@@ -199,9 +199,9 @@ $ autoreconf -i -f
 
 **Determine if it's a `systemd` or a "System V" installation:**
 
-If you wish to have Shairport Sync start automatically when your system boots, you need to figure out what so-called "init system" your system is using. (If you are using Shairport Sync with PulseAudio, as installed in many desktop systems, this section doesn't apply.) 
+If you wish to have Shairport Sync start automatically when your system boots, you need to figure out what so-called "init system" your system is using. (If you are using Shairport Sync with PulseAudio, as installed in many desktop systems, this section doesn't apply.)
 
-There are a number of init systems in use: `systemd`, `upstart` and "System V" among others, and it's actually difficult to be certain which one your system is using. Fortunately, for Shairport Sync, all you have to do is figure out if it's a `systemd` init system or not. If it is not a `systemd` init system, you can assume that it is either a System V init system or else it is compatible with a System V init system. Recent systems tend to use `systemd`, whereas older systems use `upstart` or the earlier System V init system. 
+There are a number of init systems in use: `systemd`, `upstart` and "System V" among others, and it's actually difficult to be certain which one your system is using. Fortunately, for Shairport Sync, all you have to do is figure out if it's a `systemd` init system or not. If it is not a `systemd` init system, you can assume that it is either a System V init system or else it is compatible with a System V init system. Recent systems tend to use `systemd`, whereas older systems use `upstart` or the earlier System V init system.
 
 The easiest way is to look at the first few lines of the `init` manual. Enter the command:
 
@@ -363,7 +363,7 @@ Note: Shairport Sync can take configuration settings from command line options. 
 
 **Raspberry Pi**
 
-The Raspberry Pi Models A and B have a built-in audio DAC that is connected to the device's headphone jack. Apart from a loud click when used for the first time after power-up, it is now quite adequate for casual listening. 
+The Raspberry Pi Models A and B have a built-in audio DAC that is connected to the device's headphone jack. Apart from a loud click when used for the first time after power-up, it is now quite adequate for casual listening.
 
 To get the benefits of improvements in the Pi's software and firmware, you should update to the Raspian release of October 2018 or later, as a number of improvements have been made to the built-in DAC.
 
@@ -403,7 +403,7 @@ The System V init script at `/etc/init.d/shairport-sync` has a bare minimum :
 Examples
 --------
 
-Here are some examples of complete configuration files. 
+Here are some examples of complete configuration files.
 
 ```
 general = {
@@ -516,7 +516,7 @@ The UDP metadata format is very simple - the first four bytes are the metadata *
 
 Latency
 -------
-Latency is the exact time from a sound signal's original timestamp until that signal actually "appears" on the output of the audio output device, usually a Digital to Audio Converter (DAC), irrespective of any internal delays, processing times, etc. in the computer. 
+Latency is the exact time from a sound signal's original timestamp until that signal actually "appears" on the output of the audio output device, usually a Digital to Audio Converter (DAC), irrespective of any internal delays, processing times, etc. in the computer.
 
 Shairport Sync uses latencies supplied by the source, typically either 2 seconds or just over 2.25 seconds. You shouldn't need to change them.
 
@@ -524,7 +524,7 @@ Problems can arise when you are trying to synchronise with speaker systems — t
 
 Resynchronisation
 -------------
-Shairport Sync actively maintains synchronisation with the source. 
+Shairport Sync actively maintains synchronisation with the source.
 If synchronisation is lost — say due to a busy source or a congested network — Shairport Sync will mute its output and resynchronise. The loss-of-sync threshold is a very conservative 0.050 seconds — i.e. the actual time and the expected time must differ by more than 50 ms to trigger a resynchronisation. Smaller disparities are corrected by insertions or deletions, as described above.
 * You can vary the resync threshold, or turn resync off completely, with the `general` `resync_threshold_in_seconds` setting.
 
@@ -535,7 +535,7 @@ Playback synchronisation is allowed to wander — to "drift" — a small amount 
 
 Some Statistics
 ---------------
-If you turn on the `general`  `statistics` setting, a heading like this will be output to the console or log file:
+If you turn on the `general`  `statistics` setting, a heading like this will be output to the log file (or to `STDERR` if the `-u` command line option is chosen):
 ```
 sync error in milliseconds, net correction in ppm, corrections in ppm, total packets, missing packets, late packets, too late packets, resend requests, min DAC queue size, min buffer occupancy, max buffer occupancy, source nominal frames per second, source actual frames per second, output frames per second, source clock drift in ppm, source clock drift sample count, rough calculated correction in ppm
 ```

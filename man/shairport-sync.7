@@ -326,10 +326,10 @@ The maximum packet size for any UDP metadata. This must be between 500 or 65000.
 \fB"DIAGNOSTICS" SETTINGS\f1
 .TP
 \fBstatistics=\f1\fI"setting"\f1\fB;\f1
-Use this \fIsetting\f1 to enable ("yes") or disable ("no") the output of some statistical information on the console or in the log. The default is to disable statistics.
+Use this \fIsetting\f1 to enable ("yes") or disable ("no") the output of some statistical information to the system log (or to \fISTDERR\f1 if the \fB-u\f1 command line option is chosen). The default is to disable statistics.
 .TP
 \fBlog_verbosity=\f1\fI0\f1\fB;\f1
-Use this to specify how much debugging information should be output or logged. The value \fI0\f1 means no debug information, \fI3\f1 means most debug information. The default is \fI0\f1.
+Use this to specify how much debugging information should sent to the system log (or to \fISTDERR\f1 if the \fB-u\f1 command line option is chosen). The value \fI0\f1 means no debug information, \fI3\f1 means most debug information. The default is \fI0\f1.
 .SH OPTIONS
 This section is about the command-line options available in shairport-sync.
 

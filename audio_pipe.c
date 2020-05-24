@@ -86,10 +86,6 @@ static int play(void *buf, int samples) {
 
 static void stop(void) {
   // Don't close the pipe just because a play session has stopped.
-  // Flush it instead
-	if (fd > 0)
-		if (fsync(fd) != 0)
-			    debug(1, "Error flushing pipe when play stopped: \"%s\".", strerror(errno));
 }
 
 static int init(int argc, char **argv) {

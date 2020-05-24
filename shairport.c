@@ -268,7 +268,7 @@ void usage(char *progname) {
   printf("                            The default is /tmp/shairport-sync-metadata.\n");
   printf("    --get-coverart          send cover art through the metadata pipe.\n");
 #endif
-  printf("    -u, --use-stderr        log messages through STDERR rather than syslog.\n");
+  printf("    -u, --use-stderr        log messages through STDERR rather than the system log.\n");
   printf("\n");
   mdns_ls_backends();
   printf("\n");
