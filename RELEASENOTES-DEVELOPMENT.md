@@ -78,7 +78,7 @@ resulting in:
 ```
 The MPRIS `trackid` corresponding to this would be `/org/gnome/ShairportSync/FD84B4B40FA33A85`.
 
-Thanks to to Scott Simon (https://github.com/zutroy97) for finding a related bug in the [shairport-sync-metadata-reader](https://github.com/mikebrady/shairport-sync-metadata-reader).
+Thanks to to [Scott Simon](https://github.com/zutroy97) for finding a related bug in the [shairport-sync-metadata-reader](https://github.com/mikebrady/shairport-sync-metadata-reader).
 
 **Other Changes**
 * Include the `-fno-common` flag in the compilation options to detect incorrect definitions of global variables and multiple definitions of `enum` data types.
