@@ -1927,8 +1927,7 @@ void *player_thread_func(void *arg) {
                "source clock drift sample count");
       }
     } else {
-      inform("sync error in milliseconds, "
-             "total packets, "
+      inform("total packets, "
              "missing packets, "
              "late packets, "
              "too late packets, "
@@ -2094,7 +2093,8 @@ void *player_thread_func(void *arg) {
             die("Shairport Sync only supports 16 bit input");
           }
 
-          inbuflength *= conn->output_sample_ratio;
+
+					at_least_one_frame_seen = 1;
 
           // We have a frame of data. We need to see if we want to add or remove a frame from it to
           // keep in sync.
@@ -2106,6 +2106,7 @@ void *player_thread_func(void *arg) {
           // now, go back as far as the total latency less, say, 100 ms, and check the presence of
           // frames from then onwards
 
+          inbuflength *= conn->output_sample_ratio;
           uint32_t reference_timestamp;
           uint64_t reference_timestamp_time, remote_reference_timestamp_time;
           get_reference_timestamp_stuff(&reference_timestamp, &reference_timestamp_time,
@@ -2146,6 +2147,9 @@ void *player_thread_func(void *arg) {
 
           if (conn->buffer_occupancy > maximum_buffer_occupancy)
             maximum_buffer_occupancy = conn->buffer_occupancy;
+
+
+
 
           // here, we want to check (a) if we are meant to do synchronisation,
           // (b) if we have a delay procedure, (c) if we can get the delay.
@@ -2252,10 +2256,6 @@ void *player_thread_func(void *arg) {
                 sync_error = 0; // say the error was fixed!
               }
             }
-
-
-            at_least_one_frame_seen = 1;
-
             // not too sure if abs() is implemented for int64_t, so we'll do it manually
             int64_t abs_sync_error = sync_error;
             if (abs_sync_error < 0)
@@ -2713,8 +2713,7 @@ void *player_thread_func(void *arg) {
                          conn->local_to_remote_time_gradient_sample_count);
                 }
               } else {
-                inform("%*.2f,"        /* Sync error in milliseconds */
-                       "%*d,"          /* total packets */
+                inform("%*d,"          /* total packets */
                        "%*" PRIu64 "," /* missing packets */
                        "%*" PRIu64 "," /* late packets */
                        "%*" PRIu64 "," /* too late packets */
@@ -2725,7 +2724,7 @@ void *player_thread_func(void *arg) {
                        "%*.2f,"        /* source actual (average) frame rate */
                        "%*.2f,"        /* source clock drift */
                        "%*d",          /* source clock drift sample count */
-                       10, 1000 * moving_average_sync_error / config.output_rate, 12, play_number,
+                       12, play_number,
                        7, conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets,
                        7, conn->resend_requests, 5, minimum_buffer_occupancy, 5,
                        maximum_buffer_occupancy, 11, conn->remote_frame_rate, 11,
