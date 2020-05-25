@@ -35,8 +35,6 @@ Within the configuration file, settings are organised into groups, for example, 
 
 \fBname = "Mike's Boombox";\f1
 
-\fBinterpolation = "soxr";\f1
-
 \fBpassword = "secret";\f1
 
 \fBoutput_backend = "alsa";\f1
@@ -53,7 +51,7 @@ Within the configuration file, settings are organised into groups, for example, 
 
 \fB};\f1
 
-Most settings have sensible default values, so -- as in the example above -- users generally only need to set (1) the service name, (2) a password (if desired) and (3) the output device. If the output device has a mixer that can be used for volume control, then (4) the volume control's name should be specified. It is highly desirable to use the output device's mixer for volume control, if available -- response time is reduced to zero and the processor load is reduced. In the example above, "soxr" interpolation was also enabled.
+Most settings have sensible default values, so -- as in the example above -- users generally only need to set (1) the service name, (2) a password (if desired) and (3) the output device. If the output device has a mixer that can be used for volume control, then (4) the mixer name should be specified. It is important to do this if the mixer exists. Otherwise, the maximum output from the output device will be whatever setting the mixer happens to have, which will be a matter of chance and which could be very low or even silent.
 
 A sample configuration file with all possible settings, but with all of them commented out, is installed at \fIshairport-sync.conf.sample\f1, within the System Configuration Directory -- \fI/etc\f1 in Linux, \fI/usr/local/etc\f1 in BSD unixes.
 
@@ -67,7 +65,7 @@ These are the settings available within the \fBgeneral\f1 group:
 \fBname=\f1\fI"service_name"\f1\fB;\f1
 Use this \fIservice_name\f1 to identify this player in iTunes, etc.
 
-The following substitutions are allowed: \fB%h\f1 for the computer's hostname, \fB%H\f1 for the computer's hostname with the first letter capitalised (ASCII only), \fB%v\f1 for the shairport-sync version number, e.g. "3.0.1" and \fB%V\f1 for the shairport-sync version string, e.g. "3.0.1-OpenSSL-Avahi-ALSA-soxr-metadata-sysconfdir:/etc".
+The following substitutions are allowed: \fB%h\f1 for the computer's hostname, \fB%H\f1 for the computer's hostname with the first letter capitalised (ASCII only), \fB%v\f1 for the shairport-sync version number, e.g. "3.3.6" and \fB%V\f1 for the shairport-sync version string, e.g. "3.3.6-OpenSSL-Avahi-ALSA-soxr-metadata-sysconfdir:/etc".
 
 The default is "%H", which is replaced by the hostname with the first letter capitalised.
 .TP
@@ -75,7 +73,7 @@ The default is "%H", which is replaced by the hostname with the first letter cap
 Require the password \fIpassword\f1 to connect to the service. If you leave this setting commented out, no password is needed.
 .TP
 \fBinterpolation=\f1\fI"mode"\f1\fB;\f1
-Interpolate, or "stuff", the audio stream using the \fImode\f1. Interpolation here refers to the process of adding or removing frames of audio to or from the stream sent to the output device to keep it exactly in synchrony with the player. The default mode, "basic", is normally almost completely inaudible. The alternative mode, "soxr", is even less obtrusive but requires much more processing power. For this mode, support for libsoxr, the SoX Resampler Library, must be selected when shairport-sync is compiled. 
+Interpolate, or "stuff", the audio stream using the \fImode\f1. Interpolation here refers to the process of adding or removing frames of audio to or from the stream sent to the output device to keep it exactly synchronised with the player. The "basic" mode is normally almost completely inaudible. The alternative mode, "soxr", is even less obtrusive but requires much more processing power. For this mode, support for libsoxr, the SoX Resampler Library, must be selected when shairport-sync is compiled. The default setting is "auto", which will choose "soxr" if support for it has been compiled into the build of Shairport Synce and if the CPU is fast enough. Otherwise, "basic" stuffing will be chosen. 
 .TP
 \fBoutput_backend=\f1\fI"backend"\f1\fB;\f1
 shairport-sync has a number of modules of code ("backends") through which audio is output. Normally, the first audio backend that works is selected. This setting forces the selection of the specific audio \fIbackend\f1. Perform the command \fBshairport-sync -h\f1 to get a list of available audio backends -- the default is the first on this list. Only the "alsa", "sndio" and "pa" backends support synchronisation.
@@ -218,14 +216,14 @@ Specify the \fIname\f1 of the mixer control to be used by shairport-sync to cont
 By default, the mixer is assumed to be output_device. Use this setting to specify a device other than the output device.
 .TP
 \fBoutput_rate=\f1\fIframe rate\f1\fB;\f1
-Use this setting to specify the frame rate to output to the ALSA device. Allowable values are 44100 (default), 88200, 176400 and 352800. The device must have the capability to accept the format you specify. There is no particular reason to use anything other than 44100 if it is available. 
+Use this setting to specify the frame rate to output to the ALSA device. Allowable values are "auto" (default), 44100, 88200, 176400 and 352800. The device must have the capability to accept the rate you specify. There is no particular reason to use anything other than 44100 if it is available, and if "auto" is selected, the lowest of these rates available, starting at 44100, will be selected. 
 .TP
 \fBoutput_format=\f1\fI"format"\f1\fB;\f1
-Use this setting to specify the format that should be used to send data to the ALSA device. Allowable values are "U8", "S8", "S16", "S24", "S24_3LE", "S24_3BE" or "S32". The device must have the capability to accept the format you specify.
+Use this setting to specify the format that should be used to send data to the ALSA device. Allowable values are "auto" (default), "U8", "S8", "S16", "S24", "S24_3LE", "S24_3BE" or "S32". The device must have the capability to accept the format you specify.
 
 "S" means signed; "U" means unsigned; BE means big-endian and LE means little-endian. Except where stated (using *LE or *BE), endianness matches that of the processor. The default is "S16".
 
-If you are using a hardware mixer, the best setting is S16, as audio will pass through Shairport Sync unmodified except for interpolation. If you are using the software mixer, use 32- or 24-bit, if your device is capable of it, to get the lowest possible levels of dither. 
+If you are using a hardware mixer, S16 is fine, as audio will pass through Shairport Sync unmodified except for interpolation, but any of the higher-resolution formats are okay too. If you are using the software mixer, use 32- or 24-bit, if your device is capable of it, in order to get the lowest possible levels of dither. The "auto" setting will cause Shairport Sync to choose the highest resolution available. 
 .TP
 \fBdisable_synchronization=\f1\fI"no"\f1\fB;\f1
 This is an advanced setting and is for debugging only. Set to \fI"yes"\f1 to disable synchronization. Default is \fI"no"\f1. If you use it to disable synchronisation, then sooner or later you'll experience audio glitches due to audio buffer overflow or underflow. 

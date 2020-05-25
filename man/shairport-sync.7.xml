@@ -118,7 +118,6 @@
 
 	  <p><opt>general = {</opt></p>
     <p><p><opt>name = "Mike's Boombox";</opt></p></p>
-    <p><p><opt>interpolation = "soxr";</opt></p></p>
     <p><p><opt>password = "secret";</opt></p></p>
     <p><p><opt>output_backend = "alsa";</opt></p></p>
     <p><opt>};</opt></p>
@@ -131,10 +130,10 @@
 	  <p>Most settings have sensible default values, so -- as in the example above -- users
 	  generally only need to set (1) the service name, (2) a password (if desired) and
 	  (3) the output device. If the output device has a mixer that can be used for volume
-	  control, then (4) the volume control's name should be specified. It is highly
-	  desirable to use the output device's mixer for volume control, if available --
-	  response time is reduced to zero and the processor load is reduced. In the example
-	  above, "soxr" interpolation was also enabled.</p>
+	  control, then (4) the mixer name should be specified. It is important
+	  to do this if the mixer exists. Otherwise, the
+	  maximum output from the output device will be whatever setting the mixer happens to
+	  have, which will be a matter of chance and which could be very low or even silent.</p>
 
 	  <p>A sample configuration file with all possible settings, but with all of them
 	  commented out, is installed at <file>shairport-sync.conf.sample</file>, within the
@@ -159,9 +158,9 @@
 		<opt>%h</opt> for the computer's hostname,
 		<opt>%H</opt> for the computer's hostname with the first letter capitalised (ASCII
 		only),
-		<opt>%v</opt> for the shairport-sync version number, e.g. "3.0.1" and
+		<opt>%v</opt> for the shairport-sync version number, e.g. "3.3.6" and
 		<opt>%V</opt> for the shairport-sync version string, e.g.
-		"3.0.1-OpenSSL-Avahi-ALSA-soxr-metadata-sysconfdir:/etc".</p>
+		"3.3.6-OpenSSL-Avahi-ALSA-soxr-metadata-sysconfdir:/etc".</p>
     <p>The default is "%H", which is replaced by the hostname with the first letter
     capitalised.</p>
     </optdesc>
@@ -178,13 +177,17 @@
     <optdesc><p>Interpolate, or "stuff", the audio stream using the <arg>mode</arg>.
     Interpolation here refers to the
     process of adding or removing frames of audio  to  or  from  the
-    stream sent to the output device to keep it exactly in synchrony
+    stream sent to the output device to keep it exactly synchronised
     with the player.
-    The default mode, "basic", is normally almost  completely  inaudible.
+    The "basic" mode is normally almost completely inaudible.
     The  alternative mode, "soxr", is even less obtrusive but
     requires much more processing power. For this mode, support for
     libsoxr, the SoX Resampler Library, must be selected when
     shairport-sync is compiled.
+    The default setting is "auto", which will choose "soxr" if support for it has been
+    compiled into the build of Shairport Synce and if the CPU is fast enough. Otherwise,
+    "basic" stuffing will be chosen.
+
 		</p></optdesc>
     </option>
 
@@ -569,23 +572,26 @@
     <option>
     <p><opt>output_rate=</opt><arg>frame rate</arg><opt>;</opt></p>
     <optdesc><p>Use this setting to specify the frame rate to output to the ALSA device.
-    Allowable values are 44100 (default), 88200, 176400 and 352800. The device must have
-    the capability to accept the format you specify. There is no particular reason to use
-    anything other than 44100 if it is available.
+    Allowable values are "auto" (default), 44100, 88200, 176400 and 352800. The device must have
+    the capability to accept the rate you specify. There is no particular reason to use
+    anything other than 44100 if it is available, and if "auto" is selected, the lowest
+    of these rates available, starting at 44100, will be selected.
     </p></optdesc>
     </option>
 
     <option>
     <p><opt>output_format=</opt><arg>"format"</arg><opt>;</opt></p>
     <optdesc><p>Use this setting to specify the format that should be used to send data to
-    the ALSA device. Allowable values are "U8", "S8", "S16", "S24", "S24_3LE", "S24_3BE"
+    the ALSA device. Allowable values are "auto" (default), "U8", "S8", "S16", "S24", "S24_3LE", "S24_3BE"
     or "S32". The device must have the capability to accept the format you
     specify.</p><p>"S" means signed; "U" means unsigned; BE means big-endian and LE means
     little-endian. Except where stated (using *LE or *BE), endianness matches that of the
-    processor. The default is "S16".</p><p>If you are using a hardware mixer, the best
-    setting is S16, as audio will pass through Shairport Sync unmodified except for
-    interpolation. If you are using the software mixer, use 32- or 24-bit, if your device
-    is capable of it, to get the lowest possible levels of dither.
+    processor. The default is "S16".</p><p>If you are using a hardware mixer, S16 is fine,
+    as audio will pass through Shairport Sync unmodified except for
+    interpolation, but any of the higher-resolution formats are okay too.
+    If you are using the software mixer, use 32- or 24-bit, if your device
+    is capable of it, in order to get the lowest possible levels of dither.
+    The "auto" setting will cause Shairport Sync to choose the highest resolution available.
     </p></optdesc>
     </option>
 
