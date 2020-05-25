@@ -1655,6 +1655,9 @@ int main(int argc, char **argv) {
 #endif
   debug(1, "Started!");
 
+	// stop a pipe signal from killing the program
+	signal(SIGPIPE, SIG_IGN);
+
   // install a zombie process reaper
   // see: http://www.microhowto.info/howto/reap_zombie_processes_using_a_sigchld_handler.html
   struct sigaction sa;

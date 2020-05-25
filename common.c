@@ -1049,7 +1049,45 @@ uint64_t get_absolute_time_in_ns() {
   return time_now_ns;
 }
 
+ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, uint64_t timeout) {
+	// try to write to this non-blocking file descriptor
+	// wait for up to the timeout for it to be possible to write something.
+	// exit immediately if there is no connection at the other end
+  // timeout is in nanoseconds
+  void *ibuf = (void *)buf;
+  size_t bytes_remaining = count;
+  ssize_t rc = 0;
+  uint64_t end_time = get_absolute_time_in_ns() + timeout;
+  int timed_out = 0;
+  while ((bytes_remaining) && (rc == 0)) {
+  	rc = write(fd, ibuf, bytes_remaining);
+  	if (rc >= 0) {
+  		bytes_remaining = bytes_remaining - rc;
+  		ibuf += rc;
+  		rc = 0; // not an error
+  	} else if (errno == EAGAIN) {
+			// delay for a little while if it couldn't get everything out...
+			uint64_t time_remaining = end_time - get_absolute_time_in_ns();
+			useconds_t t = time_remaining / 1000; // ns to us
+			if (t > 50000)
+				t = 50000; // wait for 50 milliseconds at most
+			if (t != 0) {
+				rc = 0; // not an error
+				usleep(t);
+			}
+		} else {
+			debug(2,"Error %d in non_blocking_write: \"%s\".",errno,strerror(errno));
+		}
+  }
+  if (rc > 0)
+    return count - bytes_remaining; // this is just to mimic a normal write/3.
+  else
+    return rc;
+}
+
+/*
 ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, int timeout) {
+	//
   // timeout is in milliseconds
   void *ibuf = (void *)buf;
   size_t bytes_remaining = count;
@@ -1083,9 +1121,10 @@ ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, i
     return rc;
   //  return write(fd,buf,count);
 }
+*/
 
 ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
-  return non_blocking_write_with_timeout(fd, buf, count, 5000); // default is 5 seconds.
+  return non_blocking_write_with_timeout(fd, buf, count, 500000000); // default is 0.5 seconds.
 }
 
 /* from
@@ -1239,9 +1278,9 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 
   timeoutTime.tv_sec = time_then;
   timeoutTime.tv_nsec = time_then_nsec;
-  int64_t start_time = get_absolute_time_in_ns();
+  uint64_t start_time = get_absolute_time_in_ns();
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
-  int64_t et = get_absolute_time_in_ns() - start_time;
+  uint64_t et = get_absolute_time_in_ns() - start_time;
 
   if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
     char errstr[1000];
