@@ -1058,7 +1058,6 @@ ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, u
   size_t bytes_remaining = count;
   ssize_t rc = 0;
   uint64_t end_time = get_absolute_time_in_ns() + timeout;
-  int timed_out = 0;
   while ((bytes_remaining) && (rc == 0)) {
   	rc = write(fd, ibuf, bytes_remaining);
   	if (rc >= 0) {
@@ -1075,8 +1074,6 @@ ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, u
 				rc = 0; // not an error
 				usleep(t);
 			}
-		} else {
-			debug(2,"Error %d in non_blocking_write: \"%s\".",errno,strerror(errno));
 		}
   }
   if (rc > 0)
@@ -1124,7 +1121,8 @@ ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, i
 */
 
 ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
-  return non_blocking_write_with_timeout(fd, buf, count, 500000000); // default is 0.5 seconds.
+	// if it would block, wait up to 0.5 seconds for it to unblock.
+  return non_blocking_write_with_timeout(fd, buf, count, 500000000);
 }
 
 /* from
