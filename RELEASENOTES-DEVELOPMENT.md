@@ -1,11 +1,13 @@
 Version 3.3.7d6
 ====
 **Bug Fixes and Enhancements**
-* Fix a bug calculating the instantaneous synchronisation error. This could occasionally cause Shairport Sync to lose synchronisation and maybe even to mute for a few seconds before regaining it. It was caused by not doing modulo arithmetic properly, and it's been there for a while.
-* Clean up and improve the code to synchronise the first frame of audio. This should result in more accurate and reliable initial synchrnoisation, certainly to under a millisecond in normal usage. Sync should improve even when the silent lead-in time is as short as 0.3 seconds or when the `audio_backend_latency_offset_in_seconds` is as much as -1.7 seconds.
-* Removed a bug which would affect initial synchronisation if a flush command was received from the player at an inopportune time.
-* Clean up some other uses of modulo arithmetic.
-* Clean up allocation of memory for gathering running statistics -- use the heap instead of the stack.
+* Fixed a bug calculating the instantaneous synchronisation error. This bug could occasionally cause Shairport Sync to lose synchronisation and maybe even to mute for a few seconds before regaining it. It was caused by not doing modulo arithmetic properly, and it's been there for a while.
+* Cleaned up and improve the code to synchronise the first frame of audio. This should result in more accurate and reliable initial synchronisation, usually to under a millisecond, and often to within 20 or 30 microseconds in normal usage. Sync should improve even when the silent lead-in time is as short as 0.3 seconds or when the `audio_backend_latency_offset_in_seconds` is as great as -1.7 seconds.
+* Removed a bug which would affect initial synchronisation if a `FLUSH` command was received from the player at an inopportune time.
+* Cleaned up some confused uses of modulo arithmetic.
+* Cleaned up allocation of memory for gathering running statistics – use the heap instead of the stack.
+* Cleaned up the display of statistics for backends that do not implement active synchronisation, e.g. the `pipe` and `STDOUT` back ends.
+* Added code to flush output to the `pipe` or to `STDOUT` when playing stops.
 
 Version 3.3.7d5
 ====
@@ -76,7 +78,7 @@ resulting in:
 ```
 The MPRIS `trackid` corresponding to this would be `/org/gnome/ShairportSync/FD84B4B40FA33A85`.
 
-Thanks to to Scott Simon (https://github.com/zutroy97) for finding a related bug in the [shairport-sync-metadata-reader](https://github.com/mikebrady/shairport-sync-metadata-reader).
+Thanks to to [Scott Simon](https://github.com/zutroy97) for finding a related bug in the [shairport-sync-metadata-reader](https://github.com/mikebrady/shairport-sync-metadata-reader).
 
 **Other Changes**
 * Include the `-fno-common` flag in the compilation options to detect incorrect definitions of global variables and multiple definitions of `enum` data types.
