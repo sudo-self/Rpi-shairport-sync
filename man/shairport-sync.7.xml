@@ -1086,7 +1086,8 @@
 	  <option>
 		<p><opt>-v | --verbose</opt></p>
 		<optdesc><p>
-		Print debug information. Repeat up to three times to get more detail.
+		Print debug information to the system log, or or to <file>STDERR</file> if the <opt>-u</opt> command line option is also chosen.
+		Repeat up to three times to get more detail.
 		</p></optdesc>
 	  </option>
 
