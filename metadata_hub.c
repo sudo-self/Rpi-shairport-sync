@@ -92,13 +92,6 @@ void add_metadata_watcher(metadata_watcher fn, void *userdata) {
   }
 }
 
-/*
-void metadata_hub_unlock_hub_mutex_cleanup(__attribute__((unused)) void *arg) {
-  // debug(1, "metadata_hub_unlock_hub_mutex_cleanup called.");
-  pthread_rwlock_unlock(&metadata_hub_re_lock);
-}
-*/
-
 void run_metadata_watchers(void) {
   int i;
   for (i = 0; i < number_of_watchers; i++) {
@@ -129,19 +122,24 @@ void run_metadata_watchers(void) {
   metadata_store.songtime_in_milliseconds_changed = 0;
 }
 
-void metadata_hub_modify_prolog(void) {
+void metadata_hub_unlock_hub_mutex_cleanup(__attribute__((unused)) void *arg) {
+  // debug(1, "metadata_hub_unlock_hub_mutex_cleanup called.");
+  pthread_rwlock_unlock(&metadata_hub_re_lock);
+}
+
+void _metadata_hub_modify_prolog(const char *filename, const int linenumber) {
   // always run this before changing an entry or a sequence of entries in the metadata_hub
   // debug(1, "locking metadata hub for writing");
   if (pthread_rwlock_trywrlock(&metadata_hub_re_lock) != 0) {
-    debug(2, "Metadata_hub write lock is already taken -- must wait.");
+    debug(1, "Metadata_hub write lock is already taken -- must wait.");
     pthread_rwlock_wrlock(&metadata_hub_re_lock);
-    debug(2, "Okay -- acquired the metadata_hub write lock.");
+    debug(1, "Okay -- acquired the metadata_hub write lock.");
   } else {
     debug(3, "Metadata_hub write lock acquired.");
   }
 }
 
-void metadata_hub_modify_epilog(int modified) {
+void _metadata_hub_modify_epilog(int modified, const char *filename, const int linenumber) {
   metadata_store.dacp_server_has_been_active =
       metadata_store.dacp_server_active; // set the scanner_has_been_active now.
   if (modified) {
@@ -151,17 +149,17 @@ void metadata_hub_modify_epilog(int modified) {
   debug(3, "Metadata_hub write lock unlocked.");
 }
 
-void metadata_hub_read_prolog(void) {
+void _metadata_hub_read_prolog(const char *filename, const int linenumber) {
   // always run this before reading an entry or a sequence of entries in the metadata_hub
   // debug(1, "locking metadata hub for reading");
   if (pthread_rwlock_tryrdlock(&metadata_hub_re_lock) != 0) {
-    debug(2, "Metadata_hub read lock is already taken -- must wait.");
+    debug(1, "Metadata_hub read lock is already taken -- must wait.");
     pthread_rwlock_rdlock(&metadata_hub_re_lock);
-    debug(2, "Okay -- acquired the metadata_hub read lock.");
+    debug(1, "Okay -- acquired the metadata_hub read lock.");
   }
 }
 
-void metadata_hub_read_epilog(void) {
+void _metadata_hub_read_epilog(const char *filename, const int linenumber) {
   // always run this after reading an entry or a sequence of entries in the metadata_hub
   // debug(1, "unlocking metadata hub for reading");
   pthread_rwlock_unlock(&metadata_hub_re_lock);
@@ -463,10 +461,10 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       break;
     case 'PICT':
       metadata_hub_modify_prolog();
+      pthread_cleanup_push(metadata_hub_unlock_hub_mutex_cleanup, NULL);
       debug(2, "MH Picture received, length %u bytes.", length);
       char uri[2048];
-      if ((length > 16) &&
-          (strcmp(config.cover_art_cache_dir, "") != 0)) { // if it's okay to write the file
+      if ((length > 16) && (strcmp(config.cover_art_cache_dir,"")!=0)) { // if it's okay to write the file
         char *pathname = metadata_write_image_file(data, length);
         snprintf(uri, sizeof(uri), "file://%s", pathname);
         free(pathname);
@@ -479,6 +477,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
         metadata_hub_modify_epilog(1);
       else
         metadata_hub_modify_epilog(0);
+      pthread_cleanup_pop(0); // don't remove the lock -- it'll have been done
       break;
     case 'clip':
       metadata_hub_modify_prolog();
