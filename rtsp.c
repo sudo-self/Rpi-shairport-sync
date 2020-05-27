@@ -213,6 +213,7 @@ int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
       i = 0;
     the_queue->eoq = i;
     the_queue->count++;
+    debug(2,"metadata queue+ %d/%d.", the_queue->count, the_queue->capacity);
     if (the_queue->count == the_queue->capacity)
       debug(1, "pc_queue is full with %d items in it!", the_queue->count);
     rc = pthread_cond_signal(&the_queue->pc_queue_item_added_signal);
@@ -249,6 +250,7 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
       i = 0;
     the_queue->toq = i;
     the_queue->count--;
+    debug(2,"metadata queue- %d/%d.", the_queue->count, the_queue->capacity);
     rc = pthread_cond_signal(&the_queue->pc_queue_item_removed_signal);
     if (rc)
       debug(1, "Error signalling after pc_queue_removed_item");
@@ -286,17 +288,15 @@ void *player_watchdog_thread_code(void *arg) {
       uint64_t last_watchdog_bark_time = conn->watchdog_bark_time;
       debug_mutex_unlock(&conn->watchdog_mutex, 0);
       if (last_watchdog_bark_time != 0) {
-        uint64_t time_since_last_bark =
-            (get_absolute_time_in_ns() - last_watchdog_bark_time) / 1000000000;
+        uint64_t time_since_last_bark = (get_absolute_time_in_ns() - last_watchdog_bark_time) / 1000000000;
         uint64_t ct = config.timeout; // go from int to 64-bit int
 
         if (time_since_last_bark >= ct) {
           conn->watchdog_barks++;
           if (conn->watchdog_barks == 1) {
             // debuglev = 3; // tell us everything.
-            debug(1,
-                  "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
-                  "of the heart\".",
+            debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
+                     "of the heart\".",
                   conn->connection_number);
             conn->stop = 1;
             pthread_cancel(conn->thread);
@@ -573,7 +573,7 @@ int msg_handle_line(rtsp_message **pmsg, char *line) {
   }
 
 fail:
-  debug(3, "msg_handle_line fail");
+  debug(3,"msg_handle_line fail");
   msg_free(pmsg);
   *pmsg = NULL;
   return 0;
@@ -616,8 +616,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       if (errno == EINTR)
         continue;
       if (errno == EAGAIN) {
-        debug(1, "Connection %d: getting Error 11 -- EAGAIN from a blocking read!",
-              conn->connection_number);
+        debug(1, "Connection %d: getting Error 11 -- EAGAIN from a blocking read!", conn->connection_number);
         continue;
       }
       if (errno != ECONNRESET) {
@@ -630,15 +629,15 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       goto shutdown;
     }
 
-    /* // this outputs the message received
-        {
-        void *pt = malloc(nread+1);
-        memset(pt, 0, nread+1);
-        memcpy(pt, buf + inbuf, nread);
-        debug(1, "Incoming string on port: \"%s\"",pt);
-        free(pt);
-        }
-    */
+/* // this outputs the message received
+    {
+    void *pt = malloc(nread+1);
+    memset(pt, 0, nread+1);
+    memcpy(pt, buf + inbuf, nread);
+    debug(1, "Incoming string on port: \"%s\"",pt);
+    free(pt);
+    }
+*/
 
     inbuf += nread;
 
@@ -647,8 +646,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       msg_size = msg_handle_line(the_packet, buf);
 
       if (!(*the_packet)) {
-        debug(1, "Connection %d: rtsp_read_request can't find an RTSP header.",
-              conn->connection_number);
+        debug(1,"Connection %d: rtsp_read_request can't find an RTSP header.", conn->connection_number);
         reply = rtsp_read_request_response_bad_packet;
         goto shutdown;
       }
@@ -855,10 +853,9 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
                     rtsp_message *resp) {
   debug(3, "Connection %d: OPTIONS", conn->connection_number);
   resp->respcode = 200;
-  msg_add_header(resp, "Public",
-                 "ANNOUNCE, SETUP, RECORD, "
-                 "PAUSE, FLUSH, TEARDOWN, "
-                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
+  msg_add_header(resp, "Public", "ANNOUNCE, SETUP, RECORD, "
+                                 "PAUSE, FLUSH, TEARDOWN, "
+                                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
 }
 
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
@@ -999,9 +996,8 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
             msg_add_header(resp, "Session", "1");
 
             resp->respcode = 200; // it all worked out okay
-            debug(1,
-                  "Connection %d: SETUP DACP-ID \"%s\" from %s to %s with UDP ports Control: "
-                  "%d, Timing: %d and Audio: %d.",
+            debug(1, "Connection %d: SETUP DACP-ID \"%s\" from %s to %s with UDP ports Control: "
+                     "%d, Timing: %d and Audio: %d.",
                   conn->connection_number, conn->dacp_id, &conn->client_ip_string,
                   &conn->self_ip_string, conn->local_control_port, conn->local_timing_port,
                   conn->local_audio_port);
@@ -1291,11 +1287,7 @@ void metadata_open(void) {
   char *path = malloc(pl + 1);
   snprintf(path, pl + 1, "%s", config.metadata_pipename);
 
-  fd = open(path, O_WRONLY | O_NONBLOCK);
-  // if (fd < 0)
-  //    debug(1, "Could not open metadata FIFO %s. Will try again later.",
-  //    path);
-
+  fd = try_to_open_pipe_for_writing(path);
   free(path);
 }
 
@@ -1307,8 +1299,8 @@ static void metadata_close(void) {
 }
 
 void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length) {
-  // debug(2, "Process metadata with type %x, code %x and length %u.", type, code, length);
-  int ret;
+  // debug(1, "Process metadata with type %x, code %x and length %u.", type, code, length);
+  int ret = 0;
 
   if (metadata_sock >= 0 && length < config.metadata_sockmsglength - 8) {
     char *ptr = metadata_sockmsg;
@@ -1366,6 +1358,7 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
   }
 
   // readers may go away and come back
+
   if (fd < 0)
     metadata_open();
   if (fd < 0)
@@ -1373,14 +1366,16 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
   char thestring[1024];
   snprintf(thestring, 1024, "<item><type>%x</type><code>%x</code><length>%u</length>", type, code,
            length);
-  ret = non_blocking_write(fd, thestring, strlen(thestring));
+  // ret = non_blocking_write(fd, thestring, strlen(thestring));
+  ret = write(fd, thestring, strlen(thestring));
   if (ret < 0) {
     // debug(1,"metadata_process error %d exit 1",ret);
     return;
   }
   if ((data != NULL) && (length > 0)) {
     snprintf(thestring, 1024, "\n<data encoding=\"base64\">\n");
-    ret = non_blocking_write(fd, thestring, strlen(thestring));
+    // ret = non_blocking_write(fd, thestring, strlen(thestring));
+    ret = write(fd, thestring, strlen(thestring));
     if (ret < 0) {
       // debug(1,"metadata_process error %d exit 2",ret);
       return;
@@ -1403,7 +1398,8 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
         debug(1, "Error encoding base64 data.");
       // debug(1,"Remaining count: %d ret: %d, outbuf_size:
       // %d.",remaining_count,ret,outbuf_size);
-      ret = non_blocking_write(fd, outbuf, outbuf_size);
+      //ret = non_blocking_write(fd, outbuf, outbuf_size);
+      ret = write(fd, outbuf, outbuf_size);
       if (ret < 0) {
         // debug(1,"metadata_process error %d exit 3",ret);
         return;
@@ -1412,14 +1408,16 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
       remaining_count -= towrite_count;
     }
     snprintf(thestring, 1024, "</data>");
-    ret = non_blocking_write(fd, thestring, strlen(thestring));
+    // ret = non_blocking_write(fd, thestring, strlen(thestring));
+    ret = write(fd, thestring, strlen(thestring));
     if (ret < 0) {
       // debug(1,"metadata_process error %d exit 4",ret);
       return;
     }
   }
   snprintf(thestring, 1024, "</item>\n");
-  ret = non_blocking_write(fd, thestring, strlen(thestring));
+  //ret = non_blocking_write(fd, thestring, strlen(thestring));
+  ret = write(fd, thestring, strlen(thestring));
   if (ret < 0) {
     // debug(1,"metadata_process error %d exit 5",ret);
     return;
@@ -1451,6 +1449,7 @@ void *metadata_thread_function(__attribute__((unused)) void *ignore) {
   pthread_cleanup_push(metadata_thread_cleanup_function, NULL);
   while (1) {
     pc_queue_get_item(&metadata_queue, &pack);
+    // debug(1,"pc_queue get item.");
     pthread_cleanup_push(metadata_pack_cleanup_function, (void *)&pack);
     if (config.metadata_enabled) {
       metadata_process(pack.type, pack.code, pack.data, pack.length);
@@ -1596,7 +1595,7 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
   char *ct = msg_get_header(req, "Content-Type");
 
   if (ct) {
-    // debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
+// debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
 
 #ifdef CONFIG_METADATA
     // It seems that the rtptime of the message is used as a kind of an ID that
@@ -1894,7 +1893,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 
       unsigned int i = 0;
       unsigned int max_param = sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]);
-      char *found;
+      char* found;
       while ((found = strsep(&pfmtp, " \t")) != NULL && i < max_param) {
         conn->stream.fmtp[i++] = atoi(found);
       }
@@ -2341,7 +2340,6 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   pthread_condattr_init(&attr);
   pthread_condattr_setclock(&attr, CLOCK_MONOTONIC); // can't do this in OS X, and don't need it.
   rc = pthread_cond_init(&conn->flowcontrol, &attr);
-  pthread_condattr_destroy(&attr);
 #endif
 #ifdef COMPILE_FOR_OSX
   rc = pthread_cond_init(&conn->flowcontrol, NULL);
@@ -2376,9 +2374,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (strcmp(req->method, "OPTIONS") !=
           0) // the options message is very common, so don't log it until level 3
         debug_level = 2;
-      debug(debug_level,
-            "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
-            req->method),
+      debug(debug_level, "Connection %d: Received an RTSP Packet of type \"%s\":",
+            conn->connection_number, req->method),
           debug_print_msg_headers(debug_level, req);
 
       apple_challenge(conn->fd, req, resp);
@@ -2427,9 +2424,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
-          debug(1,
-                "Connection %d: Unable to write an RTSP message response. Terminating the "
-                "connection.",
+          debug(1, "Connection %d: Unable to write an RTSP message response. Terminating the "
+                   "connection.",
                 conn->connection_number);
           struct linger so_linger;
           so_linger.l_onoff = 1; // "true"
@@ -2482,11 +2478,10 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         if (reply == -1) {
           char errorstring[1024];
           strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-          debug(1, "rtsp_read_request_response_bad_packet write response error %d: \"%s\".", errno,
-                (char *)errorstring);
+          debug(1, "rtsp_read_request_response_bad_packet write response error %d: \"%s\".", errno, (char *)errorstring);
         } else if (reply != (ssize_t)strlen(response_text)) {
-          debug(1, "rtsp_read_request_response_bad_packet write %d bytes requested but %d written.",
-                strlen(response_text), reply);
+          debug(1, "rtsp_read_request_response_bad_packet write %d bytes requested but %d written.", strlen(response_text),
+                reply);
         }
       } else {
         debug(1, "Connection %d: rtsp_read_request error %d, packet ignored.",
@@ -2699,7 +2694,7 @@ void rtsp_listen_loop(void) {
             debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
                   conn->connection_number, remote_ip4, rport, ip4, tport);
           }
-#ifdef AF_INET6
+  #ifdef AF_INET6
           if (local_info->SAFAMILY == AF_INET6) {
             // IPv6:
 
@@ -2716,7 +2711,7 @@ void rtsp_listen_loop(void) {
             debug(2, "Connection %d: new connection from [%s]:%u to self at [%s]:%u.",
                   conn->connection_number, remote_ip6, rport, ip6, tport);
           }
-#endif
+  #endif
 
         } else {
           debug(1, "Error figuring out Shairport Sync's own IP number.");
@@ -2744,8 +2739,8 @@ void rtsp_listen_loop(void) {
     pthread_cleanup_pop(1); // should never happen
   } else {
     warn("could not establish a service on port %d -- program terminating. Is another instance of "
-         "Shairport Sync running on this device?",
-         config.port);
+        "Shairport Sync running on this device?",
+        config.port);
   }
   // debug(1, "Oops -- fell out of the RTSP select loop");
 }

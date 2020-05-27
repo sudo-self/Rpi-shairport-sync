@@ -40,6 +40,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #ifdef COMPILE_FOR_OSX
 #include <CoreServices/CoreServices.h>
@@ -1049,80 +1050,39 @@ uint64_t get_absolute_time_in_ns() {
   return time_now_ns;
 }
 
-ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, uint64_t timeout) {
-	// try to write to this non-blocking file descriptor
-	// wait for up to the timeout for it to be possible to write something.
-	// exit immediately if there is no connection at the other end
-  // timeout is in nanoseconds
-  void *ibuf = (void *)buf;
-  size_t bytes_remaining = count;
-  ssize_t rc = 0;
-  uint64_t end_time = get_absolute_time_in_ns() + timeout;
-  while ((bytes_remaining) && (rc == 0)) {
-  	rc = write(fd, ibuf, bytes_remaining);
-  	if (rc >= 0) {
-  		bytes_remaining = bytes_remaining - rc;
-  		ibuf += rc;
-  		rc = 0; // not an error
-  	} else if (errno == EAGAIN) {
-			// delay for a little while if it couldn't get everything out...
-			uint64_t time_remaining = end_time - get_absolute_time_in_ns();
-			useconds_t t = time_remaining / 1000; // ns to us
-			if (t > 50000)
-				t = 50000; // wait for 50 milliseconds at most
-			if (t != 0) {
-				rc = 0; // not an error
-				usleep(t);
-			}
-		}
-  }
-  if (rc > 0)
-    return count - bytes_remaining; // this is just to mimic a normal write/3.
-  else
-    return rc;
-}
+int try_to_open_pipe_for_writing(const char* pathname) {
+	// tries to open the pipe in non-blocking mode first.
+	// if it succeeds, it sets it to blocking.
+	// if not, it returns -1.
 
-/*
-ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, int timeout) {
-	//
-  // timeout is in milliseconds
-  void *ibuf = (void *)buf;
-  size_t bytes_remaining = count;
-  int rc = 1;
-  struct pollfd ufds[1];
-  while ((bytes_remaining > 0) && (rc > 0)) {
-    // check that we can do some writing
-    ufds[0].fd = fd;
-    ufds[0].events = POLLOUT;
-    rc = poll(ufds, 1, timeout);
-    if (rc < 0) {
-      // debug(1, "non-blocking write error waiting for pipe to become ready for writing...");
-    } else if (rc == 0) {
-      // warn("non-blocking write timeout waiting for pipe to become ready for writing");
-      rc = -1;
-      errno = -ETIMEDOUT;
-    } else { // rc > 0, implying it might be ready
-      ssize_t bytes_written = write(fd, ibuf, bytes_remaining);
-      if (bytes_written == -1) {
-        // debug(1,"Error %d in non_blocking_write: \"%s\".",errno,strerror(errno));
-        rc = bytes_written; // to imitate the return from write()
-      } else {
-        ibuf += bytes_written;
-        bytes_remaining -= bytes_written;
-      }
-    }
-  }
-  if (rc > 0)
-    return count - bytes_remaining; // this is just to mimic a normal write/3.
-  else
-    return rc;
-  //  return write(fd,buf,count);
-}
-*/
+  char errorstring[1024];
+	int fdis = open(pathname, O_WRONLY | O_NONBLOCK); // open it in non blocking mode first
+  // we check that it's not a "real" error. From the "man 2 open" page:
+  // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
+  // open for reading." Which is okay.
 
-ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
-	// if it would block, wait up to 0.5 seconds for it to unblock.
-  return non_blocking_write_with_timeout(fd, buf, count, 500000000);
+  if ((fdis == -1) && (errno != ENXIO)) {
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    debug(1, "try_to_open_pipe -- error %d (\"%s\") opening pipe: \"%s\".", errno,
+          (char *)errorstring, pathname);
+  } else
+  if (fdis >= 0) {
+  	// now we switch to blocking mode
+  	int flags = fcntl(fdis, F_GETFL);
+  	if ((flags == -1)) {
+			strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+			debug(1, "try_to_open_pipe -- error %d (\"%s\") getting flags of pipe: \"%s\".", errno,
+						(char *)errorstring, pathname);
+  	} else {
+  		flags = fcntl(fdis, F_SETFL,flags & ~O_NONBLOCK);
+  		if (flags == -1) {
+				strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+				debug(1, "try_to_open_pipe -- error %d (\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno,
+							(char *)errorstring, pathname);
+  		}
+  	}
+  }
+	return fdis;
 }
 
 /* from

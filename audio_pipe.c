@@ -42,7 +42,6 @@
 static int fd = -1;
 
 char *pipename = NULL;
-int warned = 0;
 
 static void start(__attribute__((unused)) int sample_rate,
                   __attribute__((unused)) int sample_format) {
@@ -51,37 +50,26 @@ static void start(__attribute__((unused)) int sample_rate,
   // we check that it's not a "real" error though. From the "man 2 open" page:
   // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
   // open for reading."
-  fd = open(pipename, O_WRONLY | O_NONBLOCK);
-  if ((fd == -1) && (errno != ENXIO) && (warned == 0)) {
-    char errorstring[1024];
-    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-    debug(1, "pipe: start -- error %d (\"%s\") opening the pipe named \"%s\".", errno,
-          (char *)errorstring, pipename);
-    warn("Error %d opening the pipe named \"%s\".", errno, pipename);
-    warned = 1;
-  }
-}
+
+ fd = try_to_open_pipe_for_writing(pipename);
+ }
 
 static int play(void *buf, int samples) {
   // if the file is not open, try to open it.
   char errorstring[1024];
   if (fd == -1) {
-    fd = open(pipename, O_WRONLY | O_NONBLOCK);
+  	fd = try_to_open_pipe_for_writing(pipename);
   }
   // if it's got a reader, write to it.
   if (fd > 0) {
-    int rc = non_blocking_write(fd, buf, samples * 4);
-    if ((rc < 0) && (warned == 0)) {
+    //int rc = non_blocking_write(fd, buf, samples * 4);
+    int rc = write(fd, buf, samples * 4);
+    if ((rc < 0) && (errno != EPIPE)) {
       strerror_r(errno, (char *)errorstring, 1024);
-      warn("Error %d writing to the pipe named \"%s\": \"%s\".", errno, pipename, errorstring);
-      warned = 1;
+      debug(1, "audio_pip play: error %d writing to the pipe named \"%s\": \"%s\".", errno, pipename, errorstring);
     }
-  } else if ((fd == -1) && (errno != ENXIO) && (warned == 0)) {
-    strerror_r(errno, (char *)errorstring, 1024);
-    warn("Error %d opening the pipe named \"%s\": \"%s\".", errno, pipename, errorstring);
-    warned = 1;
   }
-  return warned;
+  return 0;
 }
 
 static void stop(void) {
@@ -89,7 +77,7 @@ static void stop(void) {
 }
 
 static int init(int argc, char **argv) {
-  debug(1, "pipe init");
+  //  debug(1, "pipe init");
   //  const char *str;
   //  int value;
   //  double dvalue;
