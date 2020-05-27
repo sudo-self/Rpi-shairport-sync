@@ -295,7 +295,10 @@ uint16_t nctohs(const uint8_t *p); // read 2 characters from *p and do ntohs on 
 
 void memory_barrier();
 
-void log_to_stderr(); // call this to director logging to stderr;
+void log_to_stderr(); // call this to direct logging to stderr;
+void log_to_stdout(); // call this to direct logging to stdout;
+void log_to_syslog(); // call this to direct logging to the system log;
+
 
 // true if Shairport Sync is supposed to be sending output to the output device, false otherwise
 

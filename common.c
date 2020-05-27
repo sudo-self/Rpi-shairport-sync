@@ -121,7 +121,7 @@ static void (*sps_log)(int prio, const char *t, ...) = daemon_log;
 static void (*sps_log)(int prio, const char *t, ...) = syslog;
 #endif
 
-void do_sps_log(__attribute__((unused)) int prio, const char *t, ...) {
+void do_sps_log_to_stderr(__attribute__((unused)) int prio, const char *t, ...) {
   char s[1024];
   va_list args;
   va_start(args, t);
@@ -130,7 +130,24 @@ void do_sps_log(__attribute__((unused)) int prio, const char *t, ...) {
   fprintf(stderr, "%s\n", s);
 }
 
-void log_to_stderr() { sps_log = do_sps_log; }
+void do_sps_log_to_stdout(__attribute__((unused)) int prio, const char *t, ...) {
+  char s[1024];
+  va_list args;
+  va_start(args, t);
+  vsnprintf(s, sizeof(s), t, args);
+  va_end(args);
+  fprintf(stdout, "%s\n", s);
+}
+
+void log_to_stderr() { sps_log = do_sps_log_to_stderr; }
+void log_to_stdout() { sps_log = do_sps_log_to_stdout; }
+void log_to_syslog() {
+#ifdef CONFIG_LIBDAEMON
+	sps_log = daemon_log;
+#else
+	sps_log = syslog;
+#endif
+}
 
 shairport_cfg config;
 

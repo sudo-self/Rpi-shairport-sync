@@ -662,6 +662,19 @@ int parse_options(int argc, char **argv) {
               dvalue);
       }
 
+      /* Get the diagnostics output default. */
+      if (config_lookup_string(config.cfg, "diagnostics.log_output_to", &str)) {
+        if (strcasecmp(str, "syslog") == 0)
+          log_to_syslog();
+        else if (strcasecmp(str, "stdout") == 0) {
+          log_to_stdout();
+        } else if (strcasecmp(str, "stderr") == 0) {
+          log_to_stderr();
+        } else {
+        	log_to_syslog();
+          die("Invalid diagnostics log_output_to setting \"%s\". It should be \"syslog\", \"STDERR\" or \"STDOUT\". It is set to syslog.");
+        }
+      }
       /* Get the ignore_volume_control setting. */
       if (config_lookup_string(config.cfg, "general.ignore_volume_control", &str)) {
         if (strcasecmp(str, "no") == 0)
