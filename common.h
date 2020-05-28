@@ -182,6 +182,8 @@ typedef struct {
   char *pidfile;
 #endif
 
+	int	log_fd; // file descriptor of the file or pipe to log stuff to.
+	char *log_file_path; // path to file or pipe to log to, if any
   int logOutputLevel;              // log output level
   int debugger_show_elapsed_time;  // in the debug message, display the time since startup
   int debugger_show_relative_time; // in the debug message, display the time since the last one
@@ -298,6 +300,8 @@ void memory_barrier();
 void log_to_stderr(); // call this to direct logging to stderr;
 void log_to_stdout(); // call this to direct logging to stdout;
 void log_to_syslog(); // call this to direct logging to the system log;
+void log_to_file(); // call this to direct logging to a file or (pre-existing) pipe;
+
 
 
 // true if Shairport Sync is supposed to be sending output to the output device, false otherwise

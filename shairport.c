@@ -671,8 +671,9 @@ int parse_options(int argc, char **argv) {
         } else if (strcasecmp(str, "stderr") == 0) {
           log_to_stderr();
         } else {
-        	log_to_syslog();
-          die("Invalid diagnostics log_output_to setting \"%s\". It should be \"syslog\", \"STDERR\" or \"STDOUT\". It is set to syslog.");
+        	config.log_file_path = (char *)str;
+        	config.log_fd = -1;
+        	log_to_file();
         }
       }
       /* Get the ignore_volume_control setting. */
@@ -1423,6 +1424,7 @@ int main(int argc, char **argv) {
 #ifdef CONFIG_LIBDAEMON
   pid = getpid();
 #endif
+	config.log_fd = -1;
   conns = NULL; // no connections active
   memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
   memset(&config, 0, sizeof(config)); // also clears all strings, BTW

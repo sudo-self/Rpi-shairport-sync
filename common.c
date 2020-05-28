@@ -41,6 +41,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <libgen.h>
 
 #ifdef COMPILE_FOR_OSX
 #include <CoreServices/CoreServices.h>
@@ -139,8 +140,70 @@ void do_sps_log_to_stdout(__attribute__((unused)) int prio, const char *t, ...) 
   fprintf(stdout, "%s\n", s);
 }
 
+int create_log_file(const char* path) {
+	int fd = -1;
+	if (path != NULL) {
+		char *dirc = strdup(path);
+		if (dirc) {
+			char *dname = dirname(dirc);
+			// create the directory, if necessary
+			int result = 0;
+			if (dname) {
+				char *pdir = realpath(dname, NULL); // will return a NULL if the directory doesn't exist
+				if (pdir == NULL) {
+					mode_t oldumask = umask(000);
+					result = mkpath(dname, 0777);
+					umask(oldumask);
+				} else {
+					free(pdir);
+				}
+				if ((result == 0) || (result == -EEXIST)) {
+					// now open the file
+					fd = open(path, O_WRONLY | O_NONBLOCK | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+					if ((fd == -1) && (errno == EEXIST))
+						fd = open(path, O_WRONLY | O_APPEND | O_NONBLOCK);
+
+					if (fd >= 0) {
+						// now we switch to blocking mode
+						int flags = fcntl(fd, F_GETFL);
+						if ((flags == -1)) {
+//							strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+//							debug(1, "create_log_file -- error %d (\"%s\") getting flags of pipe: \"%s\".", errno,
+//										(char *)errorstring, pathname);
+						} else {
+							flags = fcntl(fd, F_SETFL,flags & ~O_NONBLOCK);
+//							if (flags == -1) {
+//								strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+//								debug(1, "create_log_file -- error %d (\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno,
+//											(char *)errorstring, pathname);
+						}
+					}
+				}
+			}
+			free(dirc);
+		}
+	}
+	return fd;
+}
+
+void do_sps_log_to_fd(__attribute__((unused)) int prio, const char *t, ...) {
+		char s[1024];
+		va_list args;
+		va_start(args, t);
+		vsnprintf(s, sizeof(s), t, args);
+		va_end(args);
+		if (config.log_fd == -1)
+			config.log_fd = create_log_file(config.log_file_path);
+	if (config.log_fd >= 0) {
+		dprintf(config.log_fd, "%s\n", s);
+  } else if (errno != ENXIO) { // maybe there is a pipe there but not hooked up
+  	fprintf(stderr, "%s\n", s);
+  }
+}
+
 void log_to_stderr() { sps_log = do_sps_log_to_stderr; }
 void log_to_stdout() { sps_log = do_sps_log_to_stdout; }
+void log_to_file() { sps_log = do_sps_log_to_fd; }
 void log_to_syslog() {
 #ifdef CONFIG_LIBDAEMON
 	sps_log = daemon_log;
