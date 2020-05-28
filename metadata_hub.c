@@ -135,7 +135,7 @@ void _metadata_hub_modify_prolog(const char *filename, const int linenumber) {
   // debug(1, "locking metadata hub for writing");
   if (pthread_rwlock_trywrlock(&metadata_hub_re_lock) != 0) {
     if (last_metadata_hub_modify_prolog_file)
-    	debug(1, "Metadata_hub write lock is already taken at \"%s:%d\" -- must wait.", last_metadata_hub_modify_prolog_file, last_metadata_hub_modify_prolog_line);
+    	debug(1, "Metadata_hub write lock at \"%s:%d\" is already taken at \"%s:%d\" -- must wait.", filename, linenumber, last_metadata_hub_modify_prolog_file, last_metadata_hub_modify_prolog_line);
     else
     	debug(1, "Metadata_hub write lock is already taken by unknown -- must wait.");
     pthread_rwlock_wrlock(&metadata_hub_re_lock);
