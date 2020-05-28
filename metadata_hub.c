@@ -127,26 +127,14 @@ void metadata_hub_unlock_hub_mutex_cleanup(__attribute__((unused)) void *arg) {
   pthread_rwlock_unlock(&metadata_hub_re_lock);
 }
 
-
-char *last_metadata_hub_modify_prolog_file = NULL;
-int last_metadata_hub_modify_prolog_line;
-
 void _metadata_hub_modify_prolog(const char *filename, const int linenumber) {
   // always run this before changing an entry or a sequence of entries in the metadata_hub
   // debug(1, "locking metadata hub for writing");
   if (pthread_rwlock_trywrlock(&metadata_hub_re_lock) != 0) {
-    if (last_metadata_hub_modify_prolog_file)
-    	debug(1, "Metadata_hub write lock is already taken at \"%s:%d\" -- must wait.", last_metadata_hub_modify_prolog_file, last_metadata_hub_modify_prolog_line);
-    else
-    	debug(1, "Metadata_hub write lock is already taken by unknown -- must wait.");
+    debug(1, "Metadata_hub write lock is already taken -- must wait.");
     pthread_rwlock_wrlock(&metadata_hub_re_lock);
     debug(1, "Okay -- acquired the metadata_hub write lock.");
   } else {
-  	if (last_metadata_hub_modify_prolog_file) {
-  		free(last_metadata_hub_modify_prolog_file);
-  	}
-  	last_metadata_hub_modify_prolog_file = strdup(filename);
-  	last_metadata_hub_modify_prolog_line = linenumber;
     debug(3, "Metadata_hub write lock acquired.");
   }
 }
@@ -157,9 +145,6 @@ void _metadata_hub_modify_epilog(int modified, const char *filename, const int l
   if (modified) {
     run_metadata_watchers();
   }
-	if (last_metadata_hub_modify_prolog_file) {
-		free(last_metadata_hub_modify_prolog_file);
-	}
   pthread_rwlock_unlock(&metadata_hub_re_lock);
   debug(3, "Metadata_hub write lock unlocked.");
 }
