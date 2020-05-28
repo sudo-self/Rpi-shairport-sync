@@ -24,10 +24,10 @@ void _cb_log(__attribute__((unused)) struct mosquitto *mosq, __attribute__((unus
              int level, const char *str) {
   switch (level) {
   case MOSQ_LOG_DEBUG:
-    debug(1, str);
+    debug(3, str);
     break;
   case MOSQ_LOG_INFO:
-    debug(2, str);
+    debug(3, str);
     break;
   case MOSQ_LOG_NOTICE:
     debug(3, str);

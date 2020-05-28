@@ -636,7 +636,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
           if (((check_buf->ready) || (x == conn->ab_write)) && (missing_frame_run_count > 0)) {
             // send a resend request
             if (missing_frame_run_count > 1)
-              debug(2, "request resend of %d packets starting at seqno %u.",
+              debug(3, "request resend of %d packets starting at seqno %u.",
                     missing_frame_run_count, start_of_missing_frame_run);
             if (config.disable_resend_requests == 0) {
               debug_mutex_unlock(&conn->ab_mutex, 3);

@@ -301,6 +301,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
 
   // all the following items of metadata are contained in one metadata packet
   // they are preceded by an 'ssnc' 'mdst' item and followed by an 'ssnc 'mden' item.
+  debug(1, "metadata_hub_process_metadata type %x, code %x and length %u.", type, code, length);
 
   char *cs;
   int changed = 0;
