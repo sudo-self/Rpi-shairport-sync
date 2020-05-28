@@ -1452,16 +1452,20 @@ void *metadata_thread_function(__attribute__((unused)) void *ignore) {
     // debug(1,"pc_queue get item.");
     pthread_cleanup_push(metadata_pack_cleanup_function, (void *)&pack);
     if (config.metadata_enabled) {
+    	debug(1, "metadata_process type %x, code %x and length %u.", pack.type, pack.code, pack.length);
       metadata_process(pack.type, pack.code, pack.data, pack.length);
 #ifdef CONFIG_METADATA_HUB
+    	debug(1, "metadata_hub_process.");
       metadata_hub_process_metadata(pack.type, pack.code, pack.data, pack.length);
 #endif
 
 #ifdef CONFIG_MQTT
       if (config.mqtt_enabled) {
+    		debug(1, "mqtt_process_metadata.");
         mqtt_process_metadata(pack.type, pack.code, pack.data, pack.length);
       }
 #endif
+    		debug(1, "done.");
     }
     pthread_cleanup_pop(1);
   }
