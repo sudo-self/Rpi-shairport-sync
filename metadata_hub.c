@@ -123,12 +123,13 @@ void run_metadata_watchers(void) {
 }
 
 void metadata_hub_unlock_hub_mutex_cleanup(__attribute__((unused)) void *arg) {
-  // debug(1, "metadata_hub_unlock_hub_mutex_cleanup called.");
-  pthread_rwlock_unlock(&metadata_hub_re_lock);
+  debug(1, "metadata_hub_unlock_hub_mutex_cleanup called.");
+  metadata_hub_modify_epilog(0);
 }
 
 char *last_metadata_hub_modify_prolog_file = NULL;
 int last_metadata_hub_modify_prolog_line;
+int metadata_hub_re_lock_access_is_delayed;
 
 void _metadata_hub_modify_prolog(const char *filename, const int linenumber) {
   // always run this before changing an entry or a sequence of entries in the metadata_hub
@@ -138,8 +139,9 @@ void _metadata_hub_modify_prolog(const char *filename, const int linenumber) {
     	debug(1, "Metadata_hub write lock at \"%s:%d\" is already taken at \"%s:%d\" -- must wait.", filename, linenumber, last_metadata_hub_modify_prolog_file, last_metadata_hub_modify_prolog_line);
     else
     	debug(1, "Metadata_hub write lock is already taken by unknown -- must wait.");
+    metadata_hub_re_lock_access_is_delayed = 0;
     pthread_rwlock_wrlock(&metadata_hub_re_lock);
-    debug(1, "Okay -- acquired the metadata_hub write lock.");
+    debug(1, "Okay -- acquired the metadata_hub write lock at \"%s:%d\".", filename, linenumber);
   } else {
   	if (last_metadata_hub_modify_prolog_file) {
   		free(last_metadata_hub_modify_prolog_file);
@@ -148,6 +150,7 @@ void _metadata_hub_modify_prolog(const char *filename, const int linenumber) {
   	last_metadata_hub_modify_prolog_line = linenumber;
     debug(3, "Metadata_hub write lock acquired.");
   }
+  metadata_hub_re_lock_access_is_delayed = 0;
 }
 
 void _metadata_hub_modify_epilog(int modified, const char *filename, const int linenumber) {
@@ -156,9 +159,14 @@ void _metadata_hub_modify_epilog(int modified, const char *filename, const int l
   if (modified) {
     run_metadata_watchers();
   }
-  if (last_metadata_hub_modify_prolog_file) {
-  		free(last_metadata_hub_modify_prolog_file);
-  		last_metadata_hub_modify_prolog_file = NULL;
+  if (metadata_hub_re_lock_access_is_delayed) {
+		if (last_metadata_hub_modify_prolog_file) {
+				debug(1, "Metadata_hub write lock taken at \"%s:%d\" is freed at \"%s:%d\".", last_metadata_hub_modify_prolog_file, last_metadata_hub_modify_prolog_line, filename, linenumber);
+				free(last_metadata_hub_modify_prolog_file);
+				last_metadata_hub_modify_prolog_file = NULL;
+		} else {
+				debug(1, "Metadata_hub write lock taken at an unknown place is freed at \"%s:%d\".", filename, linenumber);
+		}
   }
   pthread_rwlock_unlock(&metadata_hub_re_lock);
   debug(3, "Metadata_hub write lock unlocked.");
@@ -316,10 +324,15 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
 
   // all the following items of metadata are contained in one metadata packet
   // they are preceded by an 'ssnc' 'mdst' item and followed by an 'ssnc 'mden' item.
-  debug(1, "metadata_hub_process_metadata type %x, code %x and length %u.", type, code, length);
+  // we don't set "changed" for them individually; instead we set it when the  'mden' token
+  // comes in if the metadata_packet_item_changed is set.
+
+  int changed = 0;
+  int metadata_packet_item_changed;
+  metadata_hub_modify_prolog();
+  pthread_cleanup_push(metadata_hub_unlock_hub_mutex_cleanup, NULL);
 
   char *cs;
-  int changed = 0;
   if (type == 'core') {
     switch (code) {
     case 'mper': {
@@ -334,6 +347,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
         metadata_store.item_id_changed = 1;
         metadata_store.item_id_received = 1;
         debug(2, "MH Item ID set to: \"%" PRIx64 "\"", metadata_store.item_id);
+        metadata_packet_item_changed = 1;
       }
     } break;
     case 'astm': {
@@ -343,12 +357,14 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
         metadata_store.songtime_in_milliseconds = ui;
         metadata_store.songtime_in_milliseconds_changed = 1;
         debug(2, "MH Song Time set to: \"%u\"", metadata_store.songtime_in_milliseconds);
+        metadata_packet_item_changed = 1;
       }
     } break;
     case 'asal':
       cs = strndup(data, length);
       if (string_update(&metadata_store.album_name, &metadata_store.album_name_changed, cs)) {
         debug(2, "MH Album name set to: \"%s\"", metadata_store.album_name);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
       break;
@@ -356,6 +372,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       cs = strndup(data, length);
       if (string_update(&metadata_store.artist_name, &metadata_store.artist_name_changed, cs)) {
         debug(2, "MH Artist name set to: \"%s\"", metadata_store.artist_name);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
       break;
@@ -364,6 +381,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       if (string_update(&metadata_store.album_artist_name,
                         &metadata_store.album_artist_name_changed, cs)) {
         debug(2, "MH Album Artist name set to: \"%s\"", metadata_store.album_artist_name);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
       break;
@@ -371,6 +389,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       cs = strndup(data, length);
       if (string_update(&metadata_store.comment, &metadata_store.comment_changed, cs)) {
         debug(2, "MH Comment set to: \"%s\"", metadata_store.comment);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
       break;
@@ -378,6 +397,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       cs = strndup(data, length);
       if (string_update(&metadata_store.genre, &metadata_store.genre_changed, cs)) {
         debug(2, "MH Genre set to: \"%s\"", metadata_store.genre);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
       break;
@@ -385,6 +405,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       cs = strndup(data, length);
       if (string_update(&metadata_store.track_name, &metadata_store.track_name_changed, cs)) {
         debug(2, "MH Track Name set to: \"%s\"", metadata_store.track_name);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
       break;
@@ -392,6 +413,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       cs = strndup(data, length);
       if (string_update(&metadata_store.composer, &metadata_store.composer_changed, cs)) {
         debug(2, "MH Composer set to: \"%s\"", metadata_store.composer);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
       break;
@@ -408,6 +430,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       if (string_update(&metadata_store.song_album_artist,
                         &metadata_store.song_album_artist_changed, cs)) {
         debug(2, "MH Song Album Artist set to: \"%s\"", metadata_store.song_album_artist);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
       break;
@@ -415,6 +438,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       cs = strndup(data, length);
       if (string_update(&metadata_store.sort_name, &metadata_store.sort_name_changed, cs)) {
         debug(2, "MH Sort Name set to: \"%s\"", metadata_store.sort_name);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
       break;
@@ -422,6 +446,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       cs = strndup(data, length);
       if (string_update(&metadata_store.sort_artist, &metadata_store.sort_artist_changed, cs)) {
         debug(2, "MH Sort Artist set to: \"%s\"", metadata_store.sort_artist);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
       break;
@@ -429,6 +454,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       cs = strndup(data, length);
       if (string_update(&metadata_store.sort_album, &metadata_store.sort_album_changed, cs)) {
         debug(2, "MH Sort Album set to: \"%s\"", metadata_store.sort_album);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
       break;
@@ -436,6 +462,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       cs = strndup(data, length);
       if (string_update(&metadata_store.sort_composer, &metadata_store.sort_composer_changed, cs)) {
         debug(2, "MH Sort Composer set to: \"%s\"", metadata_store.sort_composer);
+        metadata_packet_item_changed = 1;
       }
       free(cs);
     default:
@@ -468,45 +495,45 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       break;
     case 'mdst':
       debug(2, "MH Metadata stream processing start.");
-      metadata_hub_modify_prolog();
+      metadata_packet_item_changed = 0;
       break;
     case 'mden':
       debug(2, "MH Metadata stream processing end.");
-      metadata_hub_modify_epilog(1);
-      debug(2, "MH Metadata stream processing epilog complete.");
+      changed = metadata_packet_item_changed;
       break;
     case 'PICT':
-      metadata_hub_modify_prolog();
-      pthread_cleanup_push(metadata_hub_unlock_hub_mutex_cleanup, NULL);
       debug(2, "MH Picture received, length %u bytes.", length);
+
       char uri[2048];
       if ((length > 16) && (strcmp(config.cover_art_cache_dir,"")!=0)) { // if it's okay to write the file
+      	// make this uncancellable
+				int oldState;
+				pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
         char *pathname = metadata_write_image_file(data, length);
         snprintf(uri, sizeof(uri), "file://%s", pathname);
         free(pathname);
+        pthread_setcancelstate(oldState, NULL);
+
       } else {
         uri[0] = '\0';
       }
       if (string_update(&metadata_store.cover_art_pathname,
                         &metadata_store.cover_art_pathname_changed,
                         uri)) // if the picture's file path is different from the stored one...
-        metadata_hub_modify_epilog(1);
+        changed = 1;
       else
-        metadata_hub_modify_epilog(0);
-      pthread_cleanup_pop(0); // don't remove the lock -- it'll have been done
+        changed = 0;
+//      pthread_cleanup_pop(0); // don't remove the lock -- it'll have been done
       break;
     case 'clip':
-      metadata_hub_modify_prolog();
       cs = strndup(data, length);
       if (string_update(&metadata_store.client_ip, &metadata_store.client_ip_changed, cs)) {
         changed = 1;
         debug(2, "MH Client IP set to: \"%s\"", metadata_store.client_ip);
       }
       free(cs);
-      metadata_hub_modify_epilog(changed);
       break;
     case 'prgr':
-      metadata_hub_modify_prolog();
       cs = strndup(data, length);
       if (string_update(&metadata_store.progress_string, &metadata_store.progress_string_changed,
                         cs)) {
@@ -514,61 +541,45 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
         debug(2, "MH Progress String set to: \"%s\"", metadata_store.progress_string);
       }
       free(cs);
-      metadata_hub_modify_epilog(changed);
       break;
     case 'svip':
-      metadata_hub_modify_prolog();
       cs = strndup(data, length);
       if (string_update(&metadata_store.server_ip, &metadata_store.server_ip_changed, cs)) {
         changed = 1;
         debug(2, "MH Server IP set to: \"%s\"", metadata_store.server_ip);
       }
       free(cs);
-      metadata_hub_modify_epilog(changed);
       break;
     case 'abeg':
-      metadata_hub_modify_prolog();
       changed = (metadata_store.active_state != AM_ACTIVE);
       metadata_store.active_state = AM_ACTIVE;
-      metadata_hub_modify_epilog(changed);
       break;
     case 'aend':
-      metadata_hub_modify_prolog();
       changed = (metadata_store.active_state != AM_INACTIVE);
       metadata_store.active_state = AM_INACTIVE;
-      metadata_hub_modify_epilog(changed);
       break;
     case 'pbeg':
-      metadata_hub_modify_prolog();
       changed = ((metadata_store.player_state != PS_PLAYING) ||
                  (metadata_store.player_thread_active == 0));
       metadata_store.player_state = PS_PLAYING;
       metadata_store.player_thread_active = 1;
-      metadata_hub_modify_epilog(changed);
       break;
     case 'pend':
-      metadata_hub_modify_prolog();
       changed = ((metadata_store.player_state != PS_STOPPED) ||
                  (metadata_store.player_thread_active == 1));
       metadata_store.player_state = PS_STOPPED;
       metadata_store.player_thread_active = 0;
-      metadata_hub_modify_epilog(changed);
       break;
     case 'pfls':
-      metadata_hub_modify_prolog();
       changed = (metadata_store.player_state != PS_PAUSED);
       metadata_store.player_state = PS_PAUSED;
-      metadata_hub_modify_epilog(changed);
       break;
     case 'pffr': // this is sent when the first frame has been received
     case 'prsm':
-      metadata_hub_modify_prolog();
       changed = (metadata_store.player_state != PS_PLAYING);
       metadata_store.player_state = PS_PLAYING;
-      metadata_hub_modify_epilog(changed);
       break;
     case 'pvol': {
-      metadata_hub_modify_prolog();
       // Note: it's assumed that the config.airplay volume has already been correctly set.
       // int32_t actual_volume;
       // int gv = dacp_get_volume(&actual_volume);
@@ -581,7 +592,6 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
         metadata_store.airplay_volume = config.airplay_volume;
         changed = 1;
       }
-      metadata_hub_modify_epilog(changed); // change
     } break;
 
     default: {
@@ -604,4 +614,6 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
     }
     }
   }
+  pthread_cleanup_pop(0); // don't remove the lock
+  metadata_hub_modify_epilog(changed);
 }

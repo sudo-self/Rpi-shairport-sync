@@ -441,4 +441,7 @@ void malloc_cleanup(void *arg);
 
 int string_update_with_size(char **str, int *flag, char *s, size_t len);
 
+// from https://stackoverflow.com/questions/13663617/memdup-function-in-c, with thanks
+void* memdup(const void* mem, size_t size);
+
 #endif // _COMMON_H

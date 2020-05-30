@@ -2941,20 +2941,18 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
 #ifdef CONFIG_METADATA
       // here, send the 'pvol' metadata message when the airplay volume information
       // is being used by shairport sync to control the output volume
-      char *dv = malloc(128); // will be freed in the metadata thread
-      if (dv) {
-        memset(dv, 0, 128);
-        if (volume_mode == vol_both) {
-          // normalise the maximum output to the hardware device's max output
-          snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume,
-                   (scaled_attenuation - max_db + hw_max_db) / 100.0,
-                   (min_db - max_db + hw_max_db) / 100.0, (max_db - max_db + hw_max_db) / 100.0);
-        } else {
-          snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, scaled_attenuation / 100.0,
-                   min_db / 100.0, max_db / 100.0);
-        }
-        send_ssnc_metadata('pvol', dv, strlen(dv), 1);
-      }
+      char dv[128];
+			memset(dv, 0, 128);
+			if (volume_mode == vol_both) {
+				// normalise the maximum output to the hardware device's max output
+				snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume,
+								 (scaled_attenuation - max_db + hw_max_db) / 100.0,
+								 (min_db - max_db + hw_max_db) / 100.0, (max_db - max_db + hw_max_db) / 100.0);
+			} else {
+				snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, scaled_attenuation / 100.0,
+								 min_db / 100.0, max_db / 100.0);
+			}
+			send_ssnc_metadata('pvol', dv, strlen(dv), 1);
 #endif
 
       if (config.output->mute)
@@ -2973,12 +2971,10 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
   else {
     // here, send the 'pvol' metadata message when the airplay volume information
     // is being used by shairport sync to control the output volume
-    char *dv = malloc(128); // will be freed in the metadata thread
-    if (dv) {
-      memset(dv, 0, 128);
-      snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, 0.0, 0.0, 0.0);
-      send_ssnc_metadata('pvol', dv, strlen(dv), 1);
-    }
+		char dv[128];
+		memset(dv, 0, 128);
+		snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, 0.0, 0.0, 0.0);
+		send_ssnc_metadata('pvol', dv, strlen(dv), 1);
   }
 #endif
 

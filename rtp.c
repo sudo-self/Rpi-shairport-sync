@@ -998,8 +998,8 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport, uint16_t tport
     conn->rtp_running = 1;
 
 #ifdef CONFIG_METADATA
-    send_ssnc_metadata('clip', strdup(conn->client_ip_string), strlen(conn->client_ip_string), 1);
-    send_ssnc_metadata('svip', strdup(conn->self_ip_string), strlen(conn->self_ip_string), 1);
+    send_ssnc_metadata('clip', conn->client_ip_string, strlen(conn->client_ip_string), 1);
+    send_ssnc_metadata('svip', conn->self_ip_string, strlen(conn->self_ip_string), 1);
 #endif
   }
 }

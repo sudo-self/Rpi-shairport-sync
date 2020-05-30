@@ -1700,3 +1700,13 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len) {
   }
   return *flag;
 }
+
+// from https://stackoverflow.com/questions/13663617/memdup-function-in-c, with thanks
+void* memdup(const void* mem, size_t size) {
+   void* out = malloc(size);
+
+   if(out != NULL)
+       memcpy(out, mem, size);
+
+   return out;
+}
