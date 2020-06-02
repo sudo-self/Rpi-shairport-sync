@@ -1249,11 +1249,10 @@ char *base64_encode_so(const unsigned char *data, size_t input_length, char *enc
 
 static int fd = -1;
 // static int dirty = 0;
-pc_queue metadata_queue;
 
-static int metadata_sock = -1;
-static struct sockaddr_in metadata_sockaddr;
-static char *metadata_sockmsg;
+
+
+pc_queue metadata_queue;
 #define metadata_queue_size 500
 metadata_package metadata_queue_items[metadata_queue_size];
 pthread_t metadata_thread;
@@ -1271,6 +1270,15 @@ pc_queue metadata_mqtt_queue;
 metadata_package metadata_mqtt_queue_items[metadata_mqtt_queue_size];
 pthread_t metadata_mqtt_thread;
 #endif
+
+static int metadata_sock = -1;
+static struct sockaddr_in metadata_sockaddr;
+static char *metadata_sockmsg;
+pc_queue metadata_multicast_queue;
+#define metadata_multicast_queue_size 500
+metadata_package metadata_multicast_queue_items[metadata_queue_size];
+pthread_t metadata_multicast_thread;
+
 
 void metadata_create_multicast_socket(void) {
   if (config.metadata_enabled == 0)
@@ -1322,6 +1330,8 @@ void metadata_delete_multicast_socket(void) {
     free(metadata_sockmsg);
 }
 
+
+
 void metadata_open(void) {
   if (config.metadata_enabled == 0)
     return;
@@ -1342,10 +1352,8 @@ static void metadata_close(void) {
   fd = -1;
 }
 
-void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length) {
-  // debug(1, "Process metadata with type %x, code %x and length %u.", type, code, length);
-  int ret = 0;
-
+void metadata_multicast_process(uint32_t type, uint32_t code, char *data, uint32_t length) {
+  // debug(1, "Process multicast metadata with type %x, code %x and length %u.", type, code, length);
   if (metadata_sock >= 0 && length < config.metadata_sockmsglength - 8) {
     char *ptr = metadata_sockmsg;
     uint32_t v;
@@ -1400,7 +1408,11 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
         break;
     } while (1);
   }
+}
 
+void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length) {
+  // debug(1, "Process metadata with type %x, code %x and length %u.", type, code, length);
+  int ret = 0;
   // readers may go away and come back
 
   if (fd < 0)
@@ -1479,7 +1491,6 @@ void metadata_pack_cleanup_function(void *arg) {
 
 void metadata_thread_cleanup_function(__attribute__((unused)) void *arg) {
   debug(2, "metadata_thread_cleanup_function called");
-  metadata_delete_multicast_socket();
   metadata_close();
   pc_queue_delete(&metadata_queue);
 }
@@ -1508,6 +1519,38 @@ void *metadata_thread_function(__attribute__((unused)) void *ignore) {
   pthread_cleanup_pop(1); // will never happen
   pthread_exit(NULL);
 }
+
+void metadata_multicast_thread_cleanup_function(__attribute__((unused)) void *arg) {
+  debug(2, "metadata_multicast_thread_cleanup_function called");
+  metadata_delete_multicast_socket();
+  pc_queue_delete(&metadata_multicast_queue);
+}
+
+void *metadata_multicast_thread_function(__attribute__((unused)) void *ignore) {
+  // create a pc_queue for passing information to a threaded metadata handler
+  pc_queue_init(&metadata_multicast_queue, (char *)&metadata_multicast_queue_items, sizeof(metadata_package),
+                metadata_multicast_queue_size, "multicast");
+  metadata_create_multicast_socket();
+  metadata_package pack;
+  pthread_cleanup_push(metadata_multicast_thread_cleanup_function, NULL);
+  while (1) {
+    pc_queue_get_item(&metadata_multicast_queue, &pack);
+    pthread_cleanup_push(metadata_pack_cleanup_function, (void *)&pack);
+    if (config.metadata_enabled) {
+    	if (pack.carrier) {
+    		debug(3, "                                                                    multicast: type %x, code %x, length %u, message %d.", pack.type, pack.code, pack.length, pack.carrier->index_number);
+    	} else {
+    		debug(3, "                                                                    multicast: type %x, code %x, length %u.", pack.type, pack.code, pack.length);
+    	}
+      metadata_multicast_process(pack.type, pack.code, pack.data, pack.length);
+      debug(3, "                                                                    multicast: done.");
+    }
+    pthread_cleanup_pop(1);
+  }
+  pthread_cleanup_pop(1); // will never happen
+  pthread_exit(NULL);
+}
+
 
 #ifdef CONFIG_METADATA_HUB
 void metadata_hub_close(void) {
@@ -1582,6 +1625,11 @@ void metadata_init(void) {
   int ret = pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL);
   if (ret)
     debug(1, "Failed to create metadata thread!");
+
+  ret = pthread_create(&metadata_multicast_thread, NULL, metadata_multicast_thread_function, NULL);
+  if (ret)
+    debug(1, "Failed to create metadata multicast thread!");
+
 #ifdef CONFIG_METADATA_HUB
   ret = pthread_create(&metadata_hub_thread, NULL, metadata_hub_thread_function, NULL);
   if (ret)
@@ -1606,6 +1654,9 @@ void metadata_stop(void) {
     pthread_join(metadata_hub_thread, NULL);
     pthread_cancel(metadata_hub_thread);
 #endif
+    pthread_cancel(metadata_multicast_thread);
+    pthread_join(metadata_multicast_thread, NULL);
+
     pthread_cancel(metadata_thread);
     pthread_join(metadata_thread, NULL);
   }
