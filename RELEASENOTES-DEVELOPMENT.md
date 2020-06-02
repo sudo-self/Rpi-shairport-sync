@@ -7,7 +7,7 @@ Version 3.3.7d7
 
 **Bug Fixes and Enhancements**
 * Fixed a bug calculating the instantaneous synchronisation error. This bug could occasionally cause Shairport Sync to lose synchronisation and maybe even to mute for a few seconds before resynchronising. It was caused doing modulo arithmetic incorrectly and it's been there for a while.
-* Cleaned up and improve the code to synchronise the first frame of audio. This should result in more accurate and reliable initial synchronisation, usually to under a millisecond, and often to within 20 or 30 microseconds in normal usage. Sync should improve even when the silent lead-in time is as short as 0.3 seconds or when the `audio_backend_latency_offset_in_seconds` is as great as -1.7 seconds.
+* Cleaned up and improve the code to synchronise the first frame of audio. This should result in more accurate and reliable initial synchronisation, usually to under a millisecond, and often to within 20 or 30 microseconds in normal usage. Sync should improve even when the silent lead-in time is as short as 0.3 seconds or when the `audio_backend_latency_offset_in_seconds` is as much as -1.7 seconds.
 * Removed a bug which would affect initial synchronisation if a `FLUSH` command was received from the player at an inopportune time.
 * Cleaned up some confused uses of modulo arithmetic.
 * Cleaned up allocation of memory for gathering running statistics – use the heap instead of the stack.
