@@ -5,6 +5,8 @@ Version 3.3.7d7
 * Audio data from the `pipe` back end and metadata from the metadata pipe are now written using standard blocking `write` commands rather than a slightly complex non-blocking write function. Pipes are now opened in non-blocking mode and changed to blocking mode when successfully opened.
 * Separate threads for the metadata subsystems. Until now, all metadata was processed on a single thread. This included supplying the metadata pipe and the multicast stream and supplying metadata for the `mqtt` interface and for the `dbus` and `MPRIS` interfaces. Unfortunately, that meant that a problem with any one of these subsystems could propagate into the others. Now they all run on separate threads. If one thread blocks, it will not interfere with the other subsystems.
 
+Version 3.3.7d6
+====
 **Bug Fixes and Enhancements**
 * Fixed a bug calculating the instantaneous synchronisation error. This bug could occasionally cause Shairport Sync to lose synchronisation and maybe even to mute for a few seconds before resynchronising. It was caused doing modulo arithmetic incorrectly and it's been there for a while.
 * Cleaned up and improve the code to synchronise the first frame of audio. This should result in more accurate and reliable initial synchronisation, usually to under a millisecond, and often to within 20 or 30 microseconds in normal usage. Sync should improve even when the silent lead-in time is as short as 0.3 seconds or when the `audio_backend_latency_offset_in_seconds` is as much as -1.7 seconds.
@@ -12,17 +14,6 @@ Version 3.3.7d7
 * Cleaned up some confused uses of modulo arithmetic.
 * Cleaned up allocation of memory for gathering running statistics – use the heap instead of the stack.
 * Cleaned up the display of statistics for backends that do not implement active synchronisation, e.g. the `pipe` and `STDOUT` back ends.
-
-Version 3.3.7d6
-====
-**Bug Fixes and Enhancements**
-* Fixed a bug calculating the instantaneous synchronisation error. This bug could occasionally cause Shairport Sync to lose synchronisation and maybe even to mute for a few seconds before regaining it. It was caused by not doing modulo arithmetic properly, and it's been there for a while.
-* Cleaned up and improve the code to synchronise the first frame of audio. This should result in more accurate and reliable initial synchronisation, usually to under a millisecond, and often to within 20 or 30 microseconds in normal usage. Sync should improve even when the silent lead-in time is as short as 0.3 seconds or when the `audio_backend_latency_offset_in_seconds` is as great as -1.7 seconds.
-* Removed a bug which would affect initial synchronisation if a `FLUSH` command was received from the player at an inopportune time.
-* Cleaned up some confused uses of modulo arithmetic.
-* Cleaned up allocation of memory for gathering running statistics – use the heap instead of the stack.
-* Cleaned up the display of statistics for backends that do not implement active synchronisation, e.g. the `pipe` and `STDOUT` back ends.
-* Added code to flush output to the `pipe` or to `STDOUT` when playing stops.
 
 Version 3.3.7d5
 ====
