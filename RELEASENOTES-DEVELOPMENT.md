@@ -1,4 +1,4 @@
-Version 3.3.7d7
+Version 3.3.7d8
 ====
 **Enhancements**
 * Tidy up the creation and initials opening of pipes. Suppress multiple pipe-opening error messages.
