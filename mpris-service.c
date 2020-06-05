@@ -345,7 +345,7 @@ static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *nam
 static void on_mpris_name_lost_again(__attribute__((unused)) GDBusConnection *connection,
                                      const gchar *name,
                                      __attribute__((unused)) gpointer user_data) {
-  warn("Could not acquire an MPRIS interface named \"%s\" on the %s bus.", name,
+  warn("could not acquire an MPRIS interface named \"%s\" on the %s bus.", name,
        (config.mpris_service_bus_type == DBT_session) ? "session" : "system");
 }
 

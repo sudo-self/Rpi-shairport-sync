@@ -50,7 +50,7 @@ void on_message(__attribute__((unused)) struct mosquitto *mosq,
   memcpy(payload, msg->payload, msg->payloadlen);
   payload[msg->payloadlen] = 0;
 
-  debug(1, "[MQTT]: received Message on topic %s: %s\n", msg->topic, payload);
+  debug(2, "[MQTT]: received Message on topic %s: %s\n", msg->topic, payload);
 
   // All recognized commands
   char *commands[] = {"command",    "beginff",       "beginrew",   "mutetoggle", "nextitem",
@@ -63,7 +63,7 @@ void on_message(__attribute__((unused)) struct mosquitto *mosq,
   while (commands[it] != NULL) {
     if ((size_t)msg->payloadlen >= strlen(commands[it]) &&
         strncmp(msg->payload, commands[it], strlen(commands[it])) == 0) {
-      debug(1, "[MQTT]: DACP Command: %s\n", commands[it]);
+      debug(2, "[MQTT]: DACP Command: %s\n", commands[it]);
       send_simple_dacp_command(commands[it]);
       break;
     }
@@ -74,13 +74,13 @@ void on_message(__attribute__((unused)) struct mosquitto *mosq,
 void on_disconnect(__attribute__((unused)) struct mosquitto *mosq,
                    __attribute__((unused)) void *userdata, __attribute__((unused)) int rc) {
   connected = 0;
-  debug(1, "[MQTT]: disconnected");
+  debug(2, "[MQTT]: disconnected");
 }
 
 void on_connect(struct mosquitto *mosq, __attribute__((unused)) void *userdata,
                 __attribute__((unused)) int rc) {
   connected = 1;
-  debug(1, "[MQTT]: connected");
+  debug(2, "[MQTT]: connected");
 
   // subscribe if requested
   if (config.mqtt_enable_remote) {
@@ -95,7 +95,7 @@ void mqtt_publish(char *topic, char *data, uint32_t length) {
   char fulltopic[strlen(config.mqtt_topic) + strlen(topic) + 3];
   snprintf(fulltopic, strlen(config.mqtt_topic) + strlen(topic) + 2, "%s/%s", config.mqtt_topic,
            topic);
-  debug(1, "[MQTT]: publishing under %s", fulltopic);
+  debug(2, "[MQTT]: publishing under %s", fulltopic);
 
   int rc;
   if ((rc = mosquitto_publish(global_mosq, NULL, fulltopic, length, data, 0, 0)) !=

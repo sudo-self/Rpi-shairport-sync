@@ -283,10 +283,10 @@ char *generate_preliminary_string(char *buffer, size_t buffer_length, double tss
     insertion_point = insertion_point + strlen(insertion_point);
     space_remaining = space_remaining - strlen(insertion_point);
   }
-
   if (prefix) {
     snprintf(insertion_point, space_remaining, "%s", prefix);
     insertion_point = insertion_point + strlen(insertion_point);
+    space_remaining = space_remaining - strlen(insertion_point);
   }
   return insertion_point;
 }
@@ -308,7 +308,8 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
                                     1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *fatal error: ");
   } else {
-    s = b;
+  	strncpy(b, "fatal error: ", sizeof(b));
+    s = b+strlen(b);
   }
   va_list args;
   va_start(args, format);
@@ -336,7 +337,8 @@ void _warn(const char *filename, const int linenumber, const char *format, ...) 
                                     1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *warning: ");
   } else {
-    s = b;
+  	strncpy(b, "warning: ", sizeof(b));
+    s = b+strlen(b);
   }
   va_list args;
   va_start(args, format);
@@ -1135,27 +1137,25 @@ int try_to_open_pipe_for_writing(const char* pathname) {
 	// if it succeeds, it sets it to blocking.
 	// if not, it returns -1.
 
-  char errorstring[1024];
 	int fdis = open(pathname, O_WRONLY | O_NONBLOCK); // open it in non blocking mode first
+
   // we check that it's not a "real" error. From the "man 2 open" page:
   // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
   // open for reading." Which is okay.
+  // This is checked by the caller.
 
-  if ((fdis == -1) && (errno != ENXIO)) {
-    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-    debug(1, "try_to_open_pipe -- error %d (\"%s\") opening pipe: \"%s\".", errno,
-          (char *)errorstring, pathname);
-  } else
   if (fdis >= 0) {
   	// now we switch to blocking mode
   	int flags = fcntl(fdis, F_GETFL);
   	if ((flags == -1)) {
+  		char errorstring[1024];
 			strerror_r(errno, (char *)errorstring, sizeof(errorstring));
 			debug(1, "try_to_open_pipe -- error %d (\"%s\") getting flags of pipe: \"%s\".", errno,
 						(char *)errorstring, pathname);
   	} else {
   		flags = fcntl(fdis, F_SETFL,flags & ~O_NONBLOCK);
   		if (flags == -1) {
+  			char errorstring[1024];
 				strerror_r(errno, (char *)errorstring, sizeof(errorstring));
 				debug(1, "try_to_open_pipe -- error %d (\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno,
 							(char *)errorstring, pathname);
