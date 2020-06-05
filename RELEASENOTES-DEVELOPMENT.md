@@ -1,9 +1,9 @@
 Version 3.3.7d8
 ====
 **Enhancements**
-* Tidy up the creation and initials opening of pipes. Suppress multiple pipe-opening error messages.
-* Tidy up warnings and fatal error messages when log verbosity is zero.
-* Clean up the code that provides a silent lead-in to play on a back end without synchronisation, e.g. a pipe or `stdout`.
+* Tidied up the creation and initial opening of pipes. Suppress repeated pipe-opening error messages.
+* Tidied up warnings and fatal error messages when log verbosity is zero.
+* Cleaned up the code that provides a silent lead-in to play on a back end without synchronisation, e.g. a pipe or `stdout`.
 * Added in commented-out code to check the timeliness of the release of audio to a back end without synchronisation, e.g. a pipe or `stdout`. TL;DR – so long as the back end does not block, frames will be released to it not more than one packet (352 frames) late.
 
 Version 3.3.7d7
@@ -11,16 +11,16 @@ Version 3.3.7d7
 **Enhancements**
 * Logs and statistics can now be directed to the system log (default), `stdout`, `stderr` or to a file or pipe of your choice using a new setting, `log_output_to` in the `diagnostics` section of the configuration file. This is very useful when the system log is disabled or diverted.
 * Audio data from the `pipe` back end and metadata from the metadata pipe are now written using standard blocking `write` commands rather than a slightly complex non-blocking write function. Pipes are now opened in non-blocking mode and changed to blocking mode when successfully opened.
-* Separate threads for the metadata subsystems. Until now, all metadata was processed on a single thread. This included writing to the metadata pipe and the multicast stream and supplying metadata for the `mqtt` interface and for the `dbus` and `MPRIS` interfaces. Unfortunately, that meant that a problem with any one of these subsystems could propagate into the others. Now they all run on separate threads. If one thread blocks, it will not interfere with the other subsystems.
+* Separate threads are now used for each metadata subsystem. Until now, all metadata was processed on a single thread. This included writing to the metadata pipe and the multicast stream and supplying metadata for the `mqtt` interface and for the `dbus` and `MPRIS` interfaces. Unfortunately, that meant that a problem with any one of these subsystems could propagate into the others. Now they all run on separate threads. If one thread blocks, it will not interfere with the other subsystems.
 
 Version 3.3.7d6
 ====
 **Bug Fixes and Enhancements**
 * Fixed a bug calculating the instantaneous synchronisation error. This bug could occasionally cause Shairport Sync to lose synchronisation and maybe even to mute for a few seconds before resynchronising. It was caused doing modulo arithmetic incorrectly and it's been there for a while.
-* Cleaned up and improve the code to synchronise the first frame of audio. This should result in more accurate and reliable initial synchronisation, usually to under a millisecond, and often to within 20 or 30 microseconds in normal usage. Sync should improve even when the silent lead-in time is as short as 0.3 seconds or when the `audio_backend_latency_offset_in_seconds` is as much as -1.7 seconds.
+* Cleaned up and improved the code to synchronise the first frame of audio. This should result in more accurate and reliable initial synchronisation, usually to under a millisecond, and often to within 20 or 30 microseconds. Syncronisation should improve even when the silent lead-in time is as short as 0.3 seconds or when the `audio_backend_latency_offset_in_seconds` is as much as -1.7 seconds, i.e. when only 0.3 seconds of latency are left when the latency would normally be 2.0 seconds.
 * Removed a bug which would affect initial synchronisation if a `FLUSH` command was received from the player at an inopportune time.
 * Cleaned up some confused uses of modulo arithmetic.
-* Cleaned up allocation of memory for gathering running statistics – use the heap instead of the stack.
+* Cleaned up the allocation of memory for gathering running statistics – the heap is now used instead of the stack.
 * Cleaned up the display of statistics for backends that do not implement active synchronisation, e.g. the `pipe` and `STDOUT` back ends.
 
 Version 3.3.7d5
@@ -31,7 +31,7 @@ Version 3.3.7d5
 * Improved synchronisation accuracy with short silence lead-ins.
 
 **New Feature**
-* For the PulseAudio backend `pa`, add a new `server` entry to `pa` section of the configuration file, allowing you to specify a connection to a remote or a local system PulseAudio instance instead of letting PulseAudio choose. Thanks to [Guillaume Revaillot](https://github.com/grevaillot) for this new feature.
+* For the PulseAudio backend `pa`, added a new `server` entry to the `pa` section of the configuration file, allowing you to specify a connection to a remote or a local system PulseAudio instance instead of letting PulseAudio choose. Thanks to [Guillaume Revaillot](https://github.com/grevaillot) for this new feature.
 
 Version 3.3.7d4
 ====
@@ -46,7 +46,7 @@ Version 3.3.7d3
 Version 3.3.7d2
 ====
 **Pesky Changes**
-* The underlying timing system has been moved from 64-bit fixed-point time representation (a là NTP) to a 64-bit unsigned nanoseconds representation. This should make precisely no difference to the functionality of Shairport Sync but the transition might inadvertently have introduced bugs. Problem reports gratefully received.
+* The underlying timing system has been moved from 64-bit fixed-point time representation (like NTP) to a 64-bit unsigned nanoseconds representation. This should make precisely no difference to the functionality of Shairport Sync but the transition might inadvertently have introduced bugs. Problem reports gratefully received.
 
 **Enhancement**
 * The timing software in the `sndio` backend does some extra sanity checking on certain time estimates, it may help a little when running on virtual machines.
