@@ -1,6 +1,14 @@
 Version 3.3.7d7
 ====
 **Enhancements**
+* Tidy up the creation and initials opening of pipes. Suppress multiple pipe-opening error messages.
+* Tidy up warnings and fatal error messages when log verbosity is zero.
+* Clean up the code that provides a silent lead-in to play on a back end without synchronisation, e.g. a pipe or `stdout`.
+* Added in commented-out code to check the timeliness of the release of audio to a back end without synchronisation, e.g. a pipe or `stdout`. TL;DR – so long as the back end does not block, frames will be released to it not more than one packet (352 frames) late.
+
+Version 3.3.7d7
+====
+**Enhancements**
 * Logs and statistics can now be directed to the system log (default), `stdout`, `stderr` or to a file or pipe of your choice using a new setting, `log_output_to` in the `diagnostics` section of the configuration file. This is very useful when the system log is disabled or diverted.
 * Audio data from the `pipe` back end and metadata from the metadata pipe are now written using standard blocking `write` commands rather than a slightly complex non-blocking write function. Pipes are now opened in non-blocking mode and changed to blocking mode when successfully opened.
 * Separate threads for the metadata subsystems. Until now, all metadata was processed on a single thread. This included writing to the metadata pipe and the multicast stream and supplying metadata for the `mqtt` interface and for the `dbus` and `MPRIS` interfaces. Unfortunately, that meant that a problem with any one of these subsystems could propagate into the others. Now they all run on separate threads. If one thread blocks, it will not interfere with the other subsystems.
