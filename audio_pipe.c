@@ -120,10 +120,12 @@ static int init(int argc, char **argv) {
     pipename = strdup(argv[0]);
 
   // here, create the pipe
+  mode_t oldumask = umask(000);
   if (mkfifo(pipename, 0644) && errno != EEXIST)
-    die("Could not create output pipe \"%s\"", pipename);
+    die("Could not create audio pipe \"%s\"", pipename);
+  umask(oldumask);
 
-  debug(1, "Pipename is \"%s\"", pipename);
+  debug(1, "audio pipe name is \"%s\"", pipename);
 
   return 0;
 }
