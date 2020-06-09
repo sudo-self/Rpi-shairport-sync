@@ -1145,7 +1145,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 									if ((config.audio_backend_silent_lead_in_time_auto == 1) ||
 											(lead_time <=
 											 (int64_t)(config.audio_backend_silent_lead_in_time * (int64_t)1000000000))) {
-										debug(1, "Lead time: %" PRId64 " nanoseconds.", lead_time);
+										// debug(1, "Lead time: %" PRId64 " nanoseconds.", lead_time);
 										int resp = 0;
 										dac_delay = 0;
 										if (have_sent_prefiller_silence != 0)
@@ -1186,7 +1186,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 															generate_zero_frames(silence, fs, config.output_format,
 																									 conn->enable_dither, conn->previous_random_number);
 													config.output->play(silence, fs);
-													debug(1, "Sent %" PRId64 " frames of silence", fs);
+													// debug(1, "Sent %" PRId64 " frames of silence", fs);
 													free(silence);
 													have_sent_prefiller_silence = 1;
 												}
