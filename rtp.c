@@ -602,17 +602,13 @@ void *rtp_timing_receiver(void *arg) {
             // debug(1,"Return trip time: %" PRIu64 " nS, remote processing time: %" PRIu64 "
             // nS.",return_time, remote_processing_time);
 
-            uint64_t local_time_by_remote_clock = distant_transmit_time + return_time / 2;
-
-            // remove the remote processing time from the record of the return time, as long at the
-            // processing time looks sensible.
-
             if (remote_processing_time < return_time)
               return_time -= remote_processing_time;
             else
               debug(1, "Remote processing time greater than return time -- ignored.");
 
             int cc;
+            // debug(1, "time ping history is %d entries.", time_ping_history);
             for (cc = time_ping_history - 1; cc > 0; cc--) {
               conn->time_pings[cc] = conn->time_pings[cc - 1];
               // if ((conn->time_ping_count) && (conn->time_ping_count < 10))
@@ -625,12 +621,9 @@ void *rtp_timing_receiver(void *arg) {
             }
             // these are used for doing a least squares calculation to get the drift
             conn->time_pings[0].local_time = arrival_time;
-            conn->time_pings[0].remote_time = distant_transmit_time;
+            conn->time_pings[0].remote_time = distant_transmit_time + return_time / 2;
             conn->time_pings[0].sequence_number = sequence_number++;
             conn->time_pings[0].chosen = 0;
-
-            conn->time_pings[0].local_to_remote_difference =
-                local_time_by_remote_clock - arrival_time;
             conn->time_pings[0].dispersion = return_time;
             if (conn->time_ping_count < time_ping_history)
               conn->time_ping_count++;
@@ -653,14 +646,14 @@ void *rtp_timing_receiver(void *arg) {
             // uint64_t local_time_chosen = arrival_time;
             // uint64_t remote_time_chosen = distant_transmit_time;
             // now pick the timestamp with the lowest dispersion
-            uint64_t l2rtd = conn->time_pings[0].local_to_remote_difference;
+            uint64_t rt = conn->time_pings[0].remote_time;
             uint64_t lt = conn->time_pings[0].local_time;
             uint64_t tld = conn->time_pings[0].dispersion;
             int chosen = 0;
             for (cc = 1; cc < conn->time_ping_count; cc++)
               if (conn->time_pings[cc].dispersion < tld) {
                 chosen = cc;
-                l2rtd = conn->time_pings[cc].local_to_remote_difference;
+                rt = conn->time_pings[cc].remote_time;
                 lt = conn->time_pings[cc].local_time;
                 tld = conn->time_pings[cc].dispersion;
                 // local_time_chosen = conn->time_pings[cc].local_time;
@@ -670,44 +663,8 @@ void *rtp_timing_receiver(void *arg) {
             // dispersion.",chosen,1.0*((tld * 1000000) >> 32));
             conn->time_pings[chosen].chosen = 1; // record the fact that it has been used for timing
 
-            /*
-            // calculate the jitter -- the absolute time between the current
-            local_to_remote_time_difference and the new one and add it to the total jitter count
-            int64_t ji;
-            int64_t ltd =0; // local time difference for the jitter
-
-            if (conn->time_ping_count > 1) {
-              if (l2rtd > conn->local_to_remote_time_difference) {
-                local_to_remote_time_jitter =
-                    local_to_remote_time_jitter + l2rtd - conn->local_to_remote_time_difference;
-                ji = l2rtd - conn->local_to_remote_time_difference; // this is the difference
-            between the present local-to-remote-time-difference and the new one, i.e. the jitter
-            step
-              } else {
-                local_to_remote_time_jitter =
-                    local_to_remote_time_jitter + conn->local_to_remote_time_difference - l2rtd;
-                ji = -(conn->local_to_remote_time_difference - l2rtd);
-              }
-              local_to_remote_time_jitter_count += 1;
-            }
-            if (conn->local_to_remote_time_difference_measurement_time < lt)
-              ltd = lt-conn->local_to_remote_time_difference_measurement_time;
-            else
-              ltd = -(conn->local_to_remote_time_difference_measurement_time-lt);
-
-            if (ltd) {
-              debug(1,"Jitter: %" PRId64 " nanoseconds in %" PRId64 " nanoseconds.", ji, ltd);
-              debug(1,"Source clock to local clock drift: %.2f ppm.",((1.0*ji)/ltd)*1000000.0);
-            }
-            // uncomment below to print jitter between client's clock and our clock
-
-            if (ji) {
-              debug(1,"Choosing time difference[%d] with dispersion of %" PRId64 " ns with an
-            adjustment of %" PRId64 " ns",chosen, tld, ji);
-            }
-            */
             conn->local_to_remote_time_difference =
-                l2rtd; // make this the new local-to-remote-time-difference
+                rt - lt; // make this the new local-to-remote-time-difference
             conn->local_to_remote_time_difference_measurement_time = lt; // done at this time.
 
             if (first_local_to_remote_time_difference == 0) {
@@ -730,57 +687,69 @@ void *rtp_timing_receiver(void *arg) {
             int sample_count = 0;
 
             // approximate time in seconds to let the system settle down
-            const int settling_time = 60;
+            const int settling_time = 30;
             // number of points to have for calculating a valid drift
             const int sample_point_minimum = 8;
             for (cc = 0; cc < conn->time_ping_count; cc++)
               if ((conn->time_pings[cc].chosen) &&
                   (conn->time_pings[cc].sequence_number >
                    (settling_time / 3))) { // wait for a approximate settling time
-                y_bar += (conn->time_pings[cc].remote_time >>
-                          12); // precision is down to 1/4th of a microsecond
-                x_bar += (conn->time_pings[cc].local_time >> 12);
+								// have to scale them down so that the sum, possibly over every term in the array, doesn't overflow
+                y_bar += (conn->time_pings[cc].remote_time >> time_ping_history_power_of_two);
+                x_bar += (conn->time_pings[cc].local_time >> time_ping_history_power_of_two);
                 sample_count++;
               }
             if (sample_count > sample_point_minimum) {
               y_bar = y_bar / sample_count;
               x_bar = x_bar / sample_count;
 
+
+
               int64_t xid, yid;
-              int64_t mtl, mbl;
+              double mtl, mbl;
               mtl = 0;
               mbl = 0;
               for (cc = 0; cc < conn->time_ping_count; cc++)
                 if ((conn->time_pings[cc].chosen) &&
                     (conn->time_pings[cc].sequence_number > (settling_time / 3))) {
 
-                  uint64_t slt = conn->time_pings[cc].local_time >> 12;
+                  uint64_t slt = conn->time_pings[cc].local_time >> time_ping_history_power_of_two;
                   if (slt > x_bar)
                     xid = slt - x_bar;
                   else
                     xid = -(x_bar - slt);
 
-                  uint64_t srt = conn->time_pings[cc].remote_time >> 12;
+                  uint64_t srt = conn->time_pings[cc].remote_time >> time_ping_history_power_of_two;
                   if (srt > y_bar)
                     yid = srt - y_bar;
                   else
                     yid = -(y_bar - srt);
 
-                  mtl = mtl + xid * yid;
-                  mbl = mbl + xid * xid;
+                  mtl = mtl + (1.0 * xid) * yid;
+                  mbl = mbl + (1.0 * xid) * xid;
                 }
               conn->local_to_remote_time_gradient_sample_count = sample_count;
               if (mbl)
-                conn->local_to_remote_time_gradient = (1.0 * mtl) / mbl;
+                conn->local_to_remote_time_gradient = mtl / mbl;
               else {
                 conn->local_to_remote_time_gradient = 1.0;
                 debug(1, "rtp_timing_receiver: mbl is 0");
               }
+
+							// scale the numbers back up
+							uint64_t ybf = y_bar << time_ping_history_power_of_two;
+							uint64_t xbf = x_bar << time_ping_history_power_of_two;
+
+            	conn->local_to_remote_time_difference =
+            		ybf - xbf;  // make this the new local-to-remote-time-difference
+            	conn->local_to_remote_time_difference_measurement_time = xbf;
+
             } else {
               conn->local_to_remote_time_gradient = 1.0;
             }
             // debug(1,"local to remote time gradient is %12.2f ppm, based on %d
             // samples.",conn->local_to_remote_time_gradient*1000000,sample_count);
+
           } else {
             debug(2,
                   "Time ping turnaround time: %" PRIu64
