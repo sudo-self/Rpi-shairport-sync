@@ -1,3 +1,10 @@
+Version 3.3.7d9
+====
+**Enhancements**
+* Improved timing estimation. Shairport Sync has been using linear least-squares regression to estimate timing drift between the (remote) source clock and the local clock. This technique is now extended to provide an estimate of the remote-to-local clock difference, used to remap the timing of audio frames from the remote device's clock to the local clock.
+
+  In practice, the timing technique in use up to now has been very accurate, but this should result in slightly smoother rates of correction. 
+
 Version 3.3.7d8
 ====
 **Enhancements**
