@@ -541,6 +541,12 @@ void *rtp_timing_receiver(void *arg) {
   // uint64_t first_local_time = 0;
 
   uint64_t first_local_to_remote_time_difference = 0;
+
+  // maybe this initial value could be retrieved from a temporary store
+  // keyed to the source.
+
+  conn->local_to_remote_time_gradient = 1.0; // initial value.
+
   // uint64_t first_local_to_remote_time_difference_time;
   // uint64_t l2rtd = 0;
   int sequence_number = 0;
@@ -699,6 +705,7 @@ void *rtp_timing_receiver(void *arg) {
                 x_bar += (conn->time_pings[cc].local_time >> time_ping_history_power_of_two);
                 sample_count++;
               }
+            conn->local_to_remote_time_gradient_sample_count = sample_count;
             if (sample_count > sample_point_minimum) {
               y_bar = y_bar / sample_count;
               x_bar = x_bar / sample_count;
@@ -728,12 +735,11 @@ void *rtp_timing_receiver(void *arg) {
                   mtl = mtl + (1.0 * xid) * yid;
                   mbl = mbl + (1.0 * xid) * xid;
                 }
-              conn->local_to_remote_time_gradient_sample_count = sample_count;
               if (mbl)
                 conn->local_to_remote_time_gradient = mtl / mbl;
               else {
-                conn->local_to_remote_time_gradient = 1.0;
-                debug(1, "rtp_timing_receiver: mbl is 0");
+                // conn->local_to_remote_time_gradient = 1.0;
+            		debug(1,"mbl is zero. Drift remains at %.2f ppm.", (conn->local_to_remote_time_gradient - 1.0)*1000000);
               }
 
 							// scale the numbers back up
@@ -745,7 +751,8 @@ void *rtp_timing_receiver(void *arg) {
             	conn->local_to_remote_time_difference_measurement_time = xbf;
 
             } else {
-              conn->local_to_remote_time_gradient = 1.0;
+            	debug(3,"not enough samples to estimate drift -- remaining at %.2f ppm.", (conn->local_to_remote_time_gradient - 1.0)*1000000);
+              // conn->local_to_remote_time_gradient = 1.0;
             }
             // debug(1,"local to remote time gradient is %12.2f ppm, based on %d
             // samples.",conn->local_to_remote_time_gradient*1000000,sample_count);
