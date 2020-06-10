@@ -547,6 +547,21 @@ void *rtp_timing_receiver(void *arg) {
 
   conn->local_to_remote_time_gradient = 1.0; // initial value.
 
+  // calculate diffusion factor
+
+  // at the end of the array of time pings, the diffusion factor
+  // must be diffusion_expansion_factor
+  // this, at each step, the diffusion multiplication constant must
+  // be the nth root of diffusion_expansion_factor
+  // where n is the number of elements in the array
+
+	const double diffusion_expansion_factor = 10;
+  double log_of_multiplier = log10(diffusion_expansion_factor)/time_ping_history;
+  double multiplier = pow(10,log_of_multiplier);
+  uint64_t dispersion_factor = (uint64_t)(multiplier * 100);
+  debug(1,"dispersion factor is %" PRIu64 ".", dispersion_factor);
+
+
   // uint64_t first_local_to_remote_time_difference_time;
   // uint64_t l2rtd = 0;
   int sequence_number = 0;
@@ -573,7 +588,7 @@ void *rtp_timing_receiver(void *arg) {
 
           if (return_time < 300000000) { // must be less than 0.3 seconds
 
-            // debug(1,"Synchronisation ping return time is %" PRIu64 " nanoseconds.",return_time);
+            //debug(1,"Ping return time is %8.3f milliseconds.",0.000001*return_time);
 
             // distant_receive_time =
             // ((uint64_t)ntohl(*((uint32_t*)&packet[16])))<<32+ntohl(*((uint32_t*)&packet[20]));
@@ -621,8 +636,11 @@ void *rtp_timing_receiver(void *arg) {
               //                conn->time_pings[cc].dispersion =
               //                  conn->time_pings[cc].dispersion * pow(2.14,
               //                  1.0/conn->time_ping_count);
-              conn->time_pings[cc].dispersion =
-                  (conn->time_pings[cc].dispersion * 110) /
+              if (conn->time_pings[cc].dispersion > UINT64_MAX / dispersion_factor)
+              	debug(1,"dispersion factor is too large at %" PRIu64 ".");
+              else
+              	conn->time_pings[cc].dispersion =
+                  (conn->time_pings[cc].dispersion * dispersion_factor) /
                   100; // make the dispersions 'age' by this rational factor
             }
             // these are used for doing a least squares calculation to get the drift
@@ -693,7 +711,7 @@ void *rtp_timing_receiver(void *arg) {
             int sample_count = 0;
 
             // approximate time in seconds to let the system settle down
-            const int settling_time = 30;
+            const int settling_time = 60;
             // number of points to have for calculating a valid drift
             const int sample_point_minimum = 8;
             for (cc = 0; cc < conn->time_ping_count; cc++)
