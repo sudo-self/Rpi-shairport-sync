@@ -45,6 +45,14 @@
 #include <time.h>
 #include <unistd.h>
 
+struct Nvll {
+	char* name;
+	double value;
+	struct Nvll *next;
+};
+
+typedef struct Nvll nvll;
+
 uint64_t local_to_remote_time_jitter;
 uint64_t local_to_remote_time_jitter_count;
 
@@ -514,8 +522,29 @@ void *rtp_timing_sender(void *arg) {
 }
 
 void rtp_timing_receiver_cleanup_handler(void *arg) {
-  debug(3, "Timing Receiver Cleanup.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(3, "Timing Receiver Cleanup.");
+  // walk down the list of DACP / gradient pairs, if any
+  nvll *gradients = config.gradients;
+  if (conn->dacp_id)
+  	while ((gradients) && (strcasecmp((const char *)&conn->client_ip_string,gradients->name) != 0))
+  		gradients = gradients->next;
+
+  // if gradients comes out of this non-null, it is pointing to the DACP and it's last-known gradient
+  if (gradients) {
+  	gradients->value = conn->local_to_remote_time_gradient;
+  	debug(1,"Updating a drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, gradients->name);
+  } else {
+  	nvll *new_entry = (nvll*)malloc(sizeof(nvll));
+  	if (new_entry) {
+  		new_entry->name = strdup((const char *)&conn->client_ip_string);
+  		new_entry->value = conn->local_to_remote_time_gradient;
+  		new_entry->next = config.gradients;
+  		config.gradients = new_entry;
+  		debug(1,"Setting a new drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, new_entry->name);
+  	}
+  }
+
   debug(3, "Cancel Timing Requester.");
   pthread_cancel(conn->timer_requester);
   int oldState;
@@ -542,10 +571,17 @@ void *rtp_timing_receiver(void *arg) {
 
   uint64_t first_local_to_remote_time_difference = 0;
 
-  // maybe this initial value could be retrieved from a temporary store
-  // keyed to the source.
-
   conn->local_to_remote_time_gradient = 1.0; // initial value.
+  // walk down the list of DACP / gradient pairs, if any
+  nvll *gradients = config.gradients;
+  	while ((gradients) && (strcasecmp((const char *)&conn->client_ip_string,gradients->name) != 0))
+  		gradients = gradients->next;
+
+  // if gradients comes out of this non-null, it is pointing to the IP and it's last-known gradient
+  if (gradients) {
+  	conn->local_to_remote_time_gradient = gradients->value;
+  	debug(1,"Using a stored drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, gradients->name);
+  }
 
   // calculate diffusion factor
 
@@ -559,7 +595,7 @@ void *rtp_timing_receiver(void *arg) {
   double log_of_multiplier = log10(diffusion_expansion_factor)/time_ping_history;
   double multiplier = pow(10,log_of_multiplier);
   uint64_t dispersion_factor = (uint64_t)(multiplier * 100);
-  debug(1,"dispersion factor is %" PRIu64 ".", dispersion_factor);
+  // debug(1,"dispersion factor is %" PRIu64 ".", dispersion_factor);
 
 
   // uint64_t first_local_to_remote_time_difference_time;

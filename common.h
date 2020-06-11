@@ -285,7 +285,10 @@ typedef struct {
   int jack_soxr_resample_quality;
 #endif
 #endif
-
+	void *gradients; // a linked list of the clock gradients discovered for all DACP IDs
+	// can't use IP numbers as they might be given to different devices
+	// can't get hold of MAC addresses.
+	// can't define the nvll linked list struct here
 } shairport_cfg;
 
 // accessors to config for multi-thread access
