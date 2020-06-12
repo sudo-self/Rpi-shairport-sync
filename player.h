@@ -161,6 +161,7 @@ typedef struct {
   int ab_buffering, ab_synced;
   int64_t first_packet_timestamp;
   int flush_requested;
+  int flush_output_flushed; // true if the output device has been flushed.
   uint32_t flush_rtp_timestamp;
   uint64_t time_of_last_audio_packet;
   seq_t ab_read, ab_write;

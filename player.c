@@ -460,14 +460,6 @@ int first_possibly_missing_frame = -1;
 void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, int len,
                        rtsp_conn_info *conn) {
 
-  // ignore a request to flush that has been made before the first packet...
-  if (conn->packet_count == 0) {
-    debug_mutex_lock(&conn->flush_mutex, 1000, 1);
-    conn->flush_requested = 0;
-    conn->flush_rtp_timestamp = 0;
-    debug_mutex_unlock(&conn->flush_mutex, 3);
-  }
-
   debug_mutex_lock(&conn->ab_mutex, 30000, 0);
   uint64_t time_now = get_absolute_time_in_ns();
   conn->packet_count++;
@@ -477,7 +469,7 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
     if ((conn->flush_rtp_timestamp != 0) && (actual_timestamp != conn->flush_rtp_timestamp) &&
         (modulo_32_offset(actual_timestamp, conn->flush_rtp_timestamp) <
          conn->input_rate * 10)) { // if it's less than 10 seconds
-      debug(3,
+      debug(1,
             "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRIu32
             ", flushing to "
             "timestamp: %" PRIu32 ".",
@@ -945,34 +937,97 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       conn->connection_state_to_output = rco;
       // change happening
       if (conn->connection_state_to_output == 0) { // going off
+        debug(1, "request flush because connection_state_to_output is off");
         debug_mutex_lock(&conn->flush_mutex, 1000, 1);
         conn->flush_requested = 1;
+        conn->flush_rtp_timestamp = 0;
         debug_mutex_unlock(&conn->flush_mutex, 3);
       }
     }
 
     if (config.output->is_running)
       if (config.output->is_running() != 0) { // if the back end isn't running for any reason
-        debug(3, "not running");
+        debug(1, "request flush because back end is not running");
         debug_mutex_lock(&conn->flush_mutex, 1000, 0);
         conn->flush_requested = 1;
+        conn->flush_rtp_timestamp = 0;
         debug_mutex_unlock(&conn->flush_mutex, 0);
       }
 
     debug_mutex_lock(&conn->flush_mutex, 1000, 0);
     if (conn->flush_requested == 1) {
-      if (config.output->flush)
-        config.output->flush(); // no cancellation points
-      ab_resync(conn);          // no cancellation points
-      conn->first_packet_timestamp = 0;
-      conn->first_packet_time_to_play = 0;
-      conn->time_since_play_started = 0;
-      conn->flush_requested = 0;
-      have_sent_prefiller_silence = 0;
-      dac_delay = 0;
+    	if (conn->flush_output_flushed == 0)
+      	if (config.output->flush) {
+         config.output->flush(); // no cancellation points
+         debug(1, "flush request: flush output device.");
+        }
+      conn->flush_output_flushed = 1;
+      // now check to see it the flush request is for frames in the buffer or not
+      // if the first_packet_timestamp is zero, don't check
+      int flush_needed = 0;
+      int drop_request = 0;
+      if (conn->flush_rtp_timestamp == 0) {
+      	debug(1, "flush request: flush frame 0 -- flush assumed to be needed.");
+      	flush_needed = 1;
+      	drop_request = 1;
+      } else {
+				if ((conn->ab_synced) && ((conn->ab_write - conn->ab_read) > 0)) {
+					abuf_t *firstPacket = conn->audio_buffer + BUFIDX(conn->ab_read);
+					abuf_t *lastPacket = conn->audio_buffer + BUFIDX(conn->ab_write - 1);
+					if ((firstPacket != NULL) && (firstPacket->ready)) {
+						// discard flushes more than 10 seconds into the future -- they are probably bogus
+						uint32_t first_frame_in_buffer = firstPacket->given_timestamp;
+						int32_t offset_from_first_frame = (int32_t)(conn->flush_rtp_timestamp - first_frame_in_buffer);
+						if (offset_from_first_frame > (int)conn->input_rate * 10) {
+							debug(1, "flush request: sanity check -- flush frame %u is too far into the future from the first frame %u -- discarded.", conn->flush_rtp_timestamp, first_frame_in_buffer);
+							drop_request = 1;
+						} else {
+							if ((lastPacket != NULL) && (lastPacket->ready)) {
+								// we have enough information to check if the flush is needed or can be discarded
+								uint32_t last_frame_in_buffer = lastPacket->given_timestamp + lastPacket->length - 1;
+								// now we have to work out if the flush frame is in the buffer
+								// if it is later than the end of the buffer, flush everything and keep the request active.
+								// if it is in the buffer, we need to flush part of the buffer. Actually we flush the entire buffer and drop the request.
+								// if it is before the buffer, no flush is needed. Drop the request.
+								if (offset_from_first_frame > 0) {
+									int32_t offset_to_last_frame = (int32_t)(last_frame_in_buffer - conn->flush_rtp_timestamp);
+									if (offset_to_last_frame >= 0) {
+										debug(1,"flush request: flush frame %u active -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer, first_frame_in_buffer, last_frame_in_buffer);
+										drop_request = 1;
+										flush_needed = 1;
+									} else {
+										debug(1,"flush request: flush frame %u pending -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer, first_frame_in_buffer, last_frame_in_buffer);
+										flush_needed = 1;
+									}
+								} else {
+										debug(1,"flush request: flush frame %u expired -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer, first_frame_in_buffer, last_frame_in_buffer);
+										drop_request = 1;
+								}
+							}
+						}
+					}
+				} else {
+					debug(2, "flush request: flush frame %u  -- buffer not synced or empty: synced: %d, ab_read: %u, ab_write: %u", conn->flush_rtp_timestamp, conn->ab_synced, conn->ab_read, conn->ab_write);
+					// leave flush request pending and don't do a buffer flush
+				}
+      }
+			if (flush_needed) {
+				debug(1, "flush request: flush done.");
+				ab_resync(conn);          // no cancellation points
+				conn->first_packet_timestamp = 0;
+				conn->first_packet_time_to_play = 0;
+				conn->time_since_play_started = 0;
+				have_sent_prefiller_silence = 0;
+				dac_delay = 0;
+			}
+			if (drop_request) {
+				debug(1, "flush request: request dropped.");
+				conn->flush_requested = 0;
+				conn->flush_rtp_timestamp = 0;
+				conn->flush_output_flushed = 0;
+			}
     }
     debug_mutex_unlock(&conn->flush_mutex, 0);
-
     if (conn->ab_synced) {
       curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
 
@@ -992,34 +1047,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             debug(1, "Inconsistent sequence numbers detected");
           }
         }
-
-        // if (conn->flush_rtp_timestamp != 0)
-        //  debug(2,"flush_rtp_timestamp is %" PRIx32 " and curframe->given_timestamp is %" PRIx32
-        //  ".", conn->flush_rtp_timestamp , curframe->given_timestamp);
-
-        if ((conn->flush_rtp_timestamp != 0) &&
-            (curframe->given_timestamp != conn->flush_rtp_timestamp) &&
-            (modulo_32_offset(curframe->given_timestamp, conn->flush_rtp_timestamp) <
-             conn->input_rate * 10)) { // if it's less than ten seconds
-          debug(3,
-                "Dropping flushed packet in buffer_get_frame, seqno %u, timestamp %" PRIu32
-                ", flushing to "
-                "timestamp: %" PRIu32 ".",
-                curframe->sequence_number, curframe->given_timestamp, conn->flush_rtp_timestamp);
-          curframe->ready = 0;
-          curframe->resend_request_number = 0;
-          curframe = NULL; // this will be returned and will cause the loop to go around again
-          conn->initial_reference_time = 0;
-          conn->initial_reference_timestamp = 0;
-        } else if ((conn->flush_rtp_timestamp != 0) &&
-                   (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) >
-                    conn->input_rate / 5) &&
-                   (modulo_32_offset(conn->flush_rtp_timestamp, curframe->given_timestamp) <
-                    conn->input_rate * 10)) {
-          debug(3, "Dropping flush request in buffer_get_frame");
-          conn->flush_rtp_timestamp = 0;
-        }
       }
+
 
       if ((curframe) && (curframe->ready)) {
         notified_buffer_empty = 0; // at least one buffer now -- diagnostic only.
@@ -1076,6 +1105,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                                   &should_be_time, conn);
 
               conn->first_packet_time_to_play = should_be_time;
+              debug(1,"first_packet_time set for frame %u.", conn->first_packet_timestamp);
+
 
               if (local_time_now > conn->first_packet_time_to_play) {
                 uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
@@ -1132,6 +1163,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 								frame_to_local_time(conn->first_packet_timestamp +
 																				effective_latency, // this will go modulo 2^32
 																		&should_be_time, conn);
+
+								int64_t change_in_should_be_time = (int64_t)(should_be_time - conn->first_packet_time_to_play);
+
+								if (fabs(0.000001*change_in_should_be_time) > 0.001) // the clock drift estimation might be nudging the estimate, and we can ignore this unless if's more than a microsecond
+									debug(1,"Change in estimated first_packet_time: %8.4f milliseconds.", 0.000001*change_in_should_be_time);
 
 								conn->first_packet_time_to_play = should_be_time;
 
@@ -1665,6 +1701,9 @@ void *player_thread_func(void *arg) {
   conn->ab_synced = 0;
   conn->first_packet_timestamp = 0;
   conn->flush_requested = 0;
+  conn->flush_output_flushed = 0; // only send a flush command to the output device once
+  conn->flush_rtp_timestamp = 0; // it seems this number has a special significance -- it seems to
+                                 // be used as a null operand, so we'll use it like that too
   conn->fix_volume = 0x10000;
 
   if (conn->latency == 0) {
@@ -1872,8 +1911,6 @@ void *player_thread_func(void *arg) {
     die("Failed to allocate memory for an output buffer.");
   conn->first_packet_timestamp = 0;
   conn->missing_packets = conn->late_packets = conn->too_late_packets = conn->resend_requests = 0;
-  conn->flush_rtp_timestamp = 0; // it seems this number has a special significance -- it seems to
-                                 // be used as a null operand, so we'll use it like that too
   int sync_error_out_of_bounds =
       0; // number of times in a row that there's been a serious sync error
 
@@ -3020,15 +3057,12 @@ void player_volume(double airplay_volume, rtsp_conn_info *conn) {
 
 void do_flush(uint32_t timestamp, rtsp_conn_info *conn) {
 
-  debug(3, "Flush requested up to %u. It seems as if 0 is special.", timestamp);
+  debug(1, "do_flush: flush to %u.", timestamp);
   debug_mutex_lock(&conn->flush_mutex, 1000, 1);
   conn->flush_requested = 1;
-  // if (timestamp!=0)
   conn->flush_rtp_timestamp = timestamp; // flush all packets up to (and including?) this
-  // conn->play_segment_reference_frame = 0;
   reset_input_flow_metrics(conn);
   debug_mutex_unlock(&conn->flush_mutex, 3);
-  debug(3, "Flush request made.");
 }
 
 void player_flush(uint32_t timestamp, rtsp_conn_info *conn) {
