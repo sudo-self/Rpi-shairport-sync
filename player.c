@@ -980,15 +980,15 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 								if (offset_from_first_frame > 0) {
 									int32_t offset_to_last_frame = (int32_t)(last_frame_in_buffer - conn->flush_rtp_timestamp);
 									if (offset_to_last_frame >= 0) {
-										debug(1,"flush request: flush frame %u active -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer, first_frame_in_buffer, last_frame_in_buffer);
+										debug(1,"flush request: flush frame %u active -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
 										drop_request = 1;
 										flush_needed = 1;
 									} else {
-										debug(1,"flush request: flush frame %u pending -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer, first_frame_in_buffer, last_frame_in_buffer);
+										debug(1,"flush request: flush frame %u pending -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
 										flush_needed = 1;
 									}
 								} else {
-										debug(1,"flush request: flush frame %u expired -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer, first_frame_in_buffer, last_frame_in_buffer);
+										debug(1,"flush request: flush frame %u expired -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
 										drop_request = 1;
 								}
 							}
