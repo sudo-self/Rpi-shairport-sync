@@ -466,184 +466,172 @@ void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, in
   conn->packet_count_since_flush++;
   conn->time_of_last_audio_packet = time_now;
   if (conn->connection_state_to_output) { // if we are supposed to be processing these packets
-    if ((conn->flush_rtp_timestamp != 0) && (actual_timestamp != conn->flush_rtp_timestamp) &&
-        (modulo_32_offset(actual_timestamp, conn->flush_rtp_timestamp) <
-         conn->input_rate * 10)) { // if it's less than 10 seconds
-      debug(1,
-            "Dropping flushed packet in player_put_packet, seqno %u, timestamp %" PRIu32
-            ", flushing to "
-            "timestamp: %" PRIu32 ".",
-            seqno, actual_timestamp, conn->flush_rtp_timestamp);
-      conn->initial_reference_time = 0;
-      conn->initial_reference_timestamp = 0;
-    } else {
-      abuf_t *abuf = 0;
-      if (!conn->ab_synced) {
-        // if this is the first packet...
-        debug(3, "syncing to seqno %u.", seqno);
-        conn->ab_write = seqno;
-        conn->ab_read = seqno;
-        conn->ab_synced = 1;
-      }
-      int16_t write_point_gap = seq_diff(seqno,conn->ab_write); // this is the difference between
-      // the incoming packet number and the packet number that was expected.
-      if (write_point_gap == 0) { // if this is the expected packet (which could be the first packet...)
-        if (conn->input_frame_rate_starting_point_is_valid == 0) {
-          if ((conn->packet_count_since_flush >= 500) && (conn->packet_count_since_flush <= 510)) {
-            conn->frames_inward_measurement_start_time = time_now;
-            conn->frames_inward_frames_received_at_measurement_start_time = actual_timestamp;
-            conn->input_frame_rate_starting_point_is_valid = 1; // valid now
-          }
-        }
-        conn->frames_inward_measurement_time = time_now;
-        conn->frames_inward_frames_received_at_measurement_time = actual_timestamp;
-        abuf = conn->audio_buffer + BUFIDX(seqno);
-        conn->ab_write = SUCCESSOR(seqno); // move the write pointer to the next free space
-      } else if (write_point_gap > 0) { // newer than expected
-      	// initialise  the frames in between
-        int i;
-        for (i = 0; i < write_point_gap; i++) {
-          abuf = conn->audio_buffer + BUFIDX(seq_sum(conn->ab_write, i));
-          abuf->ready = 0; // to be sure, to be sure
-          abuf->resend_request_number = 0;
-          abuf->initialisation_time =
-              time_now;          // this represents when the packet was noticed to be missing
-          abuf->status = 1 << 0; // signifying missing
-          abuf->resend_time = 0;
-          abuf->given_timestamp = 0;
-          abuf->sequence_number = 0;
-        }
-        abuf = conn->audio_buffer + BUFIDX(seqno);
-        conn->ab_write = SUCCESSOR(seqno);
-      } else if (seq_diff(seqno,conn->ab_read) > 0) { // older than expected but still not too late
-        conn->late_packets++;
-        abuf = conn->audio_buffer + BUFIDX(seqno);
-      } else { // too late.
-        conn->too_late_packets++;
-      }
+		abuf_t *abuf = 0;
+		if (!conn->ab_synced) {
+			// if this is the first packet...
+			debug(3, "syncing to seqno %u.", seqno);
+			conn->ab_write = seqno;
+			conn->ab_read = seqno;
+			conn->ab_synced = 1;
+		}
+		int16_t write_point_gap = seq_diff(seqno,conn->ab_write); // this is the difference between
+		// the incoming packet number and the packet number that was expected.
+		if (write_point_gap == 0) { // if this is the expected packet (which could be the first packet...)
+			if (conn->input_frame_rate_starting_point_is_valid == 0) {
+				if ((conn->packet_count_since_flush >= 500) && (conn->packet_count_since_flush <= 510)) {
+					conn->frames_inward_measurement_start_time = time_now;
+					conn->frames_inward_frames_received_at_measurement_start_time = actual_timestamp;
+					conn->input_frame_rate_starting_point_is_valid = 1; // valid now
+				}
+			}
+			conn->frames_inward_measurement_time = time_now;
+			conn->frames_inward_frames_received_at_measurement_time = actual_timestamp;
+			abuf = conn->audio_buffer + BUFIDX(seqno);
+			conn->ab_write = SUCCESSOR(seqno); // move the write pointer to the next free space
+		} else if (write_point_gap > 0) { // newer than expected
+			// initialise  the frames in between
+			int i;
+			for (i = 0; i < write_point_gap; i++) {
+				abuf = conn->audio_buffer + BUFIDX(seq_sum(conn->ab_write, i));
+				abuf->ready = 0; // to be sure, to be sure
+				abuf->resend_request_number = 0;
+				abuf->initialisation_time =
+						time_now;          // this represents when the packet was noticed to be missing
+				abuf->status = 1 << 0; // signifying missing
+				abuf->resend_time = 0;
+				abuf->given_timestamp = 0;
+				abuf->sequence_number = 0;
+			}
+			abuf = conn->audio_buffer + BUFIDX(seqno);
+			conn->ab_write = SUCCESSOR(seqno);
+		} else if (seq_diff(seqno,conn->ab_read) > 0) { // older than expected but still not too late
+			conn->late_packets++;
+			abuf = conn->audio_buffer + BUFIDX(seqno);
+		} else { // too late.
+			conn->too_late_packets++;
+		}
 
-      if (abuf) {
-        int datalen = conn->max_frames_per_packet;
-        abuf->initialisation_time = time_now;
-        abuf->resend_time = 0;
-        if (audio_packet_decode(abuf->data, &datalen, data, len, conn) == 0) {
-          abuf->ready = 1;
-          abuf->status = 0; // signifying that it was received
-          abuf->length = datalen;
-          abuf->given_timestamp = actual_timestamp;
-          abuf->sequence_number = seqno;
-        } else {
-          debug(1, "Bad audio packet detected and discarded.");
-          abuf->ready = 0;
-          abuf->status = 1 << 1; // bad packet, discarded
-          abuf->resend_request_number = 0;
-          abuf->given_timestamp = 0;
-          abuf->sequence_number = 0;
-        }
-      }
+		if (abuf) {
+			int datalen = conn->max_frames_per_packet;
+			abuf->initialisation_time = time_now;
+			abuf->resend_time = 0;
+			if (audio_packet_decode(abuf->data, &datalen, data, len, conn) == 0) {
+				abuf->ready = 1;
+				abuf->status = 0; // signifying that it was received
+				abuf->length = datalen;
+				abuf->given_timestamp = actual_timestamp;
+				abuf->sequence_number = seqno;
+			} else {
+				debug(1, "Bad audio packet detected and discarded.");
+				abuf->ready = 0;
+				abuf->status = 1 << 1; // bad packet, discarded
+				abuf->resend_request_number = 0;
+				abuf->given_timestamp = 0;
+				abuf->sequence_number = 0;
+			}
+		}
 
-      int rc = pthread_cond_signal(&conn->flowcontrol);
-      if (rc)
-        debug(1, "Error signalling flowcontrol.");
+		int rc = pthread_cond_signal(&conn->flowcontrol);
+		if (rc)
+			debug(1, "Error signalling flowcontrol.");
 
-      // resend checks
-      {
-        uint64_t minimum_wait_time =
-            (uint64_t)(config.resend_control_first_check_time * (uint64_t)1000000000);
-        uint64_t resend_repeat_interval =
-            (uint64_t)(config.resend_control_check_interval_time * (uint64_t)1000000000);
-        uint64_t minimum_remaining_time = (uint64_t)(
-            (config.resend_control_last_check_time + config.audio_backend_buffer_desired_length) *
-            (uint64_t)1000000000);
-        uint64_t latency_time = (uint64_t)(conn->latency * (uint64_t)1000000000);
-        latency_time = latency_time / (uint64_t)conn->input_rate;
+		// resend checks
+		{
+			uint64_t minimum_wait_time =
+					(uint64_t)(config.resend_control_first_check_time * (uint64_t)1000000000);
+			uint64_t resend_repeat_interval =
+					(uint64_t)(config.resend_control_check_interval_time * (uint64_t)1000000000);
+			uint64_t minimum_remaining_time = (uint64_t)(
+					(config.resend_control_last_check_time + config.audio_backend_buffer_desired_length) *
+					(uint64_t)1000000000);
+			uint64_t latency_time = (uint64_t)(conn->latency * (uint64_t)1000000000);
+			latency_time = latency_time / (uint64_t)conn->input_rate;
 
-        int x; // this is the first frame to be checked
-        // if we detected a first empty frame before and if it's still in the buffer!
-        if ((first_possibly_missing_frame >= 0) &&
-            (position_in_modulo_uint16_t_buffer(first_possibly_missing_frame, conn->ab_read,
-                                                conn->ab_write, NULL))) {
-          x = first_possibly_missing_frame;
-        } else {
-          x = conn->ab_read;
-        }
+			int x; // this is the first frame to be checked
+			// if we detected a first empty frame before and if it's still in the buffer!
+			if ((first_possibly_missing_frame >= 0) &&
+					(position_in_modulo_uint16_t_buffer(first_possibly_missing_frame, conn->ab_read,
+																							conn->ab_write, NULL))) {
+				x = first_possibly_missing_frame;
+			} else {
+				x = conn->ab_read;
+			}
 
-        first_possibly_missing_frame = -1; // has not been set
+			first_possibly_missing_frame = -1; // has not been set
 
-        int missing_frame_run_count = 0;
-        int start_of_missing_frame_run = -1;
-        int number_of_missing_frames = 0;
-        while (x != conn->ab_write) {
-          abuf_t *check_buf = conn->audio_buffer + BUFIDX(x);
-          if (!check_buf->ready) {
-            if (first_possibly_missing_frame < 0)
-              first_possibly_missing_frame = x;
-            number_of_missing_frames++;
-            // debug(1, "frame %u's initialisation_time is 0x%" PRIx64 ", latency_time is 0x%"
-            // PRIx64 ", time_now is 0x%" PRIx64 ", minimum_remaining_time is 0x%" PRIx64 ".", x,
-            // check_buf->initialisation_time, latency_time, time_now, minimum_remaining_time);
-            int too_late = ((check_buf->initialisation_time < (time_now - latency_time)) ||
-                            ((check_buf->initialisation_time - (time_now - latency_time)) <
-                             minimum_remaining_time));
-            int too_early = ((time_now - check_buf->initialisation_time) < minimum_wait_time);
-            int too_soon_after_last_request =
-                ((check_buf->resend_time != 0) &&
-                 ((time_now - check_buf->resend_time) <
-                  resend_repeat_interval)); // time_now can never be less than the time_tag
+			int missing_frame_run_count = 0;
+			int start_of_missing_frame_run = -1;
+			int number_of_missing_frames = 0;
+			while (x != conn->ab_write) {
+				abuf_t *check_buf = conn->audio_buffer + BUFIDX(x);
+				if (!check_buf->ready) {
+					if (first_possibly_missing_frame < 0)
+						first_possibly_missing_frame = x;
+					number_of_missing_frames++;
+					// debug(1, "frame %u's initialisation_time is 0x%" PRIx64 ", latency_time is 0x%"
+					// PRIx64 ", time_now is 0x%" PRIx64 ", minimum_remaining_time is 0x%" PRIx64 ".", x,
+					// check_buf->initialisation_time, latency_time, time_now, minimum_remaining_time);
+					int too_late = ((check_buf->initialisation_time < (time_now - latency_time)) ||
+													((check_buf->initialisation_time - (time_now - latency_time)) <
+													 minimum_remaining_time));
+					int too_early = ((time_now - check_buf->initialisation_time) < minimum_wait_time);
+					int too_soon_after_last_request =
+							((check_buf->resend_time != 0) &&
+							 ((time_now - check_buf->resend_time) <
+								resend_repeat_interval)); // time_now can never be less than the time_tag
 
-            if (too_late)
-              check_buf->status |= 1 << 2; // too late
-            else
-              check_buf->status &= 0xFF - (1 << 2); // not too late
-            if (too_early)
-              check_buf->status |= 1 << 3; // too early
-            else
-              check_buf->status &= 0xFF - (1 << 3); // not too early
-            if (too_soon_after_last_request)
-              check_buf->status |= 1 << 4; // too soon after last request
-            else
-              check_buf->status &= 0xFF - (1 << 4); // not too soon after last request
+					if (too_late)
+						check_buf->status |= 1 << 2; // too late
+					else
+						check_buf->status &= 0xFF - (1 << 2); // not too late
+					if (too_early)
+						check_buf->status |= 1 << 3; // too early
+					else
+						check_buf->status &= 0xFF - (1 << 3); // not too early
+					if (too_soon_after_last_request)
+						check_buf->status |= 1 << 4; // too soon after last request
+					else
+						check_buf->status &= 0xFF - (1 << 4); // not too soon after last request
 
-            if ((!too_soon_after_last_request) && (!too_late) && (!too_early)) {
-              if (start_of_missing_frame_run == -1) {
-                start_of_missing_frame_run = x;
-                missing_frame_run_count = 1;
-              } else {
-                missing_frame_run_count++;
-              }
-              check_buf->resend_time = time_now; // setting the time to now because we are
-                                                 // definitely going to take action
-              check_buf->resend_request_number++;
-              debug(3, "Frame %d is missing with ab_read of %u and ab_write of %u.", x,
-                    conn->ab_read, conn->ab_write);
-            }
-            // if (too_late) {
-            //   debug(1,"too late to get missing frame %u.", x);
-            // }
-          }
-          // if (number_of_missing_frames != 0)
-          //  debug(1,"check with x = %u, ab_read = %u, ab_write = %u, first_possibly_missing_frame
-          //  = %d.", x, conn->ab_read, conn->ab_write, first_possibly_missing_frame);
-          x = (x + 1) & 0xffff;
-          if (((check_buf->ready) || (x == conn->ab_write)) && (missing_frame_run_count > 0)) {
-            // send a resend request
-            if (missing_frame_run_count > 1)
-              debug(3, "request resend of %d packets starting at seqno %u.",
-                    missing_frame_run_count, start_of_missing_frame_run);
-            if (config.disable_resend_requests == 0) {
-              debug_mutex_unlock(&conn->ab_mutex, 3);
-              rtp_request_resend(start_of_missing_frame_run, missing_frame_run_count, conn);
-              debug_mutex_lock(&conn->ab_mutex, 20000, 1);
-              conn->resend_requests++;
-            }
-            start_of_missing_frame_run = -1;
-            missing_frame_run_count = 0;
-          }
-        }
-        if (number_of_missing_frames == 0)
-          first_possibly_missing_frame = conn->ab_write;
-      }
-    }
+					if ((!too_soon_after_last_request) && (!too_late) && (!too_early)) {
+						if (start_of_missing_frame_run == -1) {
+							start_of_missing_frame_run = x;
+							missing_frame_run_count = 1;
+						} else {
+							missing_frame_run_count++;
+						}
+						check_buf->resend_time = time_now; // setting the time to now because we are
+																							 // definitely going to take action
+						check_buf->resend_request_number++;
+						debug(3, "Frame %d is missing with ab_read of %u and ab_write of %u.", x,
+									conn->ab_read, conn->ab_write);
+					}
+					// if (too_late) {
+					//   debug(1,"too late to get missing frame %u.", x);
+					// }
+				}
+				// if (number_of_missing_frames != 0)
+				//  debug(1,"check with x = %u, ab_read = %u, ab_write = %u, first_possibly_missing_frame
+				//  = %d.", x, conn->ab_read, conn->ab_write, first_possibly_missing_frame);
+				x = (x + 1) & 0xffff;
+				if (((check_buf->ready) || (x == conn->ab_write)) && (missing_frame_run_count > 0)) {
+					// send a resend request
+					if (missing_frame_run_count > 1)
+						debug(3, "request resend of %d packets starting at seqno %u.",
+									missing_frame_run_count, start_of_missing_frame_run);
+					if (config.disable_resend_requests == 0) {
+						debug_mutex_unlock(&conn->ab_mutex, 3);
+						rtp_request_resend(start_of_missing_frame_run, missing_frame_run_count, conn);
+						debug_mutex_lock(&conn->ab_mutex, 20000, 1);
+						conn->resend_requests++;
+					}
+					start_of_missing_frame_run = -1;
+					missing_frame_run_count = 0;
+				}
+			}
+			if (number_of_missing_frames == 0)
+				first_possibly_missing_frame = conn->ab_write;
+		}
   }
   debug_mutex_unlock(&conn->ab_mutex, 0);
 }
