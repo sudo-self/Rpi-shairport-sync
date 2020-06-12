@@ -533,7 +533,7 @@ void rtp_timing_receiver_cleanup_handler(void *arg) {
   // if gradients comes out of this non-null, it is pointing to the DACP and it's last-known gradient
   if (gradients) {
   	gradients->value = conn->local_to_remote_time_gradient;
-  	debug(1,"Updating a drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, gradients->name);
+  	// debug(1,"Updating a drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, gradients->name);
   } else {
   	nvll *new_entry = (nvll*)malloc(sizeof(nvll));
   	if (new_entry) {
@@ -541,7 +541,7 @@ void rtp_timing_receiver_cleanup_handler(void *arg) {
   		new_entry->value = conn->local_to_remote_time_gradient;
   		new_entry->next = config.gradients;
   		config.gradients = new_entry;
-  		debug(1,"Setting a new drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, new_entry->name);
+  		// debug(1,"Setting a new drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, new_entry->name);
   	}
   }
 
@@ -580,7 +580,7 @@ void *rtp_timing_receiver(void *arg) {
   // if gradients comes out of this non-null, it is pointing to the IP and it's last-known gradient
   if (gradients) {
   	conn->local_to_remote_time_gradient = gradients->value;
-  	debug(1,"Using a stored drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, gradients->name);
+  	// debug(1,"Using a stored drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, gradients->name);
   }
 
   // calculate diffusion factor
