@@ -2259,7 +2259,7 @@ void *player_thread_func(void *arg) {
 
             	// remove the bias when reporting the error to make it the true error
 
-            	debug(2,"first frame sync error (positive --> late): %" PRId64 " frames, %.3f mS at %d frames per second output.", sync_error+first_frame_early_bias, (1000.0*(sync_error+first_frame_early_bias))/config.output_rate, config.output_rate);
+            	debug(1,"first frame sync error (positive --> late): %" PRId64 " frames, %.3f mS at %d frames per second output.", sync_error+first_frame_early_bias, (1000.0*(sync_error+first_frame_early_bias))/config.output_rate, config.output_rate);
 
             	// if the packet is early, add the frames needed to put it in sync.
             	if (sync_error < 0) {
@@ -2272,7 +2272,7 @@ void *player_thread_func(void *arg) {
                                            conn->enable_dither, conn->previous_random_number);
                   int final_adjustment = -sync_error;
                   final_adjustment = final_adjustment - first_frame_early_bias;
-                  debug(2, "final sync adjustment: %d frames.", final_adjustment);
+                  debug(1, "final sync adjustment: %" PRId64 " silent frames added with a bias of %" PRId64 " frames.", -sync_error, first_frame_early_bias);
                   config.output->play(final_adjustment_silence, final_adjustment_length_sized);
                   free(final_adjustment_silence);
                 } else {
