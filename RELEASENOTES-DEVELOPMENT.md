@@ -1,3 +1,11 @@
+Version 3.3.7d10
+====
+**Bug Fix**
+* Fixed a bug whereby the start and end of active mode tokens `abeg` and `aend` where not generated or published --  `pend` tokens were being generated instead. Thanks to [minix1234](https://github.com/minix1234) for the bug report and [fix](https://github.com/mikebrady/shairport-sync/pull/1023).
+
+**Enhancements**
+* Cleaned up and simplified the code that handles `FLUSH` requests coming from the player. (Debug messages are still a little verbose.)
+
 Version 3.3.7d9
 ====
 **Enhancements**
