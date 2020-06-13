@@ -3059,9 +3059,12 @@ void player_flush(uint32_t timestamp, rtsp_conn_info *conn) {
 #ifdef CONFIG_METADATA
   // only send a flush metadata message if the first packet has been seen -- it's a bogus message
   // otherwise
+
   if (conn->first_packet_timestamp) {
-    debug(2, "pfls");
-    send_ssnc_metadata('pfls', NULL, 0, 1); // contains cancellation points
+		debug(2, "pfls");
+		char numbuf[32];
+		snprintf(numbuf, sizeof(numbuf),"%u",timestamp);
+		send_ssnc_metadata('pfls', numbuf, strlen(numbuf), 1); // contains cancellation points
   }
 #endif
 }

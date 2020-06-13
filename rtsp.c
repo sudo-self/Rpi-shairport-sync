@@ -926,12 +926,17 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
       }
     }
 // debug(1,"RTSP Flush Requested: %u.",rtptime);
+
+// the following is now done better by the player_flush routine as a 'pfls'
+/*
 #ifdef CONFIG_METADATA
     if (p)
       send_metadata('ssnc', 'flsr', p + 1, strlen(p + 1), req, 1);
     else
       send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
 #endif
+*/
+
     player_flush(rtptime, conn); // will not crash even it there is no player thread.
     resp->respcode = 200;
 
@@ -1145,7 +1150,10 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 //    'aend' -- active mode exited. No arguments
 //    'pbeg' -- play stream begin. No arguments
 //    'pend' -- play stream end. No arguments
-//    'pfls' -- play stream flush. No arguments
+//    'pfls' -- play stream flush. The argument is an unsigned 32-bit
+//               frame number. It seems that all frames up to but not
+//               including this frame are to be flushed.
+//
 //    'prsm' -- play stream resume. No arguments
 //		`pffr` -- the first frame of a play session has been received and has been validly
 // timed.
@@ -1185,8 +1193,11 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 //    to send commands to the source's remote control (if it has one).
 //		`clip` -- the payload is the IP number of the client, i.e. the sender of audio.
 //		Can be an IPv4 or an IPv6 number.
+//		`svip` -- the payload is the IP number of the server, i.e. the player itself.
+//		Can be an IPv4 or an IPv6 number.
 //		`dapo` -- the payload is the port number (as text) on the server to which remote
 // control commands should be sent. It is 3689 for iTunes but varies for iOS devices.
+
 //		A special sub-protocol is used for sending large data items over UDP
 //    If the payload exceeded 4 MB, it is chunked using the following format:
 //    "ssnc", "chnk", packet_ix, packet_counts, packet_tag, packet_type, chunked_data.
