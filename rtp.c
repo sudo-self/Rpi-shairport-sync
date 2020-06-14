@@ -812,7 +812,7 @@ void *rtp_timing_receiver(void *arg) {
             // samples.",conn->local_to_remote_time_gradient*1000000,sample_count);
 
           } else {
-            debug(2,
+            debug(1,
                   "Time ping turnaround time: %" PRIu64
                   " ns -- it looks like a timing ping was lost.",
                   return_time);
