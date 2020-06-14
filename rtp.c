@@ -511,8 +511,8 @@ void *rtp_timing_sender(void *arg) {
 
     request_number++;
 
-    if (request_number <= 4)
-      usleep(500000); // these are thread cancellation points
+    if (request_number <= 6)
+      usleep(300000); // these are thread cancellation points
     else
       usleep(3000000);
   }
@@ -621,10 +621,11 @@ void *rtp_timing_receiver(void *arg) {
         if (packet[1] == 0xd3) { // timing reply
 
           return_time = arrival_time - conn->departure_time;
+          debug(1,"clock synchronisation request: return time is %8.3f milliseconds.",0.000001*return_time);
 
-          if (return_time < 300000000) { // must be less than 0.3 seconds
+          if (return_time < 200000000) { // must be less than 0.2 seconds
 
-            //debug(1,"Ping return time is %8.3f milliseconds.",0.000001*return_time);
+            debug(1,"Ping return time is %8.3f milliseconds.",0.000001*return_time);
 
             // distant_receive_time =
             // ((uint64_t)ntohl(*((uint32_t*)&packet[16])))<<32+ntohl(*((uint32_t*)&packet[20]));
