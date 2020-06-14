@@ -624,9 +624,6 @@ void *rtp_timing_receiver(void *arg) {
           debug(1,"clock synchronisation request: return time is %8.3f milliseconds.",0.000001*return_time);
 
           if (return_time < 200000000) { // must be less than 0.2 seconds
-
-            debug(1,"Ping return time is %8.3f milliseconds.",0.000001*return_time);
-
             // distant_receive_time =
             // ((uint64_t)ntohl(*((uint32_t*)&packet[16])))<<32+ntohl(*((uint32_t*)&packet[20]));
 
