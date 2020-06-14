@@ -166,7 +166,7 @@ int create_log_file(const char* path) {
 					if (fd >= 0) {
 						// now we switch to blocking mode
 						int flags = fcntl(fd, F_GETFL);
-						if ((flags == -1)) {
+						if (flags == -1) {
 //							strerror_r(errno, (char *)errorstring, sizeof(errorstring));
 //							debug(1, "create_log_file -- error %d (\"%s\") getting flags of pipe: \"%s\".", errno,
 //										(char *)errorstring, pathname);
@@ -1147,7 +1147,7 @@ int try_to_open_pipe_for_writing(const char* pathname) {
   if (fdis >= 0) {
   	// now we switch to blocking mode
   	int flags = fcntl(fdis, F_GETFL);
-  	if ((flags == -1)) {
+  	if (flags == -1) {
   		char errorstring[1024];
 			strerror_r(errno, (char *)errorstring, sizeof(errorstring));
 			debug(1, "try_to_open_pipe -- error %d (\"%s\") getting flags of pipe: \"%s\".", errno,
