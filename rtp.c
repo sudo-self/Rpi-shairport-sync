@@ -621,7 +621,7 @@ void *rtp_timing_receiver(void *arg) {
         if (packet[1] == 0xd3) { // timing reply
 
           return_time = arrival_time - conn->departure_time;
-          debug(1,"clock synchronisation request: return time is %8.3f milliseconds.",0.000001*return_time);
+          debug(3,"clock synchronisation request: return time is %8.3f milliseconds.",0.000001*return_time);
 
           if (return_time < 200000000) { // must be less than 0.2 seconds
             // distant_receive_time =

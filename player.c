@@ -925,7 +925,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       conn->connection_state_to_output = rco;
       // change happening
       if (conn->connection_state_to_output == 0) { // going off
-        debug(1, "request flush because connection_state_to_output is off");
+        debug(2, "request flush because connection_state_to_output is off");
         debug_mutex_lock(&conn->flush_mutex, 1000, 1);
         conn->flush_requested = 1;
         conn->flush_rtp_timestamp = 0;
@@ -935,7 +935,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
     if (config.output->is_running)
       if (config.output->is_running() != 0) { // if the back end isn't running for any reason
-        debug(1, "request flush because back end is not running");
+        debug(2, "request flush because back end is not running");
         debug_mutex_lock(&conn->flush_mutex, 1000, 0);
         conn->flush_requested = 1;
         conn->flush_rtp_timestamp = 0;
@@ -947,7 +947,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     	if (conn->flush_output_flushed == 0)
       	if (config.output->flush) {
          config.output->flush(); // no cancellation points
-         debug(1, "flush request: flush output device.");
+         debug(2, "flush request: flush output device.");
         }
       conn->flush_output_flushed = 1;
       // now check to see it the flush request is for frames in the buffer or not
@@ -980,15 +980,15 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 								if (offset_from_first_frame > 0) {
 									int32_t offset_to_last_frame = (int32_t)(last_frame_in_buffer - conn->flush_rtp_timestamp);
 									if (offset_to_last_frame >= 0) {
-										debug(1,"flush request: flush frame %u active -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
+										debug(2,"flush request: flush frame %u active -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
 										drop_request = 1;
 										flush_needed = 1;
 									} else {
-										debug(1,"flush request: flush frame %u pending -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
+										debug(2,"flush request: flush frame %u pending -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
 										flush_needed = 1;
 									}
 								} else {
-										debug(1,"flush request: flush frame %u expired -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
+										debug(2,"flush request: flush frame %u expired -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
 										drop_request = 1;
 								}
 							}
@@ -996,11 +996,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 					}
 				} else {
 					debug(2, "flush request: flush frame %u  -- buffer not synced or empty: synced: %d, ab_read: %u, ab_write: %u", conn->flush_rtp_timestamp, conn->ab_synced, conn->ab_read, conn->ab_write);
-					// leave flush request pending and don't do a buffer flush
+					// leave flush request pending and don't do a buffer flush, because there isn't one
 				}
       }
 			if (flush_needed) {
-				debug(1, "flush request: flush done.");
+				debug(2, "flush request: flush done.");
 				ab_resync(conn);          // no cancellation points
 				conn->first_packet_timestamp = 0;
 				conn->first_packet_time_to_play = 0;
@@ -1009,7 +1009,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 				dac_delay = 0;
 			}
 			if (drop_request) {
-				debug(1, "flush request: request dropped.");
+				debug(2, "flush request: request dropped.");
 				conn->flush_requested = 0;
 				conn->flush_rtp_timestamp = 0;
 				conn->flush_output_flushed = 0;
@@ -1093,7 +1093,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                                   &should_be_time, conn);
 
               conn->first_packet_time_to_play = should_be_time;
-              debug(1,"first_packet_time set for frame %u.", conn->first_packet_timestamp);
+              debug(2,"first_packet_time set for frame %u.", conn->first_packet_timestamp);
 
 
               if (local_time_now > conn->first_packet_time_to_play) {
@@ -1155,7 +1155,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 								int64_t change_in_should_be_time = (int64_t)(should_be_time - conn->first_packet_time_to_play);
 
 								if (fabs(0.000001*change_in_should_be_time) > 0.001) // the clock drift estimation might be nudging the estimate, and we can ignore this unless if's more than a microsecond
-									debug(1,"Change in estimated first_packet_time: %8.4f milliseconds.", 0.000001*change_in_should_be_time);
+									debug(2,"Change in estimated first_packet_time: %8.4f milliseconds.", 0.000001*change_in_should_be_time);
 
 								conn->first_packet_time_to_play = should_be_time;
 
@@ -2259,7 +2259,7 @@ void *player_thread_func(void *arg) {
 
             	// remove the bias when reporting the error to make it the true error
 
-            	debug(1,"first frame sync error (positive --> late): %" PRId64 " frames, %.3f mS at %d frames per second output.", sync_error+first_frame_early_bias, (1000.0*(sync_error+first_frame_early_bias))/config.output_rate, config.output_rate);
+            	debug(2,"first frame sync error (positive --> late): %" PRId64 " frames, %.3f mS at %d frames per second output.", sync_error+first_frame_early_bias, (1000.0*(sync_error+first_frame_early_bias))/config.output_rate, config.output_rate);
 
             	// if the packet is early, add the frames needed to put it in sync.
             	if (sync_error < 0) {
@@ -2272,7 +2272,7 @@ void *player_thread_func(void *arg) {
                                            conn->enable_dither, conn->previous_random_number);
                   int final_adjustment = -sync_error;
                   final_adjustment = final_adjustment - first_frame_early_bias;
-                  debug(1, "final sync adjustment: %" PRId64 " silent frames added with a bias of %" PRId64 " frames.", -sync_error, first_frame_early_bias);
+                  debug(2, "final sync adjustment: %" PRId64 " silent frames added with a bias of %" PRId64 " frames.", -sync_error, first_frame_early_bias);
                   config.output->play(final_adjustment_silence, final_adjustment_length_sized);
                   free(final_adjustment_silence);
                 } else {
@@ -3045,10 +3045,10 @@ void player_volume(double airplay_volume, rtsp_conn_info *conn) {
 
 void do_flush(uint32_t timestamp, rtsp_conn_info *conn) {
 
-  debug(1, "do_flush: flush to %u.", timestamp);
+  debug(2, "do_flush: flush to %u.", timestamp);
   debug_mutex_lock(&conn->flush_mutex, 1000, 1);
   conn->flush_requested = 1;
-  conn->flush_rtp_timestamp = timestamp; // flush all packets up to (and including?) this
+  conn->flush_rtp_timestamp = timestamp; // flush all packets up to, but not including, this one.
   reset_input_flow_metrics(conn);
   debug_mutex_unlock(&conn->flush_mutex, 3);
 }
