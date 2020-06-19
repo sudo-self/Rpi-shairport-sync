@@ -329,7 +329,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
   // comes in if the metadata_packet_item_changed is set.
 
   int changed = 0;
-  int metadata_packet_item_changed;
+  int metadata_packet_item_changed = 0;
   metadata_hub_modify_prolog();
   pthread_cleanup_push(metadata_hub_unlock_hub_mutex_cleanup, NULL);
 
