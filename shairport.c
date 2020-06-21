@@ -443,9 +443,9 @@ int parse_options(int argc, char **argv) {
 
   char *config_file_real_path = realpath(config.configfile, NULL);
   if (config_file_real_path == NULL) {
-    debug(2, "Can't resolve the configuration file \"%s\".", config.configfile);
+    debug(2, "can't resolve the configuration file \"%s\".", config.configfile);
   } else {
-    debug(2, "Looking for configuration file at full path \"%s\"", config_file_real_path);
+    debug(2, "looking for configuration file at full path \"%s\"", config_file_real_path);
     /* Read the file. If there is an error, report it and exit. */
     if (config_read_file(&config_file_stuff, config_file_real_path)) {
       free(config_file_real_path);
@@ -1310,9 +1310,9 @@ void exit_function() {
 // that most of this code will be skipped when the parent process is exiting
 // exec
 #ifdef CONFIG_LIBDAEMON
-  if (this_is_the_daemon_process) { // this is the daemon that is exiting
+  if ((this_is_the_daemon_process) || (config.daemonise == 0)) { // if this is the daemon process that is exiting or it's not actually deamonised at all
 #endif
-    debug(1, "exit function called...");
+    debug(2, "exit function called...");
 
     /*
     Actually, there is no terminate_mqtt() function.
@@ -1382,11 +1382,13 @@ Actually, there is no stop_mpris_service() function.
       free(config.regtype);
 
 #ifdef CONFIG_LIBDAEMON
-    daemon_retval_send(0);
-    daemon_pid_file_remove();
-    daemon_signal_done();
-    if (config.computed_piddir)
-      free(config.computed_piddir);
+    if (this_is_the_daemon_process) {
+      daemon_retval_send(0);
+      daemon_pid_file_remove();
+      daemon_signal_done();
+      if (config.computed_piddir)
+        free(config.computed_piddir);
+    }
   }
 #endif
 
@@ -1395,6 +1397,19 @@ Actually, there is no stop_mpris_service() function.
   if (config.appName)
     free(config.appName);
   // probably should be freeing malloc'ed memory here, including strdup-created strings...
+  
+#ifdef CONFIG_LIBDAEMON
+  if (this_is_the_daemon_process) { // this is the daemon that is exiting
+    debug(2,"libdaemon daemon exit");  
+  } else {
+    if (config.daemonise)
+      debug(2,"libdaemon parent exit");  
+    else
+      debug(2,"exit");      
+  }
+#else
+  debug(2,"exit");
+#endif
 }
 
 // for removing zombie script processes
@@ -1407,6 +1422,12 @@ void handle_sigchld(__attribute__((unused)) int sig) {
   }
   errno = saved_errno;
 }
+
+void main_thread_cleanup_handler(__attribute__((unused)) void *arg) {
+  debug(2,"main thread cleanup handler called");
+  exit(EXIT_SUCCESS);
+}
+
 
 int main(int argc, char **argv) {
   /* Check if we are called with -V or --version parameter */
@@ -1562,10 +1583,17 @@ int main(int argc, char **argv) {
 
     /* Kill daemon with SIGTERM */
     /* Check if the new function daemon_pid_file_kill_wait() is available, if it is, use it. */
-    if ((ret = daemon_pid_file_kill_wait(SIGTERM, 5)) < 0)
-      daemon_log(LOG_WARNING, "Failed to kill daemon: %s", strerror(errno));
-    else {
-      // debug(1,"Successfully killed the shairport sync daemon.");
+    if ((ret = daemon_pid_file_kill_wait(SIGTERM, 5)) < 0) {
+      if (errno == ENOENT) 
+        daemon_log(LOG_WARNING, "Failed to kill %s daemon: PID file not found.", config.appName);       
+      else
+        daemon_log(LOG_WARNING, "Failed to kill %s daemon: \"%s\", errno %u.", config.appName, strerror(errno), errno);
+    } else {
+        // debug(1,"Successfully killed the %s daemon.", config.appName);
+      if (daemon_pid_file_remove() == 0)
+        debug(2, "killed the %s daemon.", config.appName);
+      else
+        daemon_log(LOG_WARNING, "killed the %s deamon, but cannot remove old PID file: \"%s\", errno %u.", config.appName, strerror(errno), errno);    
     }
     return ret < 0 ? 1 : 0;
 #else
@@ -1578,7 +1606,7 @@ int main(int argc, char **argv) {
 #ifdef CONFIG_LIBDAEMON
   /* If we are going to daemonise, check that the daemon is not running already.*/
   if ((config.daemonise) && ((pid = daemon_pid_file_is_running()) >= 0)) {
-    daemon_log(LOG_ERR, "Daemon already running on PID file %u", pid);
+    daemon_log(LOG_ERR, "The %s daemon is already running as PID %u", config.appName, pid);
     return 1;
   }
 
@@ -1613,16 +1641,16 @@ int main(int argc, char **argv) {
         break;
       case 1:
         daemon_log(LOG_ERR,
-                   "daemon failed to launch: could not close open file descriptors after forking.");
+                   "the %s daemon failed to launch: could not close open file descriptors after forking.", config.appName);
         break;
       case 2:
-        daemon_log(LOG_ERR, "daemon failed to launch: could not create PID file.");
+        daemon_log(LOG_ERR, "the %s daemon failed to launch: could not create PID file.", config.appName);
         break;
       case 3:
-        daemon_log(LOG_ERR, "daemon failed to launch: could not create or access PID directory.");
+        daemon_log(LOG_ERR, "the %s daemon failed to launch: could not create or access PID directory.", config.appName);
         break;
       default:
-        daemon_log(LOG_ERR, "daemon failed to launch, error %i.", ret);
+        daemon_log(LOG_ERR, "the %s daemon failed to launch, error %i.", config.appName, ret);
       }
       return ret;
     } else { /* pid == 0 means we are the daemon */
@@ -1710,7 +1738,7 @@ int main(int argc, char **argv) {
   }
   config.output->init(argc - audio_arg, argv + audio_arg);
 
-  // pthread_cleanup_push(main_cleanup_handler, NULL);
+  pthread_cleanup_push(main_thread_cleanup_handler, NULL);
 
   // daemon_log(LOG_NOTICE, "startup");
 
@@ -1927,5 +1955,6 @@ int main(int argc, char **argv) {
 
   activity_monitor_start();
   rtsp_listen_loop();
+  pthread_cleanup_pop(1);
   return 0;
 }
