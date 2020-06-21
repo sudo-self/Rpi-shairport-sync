@@ -368,11 +368,11 @@ static void track_thread(rtsp_conn_info *conn) {
 void cancel_all_RTSP_threads(void) {
   int i;
   for (i = 0; i < nconns; i++) {
-    debug(1, "Connection %d: cancelling.", conns[i]->connection_number);
+    debug(2, "Connection %d: cancelling.", conns[i]->connection_number);
     pthread_cancel(conns[i]->thread);
   }
   for (i = 0; i < nconns; i++) {
-    debug(1, "Connection %d: joining.", conns[i]->connection_number);
+    debug(2, "Connection %d: joining.", conns[i]->connection_number);
     pthread_join(conns[i]->thread, NULL);
     free(conns[i]);
   }
@@ -1482,13 +1482,13 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
 }
 
 void metadata_pack_cleanup_function(void *arg) {
-  debug(1, "metadata_pack_cleanup_function called");
+  // debug(1, "metadata_pack_cleanup_function called");
   metadata_package *pack = (metadata_package *)arg;
   if (pack->carrier)
     msg_free(&pack->carrier); // release the message
   else if (pack->data)
     free(pack->data);
-  debug(1, "metadata_pack_cleanup_function exit");
+  // debug(1, "metadata_pack_cleanup_function exit");
 }
 
 void metadata_thread_cleanup_function(__attribute__((unused)) void *arg) {
