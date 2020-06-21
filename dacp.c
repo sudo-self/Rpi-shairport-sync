@@ -996,7 +996,7 @@ void dacp_monitor_stop() {
     debug(3, "DACP Conversation Lock Mutex Destroyed");
     pthread_mutex_destroy(&dacp_conversation_lock);
     pthread_cond_destroy(&dacp_server_information_cv);
-    debug(1, "DACP Server Information Condition Variable destroyed.");
+    debug(3, "DACP Server Information Condition Variable destroyed.");
   }
 }
 
