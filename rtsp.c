@@ -174,14 +174,18 @@ void pc_queue_init(pc_queue *the_queue, char *items, size_t item_size, uint32_t 
 
 void pc_queue_delete(pc_queue *the_queue) {
 	if (the_queue->name)
-		debug(1, "Deleting metadata queue \"%s\".", the_queue->name);
+		debug(2, "Deleting metadata queue \"%s\".", the_queue->name);
 	else
 		debug(1, "Deleting an unnamed metadata queue.");
 	if (the_queue->name != NULL)
 		free(the_queue->name);
+	// debug(2, "destroying pc_queue_item_removed_signal");
   pthread_cond_destroy(&the_queue->pc_queue_item_removed_signal);
+	// debug(2, "destroying pc_queue_item_added_signal");
   pthread_cond_destroy(&the_queue->pc_queue_item_added_signal);
+	// debug(2, "destroying pc_queue_lock");
   pthread_mutex_destroy(&the_queue->pc_queue_lock);
+	// debug(2, "destroying signals and locks done");
 }
 
 int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,
@@ -1478,16 +1482,17 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
 }
 
 void metadata_pack_cleanup_function(void *arg) {
-  // debug(1, "metadata_pack_cleanup_function called");
+  debug(1, "metadata_pack_cleanup_function called");
   metadata_package *pack = (metadata_package *)arg;
   if (pack->carrier)
     msg_free(&pack->carrier); // release the message
   else if (pack->data)
     free(pack->data);
+  debug(1, "metadata_pack_cleanup_function exit");
 }
 
 void metadata_thread_cleanup_function(__attribute__((unused)) void *arg) {
-  debug(2, "metadata_thread_cleanup_function called");
+  // debug(2, "metadata_thread_cleanup_function called");
   metadata_close();
   pc_queue_delete(&metadata_queue);
 }
@@ -1518,7 +1523,7 @@ void *metadata_thread_function(__attribute__((unused)) void *ignore) {
 }
 
 void metadata_multicast_thread_cleanup_function(__attribute__((unused)) void *arg) {
-  debug(2, "metadata_multicast_thread_cleanup_function called");
+  // debug(2, "metadata_multicast_thread_cleanup_function called");
   metadata_delete_multicast_socket();
   pc_queue_delete(&metadata_multicast_queue);
 }
@@ -1554,7 +1559,7 @@ void metadata_hub_close(void) {
 }
 
 void metadata_hub_thread_cleanup_function(__attribute__((unused)) void *arg) {
-  debug(2, "metadata_hub_thread_cleanup_function called");
+  // debug(2, "metadata_hub_thread_cleanup_function called");
   metadata_hub_close();
   pc_queue_delete(&metadata_hub_queue);
 }
@@ -1614,9 +1619,10 @@ void metadata_mqtt_close(void) {
 }
 
 void metadata_mqtt_thread_cleanup_function(__attribute__((unused)) void *arg) {
-  debug(2, "metadata_mqtt_thread_cleanup_function called");
+  // debug(2, "metadata_mqtt_thread_cleanup_function called");
   metadata_mqtt_close();
-  pc_queue_delete(&metadata_hub_queue);
+  pc_queue_delete(&metadata_mqtt_queue);
+  // debug(2, "metadata_mqtt_thread_cleanup_function done");
 }
 
 void *metadata_mqtt_thread_function(__attribute__((unused)) void *ignore) {
@@ -1671,18 +1677,26 @@ void metadata_stop(void) {
   if (metadata_running) {
     debug(2, "metadata_stop called.");
 #ifdef CONFIG_MQTT
-    pthread_join(metadata_mqtt_thread, NULL);
+    // debug(2, "metadata stop mqtt thread.");
     pthread_cancel(metadata_mqtt_thread);
+    pthread_join(metadata_mqtt_thread, NULL);
+    // debug(2, "metadata stop mqtt done.");
 #endif
 #ifdef CONFIG_METADATA_HUB
-    pthread_join(metadata_hub_thread, NULL);
+    // debug(2, "metadata stop hub thread.");
     pthread_cancel(metadata_hub_thread);
+    pthread_join(metadata_hub_thread, NULL);
+    // debug(2, "metadata stop hub done.");
 #endif
+    // debug(2, "metadata stop multicast thread.");
     pthread_cancel(metadata_multicast_thread);
     pthread_join(metadata_multicast_thread, NULL);
+    // debug(2, "metadata stop multicast done.");
 
+    // debug(2, "metadata stop metadata_thread thread.");
     pthread_cancel(metadata_thread);
     pthread_join(metadata_thread, NULL);
+    // debug(2, "metadata_stop finished successfully.");
   }
 }
 
@@ -2748,7 +2762,7 @@ static const char *format_address(struct sockaddr *fsa) {
 void rtsp_listen_loop_cleanup_handler(__attribute__((unused)) void *arg) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  debug(1, "rtsp_listen_loop_cleanup_handler called.");
+  debug(2, "rtsp_listen_loop_cleanup_handler called.");
   cancel_all_RTSP_threads();
   int *sockfd = (int *)arg;
   mdns_unregister();
