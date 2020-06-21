@@ -1,3 +1,8 @@
+Version 3.3.7d11
+====
+**Bug Fixes**
+* Fixed a number of bugs that prevented Shairport Sync from terminating cleanly in response to the `MPRIS` interface's `Quit()` command. Thanks to [João Gabriel](https://github.com/jgabriel98) for reporting this issue.
+
 Version 3.3.7d10
 ====
 **Bug Fix**
