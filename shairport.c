@@ -1400,15 +1400,15 @@ Actually, there is no stop_mpris_service() function.
   
 #ifdef CONFIG_LIBDAEMON
   if (this_is_the_daemon_process) { // this is the daemon that is exiting
-    debug(2,"libdaemon daemon exit");  
+    debug(1,"libdaemon daemon exit");  
   } else {
     if (config.daemonise)
-      debug(2,"libdaemon parent exit");  
+      debug(1,"libdaemon parent exit");  
     else
-      debug(2,"exit");      
+      debug(1,"exit");      
   }
 #else
-  debug(2,"exit");
+  debug(1,"exit");
 #endif
 }
 
@@ -1528,7 +1528,7 @@ int main(int argc, char **argv) {
   // snprintf(config.service_name, 20 + 100, "Shairport Sync on %s", hostname);
   set_requested_connection_state_to_output(
       1); // we expect to be able to connect to the output device
-  config.audio_backend_buffer_desired_length = 6615; // 0.15 seconds.
+  config.audio_backend_buffer_desired_length = 0.15; // seconds
   config.udp_port_base = 6001;
   config.udp_port_range = 10;
   config.output_format = SPS_FORMAT_S16_LE; // default
