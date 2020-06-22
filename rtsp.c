@@ -154,7 +154,7 @@ typedef struct {
 
 void pc_queue_init(pc_queue *the_queue, char *items, size_t item_size, uint32_t number_of_items, const char* name) {
 	if (name)
-		debug(1, "Creating metadata queue \"%s\".", name);
+		debug(2, "Creating metadata queue \"%s\".", name);
 	else
 		debug(1, "Creating an unnamed metadata queue.");
   pthread_mutex_init(&the_queue->pc_queue_lock, NULL);
