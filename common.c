@@ -90,6 +90,7 @@ void set_alsa_out_dev(char *);
 #endif
 
 config_t config_file_stuff;
+int emergency_exit;
 pthread_t main_thread_id;
 uint64_t ns_time_at_startup, ns_time_at_last_debug_message;
 
@@ -317,7 +318,8 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
   va_end(args);
   sps_log(LOG_ERR, "%s", b);
   pthread_setcancelstate(oldState, NULL);
-  abort(); // exit() doesn't always work, by heaven.
+  emergency_exit = 1;
+  exit(EXIT_FAILURE);
 }
 
 void _warn(const char *filename, const int linenumber, const char *format, ...) {

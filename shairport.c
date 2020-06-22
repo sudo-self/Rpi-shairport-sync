@@ -1306,110 +1306,113 @@ const char *pid_file_proc(void) {
 
 void exit_function() {
 
-// the following is to ensure that if libdaemon has been included
-// that most of this code will be skipped when the parent process is exiting
-// exec
+	if (emergency_exit == 0) {
+		// the following is to ensure that if libdaemon has been included
+		// that most of this code will be skipped when the parent process is exiting
+		// exec
 #ifdef CONFIG_LIBDAEMON
-  if ((this_is_the_daemon_process) || (config.daemonise == 0)) { // if this is the daemon process that is exiting or it's not actually deamonised at all
+		if ((this_is_the_daemon_process) || (config.daemonise == 0)) { // if this is the daemon process that is exiting or it's not actually deamonised at all
 #endif
-    debug(2, "exit function called...");
-
-    /*
-    Actually, there is no terminate_mqtt() function.
-    #ifdef CONFIG_MQTT
-      if (config.mqtt_enabled) {
-        terminate_mqtt();
-      }
-    #endif
-    */
+			debug(2, "exit function called...");
+			/*
+			Actually, there is no terminate_mqtt() function.
+			#ifdef CONFIG_MQTT
+				if (config.mqtt_enabled) {
+					terminate_mqtt();
+				}
+			#endif
+			*/
 
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
-
-/*
-Actually, there is no stop_mpris_service() function.
-#ifdef CONFIG_MPRIS_INTERFACE
-  stop_mpris_service();
-#endif
-*/
+			/*
+			Actually, there is no stop_mpris_service() function.
+			#ifdef CONFIG_MPRIS_INTERFACE
+				stop_mpris_service();
+			#endif
+			*/
 #ifdef CONFIG_DBUS_INTERFACE
-    stop_dbus_service();
+			stop_dbus_service();
 #endif
-    if (g_main_loop) {
-      debug(2, "Stopping DBUS Loop Thread");
-      g_main_loop_quit(g_main_loop);
-      pthread_join(dbus_thread, NULL);
-    }
+			if (g_main_loop) {
+				debug(2, "Stopping DBUS Loop Thread");
+				g_main_loop_quit(g_main_loop);
+				pthread_join(dbus_thread, NULL);
+			}
 #endif
 
 #ifdef CONFIG_DACP_CLIENT
-    debug(2, "Stopping DACP Monitor");
-    dacp_monitor_stop();
+			debug(2, "Stopping DACP Monitor");
+			dacp_monitor_stop();
 #endif
 
 #ifdef CONFIG_METADATA_HUB
-    debug(2, "Stopping metadata hub");
-    metadata_hub_stop();
+			debug(2, "Stopping metadata hub");
+			metadata_hub_stop();
 #endif
 
 #ifdef CONFIG_METADATA
-    metadata_stop(); // close down the metadata pipe
+			metadata_stop(); // close down the metadata pipe
 #endif
 
-    activity_monitor_stop(0);
+			activity_monitor_stop(0);
 
-    if ((config.output) && (config.output->deinit)) {
-      debug(2, "Deinitialise the audio backend.");
-      config.output->deinit();
-    }
+			if ((config.output) && (config.output->deinit)) {
+				debug(2, "Deinitialise the audio backend.");
+				config.output->deinit();
+			}
 
 #ifdef CONFIG_SOXR
-    // be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
-    pthread_join(soxr_time_check_thread, NULL);
+			// be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
+			pthread_join(soxr_time_check_thread, NULL);
 #endif
 
-    if (conns)
-      free(conns); // make sure the connections have been deleted first
+			if (conns)
+				free(conns); // make sure the connections have been deleted first
 
-    if (config.service_name)
-      free(config.service_name);
+			if (config.service_name)
+				free(config.service_name);
 
 #ifdef CONFIG_CONVOLUTION
-    if (config.convolution_ir_file)
-      free(config.convolution_ir_file);
+			if (config.convolution_ir_file)
+				free(config.convolution_ir_file);
 #endif
 
-    if (config.regtype)
-      free(config.regtype);
+			if (config.regtype)
+				free(config.regtype);
 
 #ifdef CONFIG_LIBDAEMON
-    if (this_is_the_daemon_process) {
-      daemon_retval_send(0);
-      daemon_pid_file_remove();
-      daemon_signal_done();
-      if (config.computed_piddir)
-        free(config.computed_piddir);
-    }
-  }
+			if (this_is_the_daemon_process) {
+				daemon_retval_send(0);
+				daemon_pid_file_remove();
+				daemon_signal_done();
+				if (config.computed_piddir)
+					free(config.computed_piddir);
+			}
+		}
 #endif
 
-  if (config.cfg)
-    config_destroy(config.cfg);
-  if (config.appName)
-    free(config.appName);
-  // probably should be freeing malloc'ed memory here, including strdup-created strings...
-  
+		if (config.cfg)
+			config_destroy(config.cfg);
+		if (config.appName)
+			free(config.appName);
+		// probably should be freeing malloc'ed memory here, including strdup-created strings...
+
+
 #ifdef CONFIG_LIBDAEMON
-  if (this_is_the_daemon_process) { // this is the daemon that is exiting
-    debug(1,"libdaemon daemon exit");  
-  } else {
-    if (config.daemonise)
-      debug(1,"libdaemon parent exit");  
-    else
-      debug(1,"exit");      
-  }
+		if (this_is_the_daemon_process) { // this is the daemon that is exiting
+			debug(1,"libdaemon daemon exit");
+		} else {
+			if (config.daemonise)
+				debug(1,"libdaemon parent exit");
+			else
+				debug(1,"exit");
+		}
 #else
-  debug(1,"exit");
+		debug(1,"exit");
 #endif
+	} else {
+		debug(1,"emergency exit");
+	}
 }
 
 // for removing zombie script processes
@@ -1466,6 +1469,7 @@ int main(int argc, char **argv) {
   setlogmask(LOG_UPTO(LOG_DEBUG));
   openlog(NULL, 0, LOG_DAEMON);
 #endif
+	emergency_exit = 0; // what to do or skip in the exit_function
   atexit(exit_function);
 
   // set defaults
@@ -1584,8 +1588,8 @@ int main(int argc, char **argv) {
     /* Kill daemon with SIGTERM */
     /* Check if the new function daemon_pid_file_kill_wait() is available, if it is, use it. */
     if ((ret = daemon_pid_file_kill_wait(SIGTERM, 5)) < 0) {
-      if (errno == ENOENT) 
-        daemon_log(LOG_WARNING, "Failed to kill %s daemon: PID file not found.", config.appName);       
+      if (errno == ENOENT)
+        daemon_log(LOG_WARNING, "Failed to kill %s daemon: PID file not found.", config.appName);
       else
         daemon_log(LOG_WARNING, "Failed to kill %s daemon: \"%s\", errno %u.", config.appName, strerror(errno), errno);
     } else {
@@ -1593,7 +1597,7 @@ int main(int argc, char **argv) {
       if (daemon_pid_file_remove() == 0)
         debug(2, "killed the %s daemon.", config.appName);
       else
-        daemon_log(LOG_WARNING, "killed the %s deamon, but cannot remove old PID file: \"%s\", errno %u.", config.appName, strerror(errno), errno);    
+        daemon_log(LOG_WARNING, "killed the %s deamon, but cannot remove old PID file: \"%s\", errno %u.", config.appName, strerror(errno), errno);
     }
     return ret < 0 ? 1 : 0;
 #else

@@ -380,6 +380,7 @@ extern pthread_t main_thread_id;
 
 extern shairport_cfg config;
 extern config_t config_file_stuff;
+extern int emergency_exit;
 
 int config_set_lookup_bool(config_t *cfg, char *where, int *dst);
 
