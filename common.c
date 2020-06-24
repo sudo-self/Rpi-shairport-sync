@@ -1427,6 +1427,9 @@ char *get_version_string() {
   if (version_string) {
     strcpy(version_string, PACKAGE_VERSION);
 
+#ifdef CONFIG_APPLE_ALAC
+    strcat(version_string, "-alac");
+#endif
 #ifdef CONFIG_LIBDAEMON
     strcat(version_string, "-libdaemon");
 #endif
