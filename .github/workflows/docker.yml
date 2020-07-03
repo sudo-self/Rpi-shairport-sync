@@ -1,6 +1,6 @@
 name: Docker
 
-# Thanks to Ryan Govostes <https://github.com/rgov> for this workflow
+# Thanks to Ryan Govostes <https://github.com/rgov> for this workflow.
 
 on:
   push:
