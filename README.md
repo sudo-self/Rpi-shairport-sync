@@ -63,6 +63,8 @@ Building And Installing
 ---------------------
 See [here](https://github.com/mikebrady/shairport-sync/blob/master/INSTALL.md) for simple installation instructions for modern Linux systems like Rapsberry Pis.
 
+**Docker:** Shairport Sync is available as a prebuilt Docker image at https://hub.docker.com/r/mikebrady/shairport-sync. Alternatively, you can roll your own using the Dockerfile provided. Note that, at present, the Shairport Sync Docker image does not work on a Mac, due to limitations in the Docker system.
+
 Shairport Sync may already be available as a package in your Linux distribution (search for `shairport-sync` – the package named `shairport` is a different program). Packages are available on recent versions of Debian, Ubuntu, Arch, OpenWrt and possibly more:
 
 **Ubuntu:** A `shairport-sync` installer package is available for Ubuntu. Additionally, a Personal Package Archives for Shairport Sync master and development branches are available at https://launchpad.net/~dantheperson. 
