@@ -1,5 +1,8 @@
 Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
 
+**Enhancements**
+* Docker Hub integration. From now on, prebuilt Docker images should be available on the Docker Hub at https://hub.docker.com/r/mikebrady/shairport-sync.
+
 Version 3.3.6
 ====
 **New Features**
