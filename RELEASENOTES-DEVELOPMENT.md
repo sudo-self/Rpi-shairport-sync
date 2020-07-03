@@ -1,3 +1,8 @@
+Version 3.3.7d12
+====
+**Enhancements**
+* Added the the string `-alac` to the the version string in '-V' if Apple ALAC decoder support is included.
+
 Version 3.3.7d11
 ====
 **Bug Fixes**
