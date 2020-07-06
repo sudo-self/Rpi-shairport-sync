@@ -143,10 +143,11 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
   int i;
 
   int number_of_iterations = 0;
-  uint64_t soxr_start_time = get_absolute_time_in_fp();
+  uint64_t soxr_start_time = get_absolute_time_in_ns();
   uint64_t loop_until_time =
-      (uint64_t)0x180000000 + soxr_start_time; // loop for a second and a half, max -- no need to be able to cancel it, do _don't even try_!
-  while (get_absolute_time_in_fp() < loop_until_time) {
+      (uint64_t)1500000000 + soxr_start_time; // loop for a second and a half, max -- no need to be
+                                              // able to cancel it, do _don't even try_!
+  while (get_absolute_time_in_ns() < loop_until_time) {
 
     number_of_iterations++;
     for (i = 0; i < buffer_length; i++) {
@@ -184,11 +185,10 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
                  NULL, NULL);                          // Default configuration.
   }
 
-  double soxr_execution_time_us =
-      (((get_absolute_time_in_fp() - soxr_start_time) * 1000000) >> 32) * 1.0;
+  double soxr_execution_time_ns = (get_absolute_time_in_ns() - soxr_start_time) * 1.0;
   // free(outbuffer);
   // free(inbuffer);
-  config.soxr_delay_index = (int)(0.9 + soxr_execution_time_us / (number_of_iterations * 1000));
+  config.soxr_delay_index = (int)(0.9 + soxr_execution_time_ns / (number_of_iterations * 1000000));
   debug(2, "soxr_delay_index: %d.", config.soxr_delay_index);
   if ((config.packet_stuffing == ST_soxr) &&
       (config.soxr_delay_index > config.soxr_delay_threshold))
@@ -268,7 +268,7 @@ void usage(char *progname) {
   printf("                            The default is /tmp/shairport-sync-metadata.\n");
   printf("    --get-coverart          send cover art through the metadata pipe.\n");
 #endif
-  printf("    -u, --use-stderr        log messages through STDERR rather than syslog.\n");
+  printf("    -u, --use-stderr        log messages through STDERR rather than the system log.\n");
   printf("\n");
   mdns_ls_backends();
   printf("\n");
@@ -388,7 +388,8 @@ int parse_options(int argc, char **argv) {
 
   config.resyncthreshold = 1.0 * fResyncthreshold / 44100;
   config.tolerance = 1.0 * fTolerance / 44100;
-  config.audio_backend_silent_lead_in_time = -1.0; // flag to indicate it has not been set
+  config.audio_backend_silent_lead_in_time_auto =
+      1;                         // start outputting silence as soon as packets start arriving
   config.airplay_volume = -18.0; // if no volume is ever set, default to initial default value if
                                  // nothing else comes in first.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
@@ -399,12 +400,23 @@ int parse_options(int argc, char **argv) {
                                     // automatically.
   config.volume_range_hw_priority =
       0; // if combining software and hardware volume control, give the software priority
-// i.e. when reducing volume, reduce the sw first before reducing the software.
-// this is because some hw mixers mute at the bottom of their range, and they don't always advertise
-// this fact
-  config.resend_control_first_check_time = 0.10; // wait this many seconds before requesting the resending of a missing packet
-  config.resend_control_check_interval_time = 0.25; // wait this many seconds before again requesting the resending of a missing packet
-  config.resend_control_last_check_time = 0.10; // give up if the packet is still missing this close to when it's needed
+         // i.e. when reducing volume, reduce the sw first before reducing the software.
+         // this is because some hw mixers mute at the bottom of their range, and they don't always
+  // advertise this fact
+  config.resend_control_first_check_time =
+      0.10; // wait this many seconds before requesting the resending of a missing packet
+  config.resend_control_check_interval_time =
+      0.25; // wait this many seconds before again requesting the resending of a missing packet
+  config.resend_control_last_check_time =
+      0.10; // give up if the packet is still missing this close to when it's needed
+  config.missing_port_dacp_scan_interval_seconds =
+      2.0; // check at this interval if no DACP port number is known
+
+  config.minimum_free_buffer_headroom = 125; // leave approximately one second's worth of buffers
+                                             // free after calculating the effective latency.
+  // e.g. if we have 1024 buffers or 352 frames = 8.17 seconds and we have a nominal latency of 2.0
+  // seconds then we can add an offset of 5.17 seconds and still leave a second's worth of buffers
+  // for unexpected circumstances
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
@@ -414,9 +426,10 @@ int parse_options(int argc, char **argv) {
       1; // number of seconds between DACP server scans when playing nothing
   config.scan_max_bad_response_count =
       5; // number of successive bad results to ignore before giving up
-  //config.scan_max_inactive_count =
-  //    (365 * 24 * 60 * 60) / config.scan_interval_when_inactive; // number of scans to do before stopping if
-                                                      // not made active again (not used)
+  // config.scan_max_inactive_count =
+  //    (365 * 24 * 60 * 60) / config.scan_interval_when_inactive; // number of scans to do before
+  //    stopping if
+  // not made active again (not used)
 #endif
 
   // config_setting_t *setting;
@@ -430,9 +443,9 @@ int parse_options(int argc, char **argv) {
 
   char *config_file_real_path = realpath(config.configfile, NULL);
   if (config_file_real_path == NULL) {
-    debug(2, "Can't resolve the configuration file \"%s\".", config.configfile);
+    debug(2, "can't resolve the configuration file \"%s\".", config.configfile);
   } else {
-    debug(2, "Looking for configuration file at full path \"%s\"", config_file_real_path);
+    debug(2, "looking for configuration file at full path \"%s\"", config_file_real_path);
     /* Read the file. If there is an error, report it and exit. */
     if (config_read_file(&config_file_stuff, config_file_real_path)) {
       free(config_file_real_path);
@@ -649,6 +662,20 @@ int parse_options(int argc, char **argv) {
               dvalue);
       }
 
+      /* Get the diagnostics output default. */
+      if (config_lookup_string(config.cfg, "diagnostics.log_output_to", &str)) {
+        if (strcasecmp(str, "syslog") == 0)
+          log_to_syslog();
+        else if (strcasecmp(str, "stdout") == 0) {
+          log_to_stdout();
+        } else if (strcasecmp(str, "stderr") == 0) {
+          log_to_stderr();
+        } else {
+        	config.log_file_path = (char *)str;
+        	config.log_fd = -1;
+        	log_to_file();
+        }
+      }
       /* Get the ignore_volume_control setting. */
       if (config_lookup_string(config.cfg, "general.ignore_volume_control", &str)) {
         if (strcasecmp(str, "no") == 0)
@@ -746,9 +773,9 @@ int parse_options(int argc, char **argv) {
        * range set by the mixer. */
       if (config_lookup_int(config.cfg, "general.volume_range_db", &value)) {
         if ((value < 30) || (value > 150))
-          die("Invalid volume range  \"%sd\". It should be between 30 and 150 dB. Zero means use "
-              "the mixer's native range",
-              value);
+          die("Invalid volume range  %d dB. It should be between 30 and 150 dB. Zero means use "
+              "the mixer's native range. The setting reamins at %d.",
+              value, config.volume_range_db);
         else
           config.volume_range_db = value;
       }
@@ -767,42 +794,50 @@ int parse_options(int argc, char **argv) {
           die("Invalid alac_decoder option choice \"%s\". It should be \"hammerton\" or \"apple\"");
       }
 
-
       /* Get the resend control settings. */
-      if (config_lookup_float(config.cfg, "general.resend_control_first_check_time",
-                              &dvalue)) {
+      if (config_lookup_float(config.cfg, "general.resend_control_first_check_time", &dvalue)) {
         if ((dvalue >= 0.0) && (dvalue <= 3.0))
           config.resend_control_first_check_time = dvalue;
         else
-          warn("Invalid general resend_control_first_check_time setting \"%d\". It should "
-              "be "
-              "between 0.0 and 3.0, "
-              "inclusive. The setting remains at %f seconds.",
-              dvalue, config.resend_control_first_check_time);
+          warn("Invalid general resend_control_first_check_time setting \"%f\". It should "
+               "be "
+               "between 0.0 and 3.0, "
+               "inclusive. The setting remains at %f seconds.",
+               dvalue, config.resend_control_first_check_time);
       }
 
-      if (config_lookup_float(config.cfg, "general.resend_control_check_interval_time",
-                              &dvalue)) {
+      if (config_lookup_float(config.cfg, "general.resend_control_check_interval_time", &dvalue)) {
         if ((dvalue >= 0.0) && (dvalue <= 3.0))
           config.resend_control_check_interval_time = dvalue;
         else
-          warn("Invalid general resend_control_check_interval_time setting \"%d\". It should "
-              "be "
-              "between 0.0 and 3.0, "
-              "inclusive. The setting remains at %f seconds.",
-              dvalue, config.resend_control_check_interval_time);
+          warn("Invalid general resend_control_check_interval_time setting \"%f\". It should "
+               "be "
+               "between 0.0 and 3.0, "
+               "inclusive. The setting remains at %f seconds.",
+               dvalue, config.resend_control_check_interval_time);
       }
 
-      if (config_lookup_float(config.cfg, "general.resend_control_last_check_time",
-                              &dvalue)) {
+      if (config_lookup_float(config.cfg, "general.resend_control_last_check_time", &dvalue)) {
         if ((dvalue >= 0.0) && (dvalue <= 3.0))
           config.resend_control_last_check_time = dvalue;
         else
-          warn("Invalid general resend_control_last_check_time setting \"%d\". It should "
-              "be "
-              "between 0.0 and 3.0, "
-              "inclusive. The setting remains at %f seconds.",
-              dvalue, config.resend_control_last_check_time);
+          warn("Invalid general resend_control_last_check_time setting \"%f\". It should "
+               "be "
+               "between 0.0 and 3.0, "
+               "inclusive. The setting remains at %f seconds.",
+               dvalue, config.resend_control_last_check_time);
+      }
+
+      if (config_lookup_float(config.cfg, "general.missing_port_dacp_scan_interval_seconds",
+                              &dvalue)) {
+        if ((dvalue >= 0.0) && (dvalue <= 300.0))
+          config.missing_port_dacp_scan_interval_seconds = dvalue;
+        else
+          warn("Invalid general missing_port_dacp_scan_interval_seconds setting \"%f\". It should "
+               "be "
+               "between 0.0 and 300.0, "
+               "inclusive. The setting remains at %f seconds.",
+               dvalue, config.missing_port_dacp_scan_interval_seconds);
       }
 
       /* Get the default latency. Deprecated! */
@@ -963,7 +998,8 @@ int parse_options(int argc, char **argv) {
 
       if (config_lookup_string(config.cfg, "dsp.convolution_ir_file", &str)) {
         config.convolution_ir_file = strdup(str);
-        config.convolver_valid = convolver_init(config.convolution_ir_file, config.convolution_max_length);
+        config.convolver_valid =
+            convolver_init(config.convolution_ir_file, config.convolution_max_length);
       }
 
       if (config.convolution && config.convolution_ir_file == NULL) {
@@ -1159,7 +1195,7 @@ int parse_options(int argc, char **argv) {
 
   poptFreeContext(optCon);
 
-// here, we are finally finished reading the options
+  // here, we are finally finished reading the options
 
 #ifdef CONFIG_LIBDAEMON
   if ((daemonisewith) && (daemonisewithout))
@@ -1173,8 +1209,9 @@ int parse_options(int argc, char **argv) {
 #else
   /* Check if we are called with -d or --daemon or -j or justDaemoniseNoPIDFile options*/
   if ((daemonisewith != 0) || (daemonisewithout != 0)) {
-    fprintf(stderr, "%s was built without libdaemon, so does not support daemonisation using the "
-                    "-d, --daemon, -j or --justDaemoniseNoPIDFile options\n",
+    fprintf(stderr,
+            "%s was built without libdaemon, so does not support daemonisation using the "
+            "-d, --daemon, -j or --justDaemoniseNoPIDFile options\n",
             config.appName);
     exit(EXIT_FAILURE);
   }
@@ -1196,8 +1233,6 @@ int parse_options(int argc, char **argv) {
   // now, do the substitutions in the service name
   char hostname[100];
   gethostname(hostname, 100);
-
-
 
   char *i0;
   if (raw_service_name == NULL)
@@ -1269,99 +1304,115 @@ const char *pid_file_proc(void) {
 }
 #endif
 
-
 void exit_function() {
 
-// the following is to ensure that if libdaemon has been included
-// that most of this code will be skipped when the parent process is exiting
-// exec
+	if (emergency_exit == 0) {
+		// the following is to ensure that if libdaemon has been included
+		// that most of this code will be skipped when the parent process is exiting
+		// exec
 #ifdef CONFIG_LIBDAEMON
-  if (this_is_the_daemon_process) { //this is the daemon that is exiting
+		if ((this_is_the_daemon_process) || (config.daemonise == 0)) { // if this is the daemon process that is exiting or it's not actually deamonised at all
 #endif
-  debug(1, "exit function called...");
-
-/*
-Actually, there is no terminate_mqtt() function.
-#ifdef CONFIG_MQTT
-  if (config.mqtt_enabled) {
-    terminate_mqtt();
-  }
-#endif
-*/
+			debug(2, "exit function called...");
+			/*
+			Actually, there is no terminate_mqtt() function.
+			#ifdef CONFIG_MQTT
+				if (config.mqtt_enabled) {
+					terminate_mqtt();
+				}
+			#endif
+			*/
 
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
-
-/*
-Actually, there is no stop_mpris_service() function.
-#ifdef CONFIG_MPRIS_INTERFACE
-  stop_mpris_service();
-#endif
-*/
+			/*
+			Actually, there is no stop_mpris_service() function.
+			#ifdef CONFIG_MPRIS_INTERFACE
+				stop_mpris_service();
+			#endif
+			*/
 #ifdef CONFIG_DBUS_INTERFACE
-  stop_dbus_service();
+			stop_dbus_service();
 #endif
-  if (g_main_loop) {
-    debug(2, "Stopping DBUS Loop Thread");
-    g_main_loop_quit(g_main_loop);
-    pthread_join(dbus_thread, NULL);
-  }
+			if (g_main_loop) {
+				debug(2, "Stopping DBUS Loop Thread");
+				g_main_loop_quit(g_main_loop);
+				pthread_join(dbus_thread, NULL);
+			}
 #endif
 
 #ifdef CONFIG_DACP_CLIENT
-  debug(2, "Stopping DACP Monitor");
-  dacp_monitor_stop();
+			debug(2, "Stopping DACP Monitor");
+			dacp_monitor_stop();
 #endif
 
 #ifdef CONFIG_METADATA_HUB
-  debug(2, "Stopping metadata hub");
-  metadata_hub_stop();
+			debug(2, "Stopping metadata hub");
+			metadata_hub_stop();
 #endif
 
 #ifdef CONFIG_METADATA
-  metadata_stop(); // close down the metadata pipe
+			metadata_stop(); // close down the metadata pipe
 #endif
 
-  activity_monitor_stop(0);
+			activity_monitor_stop(0);
 
-  if ((config.output) && (config.output->deinit)) {
-    debug(2, "Deinitialise the audio backend.");
-    config.output->deinit();
-  }
+			if ((config.output) && (config.output->deinit)) {
+				debug(2, "Deinitialise the audio backend.");
+				config.output->deinit();
+			}
 
 #ifdef CONFIG_SOXR
-  // be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
-  pthread_join(soxr_time_check_thread, NULL);
+			// be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
+			pthread_join(soxr_time_check_thread, NULL);
 #endif
 
+			if (conns)
+				free(conns); // make sure the connections have been deleted first
 
-  if (conns)
-    free(conns); // make sure the connections have been deleted first
-
-  if (config.service_name)
-    free(config.service_name);
+			if (config.service_name)
+				free(config.service_name);
 
 #ifdef CONFIG_CONVOLUTION
-  if (config.convolution_ir_file)
-    free(config.convolution_ir_file);
+			if (config.convolution_ir_file)
+				free(config.convolution_ir_file);
 #endif
 
-  if (config.regtype)
-    free(config.regtype);
+			if (config.regtype)
+				free(config.regtype);
 
 #ifdef CONFIG_LIBDAEMON
-  daemon_retval_send(0);
-  daemon_pid_file_remove();
-  daemon_signal_done();
-  if (config.computed_piddir)
-    free(config.computed_piddir);
-  }
+			if (this_is_the_daemon_process) {
+				daemon_retval_send(0);
+				daemon_pid_file_remove();
+				daemon_signal_done();
+				if (config.computed_piddir)
+					free(config.computed_piddir);
+			}
+		}
 #endif
 
-  if (config.cfg)
-    config_destroy(config.cfg);
-  if (config.appName)
-    free(config.appName);
-  // probably should be freeing malloc'ed memory here, including strdup-created strings...
+		if (config.cfg)
+			config_destroy(config.cfg);
+		if (config.appName)
+			free(config.appName);
+		// probably should be freeing malloc'ed memory here, including strdup-created strings...
+
+
+#ifdef CONFIG_LIBDAEMON
+		if (this_is_the_daemon_process) { // this is the daemon that is exiting
+			debug(1,"libdaemon daemon exit");
+		} else {
+			if (config.daemonise)
+				debug(1,"libdaemon parent exit");
+			else
+				debug(1,"exit");
+		}
+#else
+		debug(1,"exit");
+#endif
+	} else {
+		debug(1,"emergency exit");
+	}
 }
 
 // for removing zombie script processes
@@ -1370,9 +1421,16 @@ Actually, there is no stop_mpris_service() function.
 
 void handle_sigchld(__attribute__((unused)) int sig) {
   int saved_errno = errno;
-  while (waitpid((pid_t)(-1), 0, WNOHANG) > 0) {}
+  while (waitpid((pid_t)(-1), 0, WNOHANG) > 0) {
+  }
   errno = saved_errno;
 }
+
+void main_thread_cleanup_handler(__attribute__((unused)) void *arg) {
+  debug(2,"main thread cleanup handler called");
+  exit(EXIT_SUCCESS);
+}
+
 
 int main(int argc, char **argv) {
   /* Check if we are called with -V or --version parameter */
@@ -1390,11 +1448,12 @@ int main(int argc, char **argv) {
 #ifdef CONFIG_LIBDAEMON
   pid = getpid();
 #endif
+	config.log_fd = -1;
   conns = NULL; // no connections active
   memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
   memset(&config, 0, sizeof(config)); // also clears all strings, BTW
-  fp_time_at_startup = get_absolute_time_in_fp();
-  fp_time_at_last_debug_message = fp_time_at_startup;
+  ns_time_at_startup = get_absolute_time_in_ns();
+  ns_time_at_last_debug_message = ns_time_at_startup;
   // this is a bit weird, but necessary -- basename() may modify the argument passed in
   char *basec = strdup(argv[0]);
   char *bname = basename(basec);
@@ -1410,6 +1469,7 @@ int main(int argc, char **argv) {
   setlogmask(LOG_UPTO(LOG_DEBUG));
   openlog(NULL, 0, LOG_DAEMON);
 #endif
+	emergency_exit = 0; // what to do or skip in the exit_function
   atexit(exit_function);
 
   // set defaults
@@ -1449,7 +1509,7 @@ int main(int argc, char **argv) {
   // config.userSuppliedLatency = 0; // zero means none supplied
 
   config.debugger_show_file_and_line =
-      1;                         // by default, log the file and line of the originating message
+      1; // by default, log the file and line of the originating message
   config.debugger_show_relative_time =
       1;                         // by default, log the  time back to the previous debug message
   config.resyncthreshold = 0.05; // 50 ms
@@ -1472,7 +1532,7 @@ int main(int argc, char **argv) {
   // snprintf(config.service_name, 20 + 100, "Shairport Sync on %s", hostname);
   set_requested_connection_state_to_output(
       1); // we expect to be able to connect to the output device
-  config.audio_backend_buffer_desired_length = 6615; // 0.15 seconds.
+  config.audio_backend_buffer_desired_length = 0.15; // seconds
   config.udp_port_base = 6001;
   config.udp_port_range = 10;
   config.output_format = SPS_FORMAT_S16_LE; // default
@@ -1527,10 +1587,17 @@ int main(int argc, char **argv) {
 
     /* Kill daemon with SIGTERM */
     /* Check if the new function daemon_pid_file_kill_wait() is available, if it is, use it. */
-    if ((ret = daemon_pid_file_kill_wait(SIGTERM, 5)) < 0)
-      daemon_log(LOG_WARNING, "Failed to kill daemon: %s", strerror(errno));
-    else {
-      // debug(1,"Successfully killed the shairport sync daemon.");
+    if ((ret = daemon_pid_file_kill_wait(SIGTERM, 5)) < 0) {
+      if (errno == ENOENT)
+        daemon_log(LOG_WARNING, "Failed to kill %s daemon: PID file not found.", config.appName);
+      else
+        daemon_log(LOG_WARNING, "Failed to kill %s daemon: \"%s\", errno %u.", config.appName, strerror(errno), errno);
+    } else {
+        // debug(1,"Successfully killed the %s daemon.", config.appName);
+      if (daemon_pid_file_remove() == 0)
+        debug(2, "killed the %s daemon.", config.appName);
+      else
+        daemon_log(LOG_WARNING, "killed the %s deamon, but cannot remove old PID file: \"%s\", errno %u.", config.appName, strerror(errno), errno);
     }
     return ret < 0 ? 1 : 0;
 #else
@@ -1543,7 +1610,7 @@ int main(int argc, char **argv) {
 #ifdef CONFIG_LIBDAEMON
   /* If we are going to daemonise, check that the daemon is not running already.*/
   if ((config.daemonise) && ((pid = daemon_pid_file_is_running()) >= 0)) {
-    daemon_log(LOG_ERR, "Daemon already running on PID file %u", pid);
+    daemon_log(LOG_ERR, "The %s daemon is already running as PID %u", config.appName, pid);
     return 1;
   }
 
@@ -1578,16 +1645,16 @@ int main(int argc, char **argv) {
         break;
       case 1:
         daemon_log(LOG_ERR,
-                   "daemon failed to launch: could not close open file descriptors after forking.");
+                   "the %s daemon failed to launch: could not close open file descriptors after forking.", config.appName);
         break;
       case 2:
-        daemon_log(LOG_ERR, "daemon failed to launch: could not create PID file.");
+        daemon_log(LOG_ERR, "the %s daemon failed to launch: could not create PID file.", config.appName);
         break;
       case 3:
-        daemon_log(LOG_ERR, "daemon failed to launch: could not create or access PID directory.");
+        daemon_log(LOG_ERR, "the %s daemon failed to launch: could not create or access PID directory.", config.appName);
         break;
       default:
-        daemon_log(LOG_ERR, "daemon failed to launch, error %i.", ret);
+        daemon_log(LOG_ERR, "the %s daemon failed to launch, error %i.", config.appName, ret);
       }
       return ret;
     } else { /* pid == 0 means we are the daemon */
@@ -1635,6 +1702,9 @@ int main(int argc, char **argv) {
 #endif
   debug(1, "Started!");
 
+	// stop a pipe signal from killing the program
+	signal(SIGPIPE, SIG_IGN);
+
   // install a zombie process reaper
   // see: http://www.microhowto.info/howto/reap_zombie_processes_using_a_sigchld_handler.html
   struct sigaction sa;
@@ -1672,7 +1742,7 @@ int main(int argc, char **argv) {
   }
   config.output->init(argc - audio_arg, argv + audio_arg);
 
-  // pthread_cleanup_push(main_cleanup_handler, NULL);
+  pthread_cleanup_push(main_thread_cleanup_handler, NULL);
 
   // daemon_log(LOG_NOTICE, "startup");
 
@@ -1712,8 +1782,9 @@ int main(int argc, char **argv) {
 
   /* Print out options */
   debug(1, "disable resend requests is %s.", config.disable_resend_requests ? "on" : "off");
-  debug(1, "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
-           "deliberately.",
+  debug(1,
+        "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
+        "deliberately.",
         config.diagnostic_drop_packet_fraction);
   debug(1, "statistics_requester status is %d.", config.statistics_requested);
 #if CONFIG_LIBDAEMON
@@ -1736,8 +1807,8 @@ int main(int argc, char **argv) {
   debug(1, "mdns backend \"%s\".", config.mdns_name);
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
   debug(1, "interpolation setting is \"%s\".",
-        config.packet_stuffing == ST_basic ? "basic" : config.packet_stuffing == ST_soxr ? "soxr"
-                                                                                         : "auto");
+        config.packet_stuffing == ST_basic ? "basic"
+                                           : config.packet_stuffing == ST_soxr ? "soxr" : "auto");
   debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
   debug(1, "resync time is %f seconds.", config.resyncthreshold);
   debug(1, "allow a session to be interrupted: %d.", config.allow_session_interruption);
@@ -1751,8 +1822,9 @@ int main(int argc, char **argv) {
     debug(1, "volume_max_db is not set");
   debug(1, "volume range in dB (zero means use the range specified by the mixer): %u.",
         config.volume_range_db);
-  debug(1, "volume_range_combined_hardware_priority (1 means hardware mixer attenuation is used "
-           "first) is %d.",
+  debug(1,
+        "volume_range_combined_hardware_priority (1 means hardware mixer attenuation is used "
+        "first) is %d.",
         config.volume_range_hw_priority);
   debug(1, "playback_mode is %d (0-stereo, 1-mono, 1-reverse_stereo, 2-both_left, 3-both_right).",
         config.playback_mode);
@@ -1771,8 +1843,11 @@ int main(int argc, char **argv) {
   debug(1, "audio_backend_buffer_interpolation_threshold_in_seconds is %f seconds.",
         config.audio_backend_buffer_interpolation_threshold_in_seconds);
   debug(1, "audio backend latency offset is %f seconds.", config.audio_backend_latency_offset);
-  debug(1, "audio backend silence lead-in time is %f seconds. A value -1.0 means use the default.",
-        config.audio_backend_silent_lead_in_time);
+  if (config.audio_backend_silent_lead_in_time_auto == 1)
+    debug(1, "audio backend silence lead-in time is \"auto\".");
+  else
+    debug(1, "audio backend silence lead-in time is %f seconds.",
+          config.audio_backend_silent_lead_in_time);
   debug(1, "zeroconf regtype is \"%s\".", config.regtype);
   debug(1, "decoders_supported field is %d.", config.decoders_supported);
   debug(1, "use_apple_decoder is %d.", config.use_apple_decoder);
@@ -1884,5 +1959,6 @@ int main(int argc, char **argv) {
 
   activity_monitor_start();
   rtsp_listen_loop();
+  pthread_cleanup_pop(1);
   return 0;
 }

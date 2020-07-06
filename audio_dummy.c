@@ -39,7 +39,7 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
 static void deinit(void) {}
 
 static void start(int sample_rate, __attribute__((unused)) int sample_format) {
-  debug(1, "dummy audio output started at Fs=%d Hz\n", sample_rate);
+  debug(1, "dummy audio output started at %d frames per second.", sample_rate);
 }
 
 static int play(__attribute__((unused)) void *buf, __attribute__((unused)) int samples) {

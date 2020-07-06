@@ -24,10 +24,10 @@
 #include "alac.h"
 #include "audio.h"
 
-#define time_ping_history 128 // at 1 per three seconds, approximately six minutes of records
+#define time_ping_history_power_of_two 7
+#define time_ping_history (1 << time_ping_history_power_of_two) // 2^7 is 128. At 1 per three seconds, approximately six minutes of records
 
 typedef struct time_ping_record {
-  uint64_t local_to_remote_difference;
   uint64_t dispersion;
   uint64_t local_time;
   uint64_t remote_time;
@@ -43,11 +43,16 @@ typedef struct audio_buffer_entry { // decoded audio packets
   uint16_t resend_request_number;
   signed short *data;
   seq_t sequence_number;
-  uint64_t initialisation_time; // the time the packet was added or the time it was noticed the packet was missing
-  uint64_t resend_time; // time of last resend request or zero
-  uint32_t given_timestamp; // for debugging and checking
-  int length; // the length of the decoded data
+  uint64_t initialisation_time; // the time the packet was added or the time it was noticed the
+                                // packet was missing
+  uint64_t resend_time;         // time of last resend request or zero
+  uint32_t given_timestamp;     // for debugging and checking
+  int length;                   // the length of the decoded data
 } abuf_t;
+
+typedef struct stats { // statistics for running averages
+  int64_t sync_error, correction, drift;
+} stats_t;
 
 // default buffer size
 // This needs to be a power of 2 because of the way BUFIDX(seqno) works.
@@ -87,6 +92,7 @@ typedef struct {
   uint32_t maximum_latency;  // set if an a=max-latency: line appears in the ANNOUNCE message; zero
                              // otherwise
   int software_mute_enabled; // if we don't have a real mute that we can use
+  int unachievable_audio_backend_latency_offset_notified; // set when a latency warning is issued
 
   int fd;
   int authorized;   // set if a password is required and has been supplied
@@ -107,6 +113,10 @@ typedef struct {
   signed short *tbuf;
   int32_t *sbuf;
   char *outbuf;
+
+  // for generating running statistics...
+
+  stats_t *statistics;
 
   // for holding the output rate information until printed out at the end of a session
   double frame_rate;
@@ -151,6 +161,7 @@ typedef struct {
   int ab_buffering, ab_synced;
   int64_t first_packet_timestamp;
   int flush_requested;
+  int flush_output_flushed; // true if the output device has been flushed.
   uint32_t flush_rtp_timestamp;
   uint64_t time_of_last_audio_packet;
   seq_t ab_read, ab_write;
@@ -177,7 +188,7 @@ typedef struct {
   // RTP stuff
   // only one RTP session can be active at a time.
   int rtp_running;
-  uint64_t rtp_time_of_last_resend_request_error_fp;
+  uint64_t rtp_time_of_last_resend_request_error_ns;
 
   char client_ip_string[INET6_ADDRSTRLEN]; // the ip string pointing to the client
   char self_ip_string[INET6_ADDRSTRLEN];   // the ip string being used by this program -- it
@@ -256,7 +267,7 @@ typedef struct {
   void *dapo_private_storage;  // this is used for compatibility, if dacp stuff isn't enabled.
 
   int enable_dither; // needed for filling silences before play actually starts
-  int64_t dac_buffer_queue_minimum_length;
+  uint64_t dac_buffer_queue_minimum_length;
 } rtsp_conn_info;
 
 uint32_t modulo_32_offset(uint32_t from, uint32_t to);

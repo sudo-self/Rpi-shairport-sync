@@ -1466,7 +1466,7 @@ int close_pipe(int s) {
 
 // main loop to receive, process and send out MDNS replies
 // also handles MDNS service announces
-void* main_loop(struct mdnsd *svr) {
+void *main_loop(struct mdnsd *svr) {
   fd_set sockfd_set;
   int max_fd = svr->sockfd;
   char notify_buf[2]; // buffer for reading of notify_pipe
@@ -1724,7 +1724,7 @@ struct mdnsd *mdnsd_start() {
   pthread_attr_init(&attr);
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-  if (pthread_create(&tid, &attr, (void * (*)(void *))&main_loop, (void *)server) != 0) {
+  if (pthread_create(&tid, &attr, (void *(*)(void *)) & main_loop, (void *)server) != 0) {
     pthread_mutex_destroy(&server->data_lock);
     free(server);
     return NULL;
@@ -1737,7 +1737,8 @@ void mdnsd_stop(struct mdnsd *s) {
   assert(s != NULL);
 
   struct timeval tv = {
-      .tv_sec = 0, .tv_usec = 500 * 1000,
+      .tv_sec = 0,
+      .tv_usec = 500 * 1000,
   };
 
   s->stop_flag = 1;

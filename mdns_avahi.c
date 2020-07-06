@@ -96,6 +96,8 @@ static void resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIn
       char *dacpid = strstr(name, "iTunes_Ctrl_");
       if (dacpid) {
         dacpid += strlen("iTunes_Ctrl_");
+        while (*dacpid == '0')
+          dacpid++; // remove any leading zeroes
         if (strcmp(dacpid, dbs->dacp_id) == 0) {
           debug(3, "resolve_callback: client dacp_id \"%s\" dacp port: %u.", dbs->dacp_id, port);
 #ifdef CONFIG_DACP_CLIENT
@@ -340,17 +342,17 @@ static int avahi_register(char *srvname, int srvport) {
 static void avahi_unregister(void) {
   // debug(1, "avahi_unregister.");
   if (tpoll) {
-    debug(1, "avahi: stop the threaded poll.");
+    debug(2, "avahi: stop the threaded poll.");
     avahi_threaded_poll_stop(tpoll);
 
     if (client) {
-      debug(1, "avahi: free the client.");
+      debug(2, "avahi: free the client.");
       avahi_client_free(client);
       client = NULL;
     } else {
       debug(1, "avahi attempting to unregister a NULL client");
     }
-    debug(1, "avahi: free the threaded poll.");
+    debug(2, "avahi: free the threaded poll.");
     avahi_threaded_poll_free(tpoll);
     tpoll = NULL;
   } else {
@@ -358,7 +360,7 @@ static void avahi_unregister(void) {
   }
 
   if (service_name) {
-    debug(1, "avahi: free the service name.");
+    debug(2, "avahi: free the service name.");
     free(service_name);
   } else
     debug(1, "avahi attempt to free NULL service name");
@@ -412,7 +414,7 @@ void avahi_dacp_monitor_stop() {
   }
   avahi_threaded_poll_unlock(tpoll);
   free(dbs->dacp_id);
-  debug(1, "avahi_dacp_monitor_stop Avahi DACP monitor successfully stopped");
+  debug(2, "avahi_dacp_monitor_stop Avahi DACP monitor successfully stopped");
 }
 
 mdns_backend mdns_avahi = {.name = "avahi",

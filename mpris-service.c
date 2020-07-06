@@ -23,9 +23,9 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  */
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "config.h"
 
@@ -48,12 +48,12 @@ double airplay_volume_to_mpris_volume(double sp) {
     sp = -30.0;
   if (sp > 0.0)
     sp = 0.0;
-  sp = (sp/30.0)+1;
+  sp = (sp / 30.0) + 1;
   return sp;
 }
 
 double mpris_volume_to_airplay_volume(double sp) {
-  sp = (sp-1.0)*30.0;
+  sp = (sp - 1.0) * 30.0;
   if (sp < -30.0)
     sp = -30.0;
   if (sp > 0.0)
@@ -64,7 +64,8 @@ double mpris_volume_to_airplay_volume(double sp) {
 void mpris_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)) void *userdata) {
   // debug(1, "MPRIS metadata watcher called");
   char response[100];
-  media_player2_player_set_volume(mprisPlayerPlayerSkeleton, airplay_volume_to_mpris_volume(argc->airplay_volume));
+  media_player2_player_set_volume(mprisPlayerPlayerSkeleton,
+                                  airplay_volume_to_mpris_volume(argc->airplay_volume));
   switch (argc->repeat_status) {
   case RS_NOT_AVAILABLE:
     strcpy(response, "Not Available");
@@ -175,7 +176,8 @@ void mpris_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)
   // Add in the Track ID based on the 'mper' metadata if it is non-zero
   if (argc->item_id != 0) {
     char trackidstring[128];
-    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/%" PRIX64 "", argc->item_id);
+    snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/%" PRIX64 "",
+             argc->item_id);
     GVariant *trackid = g_variant_new("o", trackidstring);
     g_variant_builder_add(dict_builder, "{sv}", "mpris:trackid", trackid);
   }
@@ -276,8 +278,8 @@ static gboolean on_handle_play(MediaPlayer2Player *skeleton, GDBusMethodInvocati
 }
 
 static gboolean on_handle_set_volume(MediaPlayer2Player *skeleton,
-                              GDBusMethodInvocation *invocation, const gdouble volume,
-                               __attribute__((unused)) gpointer user_data) {
+                                     GDBusMethodInvocation *invocation, const gdouble volume,
+                                     __attribute__((unused)) gpointer user_data) {
   double ap_volume = mpris_volume_to_airplay_volume(volume);
   debug(2, "Set mpris volume to %.6f, i.e. airplay volume to %.6f.", volume, ap_volume);
   char command[256] = "";
@@ -334,7 +336,6 @@ static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *nam
   g_signal_connect(mprisPlayerPlayerSkeleton, "handle-set-volume", G_CALLBACK(on_handle_set_volume),
                    NULL);
 
-
   add_metadata_watcher(mpris_metadata_watcher, NULL);
 
   debug(1, "MPRIS service started at \"%s\" on the %s bus.", name,
@@ -344,7 +345,7 @@ static void on_mpris_name_acquired(GDBusConnection *connection, const gchar *nam
 static void on_mpris_name_lost_again(__attribute__((unused)) GDBusConnection *connection,
                                      const gchar *name,
                                      __attribute__((unused)) gpointer user_data) {
-  warn("Could not acquire an MPRIS interface named \"%s\" on the %s bus.", name,
+  warn("could not acquire an MPRIS interface named \"%s\" on the %s bus.", name,
        (config.mpris_service_bus_type == DBT_session) ? "session" : "system");
 }
 

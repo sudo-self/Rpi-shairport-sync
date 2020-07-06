@@ -40,6 +40,8 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <libgen.h>
 
 #ifdef COMPILE_FOR_OSX
 #include <CoreServices/CoreServices.h>
@@ -88,10 +90,11 @@ void set_alsa_out_dev(char *);
 #endif
 
 config_t config_file_stuff;
+int emergency_exit;
 pthread_t main_thread_id;
-uint64_t fp_time_at_startup, fp_time_at_last_debug_message;
+uint64_t ns_time_at_startup, ns_time_at_last_debug_message;
 
-// always lock use this when accessing the fp_time_at_last_debug_message
+// always lock use this when accessing the ns_time_at_last_debug_message
 static pthread_mutex_t debug_timing_lock = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_mutex_t the_conn_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -101,7 +104,7 @@ const char *sps_format_description_string_array[] = {
     "S24_BE",  "S24_3LE", "S24_3BE", "S32", "S32_LE", "S32_BE", "auto", "invalid"};
 
 const char *sps_format_description_string(sps_format_t format) {
-  if ((format >= SPS_FORMAT_UNKNOWN) && (format <= SPS_FORMAT_AUTO))
+  if (format <= SPS_FORMAT_AUTO)
     return sps_format_description_string_array[format];
   else
     return sps_format_description_string_array[SPS_FORMAT_INVALID];
@@ -120,7 +123,7 @@ static void (*sps_log)(int prio, const char *t, ...) = daemon_log;
 static void (*sps_log)(int prio, const char *t, ...) = syslog;
 #endif
 
-void do_sps_log(__attribute__((unused)) int prio, const char *t, ...) {
+void do_sps_log_to_stderr(__attribute__((unused)) int prio, const char *t, ...) {
   char s[1024];
   va_list args;
   va_start(args, t);
@@ -129,7 +132,86 @@ void do_sps_log(__attribute__((unused)) int prio, const char *t, ...) {
   fprintf(stderr, "%s\n", s);
 }
 
-void log_to_stderr() { sps_log = do_sps_log; }
+void do_sps_log_to_stdout(__attribute__((unused)) int prio, const char *t, ...) {
+  char s[1024];
+  va_list args;
+  va_start(args, t);
+  vsnprintf(s, sizeof(s), t, args);
+  va_end(args);
+  fprintf(stdout, "%s\n", s);
+}
+
+int create_log_file(const char* path) {
+	int fd = -1;
+	if (path != NULL) {
+		char *dirc = strdup(path);
+		if (dirc) {
+			char *dname = dirname(dirc);
+			// create the directory, if necessary
+			int result = 0;
+			if (dname) {
+				char *pdir = realpath(dname, NULL); // will return a NULL if the directory doesn't exist
+				if (pdir == NULL) {
+					mode_t oldumask = umask(000);
+					result = mkpath(dname, 0777);
+					umask(oldumask);
+				} else {
+					free(pdir);
+				}
+				if ((result == 0) || (result == -EEXIST)) {
+					// now open the file
+					fd = open(path, O_WRONLY | O_NONBLOCK | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+					if ((fd == -1) && (errno == EEXIST))
+						fd = open(path, O_WRONLY | O_APPEND | O_NONBLOCK);
+
+					if (fd >= 0) {
+						// now we switch to blocking mode
+						int flags = fcntl(fd, F_GETFL);
+						if (flags == -1) {
+//							strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+//							debug(1, "create_log_file -- error %d (\"%s\") getting flags of pipe: \"%s\".", errno,
+//										(char *)errorstring, pathname);
+						} else {
+							flags = fcntl(fd, F_SETFL,flags & ~O_NONBLOCK);
+//							if (flags == -1) {
+//								strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+//								debug(1, "create_log_file -- error %d (\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno,
+//											(char *)errorstring, pathname);
+						}
+					}
+				}
+			}
+			free(dirc);
+		}
+	}
+	return fd;
+}
+
+void do_sps_log_to_fd(__attribute__((unused)) int prio, const char *t, ...) {
+		char s[1024];
+		va_list args;
+		va_start(args, t);
+		vsnprintf(s, sizeof(s), t, args);
+		va_end(args);
+		if (config.log_fd == -1)
+			config.log_fd = create_log_file(config.log_file_path);
+	if (config.log_fd >= 0) {
+		dprintf(config.log_fd, "%s\n", s);
+  } else if (errno != ENXIO) { // maybe there is a pipe there but not hooked up
+  	fprintf(stderr, "%s\n", s);
+  }
+}
+
+void log_to_stderr() { sps_log = do_sps_log_to_stderr; }
+void log_to_stdout() { sps_log = do_sps_log_to_stdout; }
+void log_to_file() { sps_log = do_sps_log_to_fd; }
+void log_to_syslog() {
+#ifdef CONFIG_LIBDAEMON
+	sps_log = daemon_log;
+#else
+	sps_log = syslog;
+#endif
+}
 
 shairport_cfg config;
 
@@ -202,10 +284,10 @@ char *generate_preliminary_string(char *buffer, size_t buffer_length, double tss
     insertion_point = insertion_point + strlen(insertion_point);
     space_remaining = space_remaining - strlen(insertion_point);
   }
-
   if (prefix) {
     snprintf(insertion_point, space_remaining, "%s", prefix);
     insertion_point = insertion_point + strlen(insertion_point);
+    space_remaining = space_remaining - strlen(insertion_point);
   }
   return insertion_point;
 }
@@ -218,17 +300,17 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
   char *s;
   if (debuglev) {
     pthread_mutex_lock(&debug_timing_lock);
-    uint64_t time_now = get_absolute_time_in_fp();
-    uint64_t time_since_start = time_now - fp_time_at_startup;
-    uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
-    fp_time_at_last_debug_message = time_now;
+    uint64_t time_now = get_absolute_time_in_ns();
+    uint64_t time_since_start = time_now - ns_time_at_startup;
+    uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
+    ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
-    uint64_t divisor = (uint64_t)1 << 32;
-    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
-                                    1.0 * time_since_last_debug_message / divisor, filename,
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                    1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *fatal error: ");
   } else {
-    s = b;
+  	strncpy(b, "fatal error: ", sizeof(b));
+    s = b+strlen(b);
   }
   va_list args;
   va_start(args, format);
@@ -236,7 +318,8 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
   va_end(args);
   sps_log(LOG_ERR, "%s", b);
   pthread_setcancelstate(oldState, NULL);
-  abort(); // exit() doesn't always work, by heaven.
+  emergency_exit = 1;
+  exit(EXIT_FAILURE);
 }
 
 void _warn(const char *filename, const int linenumber, const char *format, ...) {
@@ -247,17 +330,17 @@ void _warn(const char *filename, const int linenumber, const char *format, ...) 
   char *s;
   if (debuglev) {
     pthread_mutex_lock(&debug_timing_lock);
-    uint64_t time_now = get_absolute_time_in_fp();
-    uint64_t time_since_start = time_now - fp_time_at_startup;
-    uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
-    fp_time_at_last_debug_message = time_now;
+    uint64_t time_now = get_absolute_time_in_ns();
+    uint64_t time_since_start = time_now - ns_time_at_startup;
+    uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
+    ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
-    uint64_t divisor = (uint64_t)1 << 32;
-    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
-                                    1.0 * time_since_last_debug_message / divisor, filename,
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                    1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *warning: ");
   } else {
-    s = b;
+  	strncpy(b, "warning: ", sizeof(b));
+    s = b+strlen(b);
   }
   va_list args;
   va_start(args, format);
@@ -275,14 +358,13 @@ void _debug(const char *filename, const int linenumber, int level, const char *f
   char b[1024];
   b[0] = 0;
   pthread_mutex_lock(&debug_timing_lock);
-  uint64_t time_now = get_absolute_time_in_fp();
-  uint64_t time_since_start = time_now - fp_time_at_startup;
-  uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
-  fp_time_at_last_debug_message = time_now;
+  uint64_t time_now = get_absolute_time_in_ns();
+  uint64_t time_since_start = time_now - ns_time_at_startup;
+  uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
+  ns_time_at_last_debug_message = time_now;
   pthread_mutex_unlock(&debug_timing_lock);
-  uint64_t divisor = (uint64_t)1 << 32;
-  char *s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
-                                        1.0 * time_since_last_debug_message / divisor, filename,
+  char *s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                        1.0 * time_since_last_debug_message / 1000000000, filename,
                                         linenumber, " ");
   va_list args;
   va_start(args, format);
@@ -300,14 +382,13 @@ void _inform(const char *filename, const int linenumber, const char *format, ...
   char *s;
   if (debuglev) {
     pthread_mutex_lock(&debug_timing_lock);
-    uint64_t time_now = get_absolute_time_in_fp();
-    uint64_t time_since_start = time_now - fp_time_at_startup;
-    uint64_t time_since_last_debug_message = time_now - fp_time_at_last_debug_message;
-    fp_time_at_last_debug_message = time_now;
+    uint64_t time_now = get_absolute_time_in_ns();
+    uint64_t time_since_start = time_now - ns_time_at_startup;
+    uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
+    ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
-    uint64_t divisor = (uint64_t)1 << 32;
-    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / divisor,
-                                    1.0 * time_since_last_debug_message / divisor, filename,
+    s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
+                                    1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " ");
   } else {
     s = b;
@@ -1013,43 +1094,77 @@ uint64_t get_absolute_time_in_fp() {
   return time_now_fp;
 }
 
-ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count, int timeout) {
-  // timeout is in milliseconds
-  void *ibuf = (void *)buf;
-  size_t bytes_remaining = count;
-  int rc = 1;
-  struct pollfd ufds[1];
-  while ((bytes_remaining > 0) && (rc > 0)) {
-    // check that we can do some writing
-    ufds[0].fd = fd;
-    ufds[0].events = POLLOUT;
-    rc = poll(ufds, 1, timeout);
-    if (rc < 0) {
-      // debug(1, "non-blocking write error waiting for pipe to become ready for writing...");
-    } else if (rc == 0) {
-      // warn("non-blocking write timeout waiting for pipe to become ready for writing");
-      rc = -1;
-      errno = -ETIMEDOUT;
-    } else { // rc > 0, implying it might be ready
-      ssize_t bytes_written = write(fd, ibuf, bytes_remaining);
-      if (bytes_written == -1) {
-        // debug(1,"Error %d in non_blocking_write: \"%s\".",errno,strerror(errno));
-        rc = bytes_written; // to imitate the return from write()
-      } else {
-        ibuf += bytes_written;
-        bytes_remaining -= bytes_written;
-      }
-    }
+uint64_t get_absolute_time_in_ns() {
+  uint64_t time_now_ns;
+
+#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
+  struct timespec tn;
+  // can't use CLOCK_MONOTONIC_RAW as it's not implemented in OpenWrt
+  clock_gettime(CLOCK_MONOTONIC, &tn);
+  uint64_t tnnsec = tn.tv_sec;
+  tnnsec = tnnsec * 1000000000;
+  uint64_t tnjnsec = tn.tv_nsec;
+  time_now_ns = tnnsec + tnjnsec;
+#endif
+
+#ifdef COMPILE_FOR_OSX
+  uint64_t time_now_mach;
+  uint64_t elapsedNano;
+  static mach_timebase_info_data_t sTimebaseInfo = {0, 0};
+
+  time_now_mach = mach_absolute_time();
+
+  // If this is the first time we've run, get the timebase.
+  // We can use denom == 0 to indicate that sTimebaseInfo is
+  // uninitialised because it makes no sense to have a zero
+  // denominator in a fraction.
+
+  if (sTimebaseInfo.denom == 0) {
+    debug(1, "Mac initialise timebase info.");
+    (void)mach_timebase_info(&sTimebaseInfo);
   }
-  if (rc > 0)
-    return count - bytes_remaining; // this is just to mimic a normal write/3.
-  else
-    return rc;
-  //  return write(fd,buf,count);
+
+  // Do the maths. We hope that the multiplication doesn't
+  // overflow; the price you pay for working in fixed point.
+
+  // this gives us nanoseconds
+  time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
+#endif
+
+  return time_now_ns;
 }
 
-ssize_t non_blocking_write(int fd, const void *buf, size_t count) {
-  return non_blocking_write_with_timeout(fd, buf, count, 5000); // default is 5 seconds.
+int try_to_open_pipe_for_writing(const char* pathname) {
+	// tries to open the pipe in non-blocking mode first.
+	// if it succeeds, it sets it to blocking.
+	// if not, it returns -1.
+
+	int fdis = open(pathname, O_WRONLY | O_NONBLOCK); // open it in non blocking mode first
+
+  // we check that it's not a "real" error. From the "man 2 open" page:
+  // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
+  // open for reading." Which is okay.
+  // This is checked by the caller.
+
+  if (fdis >= 0) {
+  	// now we switch to blocking mode
+  	int flags = fcntl(fdis, F_GETFL);
+  	if (flags == -1) {
+  		char errorstring[1024];
+			strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+			debug(1, "try_to_open_pipe -- error %d (\"%s\") getting flags of pipe: \"%s\".", errno,
+						(char *)errorstring, pathname);
+  	} else {
+  		flags = fcntl(fdis, F_SETFL,flags & ~O_NONBLOCK);
+  		if (flags == -1) {
+  			char errorstring[1024];
+				strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+				debug(1, "try_to_open_pipe -- error %d (\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno,
+							(char *)errorstring, pathname);
+  		}
+  	}
+  }
+	return fdis;
 }
 
 /* from
@@ -1093,7 +1208,9 @@ char *str_replace(const char *string, const char *substr, const char *replacemen
 
 /* from http://burtleburtle.net/bob/rand/smallprng.html */
 
-// this is not thread-safe, so we need a mutex on it to use it properly// always lock use this when accessing the fp_time_at_last_debug_message
+// this is not thread-safe, so we need a mutex on it to use it properly.
+// always lock use this when accessing the fp_time_at_last_debug_message
+
 pthread_mutex_t r64_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // typedef uint64_t u8;
@@ -1201,18 +1318,17 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 
   timeoutTime.tv_sec = time_then;
   timeoutTime.tv_nsec = time_then_nsec;
-  int64_t start_time = get_absolute_time_in_fp();
+  uint64_t start_time = get_absolute_time_in_ns();
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
-  int64_t et = get_absolute_time_in_fp() - start_time;
+  uint64_t et = get_absolute_time_in_ns() - start_time;
 
   if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
-    et = (et * 1000000) >> 32; // microseconds
     char errstr[1000];
     if (r == ETIMEDOUT)
       debug(debuglevel,
-            "timed out waiting for a mutex, having waiting %f seconds, with a maximum "
+            "timed out waiting for a mutex, having waited %f microseconds, with a maximum "
             "waiting time of %d microseconds. \"%s\".",
-            (1.0 * et) / 1000000, dally_time, debugmessage);
+            (1.0E6 * et) / 1000000000, dally_time, debugmessage);
     else
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
@@ -1261,7 +1377,7 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
     return pthread_mutex_lock(mutex);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  uint64_t time_at_start = get_absolute_time_in_fp();
+  uint64_t time_at_start = get_absolute_time_in_ns();
   char dstring[1000];
   memset(dstring, 0, sizeof(dstring));
   snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
@@ -1270,12 +1386,10 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
   int result = sps_pthread_mutex_timedlock(mutex, dally_time, dstring, debuglevel);
   if (result == ETIMEDOUT) {
     result = pthread_mutex_lock(mutex);
-    uint64_t time_delay = get_absolute_time_in_fp() - time_at_start;
-    uint64_t divisor = (uint64_t)1 << 32;
-    double delay = 1.0 * time_delay / divisor;
+    uint64_t time_delay = get_absolute_time_in_ns() - time_at_start;
     debug(debuglevel,
-          "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.",
-          mutexname, dstring, (1.0 * dally_time) / 1000000, delay);
+          "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f microseconds.",
+          mutexname, dstring, (1.0 * dally_time), 0.001 * time_delay);
   }
   pthread_setcancelstate(oldState, NULL);
   return result;
@@ -1313,6 +1427,9 @@ char *get_version_string() {
   if (version_string) {
     strcpy(version_string, PACKAGE_VERSION);
 
+#ifdef CONFIG_APPLE_ALAC
+    strcat(version_string, "-alac");
+#endif
 #ifdef CONFIG_LIBDAEMON
     strcat(version_string, "-libdaemon");
 #endif
@@ -1543,9 +1660,11 @@ int64_t generate_zero_frames(char *outp, size_t number_of_frames, sps_format_t f
   return previous_random_number;
 }
 
-// This will check the incoming string "s" of length "len" with the existing NUL-terminated string "str" and update "flag" accordingly.
+// This will check the incoming string "s" of length "len" with the existing NUL-terminated string
+// "str" and update "flag" accordingly.
 
-// Note: if the incoming string length is zero, then the a NULL is used; i.e. no zero-length strings are stored.
+// Note: if the incoming string length is zero, then the a NULL is used; i.e. no zero-length strings
+// are stored.
 
 // If the strings are different, the str is free'd and replaced by a pointer
 // to a newly strdup'd string and the flag is set
@@ -1558,7 +1677,7 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len) {
         free(*str);
         //*str = strndup(s, len); // it seems that OpenWrt 12 doesn't have this
         char *p = malloc(len + 1);
-        memcpy(p,s,len);
+        memcpy(p, s, len);
         p[len] = '\0';
         *str = p;
         *flag = 1;
@@ -1575,7 +1694,7 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len) {
     if ((s) && (len)) {
       //*str = strndup(s, len); // it seems that OpenWrt 12 doesn't have this
       char *p = malloc(len + 1);
-      memcpy(p,s,len);
+      memcpy(p, s, len);
       p[len] = '\0';
       *str = p;
       *flag = 1;
@@ -1585,4 +1704,14 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len) {
     }
   }
   return *flag;
+}
+
+// from https://stackoverflow.com/questions/13663617/memdup-function-in-c, with thanks
+void* memdup(const void* mem, size_t size) {
+   void* out = malloc(size);
+
+   if(out != NULL)
+       memcpy(out, mem, size);
+
+   return out;
 }

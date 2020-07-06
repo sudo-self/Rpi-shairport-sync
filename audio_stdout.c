@@ -56,7 +56,7 @@ static int play(void *buf, int samples) {
 }
 
 static void stop(void) {
-  // don't close stdout
+  // Do nothing when play stops
 }
 
 static int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {

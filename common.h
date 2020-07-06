@@ -100,9 +100,13 @@ typedef enum {
 const char *sps_format_description_string(sps_format_t format);
 
 typedef struct {
-  double resend_control_first_check_time; // wait this long before asking for a missing packet to be resent
+  double missing_port_dacp_scan_interval_seconds; // if no DACP port number can be found, check at
+                                                  // these intervals
+  double resend_control_first_check_time; // wait this long before asking for a missing packet to be
+                                          // resent
   double resend_control_check_interval_time; // wait this long between making requests
-  double resend_control_last_check_time; // if the packet is missing this close to the time of use, give up
+  double resend_control_last_check_time; // if the packet is missing this close to the time of use,
+                                         // give up
   pthread_mutex_t lock;
   config_t *cfg;
   int endianness;
@@ -113,6 +117,7 @@ typedef struct {
                       // on host %h"
 
 #ifdef CONFIG_PA
+  char *pa_server;           // the pulseaudio server address that Shairport Sync will play on.
   char *pa_application_name; // the name under which Shairport Sync shows up as an "Application" in
                              // the Sound Preferences in most desktop Linuxes.
   // Defaults to "Shairport Sync". Shairport Sync must be playing to see it.
@@ -177,6 +182,8 @@ typedef struct {
   char *pidfile;
 #endif
 
+	int	log_fd; // file descriptor of the file or pipe to log stuff to.
+	char *log_file_path; // path to file or pipe to log to, if any
   int logOutputLevel;              // log output level
   int debugger_show_elapsed_time;  // in the debug message, display the time since startup
   int debugger_show_relative_time; // in the debug message, display the time since the last one
@@ -212,7 +219,11 @@ typedef struct {
 
   double audio_backend_latency_offset; // this will be the offset in seconds to compensate for any
                                        // fixed latency there might be in the audio path
+  int audio_backend_silent_lead_in_time_auto; // true if the lead-in time should be from as soon as
+                                              // packets are received
   double audio_backend_silent_lead_in_time; // the length of the silence that should precede a play.
+  uint32_t minimum_free_buffer_headroom; // when effective latency is calculated, ensure this number
+                                         // of buffers are unallocated
   double active_state_timeout; // the amount of time from when play ends to when the system leaves
                                // into the "active" mode.
   uint32_t volume_range_db; // the range, in dB, from max dB to min dB. Zero means use the mixer's
@@ -274,7 +285,10 @@ typedef struct {
   int jack_soxr_resample_quality;
 #endif
 #endif
-
+	void *gradients; // a linked list of the clock gradients discovered for all DACP IDs
+	// can't use IP numbers as they might be given to different devices
+	// can't get hold of MAC addresses.
+	// can't define the nvll linked list struct here
 } shairport_cfg;
 
 // accessors to config for multi-thread access
@@ -286,7 +300,12 @@ uint16_t nctohs(const uint8_t *p); // read 2 characters from *p and do ntohs on 
 
 void memory_barrier();
 
-void log_to_stderr(); // call this to director logging to stderr;
+void log_to_stderr(); // call this to direct logging to stderr;
+void log_to_stdout(); // call this to direct logging to stdout;
+void log_to_syslog(); // call this to direct logging to the system log;
+void log_to_file(); // call this to direct logging to a file or (pre-existing) pipe;
+
+
 
 // true if Shairport Sync is supposed to be sending output to the output device, false otherwise
 
@@ -294,10 +313,7 @@ int get_requested_connection_state_to_output();
 
 void set_requested_connection_state_to_output(int v);
 
-ssize_t non_blocking_write_with_timeout(int fd, const void *buf, size_t count,
-                                        int timeout); // timeout in milliseconds
-
-ssize_t non_blocking_write(int fd, const void *buf, size_t count); // used in a few places
+int try_to_open_pipe_for_writing(const char* pathname); // open it without blocking if it's not hooked up
 
 /* from
  * http://coding.debuntu.org/c-implementing-str_replace-replace-all-occurrences-substring#comment-722
@@ -349,10 +365,11 @@ double flat_vol2attn(double vol, long max_db, long min_db);
 double vol2attn(double vol, long max_db, long min_db);
 
 // return a monolithic (always increasing) time in nanoseconds
-uint64_t get_absolute_time_in_fp(void);
+// uint64_t get_absolute_time_in_fp(void); // obselete
+uint64_t get_absolute_time_in_ns(void);
 
 // time at startup for debugging timing
-extern uint64_t fp_time_at_startup, fp_time_at_last_debug_message;
+extern uint64_t ns_time_at_startup, ns_time_at_last_debug_message;
 
 // this is for reading an unsigned 32 bit number, such as an RTP timestamp
 
@@ -363,6 +380,7 @@ extern pthread_t main_thread_id;
 
 extern shairport_cfg config;
 extern config_t config_file_stuff;
+extern int emergency_exit;
 
 int config_set_lookup_bool(config_t *cfg, char *where, int *dst);
 
@@ -420,14 +438,14 @@ extern pthread_mutex_t r64_mutex;
 
 char *get_version_string(); // mallocs a string space -- remember to free it afterwards
 
-void sps_nanosleep(const time_t sec,
-                   const long nanosec); // waits for this time, even through interruptions
-
 int64_t generate_zero_frames(char *outp, size_t number_of_frames, sps_format_t format,
                              int with_dither, int64_t random_number_in);
 
 void malloc_cleanup(void *arg);
 
 int string_update_with_size(char **str, int *flag, char *s, size_t len);
+
+// from https://stackoverflow.com/questions/13663617/memdup-function-in-c, with thanks
+void* memdup(const void* mem, size_t size);
 
 #endif // _COMMON_H

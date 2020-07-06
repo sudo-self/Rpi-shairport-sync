@@ -126,6 +126,7 @@ void parse_general_audio_options(void) {
    * are set before any options are chosen */
   int value;
   double dvalue;
+  const char *str = 0;
   if (config.cfg != NULL) {
 
     /* Get the desired buffer size setting (deprecated). */
@@ -147,10 +148,10 @@ void parse_general_audio_options(void) {
     /* Get the desired buffer size setting in seconds. */
     if (config_lookup_float(config.cfg, "general.audio_backend_buffer_desired_length_in_seconds",
                             &dvalue)) {
-      if ((dvalue < 0) || (dvalue > 1.5)) {
+      if (dvalue < 0) {
         die("Invalid audio_backend_buffer_desired_length_in_seconds value: \"%f\". It "
-            "should be between 0 and "
-            "1.5, default is %.3f seconds",
+            "should be 0.0 or greater."
+            " The default is %.3f seconds",
             dvalue, config.audio_backend_buffer_desired_length);
       } else {
         config.audio_backend_buffer_desired_length = dvalue;
@@ -190,23 +191,42 @@ void parse_general_audio_options(void) {
     /* Get the latency offset in seconds. */
     if (config_lookup_float(config.cfg, "general.audio_backend_latency_offset_in_seconds",
                             &dvalue)) {
-      if ((dvalue < -1.75) || (dvalue > 1.75)) {
-        die("Invalid audio_backend_latency_offset_in_seconds \"%f\". It "
-            "should be between -1.75 and +1.75, default is 0 seconds",
-            dvalue);
+      config.audio_backend_latency_offset = dvalue;
+    }
+
+    /* Check if the length of the silent lead-in ia set to \"auto\". */
+    if (config_lookup_string(config.cfg, "general.audio_backend_silent_lead_in_time", &str)) {
+      if (strcasecmp(str, "auto") == 0) {
+        config.audio_backend_silent_lead_in_time_auto = 1;
       } else {
-        config.audio_backend_latency_offset = dvalue;
+        if (config.audio_backend_silent_lead_in_time_auto == 1)
+          warn("Invalid audio_backend_silent_lead_in_time \"%s\". It should be \"auto\" or the "
+               "lead-in time in seconds. "
+               "It remains set to \"auto\". Note: numbers should not be placed in quotes.",
+               str);
+        else
+          warn("Invalid output rate \"%s\". It should be \"auto\" or the lead-in time in seconds. "
+               "It remains set to %f. Note: numbers should not be placed in quotes.",
+               str, config.audio_backend_silent_lead_in_time);
       }
     }
 
     /* Get the desired length of the silent lead-in. */
     if (config_lookup_float(config.cfg, "general.audio_backend_silent_lead_in_time", &dvalue)) {
       if ((dvalue < 0.0) || (dvalue > 4)) {
-        die("Invalid audio_backend_silent_lead_in_time \"%f\". It "
-            "must be between 0.0 and 4.0 seconds. Omit setting to use the default value",
-            dvalue);
+        if (config.audio_backend_silent_lead_in_time_auto == 1)
+          warn("Invalid audio_backend_silent_lead_in_time \"%f\". It "
+               "must be between 0.0 and 4.0 seconds. Omit the setting to use the automatic value. "
+               "The setting remains at \"auto\".",
+               dvalue);
+        else
+          warn("Invalid audio_backend_silent_lead_in_time \"%f\". It "
+               "must be between 0.0 and 4.0 seconds. Omit the setting to use the automatic value. "
+               "It remains set to %f.",
+               dvalue, config.audio_backend_silent_lead_in_time);
       } else {
         config.audio_backend_silent_lead_in_time = dvalue;
+        config.audio_backend_silent_lead_in_time_auto = 0;
       }
     }
   }

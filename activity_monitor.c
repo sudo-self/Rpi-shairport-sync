@@ -62,7 +62,7 @@ void going_active(int block) {
     command_execute(config.cmd_active_start, "", block);
 #ifdef CONFIG_METADATA
   debug(2, "abeg");                       // active mode begin
-  send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
+  send_ssnc_metadata('abeg', NULL, 0, 1); // contains cancellation points
 #endif
 
 #ifdef CONFIG_DBUS_INTERFACE
@@ -89,7 +89,7 @@ void going_inactive(int block) {
     command_execute(config.cmd_active_stop, "", block);
 #ifdef CONFIG_METADATA
   debug(2, "aend");                       // active mode end
-  send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
+  send_ssnc_metadata('aend', NULL, 0, 1); // contains cancellation points
 #endif
 
 #ifdef CONFIG_DBUS_INTERFACE
@@ -196,21 +196,19 @@ void *activity_monitor_thread_code(void *arg) {
       } else {
         state = am_timing_out;
 
-        uint64_t time_to_wait_for_wakeup_fp =
-            (uint64_t)(config.active_state_timeout * 1000000); // resolution of microseconds
-        time_to_wait_for_wakeup_fp = time_to_wait_for_wakeup_fp << 32;
-        time_to_wait_for_wakeup_fp = time_to_wait_for_wakeup_fp / 1000000;
+        uint64_t time_to_wait_for_wakeup_ns = (uint64_t)(config.active_state_timeout * 1000000000);
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-        uint64_t time_of_wakeup_fp = get_absolute_time_in_fp() + time_to_wait_for_wakeup_fp;
-        sec = time_of_wakeup_fp >> 32;
-        nsec = ((time_of_wakeup_fp & 0xffffffff) * 1000000000) >> 32;
+        uint64_t time_of_wakeup_ns = get_absolute_time_in_ns() + time_to_wait_for_wakeup_ns;
+        sec = time_of_wakeup_ns / 1000000000;
+        nsec = time_of_wakeup_ns % 1000000000;
         time_for_wait.tv_sec = sec;
         time_for_wait.tv_nsec = nsec;
 #endif
+
 #ifdef COMPILE_FOR_OSX
-        sec = time_to_wait_for_wakeup_fp >> 32;
-        nsec = ((time_to_wait_for_wakeup_fp & 0xffffffff) * 1000000000) >> 32;
+        sec = time_to_wait_for_wakeup_ns / 1000000000;
+        nsec = time_to_wait_for_wakeup_ns % 1000000000;
         time_for_wait.tv_sec = sec;
         time_for_wait.tv_nsec = nsec;
 #endif
