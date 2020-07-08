@@ -995,7 +995,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 						}
 					}
 				} else {
-					debug(2, "flush request: flush frame %u  -- buffer not synced or empty: synced: %d, ab_read: %u, ab_write: %u", conn->flush_rtp_timestamp, conn->ab_synced, conn->ab_read, conn->ab_write);
+					debug(3, "flush request: flush frame %u  -- buffer not synced or empty: synced: %d, ab_read: %u, ab_write: %u", conn->flush_rtp_timestamp, conn->ab_synced, conn->ab_read, conn->ab_write);
 					// leave flush request pending and don't do a buffer flush, because there isn't one
 				}
       }
