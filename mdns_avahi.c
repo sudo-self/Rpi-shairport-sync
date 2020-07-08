@@ -152,6 +152,8 @@ static void browse_callback(AvahiServiceBrowser *b, AvahiIfIndex interface, Avah
     char *dacpid = strstr(name, "iTunes_Ctrl_");
     if (dacpid) {
       dacpid += strlen("iTunes_Ctrl_");
+      while (*dacpid == '0')
+        dacpid++; // remove any leading zeroes
       if ((dbs->dacp_id) && (strcmp(dacpid, dbs->dacp_id) == 0))
         dacp_monitor_port_update_callback(dbs->dacp_id, 0); // say the port is withdrawn
     } else {
