@@ -1,7 +1,7 @@
 Version 3.3.7d14
 ====
 **Enhancements**
-* Fixed a situation where a misleading error message was given if a configuration file cound not be located and `get_coverart` was selected as a command line option. Apart from a misleading message, `get_coverart` and `enable_metadata` should have been enabled automatically where metadata support is included in the build configuration.
+* Fixed a situation where a misleading error message was given if a configuration file cound not be located and `get_coverart` was selected as a command line option. Apart from a misleading message, `get_coverart` and `enable_metadata` should have been enabled automatically where metadata support is included in the build configuration. Thanks to [Craig Fletcher](https://github.com/leakypixel) for the bug report.
 
 Version 3.3.7d13
 ====
