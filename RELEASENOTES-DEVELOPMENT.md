@@ -1,5 +1,19 @@
+Version 3.3.7d14
+====
+**Enhancements**
+* Fixed a situation where a misleading error message was given if a configuration file cound not be located and `get_coverart` was selected as a command line option. Apart from a misleading message, `get_coverart` and `enable_metadata` should have been enabled automatically where metadata support is included in the build configuration.
+
+Version 3.3.7d13
+====
+This is 3.3.7rc1
+
+**Enhancements**
+* Fixed another bug, related to the bug fixed in 3.3.7d4, where leading zeros were not removed from the DACP ID. Thanks again to [julianc1969](https://github.com/juliandc1969).
+
 Version 3.3.7d12
 ====
+This is 3.3.7rc0
+
 **Enhancements**
 * Added the the string `-alac` to the the version string in '-V' if Apple ALAC decoder support is included.
 
