@@ -1249,7 +1249,7 @@ int dacp_get_volume(int32_t *the_actual_volume) {
       // metadata_store.speaker_volume = actual_volume;
       // metadata_hub_modify_epilog(1);
     } else {
-      debug(1, "Unexpected return code %d from dacp_get_speaker_list.", http_response);
+      debug(2, "Unexpected return code %d from dacp_get_speaker_list.", http_response);
     }
   } else if ((http_response != 400) && (http_response != 490)) {
     debug(3, "Unexpected return code %d from dacp_get_client_volume.", http_response);
