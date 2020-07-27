@@ -121,7 +121,7 @@ static int init(int argc, char **argv) {
 
   // here, create the pipe
   mode_t oldumask = umask(000);
-  if (mkfifo(pipename, 0644) && errno != EEXIST)
+  if (mkfifo(pipename, 0666) && errno != EEXIST)
     die("Could not create audio pipe \"%s\"", pipename);
   umask(oldumask);
 
