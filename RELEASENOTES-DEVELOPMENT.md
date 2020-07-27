@@ -1,3 +1,8 @@
+Version 3.3.7d15
+====
+**Enhancements**
+* Changed permissions when creating the metadata pipe (and the audio pipe in the `pipe` backend) to `rw-rw-rw-` for compatibility with `snapserver`.
+
 Version 3.3.7d14
 ====
 **Enhancements**
