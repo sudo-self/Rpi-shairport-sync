@@ -2320,6 +2320,7 @@ void *player_thread_func(void *arg) {
                 uint32_t frames_to_drop_sized = local_frames_to_drop;
 
                 debug_mutex_lock(&conn->flush_mutex, 1000, 1);
+                conn->flush_requested = 1;
                 conn->flush_rtp_timestamp =
                     inframe->given_timestamp +
                     frames_to_drop_sized; // flush all packets up to (and including?) this
