@@ -1,7 +1,7 @@
 Version 3.3.7d16
 ====
 **Bug Fix**
-* Fix potential inability to restore synchrnoisation quickly in certain situations.
+* Fix potential inability to restore synchronisation quickly in certain situations.
 
 Version 3.3.7d15
 ====
