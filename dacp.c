@@ -154,7 +154,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
   // debug(1,"dacp_send_command: command is: \"%s\".",command);
 
   if (dacp_server.port == 0) {
-    debug(3, "No DACP port specified yet");
+    // debug(3, "No DACP port specified yet");
     result = 490; // no port specified
   } else {
 
@@ -504,11 +504,13 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
                (metadata_store.advanced_dacp_server_active != 0);
       metadata_store.dacp_server_active = 0;
       metadata_store.advanced_dacp_server_active = 0;
+      /*
       debug(3,
             "setting metadata_store.dacp_server_active and "
             "metadata_store.advanced_dacp_server_active to 0 with an update "
             "flag value of %d",
             ch);
+      */
       metadata_hub_modify_epilog(ch);
 
       uint64_t time_to_wait_for_wakeup_ns =
@@ -1247,9 +1249,9 @@ int dacp_get_volume(int32_t *the_actual_volume) {
       // metadata_store.speaker_volume = actual_volume;
       // metadata_hub_modify_epilog(1);
     } else {
-      debug(1, "Unexpected return code %d from dacp_get_speaker_list.", http_response);
+      debug(2, "Unexpected return code %d from dacp_get_speaker_list.", http_response);
     }
-  } else if (http_response != 400) {
+  } else if ((http_response != 400) && (http_response != 490)) {
     debug(3, "Unexpected return code %d from dacp_get_client_volume.", http_response);
   }
   if (the_actual_volume) {

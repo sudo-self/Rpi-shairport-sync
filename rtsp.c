@@ -1572,7 +1572,7 @@ void *metadata_hub_thread_function(__attribute__((unused)) void *ignore) {
   snprintf(path, pl + 1, "%s", config.metadata_pipename);
 
   mode_t oldumask = umask(000);
-  if (mkfifo(path, 0644) && errno != EEXIST)
+  if (mkfifo(path, 0666) && errno != EEXIST)
     die("Could not create metadata pipe \"%s\".", path);
   umask(oldumask);
   debug(1, "metadata pipe name is \"%s\".", path);

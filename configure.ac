@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.50])
-AC_INIT([shairport-sync], [3.3.7rc1], [4265913+mikebrady@users.noreply.github.com])
+AC_INIT([shairport-sync], [3.3.7rc2], [4265913+mikebrady@users.noreply.github.com])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([shairport.c])
 AC_CONFIG_HEADERS([config.h])

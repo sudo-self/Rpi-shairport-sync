@@ -148,7 +148,7 @@ void _metadata_hub_modify_prolog(const char *filename, const int linenumber) {
   	}
   	last_metadata_hub_modify_prolog_file = strdup(filename);
   	last_metadata_hub_modify_prolog_line = linenumber;
-    debug(3, "Metadata_hub write lock acquired.");
+    // debug(3, "Metadata_hub write lock acquired.");
   }
   metadata_hub_re_lock_access_is_delayed = 0;
 }
@@ -169,7 +169,7 @@ void _metadata_hub_modify_epilog(int modified, const char *filename, const int l
 		}
   }
   pthread_rwlock_unlock(&metadata_hub_re_lock);
-  debug(3, "Metadata_hub write lock unlocked.");
+  // debug(3, "Metadata_hub write lock unlocked.");
 }
 
 /*

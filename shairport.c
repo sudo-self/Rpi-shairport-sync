@@ -266,7 +266,7 @@ void usage(char *progname) {
   printf("    --metadata-pipename=PIPE send metadata to PIPE, e.g. "
          "--metadata-pipename=/tmp/shairport-sync-metadata.\n");
   printf("                            The default is /tmp/shairport-sync-metadata.\n");
-  printf("    --get-coverart          send cover art through the metadata pipe.\n");
+  printf("    -g, --get-coverart      send cover art through the metadata pipe.\n");
 #endif
   printf("    -u, --use-stderr        log messages through STDERR rather than the system log.\n");
   printf("\n");
@@ -417,6 +417,17 @@ int parse_options(int argc, char **argv) {
   // e.g. if we have 1024 buffers or 352 frames = 8.17 seconds and we have a nominal latency of 2.0
   // seconds then we can add an offset of 5.17 seconds and still leave a second's worth of buffers
   // for unexpected circumstances
+
+#ifdef CONFIG_METADATA
+      /* Get the metadata setting. */
+      config.metadata_enabled = 1; // if metadata support is included, then enable it by default
+      config.get_coverart = 1; // if metadata support is included, then enable it by default
+#endif
+
+#ifdef CONFIG_CONVOLUTION
+      config.convolution_max_length = 8192;
+#endif
+      config.loudness_reference_volume_db = -20;
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
@@ -846,7 +857,6 @@ int parse_options(int argc, char **argv) {
 
 #ifdef CONFIG_METADATA
       /* Get the metadata setting. */
-      config.metadata_enabled = 1; // if metadata support is included, then enable it by default
       if (config_lookup_string(config.cfg, "metadata.enabled", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.metadata_enabled = 0;
@@ -856,7 +866,6 @@ int parse_options(int argc, char **argv) {
           die("Invalid metadata enabled option choice \"%s\". It should be \"yes\" or \"no\"");
       }
 
-      config.get_coverart = 1; // if metadata support is included, then enable it by default
       if (config_lookup_string(config.cfg, "metadata.include_cover_art", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.get_coverart = 0;
@@ -988,7 +997,6 @@ int parse_options(int argc, char **argv) {
               dvalue);
       }
 
-      config.convolution_max_length = 8192;
       if (config_lookup_int(config.cfg, "dsp.convolution_max_length", &value)) {
         config.convolution_max_length = value;
 
@@ -1015,7 +1023,6 @@ int parse_options(int argc, char **argv) {
           die("Invalid dsp.convolution. It should be \"yes\" or \"no\"");
       }
 
-      config.loudness_reference_volume_db = -20;
       if (config_lookup_float(config.cfg, "dsp.loudness_reference_volume_db", &dvalue)) {
         config.loudness_reference_volume_db = dvalue;
         if (dvalue > 0 || dvalue < -100)
@@ -1168,7 +1175,7 @@ int parse_options(int argc, char **argv) {
       break;
     case 'g':
       if (config.metadata_enabled == 0)
-        die("If you want to get cover art, you must also select the --metadata-pipename option.");
+        die("If you want to get cover art, ensure metadata_enabled is true.");
       break;
 #endif
     case 'S':

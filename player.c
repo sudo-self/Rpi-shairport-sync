@@ -950,71 +950,71 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
          debug(2, "flush request: flush output device.");
         }
       conn->flush_output_flushed = 1;
-      // now check to see it the flush request is for frames in the buffer or not
-      // if the first_packet_timestamp is zero, don't check
-      int flush_needed = 0;
-      int drop_request = 0;
-      if (conn->flush_rtp_timestamp == 0) {
-      	debug(1, "flush request: flush frame 0 -- flush assumed to be needed.");
-      	flush_needed = 1;
-      	drop_request = 1;
-      } else {
-				if ((conn->ab_synced) && ((conn->ab_write - conn->ab_read) > 0)) {
-					abuf_t *firstPacket = conn->audio_buffer + BUFIDX(conn->ab_read);
-					abuf_t *lastPacket = conn->audio_buffer + BUFIDX(conn->ab_write - 1);
-					if ((firstPacket != NULL) && (firstPacket->ready)) {
-						// discard flushes more than 10 seconds into the future -- they are probably bogus
-						uint32_t first_frame_in_buffer = firstPacket->given_timestamp;
-						int32_t offset_from_first_frame = (int32_t)(conn->flush_rtp_timestamp - first_frame_in_buffer);
-						if (offset_from_first_frame > (int)conn->input_rate * 10) {
-							debug(1, "flush request: sanity check -- flush frame %u is too far into the future from the first frame %u -- discarded.", conn->flush_rtp_timestamp, first_frame_in_buffer);
-							drop_request = 1;
-						} else {
-							if ((lastPacket != NULL) && (lastPacket->ready)) {
-								// we have enough information to check if the flush is needed or can be discarded
-								uint32_t last_frame_in_buffer = lastPacket->given_timestamp + lastPacket->length - 1;
-								// now we have to work out if the flush frame is in the buffer
-								// if it is later than the end of the buffer, flush everything and keep the request active.
-								// if it is in the buffer, we need to flush part of the buffer. Actually we flush the entire buffer and drop the request.
-								// if it is before the buffer, no flush is needed. Drop the request.
-								if (offset_from_first_frame > 0) {
-									int32_t offset_to_last_frame = (int32_t)(last_frame_in_buffer - conn->flush_rtp_timestamp);
-									if (offset_to_last_frame >= 0) {
-										debug(2,"flush request: flush frame %u active -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
-										drop_request = 1;
-										flush_needed = 1;
-									} else {
-										debug(2,"flush request: flush frame %u pending -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
-										flush_needed = 1;
-									}
+    }
+		// now check to see it the flush request is for frames in the buffer or not
+		// if the first_packet_timestamp is zero, don't check
+		int flush_needed = 0;
+		int drop_request = 0;
+		if ((conn->flush_requested == 1) && (conn->flush_rtp_timestamp == 0)) {
+			debug(1, "flush request: flush frame 0 -- flush assumed to be needed.");
+			flush_needed = 1;
+			drop_request = 1;
+		} else if (conn->flush_rtp_timestamp != 0) {
+			if ((conn->ab_synced) && ((conn->ab_write - conn->ab_read) > 0)) {
+				abuf_t *firstPacket = conn->audio_buffer + BUFIDX(conn->ab_read);
+				abuf_t *lastPacket = conn->audio_buffer + BUFIDX(conn->ab_write - 1);
+				if ((firstPacket != NULL) && (firstPacket->ready)) {
+					// discard flushes more than 10 seconds into the future -- they are probably bogus
+					uint32_t first_frame_in_buffer = firstPacket->given_timestamp;
+					int32_t offset_from_first_frame = (int32_t)(conn->flush_rtp_timestamp - first_frame_in_buffer);
+					if (offset_from_first_frame > (int)conn->input_rate * 10) {
+						debug(1, "flush request: sanity check -- flush frame %u is too far into the future from the first frame %u -- discarded.", conn->flush_rtp_timestamp, first_frame_in_buffer);
+						drop_request = 1;
+					} else {
+						if ((lastPacket != NULL) && (lastPacket->ready)) {
+							// we have enough information to check if the flush is needed or can be discarded
+							uint32_t last_frame_in_buffer = lastPacket->given_timestamp + lastPacket->length - 1;
+							// now we have to work out if the flush frame is in the buffer
+							// if it is later than the end of the buffer, flush everything and keep the request active.
+							// if it is in the buffer, we need to flush part of the buffer. Actually we flush the entire buffer and drop the request.
+							// if it is before the buffer, no flush is needed. Drop the request.
+							if (offset_from_first_frame > 0) {
+								int32_t offset_to_last_frame = (int32_t)(last_frame_in_buffer - conn->flush_rtp_timestamp);
+								if (offset_to_last_frame >= 0) {
+									debug(2,"flush request: flush frame %u active -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
+									drop_request = 1;
+									flush_needed = 1;
 								} else {
-										debug(2,"flush request: flush frame %u expired -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
-										drop_request = 1;
+									debug(2,"flush request: flush frame %u pending -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
+									flush_needed = 1;
 								}
+							} else {
+									debug(2,"flush request: flush frame %u expired -- buffer contains %u frames, from %u to %u", conn->flush_rtp_timestamp, last_frame_in_buffer - first_frame_in_buffer + 1, first_frame_in_buffer, last_frame_in_buffer);
+									drop_request = 1;
 							}
 						}
 					}
-				} else {
-					debug(3, "flush request: flush frame %u  -- buffer not synced or empty: synced: %d, ab_read: %u, ab_write: %u", conn->flush_rtp_timestamp, conn->ab_synced, conn->ab_read, conn->ab_write);
-					// leave flush request pending and don't do a buffer flush, because there isn't one
 				}
-      }
-			if (flush_needed) {
-				debug(2, "flush request: flush done.");
-				ab_resync(conn);          // no cancellation points
-				conn->first_packet_timestamp = 0;
-				conn->first_packet_time_to_play = 0;
-				conn->time_since_play_started = 0;
-				have_sent_prefiller_silence = 0;
-				dac_delay = 0;
+			} else {
+				debug(3, "flush request: flush frame %u  -- buffer not synced or empty: synced: %d, ab_read: %u, ab_write: %u", conn->flush_rtp_timestamp, conn->ab_synced, conn->ab_read, conn->ab_write);
+				// leave flush request pending and don't do a buffer flush, because there isn't one
 			}
-			if (drop_request) {
-				debug(2, "flush request: request dropped.");
-				conn->flush_requested = 0;
-				conn->flush_rtp_timestamp = 0;
-				conn->flush_output_flushed = 0;
-			}
-    }
+		}
+		if (flush_needed) {
+			debug(2, "flush request: flush done.");
+			ab_resync(conn);          // no cancellation points
+			conn->first_packet_timestamp = 0;
+			conn->first_packet_time_to_play = 0;
+			conn->time_since_play_started = 0;
+			have_sent_prefiller_silence = 0;
+			dac_delay = 0;
+		}
+		if (drop_request) {
+			debug(2, "flush request: request dropped.");
+			conn->flush_requested = 0;
+			conn->flush_rtp_timestamp = 0;
+			conn->flush_output_flushed = 0;
+		}
     debug_mutex_unlock(&conn->flush_mutex, 0);
     if (conn->ab_synced) {
       curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
@@ -1997,7 +1997,7 @@ void *player_thread_func(void *arg) {
         //          debug(3, "Play frame %d.", play_number);
         conn->play_number_after_flush++;
         if (inframe->given_timestamp == 0) {
-          debug(1,
+          debug(2,
                 "Player has supplied a silent frame, (possibly frame %u) for play number %d, "
                 "status 0x%X after %u resend requests.",
                 SUCCESSOR(conn->last_seqno_read), play_number, inframe->status,
