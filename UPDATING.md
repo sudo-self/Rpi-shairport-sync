@@ -15,7 +15,26 @@ $ sudo apt-get upgrade
 ```
 Next, stop playing music to your device.
 
-Now, to update and install Shairport Sync, if you still have the directory in which you previously built Shairport Sync, it will contain the repository you originally downloaded. Navigate your way to it and 'pull' the changes from GitHub:
+### Remove Old Copies
+It's a good idea to search for and remove any existing copies of the application, called `shairport-sync`. Use the command `$ which shairport-sync` to find them. For example, if `shairport-sync` has been installed previously, this might happen:
+```
+$ which shairport-sync
+/usr/local/bin/shairport-sync
+```
+Remove it as follows:
+```
+# rm /usr/local/bin/shairport-sync
+```
+Do this until no more copies of `shairport-sync` are found. This is especially important if you are building Shairport Sync over an old version that was installed from packages, as the built application will be installed in a different directory to the packaged installation.
+
+### Remove Old Startup Scripts
+You should also remove the startup script files `/etc/systemd/system/shairport-sync.service`, `/lib/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed if necessary. As with the previous section, this is especially important if you are building Shairport Sync over an old version that was installed from packages, as the scripts for the built application may be different to those of the packaged version. If they are left in place, bad things can happen.
+
+### Reboot after Cleaning Up
+If you removed any installations of Shairport Sync or any of its startup script files in the last two steps, you should reboot.
+
+### Building the Updated Shairport Sync
+Now, to build, update and install Shairport Sync, if you still have the directory in which you previously built Shairport Sync, it will contain the repository you originally downloaded. Navigate your way to it and 'pull' the changes from GitHub:
 
 ```
 $ git pull
