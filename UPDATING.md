@@ -1,6 +1,6 @@
 
 ### Updating Shairport Sync
-This guide is for updating an installation of Shairport Sync. If you installed Shairport Sync from a package, most of these instructions don't apply – please go to the section at the end called "Post Update Tasks"
+This guide is for building and updating an installation of Shairport Sync. If you wish to build an installation of Shairport Sync to replace an installation that came from a package, this doesn't really apply – instead, please follow the guide at [INSTALL.md](https://github.com/mikebrady/shairport-sync/blob/master/INSTALL.md).
 
 To do an update, you basically have to go through the whole process of building Shairport Sync again,
 but a few steps are shorter because you've done them before; you won't have to reinstall the build tools or libraries needed, and you won't have to define the user and group or reconfigure the settings in the configuration file.
