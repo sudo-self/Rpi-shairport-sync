@@ -7,7 +7,9 @@ but a few steps are shorter because you've done them before; you won't have to r
 
 But before you begin, you should update and upgrade any packages.
 
-Here is the sequence for Raspbian Stretch, which is based on Debian Stretch. The same commands work for Ubuntu, and maybe more. Here, a non-`root` user with `sudo` privileges is assumed.
+Note that in this guide, a `$` prefix means you should be in the normal user mode; a `#` prefix means you should be in the superuser or root mode.
+
+Here is the sequence for Raspberry Pi OS (Buster), which is based on Debian Buster. The same commands work for Ubuntu, and maybe more. Here, a non-`root` user with `sudo` privileges is assumed.
 
 ```
 $ sudo apt-get update
