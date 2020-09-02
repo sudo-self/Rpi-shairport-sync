@@ -1460,6 +1460,9 @@ char *get_version_string() {
 #ifdef CONFIG_SNDIO
     strcat(version_string, "-sndio");
 #endif
+#ifdef CONFIG_JACK
+    strcat(version_string, "-jack");
+#endif
 #ifdef CONFIG_AO
     strcat(version_string, "-ao");
 #endif
