@@ -1,3 +1,8 @@
+Version 3.3.7d17
+====
+**Bug Fix**
+* Include the word `jack` in the version string if support for [Jack Audio](https://jackaudio.org) is included.
+
 Version 3.3.7d16
 ====
 **Bug Fix**
