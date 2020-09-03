@@ -182,8 +182,8 @@ typedef struct {
   char *pidfile;
 #endif
 
-	int	log_fd; // file descriptor of the file or pipe to log stuff to.
-	char *log_file_path; // path to file or pipe to log to, if any
+  int log_fd;                      // file descriptor of the file or pipe to log stuff to.
+  char *log_file_path;             // path to file or pipe to log to, if any
   int logOutputLevel;              // log output level
   int debugger_show_elapsed_time;  // in the debug message, display the time since startup
   int debugger_show_relative_time; // in the debug message, display the time since the last one
@@ -285,10 +285,10 @@ typedef struct {
   int jack_soxr_resample_quality;
 #endif
 #endif
-	void *gradients; // a linked list of the clock gradients discovered for all DACP IDs
-	// can't use IP numbers as they might be given to different devices
-	// can't get hold of MAC addresses.
-	// can't define the nvll linked list struct here
+  void *gradients; // a linked list of the clock gradients discovered for all DACP IDs
+                   // can't use IP numbers as they might be given to different devices
+                   // can't get hold of MAC addresses.
+                   // can't define the nvll linked list struct here
 } shairport_cfg;
 
 // accessors to config for multi-thread access
@@ -303,9 +303,7 @@ void memory_barrier();
 void log_to_stderr(); // call this to direct logging to stderr;
 void log_to_stdout(); // call this to direct logging to stdout;
 void log_to_syslog(); // call this to direct logging to the system log;
-void log_to_file(); // call this to direct logging to a file or (pre-existing) pipe;
-
-
+void log_to_file();   // call this to direct logging to a file or (pre-existing) pipe;
 
 // true if Shairport Sync is supposed to be sending output to the output device, false otherwise
 
@@ -313,7 +311,8 @@ int get_requested_connection_state_to_output();
 
 void set_requested_connection_state_to_output(int v);
 
-int try_to_open_pipe_for_writing(const char* pathname); // open it without blocking if it's not hooked up
+int try_to_open_pipe_for_writing(
+    const char *pathname); // open it without blocking if it's not hooked up
 
 /* from
  * http://coding.debuntu.org/c-implementing-str_replace-replace-all-occurrences-substring#comment-722
@@ -446,6 +445,6 @@ void malloc_cleanup(void *arg);
 int string_update_with_size(char **str, int *flag, char *s, size_t len);
 
 // from https://stackoverflow.com/questions/13663617/memdup-function-in-c, with thanks
-void* memdup(const void* mem, size_t size);
+void *memdup(const void *mem, size_t size);
 
 #endif // _COMMON_H

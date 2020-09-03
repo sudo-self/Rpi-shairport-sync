@@ -51,33 +51,34 @@ static void start(__attribute__((unused)) int sample_rate,
   // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
   // open for reading."
 
-	fd = try_to_open_pipe_for_writing(pipename);
-	// we check that it's not a "real" error. From the "man 2 open" page:
-	// "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
-	// open for reading." Which is okay.
-	if ((fd == -1) && (errno != ENXIO)) {
-		char errorstring[1024];
-		strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-		debug(1, "audio_pipe start -- error %d (\"%s\") opening pipe: \"%s\".", errno,
-					(char *)errorstring, pipename);
-		warn("can not open audio pipe -- error %d (\"%s\") opening pipe: \"%s\".", errno,
-					(char *)errorstring, pipename);
-	}
+  fd = try_to_open_pipe_for_writing(pipename);
+  // we check that it's not a "real" error. From the "man 2 open" page:
+  // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
+  // open for reading." Which is okay.
+  if ((fd == -1) && (errno != ENXIO)) {
+    char errorstring[1024];
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    debug(1, "audio_pipe start -- error %d (\"%s\") opening pipe: \"%s\".", errno,
+          (char *)errorstring, pipename);
+    warn("can not open audio pipe -- error %d (\"%s\") opening pipe: \"%s\".", errno,
+         (char *)errorstring, pipename);
+  }
 }
 
 static int play(void *buf, int samples) {
   // if the file is not open, try to open it.
   char errorstring[1024];
   if (fd == -1) {
-  	fd = try_to_open_pipe_for_writing(pipename);
+    fd = try_to_open_pipe_for_writing(pipename);
   }
   // if it's got a reader, write to it.
   if (fd > 0) {
-    //int rc = non_blocking_write(fd, buf, samples * 4);
+    // int rc = non_blocking_write(fd, buf, samples * 4);
     int rc = write(fd, buf, samples * 4);
     if ((rc < 0) && (errno != EPIPE)) {
       strerror_r(errno, (char *)errorstring, 1024);
-      debug(1, "audio_pip play: error %d writing to the pipe named \"%s\": \"%s\".", errno, pipename, errorstring);
+      debug(1, "audio_pip play: error %d writing to the pipe named \"%s\": \"%s\".", errno,
+            pipename, errorstring);
     }
   }
   return 0;
@@ -85,7 +86,6 @@ static int play(void *buf, int samples) {
 
 static void stop(void) {
   // Don't close the pipe just because a play session has stopped.
-
 }
 
 static int init(int argc, char **argv) {

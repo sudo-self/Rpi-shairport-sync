@@ -29,6 +29,8 @@
 #include "common.h"
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <libgen.h>
 #include <memory.h>
 #include <poll.h>
 #include <popt.h>
@@ -40,8 +42,6 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <libgen.h>
 
 #ifdef COMPILE_FOR_OSX
 #include <CoreServices/CoreServices.h>
@@ -141,64 +141,66 @@ void do_sps_log_to_stdout(__attribute__((unused)) int prio, const char *t, ...) 
   fprintf(stdout, "%s\n", s);
 }
 
-int create_log_file(const char* path) {
-	int fd = -1;
-	if (path != NULL) {
-		char *dirc = strdup(path);
-		if (dirc) {
-			char *dname = dirname(dirc);
-			// create the directory, if necessary
-			int result = 0;
-			if (dname) {
-				char *pdir = realpath(dname, NULL); // will return a NULL if the directory doesn't exist
-				if (pdir == NULL) {
-					mode_t oldumask = umask(000);
-					result = mkpath(dname, 0777);
-					umask(oldumask);
-				} else {
-					free(pdir);
-				}
-				if ((result == 0) || (result == -EEXIST)) {
-					// now open the file
-					fd = open(path, O_WRONLY | O_NONBLOCK | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-					if ((fd == -1) && (errno == EEXIST))
-						fd = open(path, O_WRONLY | O_APPEND | O_NONBLOCK);
+int create_log_file(const char *path) {
+  int fd = -1;
+  if (path != NULL) {
+    char *dirc = strdup(path);
+    if (dirc) {
+      char *dname = dirname(dirc);
+      // create the directory, if necessary
+      int result = 0;
+      if (dname) {
+        char *pdir = realpath(dname, NULL); // will return a NULL if the directory doesn't exist
+        if (pdir == NULL) {
+          mode_t oldumask = umask(000);
+          result = mkpath(dname, 0777);
+          umask(oldumask);
+        } else {
+          free(pdir);
+        }
+        if ((result == 0) || (result == -EEXIST)) {
+          // now open the file
+          fd = open(path, O_WRONLY | O_NONBLOCK | O_CREAT | O_EXCL,
+                    S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+          if ((fd == -1) && (errno == EEXIST))
+            fd = open(path, O_WRONLY | O_APPEND | O_NONBLOCK);
 
-					if (fd >= 0) {
-						// now we switch to blocking mode
-						int flags = fcntl(fd, F_GETFL);
-						if (flags == -1) {
-//							strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-//							debug(1, "create_log_file -- error %d (\"%s\") getting flags of pipe: \"%s\".", errno,
-//										(char *)errorstring, pathname);
-						} else {
-							flags = fcntl(fd, F_SETFL,flags & ~O_NONBLOCK);
-//							if (flags == -1) {
-//								strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-//								debug(1, "create_log_file -- error %d (\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno,
-//											(char *)errorstring, pathname);
-						}
-					}
-				}
-			}
-			free(dirc);
-		}
-	}
-	return fd;
+          if (fd >= 0) {
+            // now we switch to blocking mode
+            int flags = fcntl(fd, F_GETFL);
+            if (flags == -1) {
+              //							strerror_r(errno, (char
+              //*)errorstring, sizeof(errorstring)); 							debug(1, "create_log_file -- error %d (\"%s\")
+              //getting flags of pipe: \"%s\".", errno, 										(char *)errorstring, pathname);
+            } else {
+              flags = fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+              //							if (flags == -1) {
+              //								strerror_r(errno,
+              //(char *)errorstring, sizeof(errorstring)); 								debug(1, "create_log_file -- error %d
+              //(\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno, 											(char *)errorstring,
+              //pathname);
+            }
+          }
+        }
+      }
+      free(dirc);
+    }
+  }
+  return fd;
 }
 
 void do_sps_log_to_fd(__attribute__((unused)) int prio, const char *t, ...) {
-		char s[1024];
-		va_list args;
-		va_start(args, t);
-		vsnprintf(s, sizeof(s), t, args);
-		va_end(args);
-		if (config.log_fd == -1)
-			config.log_fd = create_log_file(config.log_file_path);
-	if (config.log_fd >= 0) {
-		dprintf(config.log_fd, "%s\n", s);
+  char s[1024];
+  va_list args;
+  va_start(args, t);
+  vsnprintf(s, sizeof(s), t, args);
+  va_end(args);
+  if (config.log_fd == -1)
+    config.log_fd = create_log_file(config.log_file_path);
+  if (config.log_fd >= 0) {
+    dprintf(config.log_fd, "%s\n", s);
   } else if (errno != ENXIO) { // maybe there is a pipe there but not hooked up
-  	fprintf(stderr, "%s\n", s);
+    fprintf(stderr, "%s\n", s);
   }
 }
 
@@ -207,9 +209,9 @@ void log_to_stdout() { sps_log = do_sps_log_to_stdout; }
 void log_to_file() { sps_log = do_sps_log_to_fd; }
 void log_to_syslog() {
 #ifdef CONFIG_LIBDAEMON
-	sps_log = daemon_log;
+  sps_log = daemon_log;
 #else
-	sps_log = syslog;
+  sps_log = syslog;
 #endif
 }
 
@@ -309,8 +311,8 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
                                     1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *fatal error: ");
   } else {
-  	strncpy(b, "fatal error: ", sizeof(b));
-    s = b+strlen(b);
+    strncpy(b, "fatal error: ", sizeof(b));
+    s = b + strlen(b);
   }
   va_list args;
   va_start(args, format);
@@ -339,8 +341,8 @@ void _warn(const char *filename, const int linenumber, const char *format, ...) 
                                     1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *warning: ");
   } else {
-  	strncpy(b, "warning: ", sizeof(b));
-    s = b+strlen(b);
+    strncpy(b, "warning: ", sizeof(b));
+    s = b + strlen(b);
   }
   va_list args;
   va_start(args, format);
@@ -1134,12 +1136,12 @@ uint64_t get_absolute_time_in_ns() {
   return time_now_ns;
 }
 
-int try_to_open_pipe_for_writing(const char* pathname) {
-	// tries to open the pipe in non-blocking mode first.
-	// if it succeeds, it sets it to blocking.
-	// if not, it returns -1.
+int try_to_open_pipe_for_writing(const char *pathname) {
+  // tries to open the pipe in non-blocking mode first.
+  // if it succeeds, it sets it to blocking.
+  // if not, it returns -1.
 
-	int fdis = open(pathname, O_WRONLY | O_NONBLOCK); // open it in non blocking mode first
+  int fdis = open(pathname, O_WRONLY | O_NONBLOCK); // open it in non blocking mode first
 
   // we check that it's not a "real" error. From the "man 2 open" page:
   // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
@@ -1147,24 +1149,24 @@ int try_to_open_pipe_for_writing(const char* pathname) {
   // This is checked by the caller.
 
   if (fdis >= 0) {
-  	// now we switch to blocking mode
-  	int flags = fcntl(fdis, F_GETFL);
-  	if (flags == -1) {
-  		char errorstring[1024];
-			strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-			debug(1, "try_to_open_pipe -- error %d (\"%s\") getting flags of pipe: \"%s\".", errno,
-						(char *)errorstring, pathname);
-  	} else {
-  		flags = fcntl(fdis, F_SETFL,flags & ~O_NONBLOCK);
-  		if (flags == -1) {
-  			char errorstring[1024];
-				strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-				debug(1, "try_to_open_pipe -- error %d (\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno,
-							(char *)errorstring, pathname);
-  		}
-  	}
+    // now we switch to blocking mode
+    int flags = fcntl(fdis, F_GETFL);
+    if (flags == -1) {
+      char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      debug(1, "try_to_open_pipe -- error %d (\"%s\") getting flags of pipe: \"%s\".", errno,
+            (char *)errorstring, pathname);
+    } else {
+      flags = fcntl(fdis, F_SETFL, flags & ~O_NONBLOCK);
+      if (flags == -1) {
+        char errorstring[1024];
+        strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+        debug(1, "try_to_open_pipe -- error %d (\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno,
+              (char *)errorstring, pathname);
+      }
+    }
   }
-	return fdis;
+  return fdis;
 }
 
 /* from
@@ -1710,11 +1712,11 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len) {
 }
 
 // from https://stackoverflow.com/questions/13663617/memdup-function-in-c, with thanks
-void* memdup(const void* mem, size_t size) {
-   void* out = malloc(size);
+void *memdup(const void *mem, size_t size) {
+  void *out = malloc(size);
 
-   if(out != NULL)
-       memcpy(out, mem, size);
+  if (out != NULL)
+    memcpy(out, mem, size);
 
-   return out;
+  return out;
 }

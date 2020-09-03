@@ -54,7 +54,7 @@ typedef struct {
 
 } audio_output;
 
-audio_output *audio_get_output(char *name);
+audio_output *audio_get_output(const char *name);
 void audio_ls_outputs(void);
 void parse_general_audio_options(void);
 
