@@ -1,8 +1,12 @@
+Version 3.3.7d18
+====
+**Bug Fix**
+* Make the first output backend in the list of backends the default, and make its name the default output_name. Clang-format everything. Thanks again to [kiwi-ed](https://github.com/kiwi-ed) for bringing this issue to light.
+
 Version 3.3.7d17
 ====
 **Bug Fix**
-* Include the word `jack` in the version string if support for [Jack Audio](https://jackaudio.org) is included.
-* Make the first output backend in the list of backends the default, and make its name the default output_name. Clang-format everything. Thanks to [kiwi-ed](https://github.com/kiwi-ed) for bringing these issues to light.
+* Include the word `jack` in the version string if support for [Jack Audio](https://jackaudio.org) is included. Thanks to [kiwi-ed](https://github.com/kiwi-ed) for bringing this issue to light.
 
 Version 3.3.7d16
 ====
