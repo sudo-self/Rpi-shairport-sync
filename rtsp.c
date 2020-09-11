@@ -1320,7 +1320,6 @@ void metadata_create_multicast_socket(void) {
     } else {
       int buffer_size = METADATA_SNDBUF;
       setsockopt(metadata_sock, SOL_SOCKET, SO_SNDBUF, &buffer_size, sizeof(buffer_size));
-      fcntl(fd, F_SETFL, O_NONBLOCK);
       bzero((char *)&metadata_sockaddr, sizeof(metadata_sockaddr));
       metadata_sockaddr.sin_family = AF_INET;
       metadata_sockaddr.sin_addr.s_addr = inet_addr(config.metadata_sockaddr);
@@ -1584,32 +1583,6 @@ void metadata_hub_thread_cleanup_function(__attribute__((unused)) void *arg) {
 
 void *metadata_hub_thread_function(__attribute__((unused)) void *ignore) {
 
-  // create the fifo, if necessary
-  size_t pl = strlen(config.metadata_pipename) + 1;
-  char *path = malloc(pl + 1);
-  snprintf(path, pl + 1, "%s", config.metadata_pipename);
-
-  mode_t oldumask = umask(000);
-  if (mkfifo(path, 0666) && errno != EEXIST)
-    die("Could not create metadata pipe \"%s\".", path);
-  umask(oldumask);
-  debug(1, "metadata pipe name is \"%s\".", path);
-
-  // try to open it
-  fd = try_to_open_pipe_for_writing(path);
-  // we check that it's not a "real" error. From the "man 2 open" page:
-  // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
-  // open for reading." Which is okay.
-  if ((fd == -1) && (errno != ENXIO)) {
-    char errorstring[1024];
-    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-    debug(1, "metadata_hub_thread_function -- error %d (\"%s\") opening pipe: \"%s\".", errno,
-          (char *)errorstring, path);
-    warn("can not open metadata pipe -- error %d (\"%s\") opening pipe: \"%s\".", errno,
-         (char *)errorstring, path);
-  }
-  free(path);
-
   // create a pc_queue for passing information to a threaded metadata handler
   pc_queue_init(&metadata_hub_queue, (char *)&metadata_hub_queue_items, sizeof(metadata_package),
                 metadata_hub_queue_size, "hub");
@@ -1675,6 +1648,33 @@ void *metadata_mqtt_thread_function(__attribute__((unused)) void *ignore) {
 #endif
 
 void metadata_init(void) {
+
+  // create the metadata pipe, if necessary
+  size_t pl = strlen(config.metadata_pipename) + 1;
+  char *path = malloc(pl + 1);
+  snprintf(path, pl + 1, "%s", config.metadata_pipename);
+
+  mode_t oldumask = umask(000);
+  if (mkfifo(path, 0666) && errno != EEXIST)
+    die("Could not create metadata pipe \"%s\".", path);
+  umask(oldumask);
+  debug(1, "metadata pipe name is \"%s\".", path);
+
+  // try to open it
+  fd = try_to_open_pipe_for_writing(path);
+  // we check that it's not a "real" error. From the "man 2 open" page:
+  // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
+  // open for reading." Which is okay.
+  if ((fd == -1) && (errno != ENXIO)) {
+    char errorstring[1024];
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    debug(1, "metadata_hub_thread_function -- error %d (\"%s\") opening pipe: \"%s\".", errno,
+          (char *)errorstring, path);
+    warn("can not open metadata pipe -- error %d (\"%s\") opening pipe: \"%s\".", errno,
+         (char *)errorstring, path);
+  }
+  free(path);
+
   int ret = pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL);
   if (ret)
     debug(1, "Failed to create metadata thread!");

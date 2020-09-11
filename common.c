@@ -170,15 +170,18 @@ int create_log_file(const char *path) {
             int flags = fcntl(fd, F_GETFL);
             if (flags == -1) {
               //							strerror_r(errno, (char
-              //*)errorstring, sizeof(errorstring)); 							debug(1, "create_log_file -- error %d (\"%s\")
-              //getting flags of pipe: \"%s\".", errno, 										(char *)errorstring, pathname);
+              //*)errorstring, sizeof(errorstring));
+              //debug(1, "create_log_file -- error %d (\"%s\") getting flags of pipe: \"%s\".",
+              // errno,
+              // (char *)errorstring, pathname);
             } else {
               flags = fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
               //							if (flags == -1) {
               //								strerror_r(errno,
-              //(char *)errorstring, sizeof(errorstring)); 								debug(1, "create_log_file -- error %d
-              //(\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno, 											(char *)errorstring,
-              //pathname);
+              //(char *)errorstring, sizeof(errorstring));
+              //debug(1, "create_log_file -- error %d
+              //(\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno,
+              //(char *)errorstring, pathname);
             }
           }
         }
