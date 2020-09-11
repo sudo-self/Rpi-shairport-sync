@@ -42,6 +42,7 @@
 static int fd = -1;
 
 char *pipename = NULL;
+char *default_pipe_name = "/tmp/shairport-sync-audio";
 
 static void start(__attribute__((unused)) int sample_rate,
                   __attribute__((unused)) int sample_format) {
@@ -108,16 +109,19 @@ static int init(int argc, char **argv) {
     if (config_lookup_string(config.cfg, "pipe.name", &str)) {
       pipename = (char *)str;
     }
-
-    if ((pipename) && (strcasecmp(pipename, "STDOUT") == 0))
-      die("Can't use \"pipe\" backend for STDOUT. Use the \"stdout\" backend instead.");
   }
 
-  if ((pipename == NULL) && (argc != 1))
-    die("bad or missing argument(s) to pipe");
+  if (argc > 1)
+    die("too many command-line arguments to pipe");
 
   if (argc == 1)
-    pipename = strdup(argv[0]);
+    pipename = argv[0]; // command line argument has priority
+
+	if ((pipename) && (strcasecmp(pipename, "STDOUT") == 0))
+		die("Can't use \"pipe\" backend for STDOUT. Use the \"stdout\" backend instead.");
+
+	if (pipename == NULL)
+		pipename = default_pipe_name; // if none specified
 
   // here, create the pipe
   mode_t oldumask = umask(000);
