@@ -1,3 +1,11 @@
+Version 3.3.7d19
+====
+**Bug Fix**
+* Ensure the metadata pipe is created, if necessary, when the `--with-metadata` configuration option is chosen without the `--with-dbus-interface`, `--with-mpris-interface` or the `--with-mqtt-client` options. Super thanks to [Philip Howard](https://github.com/Gadgetoid) for finding this and for developing a possible solution. 
+
+**Enhancements**
+* Add a default name for the `pipe` backend. If you don't specify a name for the `pipe` backend's named pipe, it will be `/tmp/shairport-sync-audio`. Note that Shairport Sync will need to have write permission to `/tmp` to create the pipe.
+
 Version 3.3.7d18
 ====
 **Bug Fix**
