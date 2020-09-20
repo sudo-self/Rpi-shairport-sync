@@ -77,23 +77,25 @@ void *response_realloc(__attribute__((unused)) void *opaque, void *ptr, int size
   void *t = realloc(ptr, size);
   if ((t == NULL) && (size != 0))
     debug(1, "Response realloc of size %d failed!", size);
+  if (t != ptr)
+    debug(3, "response_realloc pointer changed for size %d", size);
   return t;
 }
 
 void response_body(void *opaque, const char *data, int size) {
   struct HttpResponse *response = (struct HttpResponse *)opaque;
 
-  ssize_t space_available = response->malloced_size - response->size;
+  ssize_t space_available = response->malloced_size - response->size; //must be greater than or equal to 0
   if (space_available < size) {
-    // debug(1,"Getting more space for the response -- need %d bytes but only %ld bytes left.\n",
-    // size,
-    //       size - space_available);
-    ssize_t size_requested = size - space_available + response->malloced_size + 16384;
+    debug(3,"Getting more space for the response -- %d allocated, need %d bytes but only %d bytes left.\n", response->malloced_size, size, space_available);
+    ssize_t size_requested = size - space_available + response->malloced_size;
     void *t = realloc(response->body, size_requested);
     response->malloced_size = size_requested;
-    if (t)
+    if (t) {
+      if (response->body != t)
+        debug(3, "response_body pointer changed for size %u.", size_requested);
       response->body = t;
-    else {
+    } else {
       die("dacp: can't allocate any more space for parser.");
     }
   }
@@ -226,7 +228,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
 
           struct timeval tv;
           tv.tv_sec = 0;
-          tv.tv_usec = 500000;
+          tv.tv_usec = 100000;
           if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
             debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
           if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
@@ -268,8 +270,10 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
 
             } else {
 
-              response.body = malloc(2048); // it can resize this if necessary
-              response.malloced_size = 2048;
+              response.body = malloc(0); // it will resize this if necessary
+              if (response.body == NULL)
+                die("Can not allocatr space for a DACP response.");
+              response.malloced_size = 0;
               pthread_cleanup_push(malloc_cleanup, response.body);
 
               struct http_roundtripper rt;
@@ -286,6 +290,8 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
                   debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
                 ssize_t ndata = recv(sockfd, buffer, sizeof(buffer), 0);
                 // debug(3, "Received %d bytes: \"%s\".", ndata, buffer);
+                if ((ndata >=0) && ((size_t)ndata > sizeof(buffer)/2))
+                  debug(1, "Received %u bytes: \"%s\".", ndata, buffer);                  
                 if (ndata <= 0) {
                   if (ndata == -1) {
                     char errorstring[1024];
