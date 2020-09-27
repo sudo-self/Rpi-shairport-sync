@@ -984,7 +984,7 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     } else {
       debug(2, "Connection %d: SETUP -- Note: no Active-Remote information  the SETUP Record.",
             conn->connection_number);
-      if (conn->dacp_active_remote) {// this is in case SETUP was previously called
+      if (conn->dacp_active_remote) { // this is in case SETUP was previously called
         free(conn->dacp_active_remote);
         conn->dacp_active_remote = NULL;
       }
@@ -1002,9 +1002,9 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     } else {
       debug(2, "Connection %d: SETUP doesn't include DACP-ID string information.",
             conn->connection_number);
-      if (conn->dacp_id) {// this is in case SETUP was previously called
+      if (conn->dacp_id) { // this is in case SETUP was previously called
         free(conn->dacp_id);
-      	conn->dacp_id = NULL;
+        conn->dacp_id = NULL;
       }
     }
 

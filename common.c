@@ -171,7 +171,7 @@ int create_log_file(const char *path) {
             if (flags == -1) {
               //							strerror_r(errno, (char
               //*)errorstring, sizeof(errorstring));
-              //debug(1, "create_log_file -- error %d (\"%s\") getting flags of pipe: \"%s\".",
+              // debug(1, "create_log_file -- error %d (\"%s\") getting flags of pipe: \"%s\".",
               // errno,
               // (char *)errorstring, pathname);
             } else {
@@ -179,7 +179,7 @@ int create_log_file(const char *path) {
               //							if (flags == -1) {
               //								strerror_r(errno,
               //(char *)errorstring, sizeof(errorstring));
-              //debug(1, "create_log_file -- error %d
+              // debug(1, "create_log_file -- error %d
               //(\"%s\") unsetting NONBLOCK of pipe: \"%s\".", errno,
               //(char *)errorstring, pathname);
             }

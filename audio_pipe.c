@@ -117,11 +117,11 @@ static int init(int argc, char **argv) {
   if (argc == 1)
     pipename = argv[0]; // command line argument has priority
 
-	if ((pipename) && (strcasecmp(pipename, "STDOUT") == 0))
-		die("Can't use \"pipe\" backend for STDOUT. Use the \"stdout\" backend instead.");
+  if ((pipename) && (strcasecmp(pipename, "STDOUT") == 0))
+    die("Can't use \"pipe\" backend for STDOUT. Use the \"stdout\" backend instead.");
 
-	if (pipename == NULL)
-		pipename = default_pipe_name; // if none specified
+  if (pipename == NULL)
+    pipename = default_pipe_name; // if none specified
 
   // here, create the pipe
   mode_t oldumask = umask(000);

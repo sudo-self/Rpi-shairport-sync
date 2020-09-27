@@ -264,8 +264,8 @@ typedef struct {
   char *dacp_id; // id of the client -- used to find the port to be used
   //  uint16_t dacp_port;          // port on the client to send remote control messages to, else
   //  zero
-  char *dacp_active_remote; // key to send to the remote controller
-  void *dapo_private_storage;  // this is used for compatibility, if dacp stuff isn't enabled.
+  char *dacp_active_remote;   // key to send to the remote controller
+  void *dapo_private_storage; // this is used for compatibility, if dacp stuff isn't enabled.
 
   int enable_dither; // needed for filling silences before play actually starts
   uint64_t dac_buffer_queue_minimum_length;

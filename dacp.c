@@ -444,11 +444,11 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
     }
   }
   if (dacp_server.active_remote_id)
-  	free(dacp_server.active_remote_id);
-  dacp_server.active_remote_id = strdup(conn->dacp_active_remote); // even if the dacp_id remains the same,
-                                                                   // the active remote will change.
-  debug(3, "set_dacp_server_information set active-remote id to %s.",
-        dacp_server.active_remote_id);
+    free(dacp_server.active_remote_id);
+  dacp_server.active_remote_id =
+      strdup(conn->dacp_active_remote); // even if the dacp_id remains the same,
+                                        // the active remote will change.
+  debug(3, "set_dacp_server_information set active-remote id to %s.", dacp_server.active_remote_id);
   pthread_cond_signal(&dacp_server_information_cv);
   debug_mutex_unlock(&dacp_server_information_lock, 3);
 }
@@ -460,23 +460,23 @@ void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
         "number %d.",
         dacp_id, dacp_server.dacp_id, port);
   if ((dacp_id == NULL) || (dacp_server.dacp_id == NULL)) {
-  	warn("dacp_id or dacp_server.dacp_id NULL detected");
+    warn("dacp_id or dacp_server.dacp_id NULL detected");
   } else {
-		if (strcmp(dacp_id, dacp_server.dacp_id) == 0) {
-			dacp_server.port = port;
-			if (port == 0)
-				dacp_server.scan_enable = 0;
-			else {
-				dacp_server.scan_enable = 1;
-				// debug(2, "dacp_monitor_port_update_callback enables scan");
-			}
-			//    metadata_hub_modify_prolog();
-			//    int ch = metadata_store.dacp_server_active != dacp_server.scan_enable;
-			//    metadata_store.dacp_server_active = dacp_server.scan_enable;
-			//    metadata_hub_modify_epilog(ch);
-		} else {
-			debug(1, "dacp port monitor reporting on an out-of-use remote.");
-		}
+    if (strcmp(dacp_id, dacp_server.dacp_id) == 0) {
+      dacp_server.port = port;
+      if (port == 0)
+        dacp_server.scan_enable = 0;
+      else {
+        dacp_server.scan_enable = 1;
+        // debug(2, "dacp_monitor_port_update_callback enables scan");
+      }
+      //    metadata_hub_modify_prolog();
+      //    int ch = metadata_store.dacp_server_active != dacp_server.scan_enable;
+      //    metadata_store.dacp_server_active = dacp_server.scan_enable;
+      //    metadata_hub_modify_epilog(ch);
+    } else {
+      debug(1, "dacp port monitor reporting on an out-of-use remote.");
+    }
   }
   pthread_cond_signal(&dacp_server_information_cv);
   debug_mutex_unlock(&dacp_server_information_lock, 3);
@@ -1006,8 +1006,8 @@ void dacp_monitor_stop() {
     pthread_cond_destroy(&dacp_server_information_cv);
     debug(3, "DACP Server Information Condition Variable destroyed.");
     if (dacp_server.active_remote_id) {
-    	free(dacp_server.active_remote_id);
-    	dacp_server.active_remote_id = NULL;
+      free(dacp_server.active_remote_id);
+      dacp_server.active_remote_id = NULL;
     }
   }
 }
