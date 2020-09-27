@@ -197,7 +197,6 @@ typedef struct {
                                            // could be one of many, so we need to know it
   uint32_t self_scope_id;                  // if it's an ipv6 connection, this will be its scope
   short connection_ip_family;              // AF_INET / AF_INET6
-  uint32_t client_active_remote;           // used when you want to control the client...
 
   SOCKADDR rtp_client_control_socket; // a socket pointing to the control port of the client
   SOCKADDR rtp_client_timing_socket;  // a socket pointing to the timing port of the client
@@ -265,7 +264,7 @@ typedef struct {
   char *dacp_id; // id of the client -- used to find the port to be used
   //  uint16_t dacp_port;          // port on the client to send remote control messages to, else
   //  zero
-  uint32_t dacp_active_remote; // key to send to the remote controller
+  char *dacp_active_remote; // key to send to the remote controller
   void *dapo_private_storage;  // this is used for compatibility, if dacp stuff isn't enabled.
 
   int enable_dither; // needed for filling silences before play actually starts

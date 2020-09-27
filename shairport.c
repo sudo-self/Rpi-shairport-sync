@@ -1763,8 +1763,7 @@ int main(int argc, char **argv) {
 
   config.output = audio_get_output(config.output_name);
   if (!config.output) {
-    audio_ls_outputs();
-    die("Invalid audio output specified!");
+    die("Invalid audio backend \"%s\" selected!", config.output_name == NULL ? "<unspecified>" : config.output_name);
   }
   config.output->init(argc - audio_arg, argv + audio_arg);
 

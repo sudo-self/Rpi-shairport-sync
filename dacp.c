@@ -56,7 +56,7 @@ typedef struct {
   int always_use_revision_number_1;    // for dealing with forked-daapd;
   uint32_t scope_id;                   // if it's an ipv6 connection, this will be its scope id
   char ip_string[INET6_ADDRSTRLEN];    // the ip string pointing to the client
-  uint32_t active_remote_id;           // send this when you want to send remote control commands
+  char *active_remote_id;              // send this when you want to send remote control commands
   void *port_monitor_private_storage;
 } dacp_server_record;
 
@@ -77,25 +77,23 @@ void *response_realloc(__attribute__((unused)) void *opaque, void *ptr, int size
   void *t = realloc(ptr, size);
   if ((t == NULL) && (size != 0))
     debug(1, "Response realloc of size %d failed!", size);
-  if (t != ptr)
-    debug(3, "response_realloc pointer changed for size %d", size);
   return t;
 }
 
 void response_body(void *opaque, const char *data, int size) {
   struct HttpResponse *response = (struct HttpResponse *)opaque;
 
-  ssize_t space_available = response->malloced_size - response->size; //must be greater than or equal to 0
+  ssize_t space_available = response->malloced_size - response->size;
   if (space_available < size) {
-    debug(3,"Getting more space for the response -- %d allocated, need %d bytes but only %d bytes left.\n", response->malloced_size, size, space_available);
-    ssize_t size_requested = size - space_available + response->malloced_size;
+    // debug(1,"Getting more space for the response -- need %d bytes but only %ld bytes left.\n",
+    // size,
+    //       size - space_available);
+    ssize_t size_requested = size - space_available + response->malloced_size + 16384;
     void *t = realloc(response->body, size_requested);
     response->malloced_size = size_requested;
-    if (t) {
-      if (response->body != t)
-        debug(3, "response_body pointer changed for size %u.", size_requested);
+    if (t)
       response->body = t;
-    } else {
+    else {
       die("dacp: can't allocate any more space for parser.");
     }
   }
@@ -228,7 +226,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
 
           struct timeval tv;
           tv.tv_sec = 0;
-          tv.tv_usec = 100000;
+          tv.tv_usec = 500000;
           if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
             debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
           if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
@@ -246,7 +244,7 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
             // debug(1,"DACP connect succeeded.");
 
             snprintf(message, sizeof(message),
-                     "GET /ctrl-int/1/%s HTTP/1.1\r\nHost: %s:%u\r\nActive-Remote: %u\r\n\r\n",
+                     "GET /ctrl-int/1/%s HTTP/1.1\r\nHost: %s:%u\r\nActive-Remote: %s\r\n\r\n",
                      command, dacp_server.ip_string, dacp_server.port,
                      dacp_server.active_remote_id);
 
@@ -270,10 +268,8 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
 
             } else {
 
-              response.body = malloc(0); // it will resize this if necessary
-              if (response.body == NULL)
-                die("Can not allocatr space for a DACP response.");
-              response.malloced_size = 0;
+              response.body = malloc(2048); // it can resize this if necessary
+              response.malloced_size = 2048;
               pthread_cleanup_push(malloc_cleanup, response.body);
 
               struct http_roundtripper rt;
@@ -290,8 +286,6 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
                   debug(1, "dacp_send_command: error %d setting receive timeout.", errno);
                 ssize_t ndata = recv(sockfd, buffer, sizeof(buffer), 0);
                 // debug(3, "Received %d bytes: \"%s\".", ndata, buffer);
-                if ((ndata >=0) && ((size_t)ndata > sizeof(buffer)/2))
-                  debug(1, "Received %u bytes: \"%s\".", ndata, buffer);                  
                 if (ndata <= 0) {
                   if (ndata == -1) {
                     char errorstring[1024];
@@ -449,9 +443,11 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
       //      metadata_hub_modify_epilog(ch);
     }
   }
-  dacp_server.active_remote_id = conn->dacp_active_remote; // even if the dacp_id remains the same,
-                                                           // the active remote will change.
-  debug(3, "set_dacp_server_information set active-remote id to %" PRIu32 ".",
+  if (dacp_server.active_remote_id)
+  	free(dacp_server.active_remote_id);
+  dacp_server.active_remote_id = strdup(conn->dacp_active_remote); // even if the dacp_id remains the same,
+                                                                   // the active remote will change.
+  debug(3, "set_dacp_server_information set active-remote id to %s.",
         dacp_server.active_remote_id);
   pthread_cond_signal(&dacp_server_information_cv);
   debug_mutex_unlock(&dacp_server_information_lock, 3);
@@ -463,20 +459,24 @@ void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
         "dacp_monitor_port_update_callback with Remote ID \"%s\", target ID \"%s\" and port "
         "number %d.",
         dacp_id, dacp_server.dacp_id, port);
-  if (strcmp(dacp_id, dacp_server.dacp_id) == 0) {
-    dacp_server.port = port;
-    if (port == 0)
-      dacp_server.scan_enable = 0;
-    else {
-      dacp_server.scan_enable = 1;
-      // debug(2, "dacp_monitor_port_update_callback enables scan");
-    }
-    //    metadata_hub_modify_prolog();
-    //    int ch = metadata_store.dacp_server_active != dacp_server.scan_enable;
-    //    metadata_store.dacp_server_active = dacp_server.scan_enable;
-    //    metadata_hub_modify_epilog(ch);
+  if ((dacp_id == NULL) || (dacp_server.dacp_id == NULL)) {
+  	warn("dacp_id or dacp_server.dacp_id NULL detected");
   } else {
-    debug(1, "dacp port monitor reporting on an out-of-use remote.");
+		if (strcmp(dacp_id, dacp_server.dacp_id) == 0) {
+			dacp_server.port = port;
+			if (port == 0)
+				dacp_server.scan_enable = 0;
+			else {
+				dacp_server.scan_enable = 1;
+				// debug(2, "dacp_monitor_port_update_callback enables scan");
+			}
+			//    metadata_hub_modify_prolog();
+			//    int ch = metadata_store.dacp_server_active != dacp_server.scan_enable;
+			//    metadata_store.dacp_server_active = dacp_server.scan_enable;
+			//    metadata_hub_modify_epilog(ch);
+		} else {
+			debug(1, "dacp port monitor reporting on an out-of-use remote.");
+		}
   }
   pthread_cond_signal(&dacp_server_information_cv);
   debug_mutex_unlock(&dacp_server_information_lock, 3);
@@ -1005,6 +1005,10 @@ void dacp_monitor_stop() {
     pthread_mutex_destroy(&dacp_conversation_lock);
     pthread_cond_destroy(&dacp_server_information_cv);
     debug(3, "DACP Server Information Condition Variable destroyed.");
+    if (dacp_server.active_remote_id) {
+    	free(dacp_server.active_remote_id);
+    	dacp_server.active_remote_id = NULL;
+    }
   }
 }
 

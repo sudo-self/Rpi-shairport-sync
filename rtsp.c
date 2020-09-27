@@ -3,7 +3,7 @@
  * Copyright (c) James Laird 2013
 
  * Modifications associated with audio synchronization, mutithreading and
- * metadata handling copyright (c) Mike Brady 2014-2019
+ * metadata handling copyright (c) Mike Brady 2014-2020
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -975,15 +975,19 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
       debug(2, "Connection %d: SETUP -- Active-Remote string seen: \"%s\".",
             conn->connection_number, ar);
       // get the active remote
-      char *p;
-      conn->dacp_active_remote = strtoul(ar, &p, 10);
+      if (conn->dacp_active_remote) // this is in case SETUP was previously called
+        free(conn->dacp_active_remote);
+      conn->dacp_active_remote = strdup(ar);
 #ifdef CONFIG_METADATA
       send_metadata('ssnc', 'acre', ar, strlen(ar), req, 1);
 #endif
     } else {
       debug(2, "Connection %d: SETUP -- Note: no Active-Remote information  the SETUP Record.",
             conn->connection_number);
-      conn->dacp_active_remote = 0;
+      if (conn->dacp_active_remote) {// this is in case SETUP was previously called
+        free(conn->dacp_active_remote);
+        conn->dacp_active_remote = NULL;
+      }
     }
 
     ar = msg_get_header(req, "DACP-ID");
@@ -998,9 +1002,10 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     } else {
       debug(2, "Connection %d: SETUP doesn't include DACP-ID string information.",
             conn->connection_number);
-      if (conn->dacp_id) // this is in case SETUP was previously called
+      if (conn->dacp_id) {// this is in case SETUP was previously called
         free(conn->dacp_id);
-      conn->dacp_id = NULL;
+      	conn->dacp_id = NULL;
+      }
     }
 
     char *hdr = msg_get_header(req, "Transport");
