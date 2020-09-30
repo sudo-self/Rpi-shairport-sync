@@ -3,7 +3,7 @@
  * Copyright (c) James Laird 2013
 
  * Modifications associated with audio synchronization, mutithreading and
- * metadata handling copyright (c) Mike Brady 2014-2019
+ * metadata handling copyright (c) Mike Brady 2014-2020
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -115,7 +115,7 @@ typedef struct {
   pthread_cond_t pc_queue_item_added_signal;
   pthread_cond_t pc_queue_item_removed_signal;
   char *name;
-	size_t item_size;  // number of bytes in each item
+  size_t item_size;  // number of bytes in each item
   uint32_t count;    // number of items in the queue
   uint32_t capacity; // maximum number of items
   uint32_t toq;      // first item to take
@@ -152,11 +152,12 @@ typedef struct {
   rtsp_message *carrier;
 } metadata_package;
 
-void pc_queue_init(pc_queue *the_queue, char *items, size_t item_size, uint32_t number_of_items, const char* name) {
-	if (name)
-		debug(2, "Creating metadata queue \"%s\".", name);
-	else
-		debug(1, "Creating an unnamed metadata queue.");
+void pc_queue_init(pc_queue *the_queue, char *items, size_t item_size, uint32_t number_of_items,
+                   const char *name) {
+  if (name)
+    debug(2, "Creating metadata queue \"%s\".", name);
+  else
+    debug(1, "Creating an unnamed metadata queue.");
   pthread_mutex_init(&the_queue->pc_queue_lock, NULL);
   pthread_cond_init(&the_queue->pc_queue_item_added_signal, NULL);
   pthread_cond_init(&the_queue->pc_queue_item_removed_signal, NULL);
@@ -167,25 +168,25 @@ void pc_queue_init(pc_queue *the_queue, char *items, size_t item_size, uint32_t 
   the_queue->toq = 0;
   the_queue->eoq = 0;
   if (name == NULL)
-  	the_queue->name = NULL;
+    the_queue->name = NULL;
   else
-  	the_queue->name = strdup(name);
+    the_queue->name = strdup(name);
 }
 
 void pc_queue_delete(pc_queue *the_queue) {
-	if (the_queue->name)
-		debug(2, "Deleting metadata queue \"%s\".", the_queue->name);
-	else
-		debug(1, "Deleting an unnamed metadata queue.");
-	if (the_queue->name != NULL)
-		free(the_queue->name);
-	// debug(2, "destroying pc_queue_item_removed_signal");
+  if (the_queue->name)
+    debug(2, "Deleting metadata queue \"%s\".", the_queue->name);
+  else
+    debug(1, "Deleting an unnamed metadata queue.");
+  if (the_queue->name != NULL)
+    free(the_queue->name);
+  // debug(2, "destroying pc_queue_item_removed_signal");
   pthread_cond_destroy(&the_queue->pc_queue_item_removed_signal);
-	// debug(2, "destroying pc_queue_item_added_signal");
+  // debug(2, "destroying pc_queue_item_added_signal");
   pthread_cond_destroy(&the_queue->pc_queue_item_added_signal);
-	// debug(2, "destroying pc_queue_lock");
+  // debug(2, "destroying pc_queue_lock");
   pthread_mutex_destroy(&the_queue->pc_queue_lock);
-	// debug(2, "destroying signals and locks done");
+  // debug(2, "destroying signals and locks done");
 }
 
 int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,
@@ -204,7 +205,7 @@ void pc_queue_cleanup_handler(void *arg) {
 }
 
 int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
-	int response = 0;
+  int response = 0;
   int rc;
   if (the_queue) {
     if (block == 0) {
@@ -219,34 +220,39 @@ int pc_queue_add_item(pc_queue *the_queue, const void *the_stuff, int block) {
     // leave this out if you want this to return if the queue is already full
     // irrespective of the block flag.
     /*
-		while (the_queue->count == the_queue->capacity) {
-			rc = pthread_cond_wait(&the_queue->pc_queue_item_removed_signal, &the_queue->pc_queue_lock);
-			if (rc)
-				debug(1, "Error waiting for item to be removed");
-		}
-		*/
+                while (the_queue->count == the_queue->capacity) {
+                        rc = pthread_cond_wait(&the_queue->pc_queue_item_removed_signal,
+       &the_queue->pc_queue_lock); if (rc) debug(1, "Error waiting for item to be removed");
+                }
+                */
     if (the_queue->count < the_queue->capacity) {
-			uint32_t i = the_queue->eoq;
-			void *p = the_queue->items + the_queue->item_size * i;
-			//    void * p = &the_queue->qbase + the_queue->item_size*the_queue->eoq;
-			memcpy(p, the_stuff, the_queue->item_size);
+      uint32_t i = the_queue->eoq;
+      void *p = the_queue->items + the_queue->item_size * i;
+      //    void * p = &the_queue->qbase + the_queue->item_size*the_queue->eoq;
+      memcpy(p, the_stuff, the_queue->item_size);
 
-			// update the pointer
-			i++;
-			if (i == the_queue->capacity)
-				// fold pointer if necessary
-				i = 0;
-			the_queue->eoq = i;
-			the_queue->count++;
-			//debug(2,"metadata queue+ \"%s\" %d/%d.", the_queue->name, the_queue->count, the_queue->capacity);
-			if (the_queue->count == the_queue->capacity)
-				debug(3, "metadata queue \"%s\": is now full with %d items in it!", the_queue->name, the_queue->count);
-			rc = pthread_cond_signal(&the_queue->pc_queue_item_added_signal);
-			if (rc)
-				debug(1, "metadata queue \"%s\": error signalling after pc_queue_add_item", the_queue->name);
+      // update the pointer
+      i++;
+      if (i == the_queue->capacity)
+        // fold pointer if necessary
+        i = 0;
+      the_queue->eoq = i;
+      the_queue->count++;
+      // debug(2,"metadata queue+ \"%s\" %d/%d.", the_queue->name, the_queue->count,
+      // the_queue->capacity);
+      if (the_queue->count == the_queue->capacity)
+        debug(3, "metadata queue \"%s\": is now full with %d items in it!", the_queue->name,
+              the_queue->count);
+      rc = pthread_cond_signal(&the_queue->pc_queue_item_added_signal);
+      if (rc)
+        debug(1, "metadata queue \"%s\": error signalling after pc_queue_add_item",
+              the_queue->name);
     } else {
-    	response = EWOULDBLOCK; // a bit arbitrary, this.
-    	debug(3,"metadata queue \"%s\": is already full with %d items in it. Not adding this item to the queue.", the_queue->name, the_queue->count);
+      response = EWOULDBLOCK; // a bit arbitrary, this.
+      debug(3,
+            "metadata queue \"%s\": is already full with %d items in it. Not adding this item to "
+            "the queue.",
+            the_queue->name, the_queue->count);
     }
     pthread_cleanup_pop(1); // unlock the queue lock.
   } else {
@@ -279,7 +285,8 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
       i = 0;
     the_queue->toq = i;
     the_queue->count--;
-    debug(3,"metadata queue- \"%s\" %d/%d.", the_queue->name, the_queue->count, the_queue->capacity);
+    debug(3, "metadata queue- \"%s\" %d/%d.", the_queue->name, the_queue->count,
+          the_queue->capacity);
     rc = pthread_cond_signal(&the_queue->pc_queue_item_removed_signal);
     if (rc)
       debug(1, "metadata queue \"%s\": error signalling after pc_queue_get_item", the_queue->name);
@@ -317,15 +324,17 @@ void *player_watchdog_thread_code(void *arg) {
       uint64_t last_watchdog_bark_time = conn->watchdog_bark_time;
       debug_mutex_unlock(&conn->watchdog_mutex, 0);
       if (last_watchdog_bark_time != 0) {
-        uint64_t time_since_last_bark = (get_absolute_time_in_ns() - last_watchdog_bark_time) / 1000000000;
+        uint64_t time_since_last_bark =
+            (get_absolute_time_in_ns() - last_watchdog_bark_time) / 1000000000;
         uint64_t ct = config.timeout; // go from int to 64-bit int
 
         if (time_since_last_bark >= ct) {
           conn->watchdog_barks++;
           if (conn->watchdog_barks == 1) {
             // debuglev = 3; // tell us everything.
-            debug(1, "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
-                     "of the heart\".",
+            debug(1,
+                  "Connection %d: As Yeats almost said, \"Too long a silence / can make a stone "
+                  "of the heart\".",
                   conn->connection_number);
             conn->stop = 1;
             pthread_cancel(conn->thread);
@@ -446,7 +455,8 @@ void msg_retain(rtsp_message *msg) {
     debug(1, "Error %d locking reference counter lock");
   if (msg > (rtsp_message *)0x00010000) {
     msg->referenceCount++;
-  	debug(3,"msg_free increment reference counter message %d to %d.", msg->index_number,  msg->referenceCount);
+    debug(3, "msg_free increment reference counter message %d to %d.", msg->index_number,
+          msg->referenceCount);
     // debug(1,"msg_retain -- item %d reference count %d.", msg->index_number, msg->referenceCount);
     rc = pthread_mutex_unlock(&reference_counter_lock);
     if (rc)
@@ -462,7 +472,7 @@ rtsp_message *msg_init(void) {
     memset(msg, 0, sizeof(rtsp_message));
     msg->referenceCount = 1; // from now on, any access to this must be protected with the lock
     msg->index_number = msg_indexes++;
-    debug(3,"msg_init message %d", msg->index_number);
+    debug(3, "msg_init message %d", msg->index_number);
   } else {
     die("msg_init -- can not allocate memory for rtsp_message %d.", msg_indexes);
   }
@@ -526,8 +536,9 @@ void msg_free(rtsp_message **msgh) {
   if (*msgh > (rtsp_message *)0x00010000) {
     rtsp_message *msg = *msgh;
     msg->referenceCount--;
-  	if (msg->referenceCount)
-  		debug(3,"msg_free decrement reference counter message %d to %d", msg->index_number, msg->referenceCount);
+    if (msg->referenceCount)
+      debug(3, "msg_free decrement reference counter message %d to %d", msg->index_number,
+            msg->referenceCount);
     if (msg->referenceCount == 0) {
       unsigned int i;
       for (i = 0; i < msg->nheaders; i++) {
@@ -542,7 +553,7 @@ void msg_free(rtsp_message **msgh) {
         index = 0x10000; // ensure it doesn't fold to zero.
       *msgh =
           (rtsp_message *)(index); // put a version of the index number of the freed message in here
-		  debug(3,"msg_free freed message %d", msg->index_number);
+      debug(3, "msg_free freed message %d", msg->index_number);
       free(msg);
     } else {
       // debug(1,"msg_free item %d -- decrement reference to
@@ -607,7 +618,7 @@ int msg_handle_line(rtsp_message **pmsg, char *line) {
   }
 
 fail:
-  debug(3,"msg_handle_line fail");
+  debug(3, "msg_handle_line fail");
   msg_free(pmsg);
   *pmsg = NULL;
   return 0;
@@ -650,7 +661,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       if (errno == EINTR)
         continue;
       if (errno == EAGAIN) {
-        debug(1, "Connection %d: getting Error 11 -- EAGAIN from a blocking read!", conn->connection_number);
+        debug(1, "Connection %d: getting Error 11 -- EAGAIN from a blocking read!",
+              conn->connection_number);
         continue;
       }
       if (errno != ECONNRESET) {
@@ -663,15 +675,15 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       goto shutdown;
     }
 
-/* // this outputs the message received
-    {
-    void *pt = malloc(nread+1);
-    memset(pt, 0, nread+1);
-    memcpy(pt, buf + inbuf, nread);
-    debug(1, "Incoming string on port: \"%s\"",pt);
-    free(pt);
-    }
-*/
+    /* // this outputs the message received
+        {
+        void *pt = malloc(nread+1);
+        memset(pt, 0, nread+1);
+        memcpy(pt, buf + inbuf, nread);
+        debug(1, "Incoming string on port: \"%s\"",pt);
+        free(pt);
+        }
+    */
 
     inbuf += nread;
 
@@ -680,7 +692,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       msg_size = msg_handle_line(the_packet, buf);
 
       if (!(*the_packet)) {
-        debug(1,"Connection %d: rtsp_read_request can't find an RTSP header.", conn->connection_number);
+        debug(1, "Connection %d: rtsp_read_request can't find an RTSP header.",
+              conn->connection_number);
         reply = rtsp_read_request_response_bad_packet;
         goto shutdown;
       }
@@ -887,9 +900,10 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
                     rtsp_message *resp) {
   debug(3, "Connection %d: OPTIONS", conn->connection_number);
   resp->respcode = 200;
-  msg_add_header(resp, "Public", "ANNOUNCE, SETUP, RECORD, "
-                                 "PAUSE, FLUSH, TEARDOWN, "
-                                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
+  msg_add_header(resp, "Public",
+                 "ANNOUNCE, SETUP, RECORD, "
+                 "PAUSE, FLUSH, TEARDOWN, "
+                 "OPTIONS, GET_PARAMETER, SET_PARAMETER");
 }
 
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
@@ -929,17 +943,17 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
           rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
       }
     }
-// debug(1,"RTSP Flush Requested: %u.",rtptime);
+    // debug(1,"RTSP Flush Requested: %u.",rtptime);
 
-// the following is now done better by the player_flush routine as a 'pfls'
-/*
-#ifdef CONFIG_METADATA
-    if (p)
-      send_metadata('ssnc', 'flsr', p + 1, strlen(p + 1), req, 1);
-    else
-      send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
-#endif
-*/
+    // the following is now done better by the player_flush routine as a 'pfls'
+    /*
+    #ifdef CONFIG_METADATA
+        if (p)
+          send_metadata('ssnc', 'flsr', p + 1, strlen(p + 1), req, 1);
+        else
+          send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
+    #endif
+    */
 
     player_flush(rtptime, conn); // will not crash even it there is no player thread.
     resp->respcode = 200;
@@ -961,15 +975,19 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
       debug(2, "Connection %d: SETUP -- Active-Remote string seen: \"%s\".",
             conn->connection_number, ar);
       // get the active remote
-      char *p;
-      conn->dacp_active_remote = strtoul(ar, &p, 10);
+      if (conn->dacp_active_remote) // this is in case SETUP was previously called
+        free(conn->dacp_active_remote);
+      conn->dacp_active_remote = strdup(ar);
 #ifdef CONFIG_METADATA
       send_metadata('ssnc', 'acre', ar, strlen(ar), req, 1);
 #endif
     } else {
       debug(2, "Connection %d: SETUP -- Note: no Active-Remote information  the SETUP Record.",
             conn->connection_number);
-      conn->dacp_active_remote = 0;
+      if (conn->dacp_active_remote) { // this is in case SETUP was previously called
+        free(conn->dacp_active_remote);
+        conn->dacp_active_remote = NULL;
+      }
     }
 
     ar = msg_get_header(req, "DACP-ID");
@@ -984,9 +1002,10 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     } else {
       debug(2, "Connection %d: SETUP doesn't include DACP-ID string information.",
             conn->connection_number);
-      if (conn->dacp_id) // this is in case SETUP was previously called
+      if (conn->dacp_id) { // this is in case SETUP was previously called
         free(conn->dacp_id);
-      conn->dacp_id = NULL;
+        conn->dacp_id = NULL;
+      }
     }
 
     char *hdr = msg_get_header(req, "Transport");
@@ -1035,8 +1054,9 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
             msg_add_header(resp, "Session", "1");
 
             resp->respcode = 200; // it all worked out okay
-            debug(1, "Connection %d: SETUP DACP-ID \"%s\" from %s to %s with UDP ports Control: "
-                     "%d, Timing: %d and Audio: %d.",
+            debug(1,
+                  "Connection %d: SETUP DACP-ID \"%s\" from %s to %s with UDP ports Control: "
+                  "%d, Timing: %d and Audio: %d.",
                   conn->connection_number, conn->dacp_id, &conn->client_ip_string,
                   &conn->self_ip_string, conn->local_control_port, conn->local_timing_port,
                   conn->local_audio_port);
@@ -1265,8 +1285,6 @@ char *base64_encode_so(const unsigned char *data, size_t input_length, char *enc
 static int fd = -1;
 // static int dirty = 0;
 
-
-
 pc_queue metadata_queue;
 #define metadata_queue_size 500
 metadata_package metadata_queue_items[metadata_queue_size];
@@ -1294,7 +1312,6 @@ pc_queue metadata_multicast_queue;
 metadata_package metadata_multicast_queue_items[metadata_queue_size];
 pthread_t metadata_multicast_thread;
 
-
 void metadata_create_multicast_socket(void) {
   if (config.metadata_enabled == 0)
     return;
@@ -1308,7 +1325,6 @@ void metadata_create_multicast_socket(void) {
     } else {
       int buffer_size = METADATA_SNDBUF;
       setsockopt(metadata_sock, SOL_SOCKET, SO_SNDBUF, &buffer_size, sizeof(buffer_size));
-      fcntl(fd, F_SETFL, O_NONBLOCK);
       bzero((char *)&metadata_sockaddr, sizeof(metadata_sockaddr));
       metadata_sockaddr.sin_family = AF_INET;
       metadata_sockaddr.sin_addr.s_addr = inet_addr(config.metadata_sockaddr);
@@ -1332,7 +1348,6 @@ void metadata_delete_multicast_socket(void) {
     free(metadata_sockmsg);
 }
 
-
 void metadata_open(void) {
   if (config.metadata_enabled == 0)
     return;
@@ -1354,7 +1369,8 @@ static void metadata_close(void) {
 }
 
 void metadata_multicast_process(uint32_t type, uint32_t code, char *data, uint32_t length) {
-  // debug(1, "Process multicast metadata with type %x, code %x and length %u.", type, code, length);
+  // debug(1, "Process multicast metadata with type %x, code %x and length %u.", type, code,
+  // length);
   if (metadata_sock >= 0 && length < config.metadata_sockmsglength - 8) {
     char *ptr = metadata_sockmsg;
     uint32_t v;
@@ -1455,7 +1471,7 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
         debug(1, "Error encoding base64 data.");
       // debug(1,"Remaining count: %d ret: %d, outbuf_size:
       // %d.",remaining_count,ret,outbuf_size);
-      //ret = non_blocking_write(fd, outbuf, outbuf_size);
+      // ret = non_blocking_write(fd, outbuf, outbuf_size);
       ret = write(fd, outbuf, outbuf_size);
       if (ret < 0) {
         // debug(1,"metadata_process error %d exit 3",ret);
@@ -1473,7 +1489,7 @@ void metadata_process(uint32_t type, uint32_t code, char *data, uint32_t length)
     }
   }
   snprintf(thestring, 1024, "</item>\n");
-  //ret = non_blocking_write(fd, thestring, strlen(thestring));
+  // ret = non_blocking_write(fd, thestring, strlen(thestring));
   ret = write(fd, thestring, strlen(thestring));
   if (ret < 0) {
     // debug(1,"metadata_process error %d exit 5",ret);
@@ -1508,11 +1524,12 @@ void *metadata_thread_function(__attribute__((unused)) void *ignore) {
     pc_queue_get_item(&metadata_queue, &pack);
     pthread_cleanup_push(metadata_pack_cleanup_function, (void *)&pack);
     if (config.metadata_enabled) {
-    	if (pack.carrier) {
-    		debug(3, "     pipe: type %x, code %x, length %u, message %d.", pack.type, pack.code, pack.length, pack.carrier->index_number);
-    	} else {
-    		debug(3, "     pipe: type %x, code %x, length %u.", pack.type, pack.code, pack.length);
-    	}
+      if (pack.carrier) {
+        debug(3, "     pipe: type %x, code %x, length %u, message %d.", pack.type, pack.code,
+              pack.length, pack.carrier->index_number);
+      } else {
+        debug(3, "     pipe: type %x, code %x, length %u.", pack.type, pack.code, pack.length);
+      }
       metadata_process(pack.type, pack.code, pack.data, pack.length);
       debug(3, "     pipe: done.");
     }
@@ -1530,8 +1547,8 @@ void metadata_multicast_thread_cleanup_function(__attribute__((unused)) void *ar
 
 void *metadata_multicast_thread_function(__attribute__((unused)) void *ignore) {
   // create a pc_queue for passing information to a threaded metadata handler
-  pc_queue_init(&metadata_multicast_queue, (char *)&metadata_multicast_queue_items, sizeof(metadata_package),
-                metadata_multicast_queue_size, "multicast");
+  pc_queue_init(&metadata_multicast_queue, (char *)&metadata_multicast_queue_items,
+                sizeof(metadata_package), metadata_multicast_queue_size, "multicast");
   metadata_create_multicast_socket();
   metadata_package pack;
   pthread_cleanup_push(metadata_multicast_thread_cleanup_function, NULL);
@@ -1539,13 +1556,20 @@ void *metadata_multicast_thread_function(__attribute__((unused)) void *ignore) {
     pc_queue_get_item(&metadata_multicast_queue, &pack);
     pthread_cleanup_push(metadata_pack_cleanup_function, (void *)&pack);
     if (config.metadata_enabled) {
-    	if (pack.carrier) {
-    		debug(3, "                                                                    multicast: type %x, code %x, length %u, message %d.", pack.type, pack.code, pack.length, pack.carrier->index_number);
-    	} else {
-    		debug(3, "                                                                    multicast: type %x, code %x, length %u.", pack.type, pack.code, pack.length);
-    	}
+      if (pack.carrier) {
+        debug(3,
+              "                                                                    multicast: type "
+              "%x, code %x, length %u, message %d.",
+              pack.type, pack.code, pack.length, pack.carrier->index_number);
+      } else {
+        debug(3,
+              "                                                                    multicast: type "
+              "%x, code %x, length %u.",
+              pack.type, pack.code, pack.length);
+      }
       metadata_multicast_process(pack.type, pack.code, pack.data, pack.length);
-      debug(3, "                                                                    multicast: done.");
+      debug(3,
+            "                                                                    multicast: done.");
     }
     pthread_cleanup_pop(1);
   }
@@ -1553,10 +1577,8 @@ void *metadata_multicast_thread_function(__attribute__((unused)) void *ignore) {
   pthread_exit(NULL);
 }
 
-
 #ifdef CONFIG_METADATA_HUB
-void metadata_hub_close(void) {
-}
+void metadata_hub_close(void) {}
 
 void metadata_hub_thread_cleanup_function(__attribute__((unused)) void *arg) {
   // debug(2, "metadata_hub_thread_cleanup_function called");
@@ -1565,33 +1587,6 @@ void metadata_hub_thread_cleanup_function(__attribute__((unused)) void *arg) {
 }
 
 void *metadata_hub_thread_function(__attribute__((unused)) void *ignore) {
-
-  // create the fifo, if necessary
-  size_t pl = strlen(config.metadata_pipename) + 1;
-  char *path = malloc(pl + 1);
-  snprintf(path, pl + 1, "%s", config.metadata_pipename);
-
-  mode_t oldumask = umask(000);
-  if (mkfifo(path, 0666) && errno != EEXIST)
-    die("Could not create metadata pipe \"%s\".", path);
-  umask(oldumask);
-  debug(1, "metadata pipe name is \"%s\".", path);
-
-  // try to open it
-  fd = try_to_open_pipe_for_writing(path);
-  // we check that it's not a "real" error. From the "man 2 open" page:
-  // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
-  // open for reading." Which is okay.
-	if ((fd == -1) && (errno != ENXIO)) {
-		char errorstring[1024];
-		strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-		debug(1, "metadata_hub_thread_function -- error %d (\"%s\") opening pipe: \"%s\".", errno,
-					(char *)errorstring, path);
-		warn("can not open metadata pipe -- error %d (\"%s\") opening pipe: \"%s\".", errno,
-					(char *)errorstring, path);
-	}
-  free(path);
-
   // create a pc_queue for passing information to a threaded metadata handler
   pc_queue_init(&metadata_hub_queue, (char *)&metadata_hub_queue_items, sizeof(metadata_package),
                 metadata_hub_queue_size, "hub");
@@ -1600,13 +1595,15 @@ void *metadata_hub_thread_function(__attribute__((unused)) void *ignore) {
   while (1) {
     pc_queue_get_item(&metadata_hub_queue, &pack);
     pthread_cleanup_push(metadata_pack_cleanup_function, (void *)&pack);
-    	if (pack.carrier) {
-    		debug(3, "                    hub: type %x, code %x, length %u, message %d.", pack.type, pack.code, pack.length, pack.carrier->index_number);
-    	} else {
-    		debug(3, "                    hub: type %x, code %x, length %u.", pack.type, pack.code, pack.length);
-    	}
-		metadata_hub_process_metadata(pack.type, pack.code, pack.data, pack.length);
-		debug(3, "                    hub: done.");
+    if (pack.carrier) {
+      debug(3, "                    hub: type %x, code %x, length %u, message %d.", pack.type,
+            pack.code, pack.length, pack.carrier->index_number);
+    } else {
+      debug(3, "                    hub: type %x, code %x, length %u.", pack.type, pack.code,
+            pack.length);
+    }
+    metadata_hub_process_metadata(pack.type, pack.code, pack.data, pack.length);
+    debug(3, "                    hub: done.");
     pthread_cleanup_pop(1);
   }
   pthread_cleanup_pop(1); // will never happen
@@ -1615,8 +1612,7 @@ void *metadata_hub_thread_function(__attribute__((unused)) void *ignore) {
 #endif
 
 #ifdef CONFIG_MQTT
-void metadata_mqtt_close(void) {
-}
+void metadata_mqtt_close(void) {}
 
 void metadata_mqtt_thread_cleanup_function(__attribute__((unused)) void *arg) {
   // debug(2, "metadata_mqtt_thread_cleanup_function called");
@@ -1634,15 +1630,19 @@ void *metadata_mqtt_thread_function(__attribute__((unused)) void *ignore) {
   while (1) {
     pc_queue_get_item(&metadata_mqtt_queue, &pack);
     pthread_cleanup_push(metadata_pack_cleanup_function, (void *)&pack);
-		if (config.mqtt_enabled) {
-    	if (pack.carrier) {
-    		debug(3, "                                        mqtt: type %x, code %x, length %u, message %d.", pack.type, pack.code, pack.length, pack.carrier->index_number);
-    	} else {
-    		debug(3, "                                        mqtt: type %x, code %x, length %u.", pack.type, pack.code, pack.length);
-    	}
-			mqtt_process_metadata(pack.type, pack.code, pack.data, pack.length);
-			debug(3, "                                        mqtt: done.");
-		}
+    if (config.mqtt_enabled) {
+      if (pack.carrier) {
+        debug(3,
+              "                                        mqtt: type %x, code %x, length %u, message "
+              "%d.",
+              pack.type, pack.code, pack.length, pack.carrier->index_number);
+      } else {
+        debug(3, "                                        mqtt: type %x, code %x, length %u.",
+              pack.type, pack.code, pack.length);
+      }
+      mqtt_process_metadata(pack.type, pack.code, pack.data, pack.length);
+      debug(3, "                                        mqtt: done.");
+    }
 
     pthread_cleanup_pop(1);
   }
@@ -1652,6 +1652,33 @@ void *metadata_mqtt_thread_function(__attribute__((unused)) void *ignore) {
 #endif
 
 void metadata_init(void) {
+
+  // create the metadata pipe, if necessary
+  size_t pl = strlen(config.metadata_pipename) + 1;
+  char *path = malloc(pl + 1);
+  snprintf(path, pl + 1, "%s", config.metadata_pipename);
+
+  mode_t oldumask = umask(000);
+  if (mkfifo(path, 0666) && errno != EEXIST)
+    die("Could not create metadata pipe \"%s\".", path);
+  umask(oldumask);
+  debug(1, "metadata pipe name is \"%s\".", path);
+
+  // try to open it
+  fd = try_to_open_pipe_for_writing(path);
+  // we check that it's not a "real" error. From the "man 2 open" page:
+  // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
+  // open for reading." Which is okay.
+  if ((fd == -1) && (errno != ENXIO)) {
+    char errorstring[1024];
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    debug(1, "metadata_hub_thread_function -- error %d (\"%s\") opening pipe: \"%s\".", errno,
+          (char *)errorstring, path);
+    warn("can not open metadata pipe -- error %d (\"%s\") opening pipe: \"%s\".", errno,
+         (char *)errorstring, path);
+  }
+  free(path);
+
   int ret = pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL);
   if (ret)
     debug(1, "Failed to create metadata thread!");
@@ -1700,8 +1727,8 @@ void metadata_stop(void) {
   }
 }
 
-int send_metadata_to_queue(pc_queue* queue, uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,
-                  int block) {
+int send_metadata_to_queue(pc_queue *queue, uint32_t type, uint32_t code, char *data,
+                           uint32_t length, rtsp_message *carrier, int block) {
 
   // parameters: type, code, pointer to data or NULL, length of data or NULL,
   // the rtsp_message or
@@ -1737,20 +1764,27 @@ int send_metadata_to_queue(pc_queue* queue, uint32_t type, uint32_t code, char *
   if (pack.carrier) {
     msg_retain(pack.carrier);
   } else {
-  	if (data)
-  		pack.data = memdup(data,length); // only if it's not a null
+    if (data)
+      pack.data = memdup(data, length); // only if it's not a null
   }
   int rc = pc_queue_add_item(queue, &pack, block);
   if (rc != 0) {
     if (pack.carrier) {
-    	if (rc == EWOULDBLOCK)
-    		debug(2, "metadata queue \"%s\" full, dropping message item: type %x, code %x, data %x, length %u, message %d.", queue->name, pack.type, pack.code, pack.data, pack.length, pack.carrier->index_number);
+      if (rc == EWOULDBLOCK)
+        debug(2,
+              "metadata queue \"%s\" full, dropping message item: type %x, code %x, data %x, "
+              "length %u, message %d.",
+              queue->name, pack.type, pack.code, pack.data, pack.length,
+              pack.carrier->index_number);
       msg_free(&pack.carrier);
     } else {
-    	if (rc == EWOULDBLOCK)
-    		debug(2, "metadata queue \"%s\" full, dropping data item: type %x, code %x, data %x, length %u.", queue->name, pack.type, pack.code, pack.data, pack.length);
-    	if (pack.data)
-      	free(pack.data);
+      if (rc == EWOULDBLOCK)
+        debug(
+            2,
+            "metadata queue \"%s\" full, dropping data item: type %x, code %x, data %x, length %u.",
+            queue->name, pack.type, pack.code, pack.data, pack.length);
+      if (pack.data)
+        free(pack.data);
     }
   }
   return rc;
@@ -1758,22 +1792,19 @@ int send_metadata_to_queue(pc_queue* queue, uint32_t type, uint32_t code, char *
 
 int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,
                   int block) {
-	int rc;
-	rc = send_metadata_to_queue(&metadata_queue, type, code, data, length, carrier, block);
+  int rc;
+  rc = send_metadata_to_queue(&metadata_queue, type, code, data, length, carrier, block);
 
 #ifdef CONFIG_METADATA_HUB
-	rc = send_metadata_to_queue(&metadata_hub_queue, type, code, data, length, carrier, block);
+  rc = send_metadata_to_queue(&metadata_hub_queue, type, code, data, length, carrier, block);
 #endif
 
 #ifdef CONFIG_MQTT
-	rc = send_metadata_to_queue(&metadata_mqtt_queue, type, code, data, length, carrier, block);
+  rc = send_metadata_to_queue(&metadata_mqtt_queue, type, code, data, length, carrier, block);
 #endif
 
-	return rc;
+  return rc;
 }
-
-
-
 
 static void handle_set_parameter_metadata(__attribute__((unused)) rtsp_conn_info *conn,
                                           rtsp_message *req,
@@ -1838,7 +1869,7 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
   char *ct = msg_get_header(req, "Content-Type");
 
   if (ct) {
-// debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
+    // debug(2, "SET_PARAMETER Content-Type:\"%s\".", ct);
 
 #ifdef CONFIG_METADATA
     // It seems that the rtptime of the message is used as a kind of an ID that
@@ -2136,7 +2167,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 
       unsigned int i = 0;
       unsigned int max_param = sizeof(conn->stream.fmtp) / sizeof(conn->stream.fmtp[0]);
-      char* found;
+      char *found;
       while ((found = strsep(&pfmtp, " \t")) != NULL && i < max_param) {
         conn->stream.fmtp[i++] = atoi(found);
       }
@@ -2617,8 +2648,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (strcmp(req->method, "OPTIONS") !=
           0) // the options message is very common, so don't log it until level 3
         debug_level = 2;
-      debug(debug_level, "Connection %d: Received an RTSP Packet of type \"%s\":",
-            conn->connection_number, req->method),
+      debug(debug_level,
+            "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
+            req->method),
           debug_print_msg_headers(debug_level, req);
 
       apple_challenge(conn->fd, req, resp);
@@ -2667,8 +2699,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       if (conn->stop == 0) {
         int err = msg_write_response(conn->fd, resp);
         if (err) {
-          debug(1, "Connection %d: Unable to write an RTSP message response. Terminating the "
-                   "connection.",
+          debug(1,
+                "Connection %d: Unable to write an RTSP message response. Terminating the "
+                "connection.",
                 conn->connection_number);
           struct linger so_linger;
           so_linger.l_onoff = 1; // "true"
@@ -2721,10 +2754,11 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         if (reply == -1) {
           char errorstring[1024];
           strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-          debug(1, "rtsp_read_request_response_bad_packet write response error %d: \"%s\".", errno, (char *)errorstring);
+          debug(1, "rtsp_read_request_response_bad_packet write response error %d: \"%s\".", errno,
+                (char *)errorstring);
         } else if (reply != (ssize_t)strlen(response_text)) {
-          debug(1, "rtsp_read_request_response_bad_packet write %d bytes requested but %d written.", strlen(response_text),
-                reply);
+          debug(1, "rtsp_read_request_response_bad_packet write %d bytes requested but %d written.",
+                strlen(response_text), reply);
         }
       } else {
         debug(1, "Connection %d: rtsp_read_request error %d, packet ignored.",
@@ -2937,7 +2971,7 @@ void rtsp_listen_loop(void) {
             debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
                   conn->connection_number, remote_ip4, rport, ip4, tport);
           }
-  #ifdef AF_INET6
+#ifdef AF_INET6
           if (local_info->SAFAMILY == AF_INET6) {
             // IPv6:
 
@@ -2954,7 +2988,7 @@ void rtsp_listen_loop(void) {
             debug(2, "Connection %d: new connection from [%s]:%u to self at [%s]:%u.",
                   conn->connection_number, remote_ip6, rport, ip6, tport);
           }
-  #endif
+#endif
 
         } else {
           debug(1, "Error figuring out Shairport Sync's own IP number.");

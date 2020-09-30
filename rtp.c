@@ -46,9 +46,9 @@
 #include <unistd.h>
 
 struct Nvll {
-	char* name;
-	double value;
-	struct Nvll *next;
+  char *name;
+  double value;
+  struct Nvll *next;
 };
 
 typedef struct Nvll nvll;
@@ -263,8 +263,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-
-
+                                             
+                                             
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -275,19 +275,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-
+                                             
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-
+                                             
                                                               // Best guess is that this delay is 11,025 frames.
-
+                                             
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-
+                                             
                                                               uint32_t fl = nctohs(&packet[2]); //
-
+                                             
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -527,22 +527,25 @@ void rtp_timing_receiver_cleanup_handler(void *arg) {
   // walk down the list of DACP / gradient pairs, if any
   nvll *gradients = config.gradients;
   if (conn->dacp_id)
-  	while ((gradients) && (strcasecmp((const char *)&conn->client_ip_string,gradients->name) != 0))
-  		gradients = gradients->next;
+    while ((gradients) && (strcasecmp((const char *)&conn->client_ip_string, gradients->name) != 0))
+      gradients = gradients->next;
 
-  // if gradients comes out of this non-null, it is pointing to the DACP and it's last-known gradient
+  // if gradients comes out of this non-null, it is pointing to the DACP and it's last-known
+  // gradient
   if (gradients) {
-  	gradients->value = conn->local_to_remote_time_gradient;
-  	// debug(1,"Updating a drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, gradients->name);
+    gradients->value = conn->local_to_remote_time_gradient;
+    // debug(1,"Updating a drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient
+    // - 1.0)*1000000, gradients->name);
   } else {
-  	nvll *new_entry = (nvll*)malloc(sizeof(nvll));
-  	if (new_entry) {
-  		new_entry->name = strdup((const char *)&conn->client_ip_string);
-  		new_entry->value = conn->local_to_remote_time_gradient;
-  		new_entry->next = config.gradients;
-  		config.gradients = new_entry;
-  		// debug(1,"Setting a new drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, new_entry->name);
-  	}
+    nvll *new_entry = (nvll *)malloc(sizeof(nvll));
+    if (new_entry) {
+      new_entry->name = strdup((const char *)&conn->client_ip_string);
+      new_entry->value = conn->local_to_remote_time_gradient;
+      new_entry->next = config.gradients;
+      config.gradients = new_entry;
+      // debug(1,"Setting a new drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient
+      // - 1.0)*1000000, new_entry->name);
+    }
   }
 
   debug(3, "Cancel Timing Requester.");
@@ -574,13 +577,14 @@ void *rtp_timing_receiver(void *arg) {
   conn->local_to_remote_time_gradient = 1.0; // initial value.
   // walk down the list of DACP / gradient pairs, if any
   nvll *gradients = config.gradients;
-  	while ((gradients) && (strcasecmp((const char *)&conn->client_ip_string,gradients->name) != 0))
-  		gradients = gradients->next;
+  while ((gradients) && (strcasecmp((const char *)&conn->client_ip_string, gradients->name) != 0))
+    gradients = gradients->next;
 
   // if gradients comes out of this non-null, it is pointing to the IP and it's last-known gradient
   if (gradients) {
-  	conn->local_to_remote_time_gradient = gradients->value;
-  	// debug(1,"Using a stored drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient - 1.0)*1000000, gradients->name);
+    conn->local_to_remote_time_gradient = gradients->value;
+    // debug(1,"Using a stored drift of %.2f ppm for \"%s\".", (conn->local_to_remote_time_gradient
+    // - 1.0)*1000000, gradients->name);
   }
 
   // calculate diffusion factor
@@ -591,12 +595,11 @@ void *rtp_timing_receiver(void *arg) {
   // be the nth root of diffusion_expansion_factor
   // where n is the number of elements in the array
 
-	const double diffusion_expansion_factor = 10;
-  double log_of_multiplier = log10(diffusion_expansion_factor)/time_ping_history;
-  double multiplier = pow(10,log_of_multiplier);
+  const double diffusion_expansion_factor = 10;
+  double log_of_multiplier = log10(diffusion_expansion_factor) / time_ping_history;
+  double multiplier = pow(10, log_of_multiplier);
   uint64_t dispersion_factor = (uint64_t)(multiplier * 100);
   // debug(1,"dispersion factor is %" PRIu64 ".", dispersion_factor);
-
 
   // uint64_t first_local_to_remote_time_difference_time;
   // uint64_t l2rtd = 0;
@@ -621,7 +624,8 @@ void *rtp_timing_receiver(void *arg) {
         if (packet[1] == 0xd3) { // timing reply
 
           return_time = arrival_time - conn->departure_time;
-          debug(3,"clock synchronisation request: return time is %8.3f milliseconds.",0.000001*return_time);
+          debug(3, "clock synchronisation request: return time is %8.3f milliseconds.",
+                0.000001 * return_time);
 
           if (return_time < 200000000) { // must be less than 0.2 seconds
             // distant_receive_time =
@@ -671,11 +675,11 @@ void *rtp_timing_receiver(void *arg) {
               //                  conn->time_pings[cc].dispersion * pow(2.14,
               //                  1.0/conn->time_ping_count);
               if (conn->time_pings[cc].dispersion > UINT64_MAX / dispersion_factor)
-              	debug(1,"dispersion factor is too large at %" PRIu64 ".");
+                debug(1, "dispersion factor is too large at %" PRIu64 ".");
               else
-              	conn->time_pings[cc].dispersion =
-                  (conn->time_pings[cc].dispersion * dispersion_factor) /
-                  100; // make the dispersions 'age' by this rational factor
+                conn->time_pings[cc].dispersion =
+                    (conn->time_pings[cc].dispersion * dispersion_factor) /
+                    100; // make the dispersions 'age' by this rational factor
             }
             // these are used for doing a least squares calculation to get the drift
             conn->time_pings[0].local_time = arrival_time;
@@ -752,7 +756,8 @@ void *rtp_timing_receiver(void *arg) {
               if ((conn->time_pings[cc].chosen) &&
                   (conn->time_pings[cc].sequence_number >
                    (settling_time / 3))) { // wait for a approximate settling time
-								// have to scale them down so that the sum, possibly over every term in the array, doesn't overflow
+                                           // have to scale them down so that the sum, possibly over
+                                           // every term in the array, doesn't overflow
                 y_bar += (conn->time_pings[cc].remote_time >> time_ping_history_power_of_two);
                 x_bar += (conn->time_pings[cc].local_time >> time_ping_history_power_of_two);
                 sample_count++;
@@ -761,8 +766,6 @@ void *rtp_timing_receiver(void *arg) {
             if (sample_count > sample_point_minimum) {
               y_bar = y_bar / sample_count;
               x_bar = x_bar / sample_count;
-
-
 
               int64_t xid, yid;
               double mtl, mbl;
@@ -791,19 +794,21 @@ void *rtp_timing_receiver(void *arg) {
                 conn->local_to_remote_time_gradient = mtl / mbl;
               else {
                 // conn->local_to_remote_time_gradient = 1.0;
-            		debug(1,"mbl is zero. Drift remains at %.2f ppm.", (conn->local_to_remote_time_gradient - 1.0)*1000000);
+                debug(1, "mbl is zero. Drift remains at %.2f ppm.",
+                      (conn->local_to_remote_time_gradient - 1.0) * 1000000);
               }
 
-							// scale the numbers back up
-							uint64_t ybf = y_bar << time_ping_history_power_of_two;
-							uint64_t xbf = x_bar << time_ping_history_power_of_two;
+              // scale the numbers back up
+              uint64_t ybf = y_bar << time_ping_history_power_of_two;
+              uint64_t xbf = x_bar << time_ping_history_power_of_two;
 
-            	conn->local_to_remote_time_difference =
-            		ybf - xbf;  // make this the new local-to-remote-time-difference
-            	conn->local_to_remote_time_difference_measurement_time = xbf;
+              conn->local_to_remote_time_difference =
+                  ybf - xbf; // make this the new local-to-remote-time-difference
+              conn->local_to_remote_time_difference_measurement_time = xbf;
 
             } else {
-            	debug(3,"not enough samples to estimate drift -- remaining at %.2f ppm.", (conn->local_to_remote_time_gradient - 1.0)*1000000);
+              debug(3, "not enough samples to estimate drift -- remaining at %.2f ppm.",
+                    (conn->local_to_remote_time_gradient - 1.0) * 1000000);
               // conn->local_to_remote_time_gradient = 1.0;
             }
             // debug(1,"local to remote time gradient is %12.2f ppm, based on %d

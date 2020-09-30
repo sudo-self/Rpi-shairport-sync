@@ -89,7 +89,7 @@ static audio_output *outputs[] = {
 #endif
     NULL};
 
-audio_output *audio_get_output(char *name) {
+audio_output *audio_get_output(const char *name) {
   audio_output **out;
 
   // default to the first

@@ -61,6 +61,7 @@
 #endif
 
 #include "activity_monitor.h"
+#include "audio.h"
 #include "common.h"
 #include "rtp.h"
 #include "rtsp.h"
@@ -117,6 +118,8 @@ int daemonisewithout = 0;
 char configuration_file_path[4096 + 1];
 char actual_configuration_file_path[4096 + 1];
 
+char first_backend_name[256];
+
 void print_version(void) {
   char *version_string = get_version_string();
   if (version_string) {
@@ -126,7 +129,6 @@ void print_version(void) {
     debug(1, "Can't print version string!");
   }
 }
-
 #ifdef CONFIG_SOXR
 pthread_t soxr_time_check_thread;
 void *soxr_time_check(__attribute__((unused)) void *arg) {
@@ -419,15 +421,15 @@ int parse_options(int argc, char **argv) {
   // for unexpected circumstances
 
 #ifdef CONFIG_METADATA
-      /* Get the metadata setting. */
-      config.metadata_enabled = 1; // if metadata support is included, then enable it by default
-      config.get_coverart = 1; // if metadata support is included, then enable it by default
+  /* Get the metadata setting. */
+  config.metadata_enabled = 1; // if metadata support is included, then enable it by default
+  config.get_coverart = 1;     // if metadata support is included, then enable it by default
 #endif
 
 #ifdef CONFIG_CONVOLUTION
-      config.convolution_max_length = 8192;
+  config.convolution_max_length = 8192;
 #endif
-      config.loudness_reference_volume_db = -20;
+  config.loudness_reference_volume_db = -20;
 
 #ifdef CONFIG_METADATA_HUB
   config.cover_art_cache_dir = "/tmp/shairport-sync/.cache/coverart";
@@ -682,9 +684,9 @@ int parse_options(int argc, char **argv) {
         } else if (strcasecmp(str, "stderr") == 0) {
           log_to_stderr();
         } else {
-        	config.log_file_path = (char *)str;
-        	config.log_fd = -1;
-        	log_to_file();
+          config.log_file_path = (char *)str;
+          config.log_fd = -1;
+          log_to_file();
         }
       }
       /* Get the ignore_volume_control setting. */
@@ -1313,113 +1315,114 @@ const char *pid_file_proc(void) {
 
 void exit_function() {
 
-	if (emergency_exit == 0) {
-		// the following is to ensure that if libdaemon has been included
-		// that most of this code will be skipped when the parent process is exiting
-		// exec
+  if (emergency_exit == 0) {
+    // the following is to ensure that if libdaemon has been included
+    // that most of this code will be skipped when the parent process is exiting
+    // exec
 #ifdef CONFIG_LIBDAEMON
-		if ((this_is_the_daemon_process) || (config.daemonise == 0)) { // if this is the daemon process that is exiting or it's not actually deamonised at all
+    if ((this_is_the_daemon_process) ||
+        (config.daemonise == 0)) { // if this is the daemon process that is exiting or it's not
+                                   // actually deamonised at all
 #endif
-			debug(2, "exit function called...");
-			/*
-			Actually, there is no terminate_mqtt() function.
-			#ifdef CONFIG_MQTT
-				if (config.mqtt_enabled) {
-					terminate_mqtt();
-				}
-			#endif
-			*/
+      debug(2, "exit function called...");
+      /*
+      Actually, there is no terminate_mqtt() function.
+      #ifdef CONFIG_MQTT
+              if (config.mqtt_enabled) {
+                      terminate_mqtt();
+              }
+      #endif
+      */
 
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
-			/*
-			Actually, there is no stop_mpris_service() function.
-			#ifdef CONFIG_MPRIS_INTERFACE
-				stop_mpris_service();
-			#endif
-			*/
+      /*
+      Actually, there is no stop_mpris_service() function.
+      #ifdef CONFIG_MPRIS_INTERFACE
+              stop_mpris_service();
+      #endif
+      */
 #ifdef CONFIG_DBUS_INTERFACE
-			stop_dbus_service();
+      stop_dbus_service();
 #endif
-			if (g_main_loop) {
-				debug(2, "Stopping DBUS Loop Thread");
-				g_main_loop_quit(g_main_loop);
-				pthread_join(dbus_thread, NULL);
-			}
+      if (g_main_loop) {
+        debug(2, "Stopping DBUS Loop Thread");
+        g_main_loop_quit(g_main_loop);
+        pthread_join(dbus_thread, NULL);
+      }
 #endif
 
 #ifdef CONFIG_DACP_CLIENT
-			debug(2, "Stopping DACP Monitor");
-			dacp_monitor_stop();
+      debug(2, "Stopping DACP Monitor");
+      dacp_monitor_stop();
 #endif
 
 #ifdef CONFIG_METADATA_HUB
-			debug(2, "Stopping metadata hub");
-			metadata_hub_stop();
+      debug(2, "Stopping metadata hub");
+      metadata_hub_stop();
 #endif
 
 #ifdef CONFIG_METADATA
-			metadata_stop(); // close down the metadata pipe
+      metadata_stop(); // close down the metadata pipe
 #endif
 
-			activity_monitor_stop(0);
+      activity_monitor_stop(0);
 
-			if ((config.output) && (config.output->deinit)) {
-				debug(2, "Deinitialise the audio backend.");
-				config.output->deinit();
-			}
+      if ((config.output) && (config.output->deinit)) {
+        debug(2, "Deinitialise the audio backend.");
+        config.output->deinit();
+      }
 
 #ifdef CONFIG_SOXR
-			// be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
-			pthread_join(soxr_time_check_thread, NULL);
+      // be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
+      pthread_join(soxr_time_check_thread, NULL);
 #endif
 
-			if (conns)
-				free(conns); // make sure the connections have been deleted first
+      if (conns)
+        free(conns); // make sure the connections have been deleted first
 
-			if (config.service_name)
-				free(config.service_name);
+      if (config.service_name)
+        free(config.service_name);
 
 #ifdef CONFIG_CONVOLUTION
-			if (config.convolution_ir_file)
-				free(config.convolution_ir_file);
+      if (config.convolution_ir_file)
+        free(config.convolution_ir_file);
 #endif
 
-			if (config.regtype)
-				free(config.regtype);
+      if (config.regtype)
+        free(config.regtype);
 
 #ifdef CONFIG_LIBDAEMON
-			if (this_is_the_daemon_process) {
-				daemon_retval_send(0);
-				daemon_pid_file_remove();
-				daemon_signal_done();
-				if (config.computed_piddir)
-					free(config.computed_piddir);
-			}
-		}
+      if (this_is_the_daemon_process) {
+        daemon_retval_send(0);
+        daemon_pid_file_remove();
+        daemon_signal_done();
+        if (config.computed_piddir)
+          free(config.computed_piddir);
+      }
+    }
 #endif
 
-		if (config.cfg)
-			config_destroy(config.cfg);
-		if (config.appName)
-			free(config.appName);
-		// probably should be freeing malloc'ed memory here, including strdup-created strings...
-
+    if (config.cfg)
+      config_destroy(config.cfg);
+    if (config.appName)
+      free(config.appName);
+      // probably should be freeing malloc'ed memory here, including strdup-created strings...
 
 #ifdef CONFIG_LIBDAEMON
-		if (this_is_the_daemon_process) { // this is the daemon that is exiting
-			debug(1,"libdaemon daemon exit");
-		} else {
-			if (config.daemonise)
-				debug(1,"libdaemon parent exit");
-			else
-				debug(1,"exit");
-		}
+    if (this_is_the_daemon_process) { // this is the daemon that is exiting
+      debug(1, "libdaemon daemon exit");
+    } else {
+      if (config.daemonise)
+        debug(1, "libdaemon parent exit");
+      else
+        debug(1, "exit");
+    }
 #else
-		debug(1,"exit");
+    debug(1, "exit");
 #endif
-	} else {
-		debug(1,"emergency exit");
-	}
+  } else {
+    debug(1, "emergency exit");
+  }
 }
 
 // for removing zombie script processes
@@ -1434,10 +1437,9 @@ void handle_sigchld(__attribute__((unused)) int sig) {
 }
 
 void main_thread_cleanup_handler(__attribute__((unused)) void *arg) {
-  debug(2,"main thread cleanup handler called");
+  debug(2, "main thread cleanup handler called");
   exit(EXIT_SUCCESS);
 }
-
 
 int main(int argc, char **argv) {
   /* Check if we are called with -V or --version parameter */
@@ -1455,7 +1457,7 @@ int main(int argc, char **argv) {
 #ifdef CONFIG_LIBDAEMON
   pid = getpid();
 #endif
-	config.log_fd = -1;
+  config.log_fd = -1;
   conns = NULL; // no connections active
   memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
   memset(&config, 0, sizeof(config)); // also clears all strings, BTW
@@ -1476,7 +1478,7 @@ int main(int argc, char **argv) {
   setlogmask(LOG_UPTO(LOG_DEBUG));
   openlog(NULL, 0, LOG_DAEMON);
 #endif
-	emergency_exit = 0; // what to do or skip in the exit_function
+  emergency_exit = 0; // what to do or skip in the exit_function
   atexit(exit_function);
 
   // set defaults
@@ -1503,6 +1505,15 @@ int main(int argc, char **argv) {
 
   // set non-zero / non-NULL default values here
   // but note that audio back ends also have a chance to set defaults
+
+  // get the first output backend in the list and make it the default
+  audio_output *first_backend = audio_get_output(NULL);
+  if (first_backend == NULL) {
+    die("No audio backend found! Check your build of Shairport Sync.");
+  } else {
+    strncpy(first_backend_name, first_backend->name, sizeof(first_backend_name) - 1);
+    config.output_name = first_backend_name;
+  }
 
   strcpy(configuration_file_path, SYSCONFDIR);
   // strcat(configuration_file_path, "/shairport-sync"); // thinking about adding a special
@@ -1598,13 +1609,16 @@ int main(int argc, char **argv) {
       if (errno == ENOENT)
         daemon_log(LOG_WARNING, "Failed to kill %s daemon: PID file not found.", config.appName);
       else
-        daemon_log(LOG_WARNING, "Failed to kill %s daemon: \"%s\", errno %u.", config.appName, strerror(errno), errno);
+        daemon_log(LOG_WARNING, "Failed to kill %s daemon: \"%s\", errno %u.", config.appName,
+                   strerror(errno), errno);
     } else {
-        // debug(1,"Successfully killed the %s daemon.", config.appName);
+      // debug(1,"Successfully killed the %s daemon.", config.appName);
       if (daemon_pid_file_remove() == 0)
         debug(2, "killed the %s daemon.", config.appName);
       else
-        daemon_log(LOG_WARNING, "killed the %s deamon, but cannot remove old PID file: \"%s\", errno %u.", config.appName, strerror(errno), errno);
+        daemon_log(LOG_WARNING,
+                   "killed the %s deamon, but cannot remove old PID file: \"%s\", errno %u.",
+                   config.appName, strerror(errno), errno);
     }
     return ret < 0 ? 1 : 0;
 #else
@@ -1651,14 +1665,19 @@ int main(int argc, char **argv) {
       case 0:
         break;
       case 1:
-        daemon_log(LOG_ERR,
-                   "the %s daemon failed to launch: could not close open file descriptors after forking.", config.appName);
+        daemon_log(
+            LOG_ERR,
+            "the %s daemon failed to launch: could not close open file descriptors after forking.",
+            config.appName);
         break;
       case 2:
-        daemon_log(LOG_ERR, "the %s daemon failed to launch: could not create PID file.", config.appName);
+        daemon_log(LOG_ERR, "the %s daemon failed to launch: could not create PID file.",
+                   config.appName);
         break;
       case 3:
-        daemon_log(LOG_ERR, "the %s daemon failed to launch: could not create or access PID directory.", config.appName);
+        daemon_log(LOG_ERR,
+                   "the %s daemon failed to launch: could not create or access PID directory.",
+                   config.appName);
         break;
       default:
         daemon_log(LOG_ERR, "the %s daemon failed to launch, error %i.", config.appName, ret);
@@ -1709,8 +1728,8 @@ int main(int argc, char **argv) {
 #endif
   debug(1, "Started!");
 
-	// stop a pipe signal from killing the program
-	signal(SIGPIPE, SIG_IGN);
+  // stop a pipe signal from killing the program
+  signal(SIGPIPE, SIG_IGN);
 
   // install a zombie process reaper
   // see: http://www.microhowto.info/howto/reap_zombie_processes_using_a_sigchld_handler.html
@@ -1744,8 +1763,8 @@ int main(int argc, char **argv) {
 
   config.output = audio_get_output(config.output_name);
   if (!config.output) {
-    audio_ls_outputs();
-    die("Invalid audio output specified!");
+    die("Invalid audio backend \"%s\" selected!",
+        config.output_name == NULL ? "<unspecified>" : config.output_name);
   }
   config.output->init(argc - audio_arg, argv + audio_arg);
 

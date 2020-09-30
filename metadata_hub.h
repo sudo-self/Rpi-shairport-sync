@@ -149,7 +149,9 @@ void metadata_hub_release_track_artwork(void);
 // these functions lock and unlock the read-write mutex on the metadata hub and run the watchers
 // afterwards
 void _metadata_hub_modify_prolog(const char *filename, const int linenumber);
-void _metadata_hub_modify_epilog(int modified, const char *filename, const int linenumber); // set to true if modifications occurred, 0 otherwise
+void _metadata_hub_modify_epilog(
+    int modified, const char *filename,
+    const int linenumber); // set to true if modifications occurred, 0 otherwise
 
 /*
 // these are for safe reading
@@ -158,7 +160,8 @@ void _metadata_hub_read_epilog(const char *filename, const int linenumber);
 */
 
 #define metadata_hub_modify_prolog(void) _metadata_hub_modify_prolog(__FILE__, __LINE__)
-#define metadata_hub_modify_epilog(modified) _metadata_hub_modify_epilog(modified, __FILE__, __LINE__)
+#define metadata_hub_modify_epilog(modified)                                                       \
+  _metadata_hub_modify_epilog(modified, __FILE__, __LINE__)
 
 #define metadata_hub_read_prolog(void) _metadata_hub_read_prolog(__FILE__, __LINE__)
 #define metadata_hub_read_epilog(void) _metadata_hub_modify_epilog(__FILE__, __LINE__)

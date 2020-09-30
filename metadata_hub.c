@@ -136,18 +136,20 @@ void _metadata_hub_modify_prolog(const char *filename, const int linenumber) {
   // debug(1, "locking metadata hub for writing");
   if (pthread_rwlock_trywrlock(&metadata_hub_re_lock) != 0) {
     if (last_metadata_hub_modify_prolog_file)
-    	debug(2, "Metadata_hub write lock at \"%s:%d\" is already taken at \"%s:%d\" -- must wait.", filename, linenumber, last_metadata_hub_modify_prolog_file, last_metadata_hub_modify_prolog_line);
+      debug(2, "Metadata_hub write lock at \"%s:%d\" is already taken at \"%s:%d\" -- must wait.",
+            filename, linenumber, last_metadata_hub_modify_prolog_file,
+            last_metadata_hub_modify_prolog_line);
     else
-    	debug(2, "Metadata_hub write lock is already taken by unknown -- must wait.");
+      debug(2, "Metadata_hub write lock is already taken by unknown -- must wait.");
     metadata_hub_re_lock_access_is_delayed = 0;
     pthread_rwlock_wrlock(&metadata_hub_re_lock);
     debug(2, "Okay -- acquired the metadata_hub write lock at \"%s:%d\".", filename, linenumber);
   } else {
-  	if (last_metadata_hub_modify_prolog_file) {
-  		free(last_metadata_hub_modify_prolog_file);
-  	}
-  	last_metadata_hub_modify_prolog_file = strdup(filename);
-  	last_metadata_hub_modify_prolog_line = linenumber;
+    if (last_metadata_hub_modify_prolog_file) {
+      free(last_metadata_hub_modify_prolog_file);
+    }
+    last_metadata_hub_modify_prolog_file = strdup(filename);
+    last_metadata_hub_modify_prolog_line = linenumber;
     // debug(3, "Metadata_hub write lock acquired.");
   }
   metadata_hub_re_lock_access_is_delayed = 0;
@@ -160,13 +162,16 @@ void _metadata_hub_modify_epilog(int modified, const char *filename, const int l
     run_metadata_watchers();
   }
   if (metadata_hub_re_lock_access_is_delayed) {
-		if (last_metadata_hub_modify_prolog_file) {
-				debug(1, "Metadata_hub write lock taken at \"%s:%d\" is freed at \"%s:%d\".", last_metadata_hub_modify_prolog_file, last_metadata_hub_modify_prolog_line, filename, linenumber);
-				free(last_metadata_hub_modify_prolog_file);
-				last_metadata_hub_modify_prolog_file = NULL;
-		} else {
-				debug(1, "Metadata_hub write lock taken at an unknown place is freed at \"%s:%d\".", filename, linenumber);
-		}
+    if (last_metadata_hub_modify_prolog_file) {
+      debug(1, "Metadata_hub write lock taken at \"%s:%d\" is freed at \"%s:%d\".",
+            last_metadata_hub_modify_prolog_file, last_metadata_hub_modify_prolog_line, filename,
+            linenumber);
+      free(last_metadata_hub_modify_prolog_file);
+      last_metadata_hub_modify_prolog_file = NULL;
+    } else {
+      debug(1, "Metadata_hub write lock taken at an unknown place is freed at \"%s:%d\".", filename,
+            linenumber);
+    }
   }
   pthread_rwlock_unlock(&metadata_hub_re_lock);
   // debug(3, "Metadata_hub write lock unlocked.");
@@ -506,10 +511,11 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       debug(2, "MH Picture received, length %u bytes.", length);
 
       char uri[2048];
-      if ((length > 16) && (strcmp(config.cover_art_cache_dir,"")!=0)) { // if it's okay to write the file
-      	// make this uncancellable
-				int oldState;
-				pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+      if ((length > 16) &&
+          (strcmp(config.cover_art_cache_dir, "") != 0)) { // if it's okay to write the file
+                                                           // make this uncancellable
+        int oldState;
+        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
         char *pathname = metadata_write_image_file(data, length);
         snprintf(uri, sizeof(uri), "file://%s", pathname);
         free(pathname);
@@ -524,7 +530,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
         changed = 1;
       else
         changed = 0;
-//      pthread_cleanup_pop(0); // don't remove the lock -- it'll have been done
+      //      pthread_cleanup_pop(0); // don't remove the lock -- it'll have been done
       break;
     case 'clip':
       cs = strndup(data, length);
