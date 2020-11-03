@@ -71,7 +71,7 @@ You can play from other devices but not from your Windows PC.
 
 Allow network discovery. This setting creates a private type network and enables Windows to access the ports and protocols necessary to use Shairport Sync.
 
-### UFW firewall blocking connections on Raspbian (Raspberry Pi)
+### UFW firewall blocking ports (commonly includes Raspberry Pi)
 
 **Problem**
 
@@ -91,7 +91,7 @@ You have installed Shairport Sync successfully, the daemon is running, you can s
 
 **Solution**
 
-You have to allow connections to your Pi from remote devices. To do so, after re-enabling UFW (see last step of the previous section), enter the following commands in shell:
+You have to allow connections to your Shairport Sync device from remote devices. To do so, after re-enabling UFW (see last step of the previous section), enter the following commands in shell:
 
 ```
 sudo ufw allow from 192.168.1.1/16 to any port 3689 proto tcp
