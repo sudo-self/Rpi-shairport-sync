@@ -19,6 +19,11 @@ Version 3.3.7
 * Removed a bug which would affect initial synchronisation if a `FLUSH` command was received from the player at an inopportune time.
 * Added code to do calculations involving the `audio_backend_latency_offset_in_seconds` and `audio_backend_silent_lead_in_time` settings correctly. Many thanks to [Tucker Kern](https://github.com/mill1000) for discovering a number of bugs associated with this and for [proposing a solution](https://github.com/mikebrady/shairport-sync/pull/1001). This prompted a closer investigation and a number of further improvements were made, and a few "hostages to fortune" removed.
 * The DACP ID looks like a 64-bit number expressed in hexadecimal. It is normally quoted with leading zeroes removed, but in the `_dacp._tcp` service string, leading zeros are not removed from the DACP ID. The bug fix removes those leading zeroes. Thanks to [julianc1969](https://github.com/juliandc1969) for tracking down this bug so tenaciously!
+* Make the first output backend in the list of backends the default and make its name the default `output_name`.
+* Fix a flaw in resyncing -- a flush is set up but not triggered.
+* Ensure metadata and cover art are enabled if metadata support is included at compilation.
+* Set convolution defaults even if no configuration file is found.
+* Handle the `active_remote_id` token as a string rather than an unsigned 32-bit number --  it seems ROON uses a longer character sequence.
 
 **Enhancements**
 * Added the strings `-alac` and `-jack` to the the version string in '-V' if Apple ALAC decoder support and Jack Audio support are included respectively.
@@ -44,12 +49,7 @@ Version 3.3.7
 * Improved synchronisation accuracy with short silence lead-ins.
 * While a player is active, the DACP port number to which to send remote commands should be broadcast over ZEROCONF/Bonjour. However, if that information is not available, Shairport Sync will now check for it every two seconds.
 * The timing software in the `sndio` backend does some extra sanity checking on certain time estimates, it may help a little when running on virtual machines.
-* Make the first output backend in the list of backends the default and make its name the default `output_name`.
-* Fix a flaw in resyncing -- a flush is set up but not triggered.
 * Open metadata and audio pipes with 666 permissions to allow them to be shared by other applications.
-* Ensure metadata and cover art are enabled if metadata support is included at compilation.
-* Set convolution defaults even if no configuration file is found.
-* Handle the `active_remote_id` token as a string rather than an unsigned 32-bit number --  it seems ROON uses a longer character sequence.
 
 Version 3.3.6
 ====
