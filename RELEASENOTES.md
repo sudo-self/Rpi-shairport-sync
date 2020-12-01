@@ -26,7 +26,7 @@ Version 3.3.7
 * Handle the `active_remote_id` token as a string rather than an unsigned 32-bit number --  it seems ROON uses a longer character sequence.
 
 **Enhancements**
-* Added the strings `-alac` and `-jack` to the the version string in '-V' if Apple ALAC decoder support and Jack Audio support are included respectively.
+* Added the strings `-alac` and `-jack` to the the version string returned by the  `-V` command line option if Apple ALAC decoder support and Jack Audio support are included respectively.
 * Cleaned up and simplified the code that handles `FLUSH` requests coming from the player. (Debug messages are still a little verbose.)
 * Improved timing estimation. Shairport Sync has been using linear least-squares regression to estimate timing drift between the (remote) source clock and the local clock. This technique is now extended to provide an estimate of the remote-to-local clock difference itself. (The remote-to-local clock difference is used to remap the timing of audio frames from the remote device's clock to the local clock.)
 
