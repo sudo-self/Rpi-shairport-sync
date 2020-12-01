@@ -66,8 +66,8 @@ getent passwd %{name} &> /dev/null || useradd --system -c "%{name} User" \
 %license LICENSES
 
 %changelog
-* Tue Jul 7 2020 Mike Brady <mikebradydublin@icloud.com) 3.3.7
-- Jack resampling, bug fixes and additions to the D-Bus and MPRIS interfaces.
+* Tue Nov 1 2020 Mike Brady <mikebradydublin@icloud.com) 3.3.7
+- Jack resampling, bug fixes and additions to the pipe and stdout backends, to metadata and to the D-Bus and MPRIS interfaces.
 * Thu Feb 20 2020 Mike Brady <mikebradydublin@icloud.com) 3.3.6
 - Jack resampling, bug fixes and additions to the D-Bus and MPRIS interfaces.
 * Wed Nov 13 2019 Mike Brady <mikebrady@eircom.net) 3.3.5
