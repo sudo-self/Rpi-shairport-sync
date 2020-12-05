@@ -1,5 +1,10 @@
 Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
 
+Version 3.3.8
+====
+**Bug Fix**
+* Fix a crash that occurred if metadata support is enabled during compilation but turned off in the configuration file. Thanks to [Tim Curtis](https://github.com/moodeaudio) and [Ircama](https://github.com/Ircama) for their reports.
+
 Version 3.3.7
 ====
 **Docker Integration**
