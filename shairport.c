@@ -1362,7 +1362,6 @@ void exit_function() {
 #endif
 
 #ifdef CONFIG_METADATA
-			if (config.metadata_enabled)
       	metadata_stop(); // close down the metadata pipe
 #endif
 
@@ -1953,8 +1952,7 @@ int main(int argc, char **argv) {
 #endif
   memcpy(config.hw_addr, ap_md5, sizeof(config.hw_addr));
 #ifdef CONFIG_METADATA
-	if (config.metadata_enabled)
-  	metadata_init(); // create the metadata pipe if necessary
+  metadata_init(); // create the metadata pipe if necessary
 #endif
 
 #ifdef CONFIG_METADATA_HUB
