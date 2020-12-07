@@ -3,7 +3,8 @@ Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sy
 Version 3.3.8
 ====
 **Bug Fix**
-* Fix a crash that occurred if metadata support is enabled during compilation but turned off in the configuration file. Thanks to [Tim Curtis](https://github.com/moodeaudio) and [Ircama](https://github.com/Ircama) for their reports.
+* Fix a crash that occurred if metadata support is enabled during compilation but turned off in the configuration file. Thanks to [Tim Curtis](https://github.com/moodeaudio) for the report.
+* Fix a crash that occurred playing from AirPower on Android. Thanks to [Ircama](https://github.com/Ircama) for the report.
 
 Version 3.3.7
 ====
