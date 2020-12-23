@@ -1362,7 +1362,7 @@ void exit_function() {
 #endif
 
 #ifdef CONFIG_METADATA
-      	metadata_stop(); // close down the metadata pipe
+      metadata_stop(); // close down the metadata pipe
 #endif
 
       activity_monitor_stop(0);

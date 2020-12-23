@@ -629,3 +629,8 @@ If you are using WiFi, you should ensure that WiFi power management is off. See 
 Troubleshooting
 ---------------
 Please refer to [TROUBLESHOOTING](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md) for a few hints, contributed by users.
+
+MQTT
+---------------
+Please refer to the [MQTT INFO](https://github.com/mikebrady/shairport-sync/blob/master/MQTT.md) page for additional info on building, configuring and using MQTT to interface shairport-sync with common home automation systems (contributed by users).
+

@@ -831,10 +831,10 @@ void command_set_volume(double volume) {
           execv(argV[0], argV);
           warn("Execution of on-set-volume command \"%s\" failed to start", config.cmd_set_volume);
           // debug(1, "Error executing on-set-volume command %s", config.cmd_set_volume);
-          exit(EXIT_FAILURE); /* only if execv fails */
+          _exit(EXIT_FAILURE); /* only if execv fails */
         }
       }
-
+    _exit(EXIT_SUCCESS);
     } else {
       if (config.cmd_blocking) { /* pid!=0 means parent process and if blocking is true, wait for
                                     process to finish */
@@ -886,7 +886,7 @@ void command_start(void) {
         execv(argV[0], argV);
         warn("Execution of on-start command failed to start");
         debug(1, "Error executing on-start command %s", config.cmd_start);
-        exit(EXIT_FAILURE); /* only if execv fails */
+        _exit(EXIT_FAILURE); /* only if execv fails */
       }
     } else {
       if (config.cmd_blocking || config.cmd_start_returns_output) { /* pid!=0 means parent process
@@ -942,7 +942,7 @@ void command_execute(const char *command, const char *extra_argument, const int 
         execv(argV[0], argV);
         warn("Execution of command \"%s\" failed to start", full_command);
         debug(1, "Error executing command \"%s\".", full_command);
-        exit(EXIT_FAILURE); /* only if execv fails */
+        _exit(EXIT_FAILURE); /* only if execv fails */
       }
     } else {
       if (block) { /* pid!=0 means parent process and if blocking is true, wait for
