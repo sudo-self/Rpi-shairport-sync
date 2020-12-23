@@ -1,11 +1,14 @@
 Version 3.3.8d3
-
 ====
+
 **Bug Fixes**
 * Fix a bug that caused Shairport Sync to hang, but not actually crash, if an on-play or any on-*** script failed.
 * Fix a crash that occurred if metadata support is enabled during compilation but turned off in the configuration file. Thanks to [Tim Curtis](https://github.com/moodeaudio) for the report.
 * Fix a crash that occurred playing from AirPower on Android. Thanks to [Ircama](https://github.com/Ircama) for the report.
 
+Version 3.3.8d2 -- 3.3.8d0
+====
+There are absent from the repository -- see `3.3.8rc0` and `rc1` in the `master` branch.
 
 Version 3.3.7d19
 ====
