@@ -2,7 +2,11 @@ Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sy
 
 Version 3.3.8
 ====
-**Bug Fix**
+**Enhancements**
+* Documentation for the MQTT interface. Many thanks to [minix1234](https://github.com/minix1234)!
+
+**Bug Fixes**
+* Fix a bug that caused Shairport Sync to hang, but not actually crash, if an on-play or any on-*** script failed.
 * Fix a crash that occurred if metadata support is enabled during compilation but turned off in the configuration file. Thanks to [Tim Curtis](https://github.com/moodeaudio) for the report.
 * Fix a crash that occurred playing from AirPower on Android. Thanks to [Ircama](https://github.com/Ircama) for the report.
 
