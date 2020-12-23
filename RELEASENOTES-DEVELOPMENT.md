@@ -1,5 +1,7 @@
 Version 3.3.8d3
 ====
+**Enhancements**
+* Documentation for the MQTT interface. Many thanks to [minix1234](https://github.com/minix1234)!
 
 **Bug Fixes**
 * Fix a bug that caused Shairport Sync to hang, but not actually crash, if an on-play or any on-*** script failed.
