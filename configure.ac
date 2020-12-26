@@ -115,9 +115,9 @@ AC_ARG_WITH(apple-alac,[AS_HELP_STRING([--with-apple-alac],[include support for 
 if test "x${with_apple_alac}"  = "xyes" ; then
   AC_DEFINE([CONFIG_APPLE_ALAC], 1, [Include support for using the Apple ALAC Decoder])
   if  test "x${with_pkg_config}" = xyes ; then
-    PKG_CHECK_MODULES([ALAC], [alac], [LIBS="${ALAC_LIBS} ${LIBS}"], AC_MSG_ERROR(Apple ALAC Decoder support requires the alac library.))
+    PKG_CHECK_MODULES([alac], [alac], [LIBS="${alac_LIBS} ${LIBS}"], AC_MSG_ERROR(Apple ALAC Decoder support requires the ALAC library.))
   else
-    AC_CHECK_LIB([alac], [BitBufferInit], , AC_MSG_ERROR(Apple ALAC Decoder support requires the alac library.))
+    AC_CHECK_LIB([alac], [BitBufferInit], , AC_MSG_ERROR(Apple ALAC Decoder support requires the ALAC library.))
   fi
 fi
 AM_CONDITIONAL([USE_APPLE_ALAC], [test "x${with_apple_alac}" = "xyes"])
@@ -303,14 +303,14 @@ AM_CONDITIONAL([USE_DNS_SD], [test "x$REQUESTED_DNS_SD" = "x1"])
 AC_ARG_WITH(dbus-interface, [AS_HELP_STRING([--with-dbus-interface],[include support for the native Shairport Sync D-Bus interface])], [
   AC_DEFINE([CONFIG_DBUS_INTERFACE], 1, [Include support for the native Shairport Sync D-Bus interface])
   REQUESTED_DBUS=1
-  PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${GIO_UNIX_CFLAGS} ${CFLAGS}" LIBS="${GIO_UNIX_LIBS} ${LIBS}"],[AC_MSG_ERROR(dbus messaging support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
+  PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(D-Bus messaging support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
   ], )
 AM_CONDITIONAL([USE_DBUS], [test "x$REQUESTED_DBUS" = "x1"])
 
 # Look for dbus test client flag
 AC_ARG_WITH(dbus-test-client, [AS_HELP_STRING([--with-dbus-test-client],[compile a separare D-Bus test client])], [
   REQUESTED_DBUS_CLIENT=1
-  PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${GIO_UNIX_CFLAGS} ${CFLAGS}" LIBS="${GIO_UNIX_LIBS} ${LIBS}"],[AC_MSG_ERROR(dbus client support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
+  PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(D-Bus client support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
   ], )
 AM_CONDITIONAL([USE_DBUS_CLIENT], [test "x$REQUESTED_DBUS_CLIENT" = "x1"])
 
@@ -318,14 +318,14 @@ AM_CONDITIONAL([USE_DBUS_CLIENT], [test "x$REQUESTED_DBUS_CLIENT" = "x1"])
 AC_ARG_WITH(mpris-interface, [AS_HELP_STRING([--with-mpris-interface],[include support for a D-Bus interface conforming to the MPRIS standard])], [
   AC_DEFINE([CONFIG_MPRIS_INTERFACE], 1, [Include support for a D-Bus interface conforming to the MPRIS standard])
   REQUESTED_MPRIS=1
-  PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${GIO_UNIX_CFLAGS} ${CFLAGS}" LIBS="${GIO_UNIX_LIBS} ${LIBS}"],[AC_MSG_ERROR(dbus messaging support for mpris requires the glib 2.0 library -- libglib2.0-dev suggested!)])
+  PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(MPRIS messaging support for mpris requires the glib 2.0 library -- libglib2.0-dev suggested!)])
   ], )
 AM_CONDITIONAL([USE_MPRIS], [test "x$REQUESTED_MPRIS" = "x1"])
 
 # Look for mpris test client flag
 AC_ARG_WITH(mpris-test-client, [AS_HELP_STRING([--with-mpris-test-client],[compile an separate MPRIS test client])], [
   REQUESTED_MPRIS_CLIENT=1
-  PKG_CHECK_MODULES([GIO_UNIX], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${GIO_UNIX_CFLAGS} ${CFLAGS}" LIBS="${GIO_UNIX_LIBS} ${LIBS}"],[AC_MSG_ERROR(mpris client support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
+  PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(MPRIS client support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
   ], )
 AM_CONDITIONAL([USE_MPRIS_CLIENT], [test "x$REQUESTED_MPRIS_CLIENT" = "x1"])
 
