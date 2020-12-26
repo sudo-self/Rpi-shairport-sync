@@ -41,8 +41,7 @@ AM_CONDITIONAL([BUILD_FOR_OPENBSD], [test "x${with_os}" = xopenbsd ])
 ##### Some build systems are not fully using pkg-config, so we can use the flag ${with_pkg_config} on a case-by-case basis
 ##### to control how to deal with them
 
-AC_ARG_WITH([pkg_config],
-[  --with-pkg-config = use pkg-config to find libraries], ,[with_pkg_config=yes])
+AC_ARG_WITH([pkg_config],[AS_HELP_STRING([--with-pkg-config],[use pkg-config to find libraries])],[],[with_pkg_config=yes])
 
 ##### The following check for the pthreads library doesn't put the compiler into the correct pthread mode
 ##### so we add the -pthread compilation flag in AMFLAGS in the Makefile.am as well.
@@ -50,24 +49,35 @@ AC_ARG_WITH([pkg_config],
 AC_CHECK_LIB([pthread],[pthread_create], , AC_MSG_ERROR(pthread library needed))
 AC_CHECK_LIB([m],[exp], , AC_MSG_ERROR(maths library needed))
 
-AC_MSG_RESULT(>>Including libpopt)
 if  test "x${with_pkg_config}" = xyes ; then
   PKG_CHECK_MODULES(
-      [POPT], [popt],
-      [CFLAGS="${POPT_CFLAGS} ${CFLAGS}"
-      LIBS="${POPT_LIBS} ${LIBS}"])
+      [popt], [popt],
+      [CFLAGS="${popt_CFLAGS} ${CFLAGS}"
+      LIBS="${popt_LIBS} ${LIBS}"], AC_MSG_ERROR(libpopt needed))
 else
   AC_CHECK_LIB([popt],[poptGetContext], , AC_MSG_ERROR(libpopt needed))
 fi
 
-AC_ARG_WITH([dummy],[  --with-dummy = include the dummy audio back end ],[AC_MSG_RESULT(>>Including the dummy audio back end) AC_DEFINE([CONFIG_DUMMY], 1, [Needed by the compiler.]) ], )
+AC_ARG_WITH([dummy],[AS_HELP_STRING([--with-dummy],[include the dummy audio back end])],[],[])
+if test "x$with_dummy" = "xyes" ; then
+  AC_MSG_RESULT(>>Including the dummy audio back end)
+  AC_DEFINE([CONFIG_DUMMY], 1, [Needed by the compiler.])
+fi
 AM_CONDITIONAL([USE_DUMMY], [test "x$with_dummy" = "xyes" ])
 
-AC_ARG_WITH([stdout],[  --with-stdout = include the stdout audio back end ],[ AC_MSG_RESULT(>>Including the stdout audio back end)  AC_DEFINE([CONFIG_STDOUT], 1, [Needed by the compiler.]) ], )
-AM_CONDITIONAL([USE_STDOUT], [test "x$with_stdout" = "xyes" ])
+AC_ARG_WITH([stdout],[AS_HELP_STRING([--with-stdout],[include the stdout audio back end])],[],[])
+if test "x$with_stdout" = "xyes" ; then
+  AC_MSG_RESULT(>>Including the stdout audio back end)
+  AC_DEFINE([CONFIG_STDOUT], 1, [Needed by the compiler.])
+fi
+AM_CONDITIONAL([USE_STDOUT], [test "x$with_stdout" = "xyes"])
 
-AC_ARG_WITH([pipe],[  --with-pipe = include the pipe audio back end ],[ AC_MSG_RESULT(>>Including the pipe audio back end)  AC_DEFINE([CONFIG_PIPE], 1, [Needed by the compiler.]) ], )
-AM_CONDITIONAL([USE_PIPE], [test "x$with_pipe" = "xyes" ])
+AC_ARG_WITH([pipe],[AS_HELP_STRING([--with-pipe],[include the pipe audio back end])],[],[])
+if test "x$with_pipe" = "xyes" ; then
+  AC_MSG_RESULT(>>Including the pipe audio back end)
+  AC_DEFINE([CONFIG_PIPE], 1, [Needed by the compiler.])
+fi
+AM_CONDITIONAL([USE_PIPE], [test "x$with_dummy" = "xyes" ])
 
 # Check to see if we should include the System V initscript
 
@@ -106,18 +116,17 @@ AC_ARG_WITH([configfiles],
 AM_CONDITIONAL([INSTALL_CONFIG_FILES], [test "x$with_configfiles" = "xyes"])
 
 # Look for Apple ALAC flag
-AC_ARG_WITH(apple-alac, [  --with-apple-alac = include support for the Apple ALAC decoder],
-  [AC_MSG_RESULT(>>Including the Apple ALAC Decoder)
+AC_ARG_WITH(apple-alac,[AS_HELP_STRING([--with-apple-alac],[include support for the Apple ALAC decoder])], [])
+if test "x${with_apple_alac}"  = "xyes" ; then
+AC_MSG_RESULT(including the Apple ALAC Decoder)
   AC_DEFINE([CONFIG_APPLE_ALAC], 1, [Include support for using the Apple ALAC Decoder])
-  REQUESTED_APPLE_ALAC=1
   if  test "x${with_pkg_config}" = xyes ; then
-    PKG_CHECK_MODULES(
-      [ALAC], [alac],
-      [LIBS="${ALAC_LIBS} ${LIBS}"])
+    PKG_CHECK_MODULES([ALAC], [alac], [LIBS="${ALAC_LIBS} ${LIBS}"], AC_MSG_ERROR(Apple ALAC Decoder support requires the alac library.))
   else
-    AC_CHECK_LIB([alac], [BitBufferInit], , AC_MSG_ERROR(Apple ALAC Decoder support requires the alac library!))
-  fi ])
-AM_CONDITIONAL([USE_APPLE_ALAC], [test "x$REQUESTED_APPLE_ALAC" = "x1"])
+    AC_CHECK_LIB([alac], [BitBufferInit], , AC_MSG_ERROR(Apple ALAC Decoder support requires the alac library.))
+  fi
+fi
+AM_CONDITIONAL([USE_APPLE_ALAC], [test "x${with_apple_alac}" = "xyes"])
 
 # Look for piddir flag
 AC_ARG_WITH(piddir, [ --with-piddir=<pathname> Specify a pathname to a directory in which to write the PID file.], [
@@ -156,7 +165,7 @@ AC_ARG_WITH(ssl, [ choose --with-ssl=openssl, --with-ssl=mbedtls or --with-ssl=p
     AC_MSG_ERROR(choose "openssl", "mbedtls" or "polarssl" encryption)
   fi
   if test "x${with_ssl}" = xopenssl ; then
-  AC_DEFINE([CONFIG_OPENSSL], 1, [Use the OpenSSL libraries for encryption and encoding and decoding])    
+  AC_DEFINE([CONFIG_OPENSSL], 1, [Use the OpenSSL libraries for encryption and encoding and decoding])
     if  test "x${with_pkg_config}" = xyes ; then
       PKG_CHECK_MODULES(
           [SSL], [libssl,libcrypto],
@@ -166,7 +175,7 @@ AC_ARG_WITH(ssl, [ choose --with-ssl=openssl, --with-ssl=mbedtls or --with-ssl=p
       AC_CHECK_LIB([ssl], [main], , AC_MSG_ERROR(libssl selected but the library cannot be found!))
     fi
   elif test "x${with_ssl}" = xmbedtls ; then
-    AC_DEFINE([CONFIG_MBEDTLS], 1, [Use the mbed TLS libraries for encryption and encoding and decoding])    
+    AC_DEFINE([CONFIG_MBEDTLS], 1, [Use the mbed TLS libraries for encryption and encoding and decoding])
     AC_CHECK_LIB([mbedtls],[mbedtls_ssl_init],,
 		[AC_MSG_ERROR([mbed tls support requires the mbedtls library -- libmbedtls-dev suggested],1)])
     AC_CHECK_LIB([mbedcrypto], [mbedtls_entropy_func],,
@@ -174,7 +183,7 @@ AC_ARG_WITH(ssl, [ choose --with-ssl=openssl, --with-ssl=mbedtls or --with-ssl=p
     AC_CHECK_LIB([mbedx509], [mbedtls_pk_init],,
                 [AC_MSG_ERROR([mbed tls support requires the mbedx509 library -- libmbedx509-0 suggested],1)])
   elif test "x${with_ssl}" = xpolarssl ; then
-    AC_DEFINE([CONFIG_POLARSSL], 1, [Use the PolarSSL libraries for encryption and encoding and decoding])    
+    AC_DEFINE([CONFIG_POLARSSL], 1, [Use the PolarSSL libraries for encryption and encoding and decoding])
     AC_CHECK_LIB([polarssl],[ssl_init], , AC_MSG_ERROR(PolarSSL is selected but the library cannot be found and is deprecated. Consider selecting mbed TLS instead using --with-ssl=mbedtls.))
   else
     AC_MSG_ERROR(unknown option "${with_ssl}"." Please choose with "openssl", "mbedtls" or "polarssl")
