@@ -1,3 +1,8 @@
+Version 3.3.8d4
+====
+**Bug Fixes**
+* Fix a fault in the configuration script `configure.ac`. The fault was that a `--without-*` configuration argument was being misunderstood and interpreted partly as a `--with-*` argument. Thanks to [David Racine](https://github.com/bassdr) for the [report](https://github.com/mikebrady/shairport-sync/issues/1123).
+
 Version 3.3.8d3
 ====
 **Enhancements**
