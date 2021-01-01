@@ -5,6 +5,7 @@
 /shairport-sync-mpris-test-client
 
 *.o
+*.log
 /*~
 *.xml~
 /config.mk

@@ -66,21 +66,21 @@ fi
 AC_ARG_WITH([dummy],[AS_HELP_STRING([--with-dummy],[include the dummy audio back end])])
 if test "x$with_dummy" = "xyes" ; then
   AC_MSG_RESULT(include the dummy audio back end)
-  AC_DEFINE([CONFIG_DUMMY], 1, [Needed by the compiler.])
+  AC_DEFINE([CONFIG_DUMMY], 1, [Include a fake audio backend.])
 fi
 AM_CONDITIONAL([USE_DUMMY], [test "x$with_dummy" = "xyes" ])
 
 AC_ARG_WITH([stdout],[AS_HELP_STRING([--with-stdout],[include the stdout audio back end])])
 if test "x$with_stdout" = "xyes" ; then
   AC_MSG_RESULT(include the stdout audio back end)
-  AC_DEFINE([CONFIG_STDOUT], 1, [Needed by the compiler.])
+  AC_DEFINE([CONFIG_STDOUT], 1, [Include an audio backend to output to standard output (stdout).])
 fi
 AM_CONDITIONAL([USE_STDOUT], [test "x$with_stdout" = "xyes"])
 
 AC_ARG_WITH([pipe],[AS_HELP_STRING([--with-pipe],[include the pipe audio back end])])
 if test "x$with_pipe" = "xyes" ; then
   AC_MSG_RESULT(include the pipe audio back end)
-  AC_DEFINE([CONFIG_PIPE], 1, [Needed by the compiler.])
+  AC_DEFINE([CONFIG_PIPE], 1, [Include an audio backend to output to a unix pipe.])
 fi
 AM_CONDITIONAL([USE_PIPE], [test "x$with_pipe" = "xyes" ])
 
@@ -148,7 +148,7 @@ AM_CONDITIONAL([USE_CUSTOMPIDDIR], [ test "x${with_piddir}" != "x" ])
 # Look for libdaemon
 AC_ARG_WITH(libdaemon,[AS_HELP_STRING([--with-libdaemon],[include support for daemonising in non-systemd systems])])
 if test "x$with_libdaemon" = "x1"; then
-	AC_DEFINE([CONFIG_LIBDAEMON], 1, [Include libdaemon])
+	AC_DEFINE([CONFIG_LIBDAEMON], 1, [Include libdaemon for daemonising in non-systemd systems])
 	if  test "x${with_pkg_config}" = xyes ; then
 		PKG_CHECK_MODULES(
 				[DAEMON], [libdaemon],
@@ -217,7 +217,7 @@ AC_ARG_WITH(metadata,[AS_HELP_STRING([--with-metadata],[include support for a me
 # Look for avahi flag
 AC_ARG_WITH(avahi, [AS_HELP_STRING([--with-avahi],[choose Avahi-based mDNS support])])
 if test "x$with_avahi" = "xyes" ; then
-  AC_DEFINE([CONFIG_AVAHI], 1, [Needed by the compiler.])
+  AC_DEFINE([CONFIG_AVAHI], 1, [Include Avahi-based mDNS support.])
   AC_CHECK_LIB([avahi-client], [avahi_client_new], , AC_MSG_ERROR(Avahi support requires the avahi-client library!))
   AC_CHECK_LIB([avahi-common],[avahi_strerror], , AC_MSG_ERROR(Avahi support requires the avahi-common library!))
 fi
@@ -247,7 +247,7 @@ AM_CONDITIONAL([USE_ALSA], [test "x$with_alsa" = "xyes"])
 # Look for jack flag
 AC_ARG_WITH(jack, [AS_HELP_STRING([--with-jack],[include a Jack Audio Connection Kit (jack) backend])])
 if test "x$with_jack" = "xyes" ; then
-  AC_DEFINE([CONFIG_JACK], 1, [Needed by the compiler.])
+  AC_DEFINE([CONFIG_JACK], 1, [Include a Jack Audio Connection Kit (jack) audio backend])
   if  test "x${with_pkg_config}" = xyes ; then
     PKG_CHECK_MODULES(
       [jack], [jack],
@@ -262,7 +262,7 @@ AM_CONDITIONAL([USE_JACK], [test "x$with_jack" = "xyes"])
 # Look for SNDIO flag
 AC_ARG_WITH(sndio, [AS_HELP_STRING([--with-sndio],[choose SNDIO API support])])
 if test "x$with_sndio" = "xyes" ; then
-  AC_DEFINE([CONFIG_SNDIO], 1, [Needed by the compiler.])
+  AC_DEFINE([CONFIG_SNDIO], 1, [Include a sndio-compatible audio backend.])
   AC_CHECK_LIB([sndio], [sio_open], , AC_MSG_ERROR(SNDIO support requires the sndio library -- libsndio-dev suggested))
 fi
 AM_CONDITIONAL([USE_SNDIO], [test "x$with_sndio" = "xyes"])
@@ -270,7 +270,7 @@ AM_CONDITIONAL([USE_SNDIO], [test "x$with_sndio" = "xyes"])
 # Look for AO flag
 AC_ARG_WITH(ao, [AS_HELP_STRING([--with-ao],[choose AO (Audio Output?) API support. N.B. no synchronisation -- so underflow or overflow is inevitable!])])
 if test "x$with_ao" = "xyes" ; then
-  AC_DEFINE([CONFIG_AO], 1, [Needed by the compiler.])
+  AC_DEFINE([CONFIG_AO], 1, [Include an AO-compatible  audio backend.])
   AC_CHECK_LIB([ao], [ao_initialize], , AC_MSG_ERROR(AO support requires the ao library -- libao-dev suggested))
 fi
 AM_CONDITIONAL([USE_AO], [test "x$with_ao" = "xyes"])
@@ -286,7 +286,7 @@ AM_CONDITIONAL([USE_SOUNDIO], [test "x$with_soundio" = "xyes"])
 # Look for pulseaudio flag
 AC_ARG_WITH(pa, [AS_HELP_STRING([--with-pa],[choose PulseAudio support.])])
 if test "x$with_pa" = "xyes" ; then
-  AC_DEFINE([CONFIG_PA], 1, [Needed by the compiler.])
+  AC_DEFINE([CONFIG_PA], 1, [Include PulseAudio support.])
   if  test "x${with_pkg_config}" = xyes ; then
     PKG_CHECK_MODULES(
       [PULSEAUDIO], [libpulse >= 0.9.2],
@@ -299,63 +299,65 @@ fi
 AM_CONDITIONAL([USE_PA], [test "x$with_pa" = "xyes"])
 
 # Look for Convolution flag
-AC_ARG_WITH(convolution, [AS_HELP_STRING([--with-convolution],[choose audio DSP convolution support])], [
-  REQUESTED_CONVOLUTION=1
+AC_ARG_WITH(convolution, [AS_HELP_STRING([--with-convolution],[choose audio DSP convolution support])])
+if test "x$with_convolution" = "xyes" ; then
   AM_INIT_AUTOMAKE([subdir-objects])
-  AC_DEFINE([CONFIG_CONVOLUTION], 1, [Needed by the compiler.])
-  AC_CHECK_LIB([sndfile], [sf_open], , AC_MSG_ERROR(Convolution support requires the sndfile library -- libsndfile1-dev suggested!))], )
-AM_CONDITIONAL([USE_CONVOLUTION], [test "x$REQUESTED_CONVOLUTION" = "x1"])
+  AC_DEFINE([CONFIG_CONVOLUTION], 1, [Include audio DSP convolution support.])
+  AC_CHECK_LIB([sndfile], [sf_open], , AC_MSG_ERROR(Convolution support requires the sndfile library -- libsndfile1-dev suggested!))
+fi
+AM_CONDITIONAL([USE_CONVOLUTION], [test "x$with_convolution" = "xyes"])
 
 # Look for dns_sd flag
-AC_ARG_WITH(dns_sd, [AS_HELP_STRING([--with-dns_sd],[choose dns_sd mDNS support])], [
-  REQUESTED_DNS_SD=1
-  AC_DEFINE([CONFIG_DNS_SD], 1, [Needed by the compiler.])
-  AC_SEARCH_LIBS([DNSServiceRefDeallocate], [dns_sd], , AC_MSG_ERROR(dns_sd support requires the dns_sd library!))], )
-AM_CONDITIONAL([USE_DNS_SD], [test "x$REQUESTED_DNS_SD" = "x1"])
+AC_ARG_WITH(dns_sd, [AS_HELP_STRING([--with-dns_sd],[choose dns_sd mDNS support])])
+if test "x$with_dns_sd" = "xyes" ; then
+  AC_DEFINE([CONFIG_DNS_SD], 1, [Include dns_sd mDNS support.])
+  AC_SEARCH_LIBS([DNSServiceRefDeallocate], [dns_sd], , [AC_MSG_ERROR(dns_sd support requires the dns_sd library!)])
+fi
+AM_CONDITIONAL([USE_DNS_SD], [test "x$with_dns_sd" = "xyes"])
 
 # Look for dbus flag
-AC_ARG_WITH(dbus-interface, [AS_HELP_STRING([--with-dbus-interface],[include support for the native Shairport Sync D-Bus interface])], [
-  AC_DEFINE([CONFIG_DBUS_INTERFACE], 1, [Include support for the native Shairport Sync D-Bus interface])
-  REQUESTED_DBUS=1
-  PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(D-Bus messaging support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
-  ], )
-AM_CONDITIONAL([USE_DBUS], [test "x$REQUESTED_DBUS" = "x1"])
+AC_ARG_WITH(dbus-interface, [AS_HELP_STRING([--with-dbus-interface],[include support for the native Shairport Sync D-Bus interface])])
+if test "x$with_dbus_interface" = "xyes" ; then 
+  AC_DEFINE([CONFIG_DBUS_INTERFACE], 1, [Support the native Shairport Sync D-Bus interface])
+  # remember to include glib, below
+fi
+AM_CONDITIONAL([USE_DBUS], [test "x$with_dbus_interface" = "xyes"])
 
 # Look for dbus test client flag
-AC_ARG_WITH(dbus-test-client, [AS_HELP_STRING([--with-dbus-test-client],[compile a separare D-Bus test client])], [
-  REQUESTED_DBUS_CLIENT=1
-  PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(D-Bus client support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
-  ], )
-AM_CONDITIONAL([USE_DBUS_CLIENT], [test "x$REQUESTED_DBUS_CLIENT" = "x1"])
+AC_ARG_WITH(dbus-test-client, [AS_HELP_STRING([--with-dbus-test-client],[compile a D-Bus test client application])])
+# remember to include glib, below
+AM_CONDITIONAL([USE_DBUS_CLIENT], [test "x$with_dbus_test_client" = "xyes"])
 
 # Look for mpris flag
-AC_ARG_WITH(mpris-interface, [AS_HELP_STRING([--with-mpris-interface],[include support for a D-Bus interface conforming to the MPRIS standard])], [
-  AC_DEFINE([CONFIG_MPRIS_INTERFACE], 1, [Include support for a D-Bus interface conforming to the MPRIS standard])
-  REQUESTED_MPRIS=1
-  PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(MPRIS messaging support for mpris requires the glib 2.0 library -- libglib2.0-dev suggested!)])
-  ], )
-AM_CONDITIONAL([USE_MPRIS], [test "x$REQUESTED_MPRIS" = "x1"])
+AC_ARG_WITH(mpris-interface, [AS_HELP_STRING([--with-mpris-interface],[include support for a D-Bus interface conforming to the MPRIS standard])])
+if test "x$with_mpris_interface" = "xyes" ; then
+  AC_DEFINE([CONFIG_MPRIS_INTERFACE], 1, [Support the MPRIS standard])
+  # remember to include glib, below
+fi
+AM_CONDITIONAL([USE_MPRIS], [test "x$with_mpris_interface" = "xyes"])
 
 # Look for mpris test client flag
-AC_ARG_WITH(mpris-test-client, [AS_HELP_STRING([--with-mpris-test-client],[compile an separate MPRIS test client])], [
-  REQUESTED_MPRIS_CLIENT=1
+AC_ARG_WITH(mpris-test-client, [AS_HELP_STRING([--with-mpris-test-client],[compile an MPRIS test client application])])
+# remember to include glib, below
+AM_CONDITIONAL([USE_MPRIS_CLIENT], [test "x$with_mpris_test_client" = "xyes"])
+
+if test "x$with_mpris_test_client" = "xyes" || test "x$with_dbus_test_client" = "xyes" || test "x$with_mpris_interface" = "xyes" || test "x$with_dbus_interface" = "xyes" ; then
   PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(MPRIS client support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
-  ], )
-AM_CONDITIONAL([USE_MPRIS_CLIENT], [test "x$REQUESTED_MPRIS_CLIENT" = "x1"])
-
-# Look for mqtt flag
-AC_ARG_WITH(mqtt-client, [AS_HELP_STRING([--with-mqtt-client],[include a client for MQTT -- the Message Queuing Telemetry Transport protocol])], [
-  AC_DEFINE([CONFIG_MQTT], 1, [Include a client for MQTT, the Message Queuing Telemetry Transport protocol])
-  REQUESTED_MQTT=1
-  AC_CHECK_LIB([mosquitto], [mosquitto_lib_init], , AC_MSG_ERROR(MQTT support requires the mosquitto library -- libmosquitto-dev suggested!))
-  ],)
-AM_CONDITIONAL([USE_MQTT], [test "x$REQUESTED_MQTT" = "x1"])
-
-if test "x$REQUESTED_MQTT" = "x1" && test "x$with_avahi" = "xyes" ; then
-  AC_MSG_WARN([MQTT needs Avahi to allow remote control functionality. At present, only metadata publishing will be supported])
 fi
 
-if test "x$REQUESTED_MPRIS" = "x1" || test "x$REQUESTED_DBUS" = "x1" || test "x$REQUESTED_MQTT" = "x1"; then
+# Look for mqtt flag
+AC_ARG_WITH(mqtt-client, [AS_HELP_STRING([--with-mqtt-client],[include a client for MQTT -- the Message Queuing Telemetry Transport protocol])])
+if test "x$with_mqtt_client" = "xyes" ; then
+  AC_DEFINE([CONFIG_MQTT], 1, [Include a client for MQTT, the Message Queuing Telemetry Transport protocol])
+  AC_CHECK_LIB([mosquitto], [mosquitto_lib_init], , AC_MSG_ERROR(MQTT support requires the mosquitto library -- libmosquitto-dev suggested!))
+fi
+AM_CONDITIONAL([USE_MQTT], [test "x$with_mqtt_client" = "xyes"])
+
+if test "x$with_mqtt_client" = "xyes" && test "x$with_avahi" != "xyes" ; then
+  AC_MSG_WARN([MQTT needs Avahi for remote control functionality. With the current configuration settings, only metadata publishing will be supported.])
+fi
+
+if test "x$with_mpris_interface" = "xyes" || test "x$with_dbus_interface" = "xyes" || test "x$with_mqtt_client" = "xyes" ; then
   REQUESTED_EXTENDED_METADATA_SUPPORT=1
   AC_DEFINE([CONFIG_METADATA_HUB], 1, [Needed by the compiler.])
   AC_DEFINE([CONFIG_DACP_CLIENT], 1, [Needed by the compiler.])
