@@ -1322,7 +1322,7 @@ void exit_function() {
 #ifdef CONFIG_LIBDAEMON
     if ((this_is_the_daemon_process) ||
         (config.daemonise == 0)) { // if this is the daemon process that is exiting or it's not
-                                   // actually deamonised at all
+                                   // actually daemonised at all
 #endif
       debug(2, "exit function called...");
       /*
@@ -1617,7 +1617,7 @@ int main(int argc, char **argv) {
         debug(2, "killed the %s daemon.", config.appName);
       else
         daemon_log(LOG_WARNING,
-                   "killed the %s deamon, but cannot remove old PID file: \"%s\", errno %u.",
+                   "killed the %s daemon, but cannot remove old PID file: \"%s\", errno %u.",
                    config.appName, strerror(errno), errno);
     }
     return ret < 0 ? 1 : 0;
