@@ -834,7 +834,7 @@ void command_set_volume(double volume) {
           _exit(EXIT_FAILURE); /* only if execv fails */
         }
       }
-    _exit(EXIT_SUCCESS);
+      _exit(EXIT_SUCCESS);
     } else {
       if (config.cmd_blocking) { /* pid!=0 means parent process and if blocking is true, wait for
                                     process to finish */

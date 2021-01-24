@@ -1652,40 +1652,41 @@ void *metadata_mqtt_thread_function(__attribute__((unused)) void *ignore) {
 #endif
 
 void metadata_init(void) {
-	int ret;
-	if (config.metadata_enabled) {
- 		// create the metadata pipe, if necessary
-		size_t pl = strlen(config.metadata_pipename) + 1;
-		char *path = malloc(pl + 1);
-		snprintf(path, pl + 1, "%s", config.metadata_pipename);
-		mode_t oldumask = umask(000);
-		if (mkfifo(path, 0666) && errno != EEXIST)
-			die("Could not create metadata pipe \"%s\".", path);
-		umask(oldumask);
-		debug(1, "metadata pipe name is \"%s\".", path);
+  int ret;
+  if (config.metadata_enabled) {
+    // create the metadata pipe, if necessary
+    size_t pl = strlen(config.metadata_pipename) + 1;
+    char *path = malloc(pl + 1);
+    snprintf(path, pl + 1, "%s", config.metadata_pipename);
+    mode_t oldumask = umask(000);
+    if (mkfifo(path, 0666) && errno != EEXIST)
+      die("Could not create metadata pipe \"%s\".", path);
+    umask(oldumask);
+    debug(1, "metadata pipe name is \"%s\".", path);
 
-		// try to open it
-		fd = try_to_open_pipe_for_writing(path);
-		// we check that it's not a "real" error. From the "man 2 open" page:
-		// "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
-		// open for reading." Which is okay.
-		if ((fd == -1) && (errno != ENXIO)) {
-			char errorstring[1024];
-			strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-			debug(1, "metadata_hub_thread_function -- error %d (\"%s\") opening pipe: \"%s\".", errno,
-						(char *)errorstring, path);
-			warn("can not open metadata pipe -- error %d (\"%s\") opening pipe: \"%s\".", errno,
-					 (char *)errorstring, path);
-		}
-		free(path);
-		int ret;
-		ret = pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL);
-		if (ret)
-			debug(1, "Failed to create metadata thread!");
+    // try to open it
+    fd = try_to_open_pipe_for_writing(path);
+    // we check that it's not a "real" error. From the "man 2 open" page:
+    // "ENXIO  O_NONBLOCK | O_WRONLY is set, the named file is a FIFO, and no process has the FIFO
+    // open for reading." Which is okay.
+    if ((fd == -1) && (errno != ENXIO)) {
+      char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      debug(1, "metadata_hub_thread_function -- error %d (\"%s\") opening pipe: \"%s\".", errno,
+            (char *)errorstring, path);
+      warn("can not open metadata pipe -- error %d (\"%s\") opening pipe: \"%s\".", errno,
+           (char *)errorstring, path);
+    }
+    free(path);
+    int ret;
+    ret = pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL);
+    if (ret)
+      debug(1, "Failed to create metadata thread!");
 
-		ret = pthread_create(&metadata_multicast_thread, NULL, metadata_multicast_thread_function, NULL);
-		if (ret)
-			debug(1, "Failed to create metadata multicast thread!");
+    ret =
+        pthread_create(&metadata_multicast_thread, NULL, metadata_multicast_thread_function, NULL);
+    if (ret)
+      debug(1, "Failed to create metadata multicast thread!");
   }
 #ifdef CONFIG_METADATA_HUB
   ret = pthread_create(&metadata_hub_thread, NULL, metadata_hub_thread_function, NULL);
@@ -1715,19 +1716,19 @@ void metadata_stop(void) {
     pthread_join(metadata_hub_thread, NULL);
     // debug(2, "metadata stop hub done.");
 #endif
-		if (config.metadata_enabled) {
-			// debug(2, "metadata stop multicast thread.");
-			if (metadata_multicast_thread) {
-				pthread_cancel(metadata_multicast_thread);
-				pthread_join(metadata_multicast_thread, NULL);
-				// debug(2, "metadata stop multicast done.");
-			}
-			if (metadata_thread) {
-				// debug(2, "metadata stop metadata_thread thread.");
-				pthread_cancel(metadata_thread);
-				pthread_join(metadata_thread, NULL);
-				// debug(2, "metadata_stop finished successfully.");
-			}
+    if (config.metadata_enabled) {
+      // debug(2, "metadata stop multicast thread.");
+      if (metadata_multicast_thread) {
+        pthread_cancel(metadata_multicast_thread);
+        pthread_join(metadata_multicast_thread, NULL);
+        // debug(2, "metadata stop multicast done.");
+      }
+      if (metadata_thread) {
+        // debug(2, "metadata stop metadata_thread thread.");
+        pthread_cancel(metadata_thread);
+        pthread_join(metadata_thread, NULL);
+        // debug(2, "metadata_stop finished successfully.");
+      }
     }
   }
 }
@@ -1799,8 +1800,9 @@ int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rts
                   int block) {
   int rc;
   if (config.metadata_enabled) {
-  	rc = send_metadata_to_queue(&metadata_queue, type, code, data, length, carrier, block);
-  	rc = send_metadata_to_queue(&metadata_multicast_queue, type, code, data, length, carrier, block);
+    rc = send_metadata_to_queue(&metadata_queue, type, code, data, length, carrier, block);
+    rc =
+        send_metadata_to_queue(&metadata_multicast_queue, type, code, data, length, carrier, block);
   }
 
 #ifdef CONFIG_METADATA_HUB
