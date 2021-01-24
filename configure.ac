@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.50])
-AC_INIT([shairport-sync], [3.3.8d4], [4265913+mikebrady@users.noreply.github.com])
+AC_INIT([shairport-sync], [3.3.8d5], [4265913+mikebrady@users.noreply.github.com])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([shairport.c])
 AC_CONFIG_HEADERS([config.h])
@@ -124,9 +124,9 @@ AC_ARG_WITH(apple-alac,[AS_HELP_STRING([--with-apple-alac],[include support for 
 if test "x${with_apple_alac}"  = "xyes" ; then
   AC_DEFINE([CONFIG_APPLE_ALAC], 1, [Include support for using the Apple ALAC Decoder])
   if  test "x${with_pkg_config}" = xyes ; then
-    PKG_CHECK_MODULES([alac], [alac], [LIBS="${alac_LIBS} ${LIBS}"], AC_MSG_ERROR(Apple ALAC Decoder support requires the ALAC library.))
+    PKG_CHECK_MODULES([alac], [alac], [LIBS="${alac_LIBS} ${LIBS}"], AC_MSG_ERROR(Apple ALAC Decoder support requires the ALAC library. See https://github.com/mikebrady/alac.))
   else
-    AC_CHECK_LIB([alac], [BitBufferInit], , AC_MSG_ERROR(Apple ALAC Decoder support requires the ALAC library.))
+    AC_CHECK_LIB([alac], [BitBufferInit], , AC_MSG_ERROR(Apple ALAC Decoder support requires the ALAC library. See https://github.com/mikebrady/alac.))
   fi
 fi
 AM_CONDITIONAL([USE_APPLE_ALAC], [test "x${with_apple_alac}" = "xyes"])
@@ -182,7 +182,7 @@ elif test "x${with_ssl}" = xmbedtls ; then
 	            [AC_MSG_ERROR([mbed tls support requires the mbedx509 library -- libmbedx509-0 suggested],1)])
 elif test "x${with_ssl}" = xpolarssl ; then
 	AC_DEFINE([CONFIG_POLARSSL], 1, [Use the PolarSSL libraries for encryption and encoding and decoding])
-	AC_CHECK_LIB([polarssl],[ssl_init], , AC_MSG_ERROR(PolarSSL is selected but the library cannot be found and is deprecated. Consider selecting mbed TLS instead using --with-ssl=mbedtls.))
+	AC_CHECK_LIB([polarssl],[ssl_init], , AC_MSG_ERROR(PolarSSL is selected but the library libpolarssl-dev does not seem to be installed and is deprecated. Consider selecting mbedtls instead using --with-ssl=mbedtls.))
 else
 	AC_MSG_ERROR(specify one of --with-ssl=openssl or --with-ssl=mbedtls or --with-ssl=polarssl)
 fi
@@ -311,7 +311,7 @@ AM_CONDITIONAL([USE_CONVOLUTION], [test "x$with_convolution" = "xyes"])
 AC_ARG_WITH(dns_sd, [AS_HELP_STRING([--with-dns_sd],[choose dns_sd mDNS support])])
 if test "x$with_dns_sd" = "xyes" ; then
   AC_DEFINE([CONFIG_DNS_SD], 1, [Include dns_sd mDNS support.])
-  AC_SEARCH_LIBS([DNSServiceRefDeallocate], [dns_sd], , [AC_MSG_ERROR(dns_sd support requires the dns_sd library!)])
+  AC_SEARCH_LIBS([DNSServiceRefDeallocate], [dns_sd], , [AC_MSG_ERROR(dns_sd support requires the dns_sd library. Originally in Apple's mDNSResponder but also in libavahi-compat-libdnssd-dev.)])
 fi
 AM_CONDITIONAL([USE_DNS_SD], [test "x$with_dns_sd" = "xyes"])
 

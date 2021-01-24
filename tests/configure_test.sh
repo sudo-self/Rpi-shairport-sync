@@ -6,13 +6,18 @@
 # If doesn't check for the presence or absence of products except
 # when it checks for the configuration string
 
+# To get it to work first time, and assuming you have already build Shairport Sync according to the standard
+# you need the following extra libraries in Linux:
+# libmbedtls-dev libpolarssl-dev libjack-dev libsndio-dev libao-dev libpulse-dev libsndfile1-dev libavahi-compat-libdnssd-dev libglib2.0-dev libmosquitto-dev
+# Also, you'll need to build the ALAC library -- see https://github.com/mikebrady/alac.
+
 # At present, it is Linux-only.
 check_configuration_string_includes()
 {
 	echo -n " checking configuration string includes \"$1\"..."
 	./shairport-sync -V | grep -q $1
 	if [ "$?" -eq "1" ] ; then
-		echo "\nError: \"$1\" not included in configuration string"
+		echo "\nError: \"$1\" not included in configuration string. See \"../configure_test.log\"."
 		exit 1
 	fi
 	echo -n "ok"
@@ -23,7 +28,7 @@ check_configuration_string_excludes()
 	echo -n " checking configuration string excludes \"$1\"..."
 	./shairport-sync -V | grep -q $1
 	if [ "$?" -eq "0" ] ; then
-		echo "\nError: \"$1\" is unexpectedly included in the configuration string"
+		echo "\nError: \"$1\" is unexpectedly included in the configuration string. See \"../configure_test.log\"."
 		exit 1
 	fi
 	echo -n "ok"
@@ -63,12 +68,12 @@ check_for_success()
 			echo "make -j $((`nproc`*2))" >> $LOGFILE
 			make -j $((`nproc`*2)) >> $LOGFILE 2>&1
 			if [ "$?" -ne "0" ] ; then
-			  echo "\nError at build step with arg \"$A2\"."
+			  echo "\nError at build step with arg \"$A2\". See \"../configure_test.log\"."
 			  exit 1
 			fi
 			echo -n "ok"
 		else
-			echo "\nError at configure step with arg \"$A2\"."
+			echo "\nError at configure step with arg \"$A2\". See \"../configure_test.log\"."
 			exit 1
 		fi
 		if [ "$A4" != "" ] ; then
@@ -88,7 +93,7 @@ check_for_configuration_fail()
 		TESTCOUNT="$(expr "$TESTCOUNT" '+' '1')"
 		./configure $3 $2 > $LOGFILE 2>&1
 		if [ "$?" -eq "0" ] ; then
-			echo "\nError: configuration did not fail with arg \"$2\"."
+			echo "\nError: configuration did not fail with arg \"$2\". See \"../configure_test.log\"."
 			exit 1
 		fi
 		echo " done."
@@ -102,7 +107,7 @@ CWD=`pwd`
 cd ..
 autoreconf -fi > $LOGFILE 2>&1
 if [ "$?" -ne "0" ] ; then
-	echo "\Error running \"autoreconf -fi\""
+	echo " error running \"autoreconf -fi\" -- see \"../configure_test.log\"."
 	exit 1
 fi
 echo "ok."
@@ -199,3 +204,4 @@ check_for_success x$1 --without-systemv '--sysconfdir=/etc --with-libdaemon --wi
 
 cd $CWD
 echo "$TESTCOUNT tests completed."
+
