@@ -9,6 +9,7 @@ Version 3.3.8
 * Fix a bug that caused Shairport Sync to hang, but not actually crash, if an on-play or any on-*** script failed.
 * Fix a crash that occurred if metadata support is enabled during compilation but turned off in the configuration file. Thanks to [Tim Curtis](https://github.com/moodeaudio) for the report.
 * Fix a crash that occurred playing from AirPower on Android. Thanks to [Ircama](https://github.com/Ircama) for the report.
+* Fix the configure.ac file so that `--without-<feature>` configuration options are not interpreted as `--with-<feature>` options instead! Thanks to [David Racine](https://github.com/bassdr) for the report.
 
 Version 3.3.7
 ====
