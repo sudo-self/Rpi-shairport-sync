@@ -33,8 +33,8 @@ Remove it as follows:
 ```
 Do this until no more copies of `shairport-sync` are found.
 
-### Remove Old Startup Scripts
-You should also remove the startup script files `/etc/systemd/system/shairport-sync.service`, `/lib/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed if necessary.
+### Remove Old Startup and Service Scripts
+You should also remove the startup script and service definition files `/etc/systemd/system/shairport-sync.service`, `/lib/systemd/system/shairport-sync.service`, `/etc/init.d/shairport-sync`, `/etc/dbus-1/system.d/shairport-sync-dbus.conf` and `/etc/dbus-1/system.d/shairport-sync-mpris.conf` if they exist – new ones will be installed if necessary.
 
 ### Reboot after Cleaning Up
 If you removed any installations of Shairport Sync or any of its startup script files in the last two steps, you should reboot.
