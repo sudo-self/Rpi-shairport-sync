@@ -29,8 +29,8 @@ Remove it as follows:
 ```
 Do this until no more copies of `shairport-sync` are found. This is especially important if you are building Shairport Sync over an old version that was installed from packages, as the built application will be installed in a different directory to the packaged installation.
 
-### Remove Old Startup Scripts
-You should also remove the startup script files `/etc/systemd/system/shairport-sync.service`, `/lib/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed if necessary. As with the previous section, this is especially important if you are building Shairport Sync over an old version that was installed from packages, as the scripts for the built application may be different to those of the packaged version. If they are left in place, bad things can happen.
+### Remove Old Startup and Service Scripts
+You should also remove the startup script and service definition files `/etc/systemd/system/shairport-sync.service`, `/lib/systemd/system/shairport-sync.service`, `/etc/init.d/shairport-sync`, `/etc/dbus-1/system.d/shairport-sync-dbus.conf` and `/etc/dbus-1/system.d/shairport-sync-mpris.conf` if they exist – new ones will be installed if necessary. As with the previous section, this is especially important if you are building Shairport Sync over an old version that was installed from packages, as the scripts for the built application may be different to those of the packaged version. If they are left in place, bad things can happen.
 
 ### Reboot after Cleaning Up
 If you removed any installations of Shairport Sync or any of its startup script files in the last two steps, you should reboot.
