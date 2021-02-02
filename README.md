@@ -85,6 +85,8 @@ Note that the installation uses the libao library and so synchronisation is not 
 
 **Fedora:** Please see the guide at [FEDORA.md](https://github.com/mikebrady/shairport-sync/blob/master/FEDORA.md).
 
+**Gentoo:** Shairport Sync is available in griffon_overlay, please see the guide at [https://github.com/windfail/griffon_overlay/wiki/shairport-sync](https://github.com/windfail/griffon_overlay/wiki/shairport-sync).
+
 **Cygwin:** Please see the guide at [CYGWIN.md](https://github.com/mikebrady/shairport-sync/blob/master/CYGWIN.md).
 
 Sincere thanks to all package contributors!
