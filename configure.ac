@@ -147,17 +147,18 @@ AM_CONDITIONAL([USE_CUSTOMPIDDIR], [ test "x${with_piddir}" != "x" ])
 
 # Look for libdaemon
 AC_ARG_WITH(libdaemon,[AS_HELP_STRING([--with-libdaemon],[include support for daemonising in non-systemd systems])])
-if test "x$with_libdaemon" = "x1"; then
+if test "x$with_libdaemon" = "xyes"; then
 	AC_DEFINE([CONFIG_LIBDAEMON], 1, [Include libdaemon for daemonising in non-systemd systems])
 	if  test "x${with_pkg_config}" = xyes ; then
 		PKG_CHECK_MODULES(
 				[DAEMON], [libdaemon],
-				[LIBS="${DAEMON_LIBS} ${LIBS}"])
+				[LIBS="${DAEMON_LIBS} ${LIBS}"],
+				[AC_MSG_ERROR(the libdaemon library has been selected but is missing -- libdaemon-dev suggested!)])
 	else
-		AC_CHECK_LIB([daemon],[daemon_fork], , AC_MSG_ERROR(libdaemon needed))
+		AC_CHECK_LIB([daemon],[daemon_fork], , AC_MSG_ERROR(the libdaemon library has been selected but is missing -- libdaemon-dev suggested!))
 	fi
 fi
-AM_CONDITIONAL([USE_LIBDAEMON], [test "x$with_libdaemon" = "x1"])
+AM_CONDITIONAL([USE_LIBDAEMON], [test "x$with_libdaemon" = "xyes"])
 
 # Check --with-ssl=argument
 AC_ARG_WITH(ssl, [AS_HELP_STRING([--with-ssl=<argument>],[choose --with-ssl=openssl, --with-ssl=mbedtls or --with-ssl=polarssl (deprecated) for encryption services  ])])
@@ -241,7 +242,7 @@ if test "x$with_alsa" = "xyes" ; then
   else
     AC_CHECK_LIB([asound], [snd_pcm_open], , AC_MSG_ERROR(ALSA support requires the asound library!))
   fi
-fi  
+fi
 AM_CONDITIONAL([USE_ALSA], [test "x$with_alsa" = "xyes"])
 
 # Look for jack flag
@@ -317,7 +318,7 @@ AM_CONDITIONAL([USE_DNS_SD], [test "x$with_dns_sd" = "xyes"])
 
 # Look for dbus flag
 AC_ARG_WITH(dbus-interface, [AS_HELP_STRING([--with-dbus-interface],[include support for the native Shairport Sync D-Bus interface])])
-if test "x$with_dbus_interface" = "xyes" ; then 
+if test "x$with_dbus_interface" = "xyes" ; then
   AC_DEFINE([CONFIG_DBUS_INTERFACE], 1, [Support the native Shairport Sync D-Bus interface])
   # remember to include glib, below
 fi
