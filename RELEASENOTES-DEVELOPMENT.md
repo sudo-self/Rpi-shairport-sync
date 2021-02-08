@@ -1,3 +1,8 @@
+Version 3.3.8d5
+====
+**Bug Fixes**
+* Fix a fault in the configuration script `configure.ac` that caused the `libdaemon` library to be omitted even when requested. Thanks to [aleszczynskig](https://github.com/aleszczynskig) and [xska2](https://github.com/xska2)for the [report](https://github.com/mikebrady/shairport-sync/issues/1137).
+
 Version 3.3.8d4
 ====
 **Bug Fixes**
