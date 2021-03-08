@@ -71,6 +71,8 @@ Shairport Sync may already be available as a package in your Linux distribution 
 
 **Debian:** shairport-sync is in the Debian archive.
 
+**Ansible Playbooks for CentOS 8 Stream on Raspberry Pi** A suite of Ansible playbooks and scripts to make deploying Shairport Sync easy on CentOS 8 Stream specifically on Raspberry Pi is available at https://github.com/p3ck/ansible-shairport.
+
 **OpenWrt:** There is a Shairport Sync package in OpenWrt trunk. Also, there's an OpenWrt package at https://github.com/mikebrady/shairport-sync-for-openwrt, including one that builds back to Barrier Breaker.
 
 **Arch Linux:** Shairport Sync is available for x86_64 and i686 platforms in the Arch Linux Community Repository -- search for `shairport-sync`. See also https://www.archlinux.org/packages/.
