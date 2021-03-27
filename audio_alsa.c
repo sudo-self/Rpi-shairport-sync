@@ -1456,18 +1456,23 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
   if (ret == 0) {
 
 // must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
-#if SND_LIB_MINOR == 0
+//#if SND_LIB_MINOR == 0
     snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
-#else
-    snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &update_timestamp);
-#endif
+//#else
+//    snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &update_timestamp);
+//#endif
 
     *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
 
     if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
 
-      uint64_t update_timestamp_ns =
-          update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
+ //     uint64_t update_timestamp_ns =
+ //         update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
+
+      uint64_t update_timestamp_ns = update_timestamp.tv_sec;
+      update_timestamp_ns = update_timestamp_ns * 1000000000;
+      update_timestamp_ns = update_timestamp_ns + update_timestamp.tv_nsec;
+
 
       // if the update_timestamp is zero, we take this to mean that the device doesn't report
       // interrupt timings. (It could be that it's not a real hardware device.)
@@ -1497,7 +1502,7 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
       if (update_timestamp_ns == 0) {
         ret = snd_pcm_delay(alsa_handle, delay);
       } else {
-        *delay = snd_pcm_status_get_delay(alsa_snd_pcm_status);
+        snd_pcm_sframes_t delay_temp = snd_pcm_status_get_delay(alsa_snd_pcm_status);
 
         /*
         // It seems that the alsa library uses CLOCK_REALTIME before 1.0.28, even though
@@ -1514,11 +1519,15 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
         else
           clock_gettime(CLOCK_REALTIME, &tn);
 
-        uint64_t time_now_ns = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
+        // uint64_t time_now_ns = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
+        uint64_t time_now_ns = tn.tv_sec;
+        time_now_ns = time_now_ns * 1000000000;
+        time_now_ns = time_now_ns + tn.tv_nsec;
+
 
         // see if it's stalled
 
-        if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == *delay)) {
+        if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == delay_temp)) {
           // hasn't outputted anything since the last call to delay()
 
           if (((update_timestamp_ns - stall_monitor_start_time) > stall_monitor_error_threshold) ||
@@ -1539,19 +1548,27 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
           }
         } else {
           stall_monitor_start_time = update_timestamp_ns;
-          stall_monitor_frame_count = *delay;
+          stall_monitor_frame_count = delay_temp;
         }
 
         if (ret == 0) {
           uint64_t delta = time_now_ns - update_timestamp_ns;
 
-          uint64_t frames_played_since_last_interrupt =
-              ((uint64_t)config.output_rate * delta) / 1000000000;
+//          uint64_t frames_played_since_last_interrupt =
+//              ((uint64_t)config.output_rate * delta) / 1000000000;
+
+            uint64_t frames_played_since_last_interrupt = config.output_rate;
+            frames_played_since_last_interrupt = frames_played_since_last_interrupt * delta;
+            frames_played_since_last_interrupt = frames_played_since_last_interrupt / 1000000000;
+
+
           snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
               frames_played_since_last_interrupt;
-
-          *delay = *delay - frames_played_since_last_interrupt_sized;
+          if ((frames_played_since_last_interrupt_sized < 0) || ((uint64_t)frames_played_since_last_interrupt_sized != frames_played_since_last_interrupt))
+            debug(1,"overflow resizing frames_played_since_last_interrupt % " PRIx64 " to frames_played_since_last_interrupt %lx.", frames_played_since_last_interrupt, frames_played_since_last_interrupt_sized);
+          delay_temp = delay_temp - frames_played_since_last_interrupt_sized;
         }
+        *delay = delay_temp;
       }
     } else { // not running, thus no delay information, thus can't check for
              // stall
