@@ -1,3 +1,8 @@
+Version 3.3.8d6
+====
+**Bug Fix**
+* Fix a bug in the `alsa` precision timing code. Thanks to [durwin99](https://github.com/durwin99), [Nicolas Da Mutten](https://github.com/cleverer), [mistakenideas](https://github.com/mistakenideas), [Ben Willmore](https://github.com/ben-willmore) and [giggywithit](https://github.com/giggywithit) for the [report](https://github.com/mikebrady/shairport-sync/issues/1158).
+
 Version 3.3.8d5
 ====
 **Bug Fixes**
