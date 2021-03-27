@@ -1455,12 +1455,19 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
   int ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
   if (ret == 0) {
 
-// must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
-//#if SND_LIB_MINOR == 0
     snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
-//#else
-//    snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &update_timestamp);
-//#endif
+
+/*
+// must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
+#if SND_LIB_MINOR != 0
+    snd_htimestamp_t driver_htstamp;
+    snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &driver_htstamp);
+    uint64_t driver_htstamp_ns = driver_htstamp.tv_sec;
+    driver_htstamp_ns = driver_htstamp_ns * 1000000000;
+    driver_htstamp_ns = driver_htstamp_ns + driver_htstamp.tv_nsec;
+    debug(1,"driver_htstamp: %f.", driver_htstamp_ns * 0.000000001);
+#endif
+*/
 
     *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
 
