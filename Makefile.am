@@ -80,6 +80,10 @@ if USE_PA
 shairport_sync_SOURCES += audio_pa.c
 endif
 
+if USE_PW
+shairport_sync_SOURCES += audio_pw.c
+endif
+
 if USE_CONVOLUTION
 shairport_sync_SOURCES += FFTConvolver/AudioFFT.cpp FFTConvolver/FFTConvolver.cpp FFTConvolver/Utilities.cpp FFTConvolver/convolver.cpp
 AM_CXXFLAGS += -std=c++11
