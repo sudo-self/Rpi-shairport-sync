@@ -42,6 +42,7 @@ What else?
 * An [MPRIS](https://specifications.freedesktop.org/mpris-spec/2.2/) interface, partially complete and very functional, including access to metadata and artwork, and some limited remote control.
 * An interface to [MQTT](https://en.wikipedia.org/wiki/MQTT), an often-used protocol in home automation projects.
 * A native D-Bus interface, including access to metadata and artwork, some limited remote control and some system settings.
+* Digital Signal Processing facilities -- please see the [DSP Wiki Page Guide](https://github.com/mikebrady/shairport-sync/wiki/Digital-Signal-Processing-with-Shairport-Sync). (Thanks to [Yann Pomarède](https://github.com/yannpom) for the code and to [Paul Wieland](https://github.com/PaulWieland) for the guide.)
 
 Heritage
 -------
