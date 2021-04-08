@@ -1,3 +1,8 @@
+Version 3.3.8d7
+====
+**Bug Fix**
+* Fix a bug in the `alsa` back end. In the interval between checking to see if the alsa device handle was NULL and actually using it, the handle could be set to NULL. The interval between check and usage is now protected.
+
 Version 3.3.8d6
 ====
 **Bug Fix**
