@@ -1606,25 +1606,26 @@ int delay(long *the_delay) {
   // sps_extra_code_output_state_cannot_make_ready codes
   int ret = 0;
   *the_delay = 0;
+
+  int oldState;
+
+  snd_pcm_state_t state;
+  snd_pcm_sframes_t my_delay = 0; // this initialisation is to silence a clang warning
+
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
+
   if (alsa_handle == NULL)
     ret = ENODEV;
-  else {
-    int oldState;
-
-    snd_pcm_state_t state;
-    snd_pcm_sframes_t my_delay = 0; // this initialisation is to silence a clang warning
-
-    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
-    pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
-
+  else
     ret = delay_and_status(&state, &my_delay, NULL);
 
-    debug_mutex_unlock(&alsa_mutex, 0);
-    pthread_cleanup_pop(0);
-    pthread_setcancelstate(oldState, NULL);
+  debug_mutex_unlock(&alsa_mutex, 0);
+  pthread_cleanup_pop(0);
+  pthread_setcancelstate(oldState, NULL);
 
-    *the_delay = my_delay; // note: snd_pcm_sframes_t is a long
-  }
+  *the_delay = my_delay; // note: snd_pcm_sframes_t is a long
+
   return ret;
 }
 
