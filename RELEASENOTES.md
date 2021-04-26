@@ -8,7 +8,7 @@ Version 3.3.8
 **Bug Fixes**
 * Fix a bug in the `alsa` back end. In the interval between checking that the alsa device handle was non-`NULL` and actually using it, the handle could be set to `NULL`. The interval between check and usage is now protected.
 * Fix a bug in the `alsa` precision timing code. Thanks to [durwin99](https://github.com/durwin99), [Nicolas Da Mutten](https://github.com/cleverer), [mistakenideas](https://github.com/mistakenideas), [Ben Willmore](https://github.com/ben-willmore) and [giggywithit](https://github.com/giggywithit) for the [report](https://github.com/mikebrady/shairport-sync/issues/1158).
-* Fix a bug that caused Shairport Sync to hang, but not actually crash, if an on-play or any `on-...` script failed.
+* Fix a bug that caused Shairport Sync to hang, but not actually crash, if an `on-...` script failed.
 * Fix a crash that occurred if metadata support is enabled during compilation but turned off in the configuration file. Thanks to [Tim Curtis](https://github.com/moodeaudio) for the report.
 * Fix a crash that occurred playing from AirPower on Android. Thanks to [Ircama](https://github.com/Ircama) for the report.
 * Fix the configure.ac file so that `--without-<feature>` configuration options are not interpreted as `--with-<feature>` options instead! Thanks to [David Racine](https://github.com/bassdr) for the report.
