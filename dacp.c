@@ -446,11 +446,11 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
   if (dacp_server.active_remote_id)
     free(dacp_server.active_remote_id);
   if (conn->dacp_active_remote)
-		dacp_server.active_remote_id =
-				strdup(conn->dacp_active_remote); // even if the dacp_id remains the same,
-																					// the active remote will change.
+    dacp_server.active_remote_id =
+        strdup(conn->dacp_active_remote); // even if the dacp_id remains the same,
+                                          // the active remote will change.
   else
-  	dacp_server.active_remote_id = NULL;
+    dacp_server.active_remote_id = NULL;
 
   debug(3, "set_dacp_server_information set active-remote id to %s.", dacp_server.active_remote_id);
   pthread_cond_signal(&dacp_server_information_cv);
