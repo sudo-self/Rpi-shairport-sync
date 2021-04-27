@@ -1,0 +1,3 @@
+[submodule "tinyhttp"]
+	path = tinyhttp
+	url = https://github.com/mendsley/tinyhttp.git
