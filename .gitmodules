@@ -1,6 +1,7 @@
 [submodule "tinyhttp"]
 	path = tinyhttp
 	url = https://github.com/mendsley/tinyhttp.git
+	ignore = dirty
 [submodule "pair_ap"]
 	path = pair_ap
 	url = https://github.com/ejurgensen/pair_ap

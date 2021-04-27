@@ -378,7 +378,7 @@ if test "x$with_airplay_2" = "xyes" ; then
   AC_MSG_RESULT(>>Include libraries required for  AirPlay 2)
   AC_CHECK_LIB([plist], [plist_from_memory], , AC_MSG_ERROR(AirPlay 2 support requires libplist -- libplist-dev suggested!))
   AC_CHECK_LIB([sodium], [sodium_init], ,[AC_MSG_ERROR([AirPlay 2 support requires libsodium -- libsodium-dev suggested])])
-  AC_CHECK_LIB([avutil],[av_malloc], [], [AirPlay([Airplay 2 support requires libavutil -- libavutil-dev suggested])])
+  AC_CHECK_LIB([avutil],[av_malloc], [], [AC_MSG_ERROR([Airplay 2 support requires libavutil -- libavutil-dev suggested])])
   AC_CHECK_LIB([avcodec],[avcodec_find_encoder], [], [AC_MSG_ERROR([AirPlay 2 support requires libavcodec -- libavcodec-dev suggested])])
   AC_CHECK_LIB([avformat],[avformat_new_stream], [], [AC_MSG_ERROR([AirPlay 2 support requires libavformat -- libavformat-dev suggested])])
   AC_CHECK_LIB([swresample],[swr_convert], [], [AC_MSG_ERROR([AirPlay 2 support requires libswresample -- libswresample-dev suggested])])
