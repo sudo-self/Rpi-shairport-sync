@@ -263,8 +263,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-                                             
-                                             
+
+
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -275,19 +275,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-                                             
+
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-                                             
+
                                                               // Best guess is that this delay is 11,025 frames.
-                                             
+
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-                                             
+
                                                               uint32_t fl = nctohs(&packet[2]); //
-                                             
+
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -364,17 +364,29 @@ void *rtp_control_receiver(void *arg) {
                      la, max_frames, conn->latency);
               } else {
 
+                // here we have the latency but it does not yet account for the audio_backend_latency_offset
+                int32_t latency_offset = (uint32_t)(config.audio_backend_latency_offset * conn->input_rate);
+                int32_t adjusted_latency = latency_offset + (int32_t)la;
+                if ((adjusted_latency < 0) || (adjusted_latency > (int32_t)(conn->max_frames_per_packet * (BUFFER_FRAMES - config.minimum_free_buffer_headroom))))
+                  warn("audio_backend_latency_offset out of range -- ignored.");
+                else
+                  la = adjusted_latency;
+
                 if (la != conn->latency) {
                   conn->latency = la;
-                  debug(3,
-                        "New latency detected: %" PRIu32 ", sync latency: %" PRIu32
+                  debug(1,
+                        "New latency: %" PRIu32 ", sync latency: %" PRIu32
                         ", minimum latency: %" PRIu32 ", maximum "
-                        "latency: %" PRIu32 ", fixed offset: %" PRIu32 ".",
+                        "latency: %" PRIu32 ", fixed offset: %" PRIu32 ", audio_backend_latency_offset: %f.",
                         la, sync_rtp_timestamp - rtp_timestamp_less_latency, conn->minimum_latency,
-                        conn->maximum_latency, config.fixedLatencyOffset);
+                        conn->maximum_latency, config.fixedLatencyOffset, config.audio_backend_latency_offset);
                 }
               }
             }
+
+            // here, we apply the latency to the sync_rtp_timestamp
+
+            sync_rtp_timestamp = sync_rtp_timestamp - conn->latency;
 
             debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
 

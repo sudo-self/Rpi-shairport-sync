@@ -4,7 +4,7 @@
  * All rights reserved.
  *
  * Modifications for audio synchronisation
- * and related work, copyright (c) Mike Brady 2014 -- 2020
+ * and related work, copyright (c) Mike Brady 2014 -- 2021
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -641,31 +641,6 @@ int32_t rand_in_range(int32_t exclusive_range_limit) {
   return sp >> 32;
 }
 
-int get_and_check_effective_latency(rtsp_conn_info *conn, uint32_t *effective_latency,
-                                    double offset_time) {
-  // check that the overall effective latency remains positive and is not greater than the capacity
-  // of the buffers return 0 if okay, -1 if the latency would be negative, +1 if it would be too
-  // large
-
-  int result = 0;
-  if (offset_time >= 0.0) {
-    uint32_t latency_addition = (uint32_t)(offset_time * conn->input_rate);
-    // keep about one second of buffers back
-    if ((*effective_latency + latency_addition) <=
-        (conn->max_frames_per_packet * (BUFFER_FRAMES - config.minimum_free_buffer_headroom)))
-      *effective_latency += latency_addition;
-    else
-      result = 1;
-  } else {
-    uint32_t latency_reduction = (uint32_t)((-offset_time) * conn->input_rate);
-    if (latency_reduction <= *effective_latency)
-      *effective_latency -= latency_reduction;
-    else
-      result = -1;
-  }
-  return result;
-}
-
 static inline void process_sample(int32_t sample, char **outp, sps_format_t format, int volume,
                                   int dither, rtsp_conn_info *conn) {
   /*
@@ -1081,33 +1056,21 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               // To calculate when the first packet will be played, we figure out the exact time the
               // packet should be played according to its timestamp and the reference time.
-              // We then need to add the desired latency, typically 88200 frames.
+              // The desired latency, typically 88200 frames, will be calculated for in rtp.c,
+              // and any desired backend latency offset included in it there.
 
-              // Then we need to offset this by the backend latency offset. For example, if we knew
-              // that the audio back end has a latency of 100 ms, we would
-              // ask for the first packet to be emitted 100 ms earlier than it should, i.e. -4410
-              // frames, so that when it got through the audio back end,
-
-              // if would be in sync. To do this, we would give it a latency offset of -0.1 sec,
-              // i.e. -4410 frames.
 
               uint64_t should_be_time;
-              uint32_t effective_latency = conn->latency;
 
-              get_and_check_effective_latency(conn, &effective_latency,
-                                              config.audio_backend_latency_offset);
-              // we are ignoring the returned status because it will be captured on subsequent
-              // frames, below.
-
-              // what we are asking for here is "what is the local time at which time the calculated
-              // frame should be played"
-
-              frame_to_local_time(conn->first_packet_timestamp +
-                                      effective_latency, // this will go modulo 2^32
+              frame_to_local_time(conn->first_packet_timestamp, // this will go modulo 2^32
                                   &should_be_time, conn);
 
               conn->first_packet_time_to_play = should_be_time;
-              debug(2, "first_packet_time set for frame %u.", conn->first_packet_timestamp);
+
+              int64_t lt = conn->first_packet_time_to_play - local_time_now;
+
+              debug(1, "Connection %d: Lead time: %f seconds.", conn->connection_number,
+                    lt * 0.000000001);
 
               if (local_time_now > conn->first_packet_time_to_play) {
                 uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
@@ -1130,39 +1093,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               // here, we figure out whether and what silence to send.
 
               uint64_t should_be_time;
-              uint32_t effective_latency = conn->latency;
-
-              switch (get_and_check_effective_latency(conn, &effective_latency,
-                                                      config.audio_backend_latency_offset)) {
-              case -1:
-                if (conn->unachievable_audio_backend_latency_offset_notified == 0) {
-                  warn(
-                      "Negative latency! A latency of %d frames requested by the player, when "
-                      "combined with an audio_backend_latency_offset of %f seconds, would make the "
-                      "overall latency negative. The audio_backend_latency_offset setting is "
-                      "ignored.",
-                      conn->latency, config.audio_backend_latency_offset);
-                  config.audio_backend_latency_offset = 0; // set it to zero
-                  conn->unachievable_audio_backend_latency_offset_notified = 1;
-                };
-                break;
-              case 1:
-                if (conn->unachievable_audio_backend_latency_offset_notified == 0) {
-                  warn("An audio_backend_latency_offset of %f seconds may exceed the frame "
-                       "buffering "
-                       "capacity -- the setting is ignored.",
-                       config.audio_backend_latency_offset);
-                  config.audio_backend_latency_offset = 0; // set it to zero;
-                  conn->unachievable_audio_backend_latency_offset_notified = 1;
-                };
-                break;
-              default:
-                break;
-              }
 
               // readjust first packet time to play
-              frame_to_local_time(conn->first_packet_timestamp +
-                                      effective_latency, // this will go modulo 2^32
+              frame_to_local_time(conn->first_packet_timestamp, // this will go modulo 2^32
                                   &should_be_time, conn);
 
               int64_t change_in_should_be_time =
@@ -1315,50 +1248,13 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       if (have_timestamp_timing_information(conn)) { // if we have a reference time
 
         uint64_t time_to_play;
-        uint32_t effective_latency = conn->latency;
 
-        switch (get_and_check_effective_latency(conn, &effective_latency,
-                                                config.audio_backend_latency_offset -
-                                                    config.audio_backend_buffer_desired_length)) {
-        case -1:
-          // this means that the latency is negative, i.e. the packet must be played before its
-          // time. This is clearly a mistake, and can arise if the combination of a large negative
-          // latency offset and the desired buffer length are greater than the latency chosen by the
-          // player. For example if the latency is 88200 frames (2 seconds), the
-          // audio_backend_latency_offset is -1.9 and the audio_backend_buffer_desired_length is 0.2
-          // the effective latency is -0.1, so the frame must be played 0.1 seconds before it is
-          // time-tagged for, and in reality before it arrives at the player.
+        // we must enable packets to be released early enough for the
+        // audio buffer to be filled to the desired length
 
-          // to deal with the problem, rather than block the packets, we'll just let 'em go...
-
-          //
-          if (conn->unachievable_audio_backend_latency_offset_notified == 0) {
-            warn("Negative latency! A latency of %d frames requested by the player, when combined "
-                 "with an audio_backend_latency_offset of %f seconds an "
-                 "audio_backend_buffer_desired_length of %f seconds, would make the overall "
-                 "latency negative. No latency is used. Synchronisation may fail.",
-                 conn->latency, config.audio_backend_latency_offset,
-                 config.audio_backend_buffer_desired_length);
-            conn->unachievable_audio_backend_latency_offset_notified = 1;
-          };
-          time_to_play = local_time_now; // pretend the frame should be played now...
-          break;
-        case 1:
-          if (conn->unachievable_audio_backend_latency_offset_notified == 0) {
-            warn("Latency too long! An audio_backend_latency_offset of %f seconds combined with an "
-                 "audio_backend_buffer_desired_length of %f seconds  may exceed the frame "
-                 "buffering capacity.",
-                 config.audio_backend_latency_offset, config.audio_backend_buffer_desired_length);
-            conn->unachievable_audio_backend_latency_offset_notified = 1;
-          };
-          time_to_play = local_time_now; // pretend the frame should be played now...
-          break;
-        default:
-          frame_to_local_time(curframe->given_timestamp +
-                                  effective_latency, // this will go modulo 2^32
-                              &time_to_play, conn);
-          break;
-        }
+        uint32_t buffer_latency_offset = (uint32_t)(config.audio_backend_buffer_desired_length * conn->input_rate);
+        frame_to_local_time(curframe->given_timestamp - buffer_latency_offset, // this will go modulo 2^32
+                                &time_to_play, conn);
 
         if (local_time_now >= time_to_play) {
           do_wait = 0;
@@ -2134,7 +2030,7 @@ void *player_thread_func(void *arg) {
             die("Shairport Sync only supports 16 bit input");
           }
 
-          at_least_one_frame_seen = 1;
+          inbuflength *= conn->output_sample_ratio;
 
           // We have a frame of data. We need to see if we want to add or remove a frame from it to
           // keep in sync.
@@ -2146,22 +2042,7 @@ void *player_thread_func(void *arg) {
           // now, go back as far as the total latency less, say, 100 ms, and check the presence of
           // frames from then onwards
 
-          inbuflength *= conn->output_sample_ratio;
-          /*
-          uint32_t reference_timestamp;
-          uint64_t reference_timestamp_time, remote_reference_timestamp_time;
-          get_reference_timestamp_stuff(&reference_timestamp, &reference_timestamp_time,
-                                        &remote_reference_timestamp_time, conn); // types okay
-          */
-
-          // nt is the rtp timestamp of the first frame of the current packet of
-          // frames from the source.
-          // multiply it by the output frame ratio to get, effectively, the rtp timestamp
-          // of the first frame of the corresponding packet of output frames.
-
-          uint64_t nt;
-          nt = inframe->given_timestamp; // uint32_t to int64_t
-          nt = nt * conn->output_sample_ratio;
+          at_least_one_frame_seen = 1;
 
           uint64_t local_time_now = get_absolute_time_in_ns(); // types okay
 
@@ -2244,23 +2125,13 @@ void *player_thread_func(void *arg) {
 
             uint32_t should_be_frame_32;
             local_time_to_frame(local_time_now, &should_be_frame_32, conn);
-            // int64_t should_be_frame = ((int64_t)should_be_frame_32) * conn->output_sample_ratio;
+            int64_t should_be_frame = ((int64_t)should_be_frame_32) * conn->output_sample_ratio;
 
             int64_t delay =
-                int64_mod_difference(should_be_frame_32 * conn->output_sample_ratio,
-                                     nt - current_delay, UINT32_MAX * conn->output_sample_ratio);
+                should_be_frame - (inframe->given_timestamp * conn->output_sample_ratio -
+                                   current_delay); // all int64_t
 
-            // int64_t delay = should_be_frame - (nt - current_delay); // all int64_t
-
-            // the original frame numbers are unsigned 32-bit integers that roll over modulo 2^32
-            // hence these delay figures will be unsigned numbers that roll over modulo 2^32 *
-            // conn->output_sample_ratio; therefore, calculating the delay must be done in the light
-            // of possible rollover
-
-            sync_error =
-                delay - ((int64_t)conn->latency * conn->output_sample_ratio +
-                         (int64_t)(config.audio_backend_latency_offset *
-                                   config.output_rate)); // int64_t from int64_t - int32_t, so okay
+            sync_error = delay; // int64_t from int64_t - int32_t, so okay
 
             if (at_least_one_frame_seen_this_session == 0) {
               at_least_one_frame_seen_this_session = 1;
@@ -2361,7 +2232,8 @@ void *player_thread_func(void *arg) {
                 debug(2,
                       "Large negative sync error: %" PRId64 " with should_be_frame_32 of %" PRIu32
                       ", nt of %" PRId64 " and current_delay of %" PRId64 ".",
-                      sync_error, should_be_frame_32, nt, current_delay);
+                      sync_error, should_be_frame_32,
+                      inframe->given_timestamp * conn->output_sample_ratio, current_delay);
                 int64_t silence_length = -sync_error;
                 if (silence_length > (filler_length * 5))
                   silence_length = filler_length * 5;
@@ -2587,29 +2459,6 @@ void *player_thread_func(void *arg) {
               */
             }
           } else {
-
-            // if there is no delay procedure, then we should be sending the packet
-            // to the output at the time determined by
-            // the packet's time to play + requested latency + requested offset.
-            /*
-                                                            // This is just for checking during
-               development
-
-                        uint32_t should_be_frame_32;
-                        local_time_to_frame(local_time_now, &should_be_frame_32, conn);
-                        // int64_t should_be_frame = ((int64_t)should_be_frame_32) *
-               conn->output_sample_ratio;
-
-                        int32_t ilatency = (int32_t)((config.audio_backend_latency_offset -
-               config.audio_backend_buffer_desired_length) * conn->input_rate) + conn->latency; if
-               (ilatency < 0) debug(1,"incorrect latency %d.", ilatency);
-
-                        int32_t idelay = (int32_t)(should_be_frame_32 - inframe->given_timestamp);
-
-                        idelay = idelay - ilatency;
-
-                        debug(2,"delay is %d input frames.", idelay);
-            */
 
             // if this is the first frame, see if it's close to when it's supposed to be
             // release, which will be its time plus latency and any offset_time
