@@ -341,7 +341,7 @@ typedef struct {
   uint64_t dac_buffer_queue_minimum_length;
 } rtsp_conn_info;
 
-uint32_t modulo_32_offset(uint32_t from, uint32_t to);
+int32_t modulo_32_offset(uint32_t from, uint32_t to);
 
 int player_play(rtsp_conn_info *conn);
 int player_stop(rtsp_conn_info *conn);
@@ -349,7 +349,7 @@ int player_stop(rtsp_conn_info *conn);
 void player_volume(double f, rtsp_conn_info *conn);
 void player_volume_without_notification(double f, rtsp_conn_info *conn);
 void player_flush(uint32_t timestamp, rtsp_conn_info *conn);
-void player_put_packet(seq_t seqno, uint32_t actual_timestamp, uint8_t *data, int len,
+void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timestamp, uint8_t *data, int len,
                        rtsp_conn_info *conn);
 int64_t monotonic_timestamp(uint32_t timestamp,
                             rtsp_conn_info *conn); // add an epoch to the timestamp. The monotonic

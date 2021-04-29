@@ -222,7 +222,7 @@ void *rtp_audio_receiver(void *arg) {
         if (plen >= 16) {
           if ((config.diagnostic_drop_packet_fraction == 0.0) ||
               (drand48() > config.diagnostic_drop_packet_fraction))
-            player_put_packet(seqno, actual_timestamp, pktp, plen,
+            player_put_packet(1, seqno, actual_timestamp, pktp, plen,
                               conn); // the '1' means is original format
           else
             debug(3, "Dropping audio packet %u to simulate a bad connection.", seqno);
@@ -469,7 +469,7 @@ void *rtp_control_receiver(void *arg) {
 
           // check if packet contains enough content to be reasonable
           if (plen >= 16) {
-            player_put_packet(seqno, actual_timestamp, pktp, plen,
+            player_put_packet(1, seqno, actual_timestamp, pktp, plen,
                               conn); // the '1' means is original format
             continue;
           } else {
@@ -1114,140 +1114,6 @@ int local_ntp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn
   return result;
 }
 
-void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
-                     uint64_t networktime) {
-  if (conn->anchor_clock != clock_id)
-    debug(1, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
-  conn->anchor_remote_info_is_valid = 1;
-  conn->anchor_rtptime = rtptime;
-  conn->anchor_time = networktime;
-  conn->anchor_clock = clock_id;
-}
-
-void reset_ptp_anchor_info(rtsp_conn_info *conn) {
-  debug(2, "Connection %d: Clear anchor information.", conn->connection_number);
-  conn->last_anchor_info_is_valid = 0;
-  conn->anchor_remote_info_is_valid = 0;
-}
-
-int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
-                               uint64_t *anchorLocalTime) {
-  int response = 0;
-  uint64_t actual_clock_id, actual_offset;
-
-  int ptp_status = ptp_get_clock_info(&actual_clock_id, &actual_offset);
-
-  if (ptp_status == 0) {
-    if (conn->anchor_remote_info_is_valid != 0) {
-      if (actual_clock_id == conn->anchor_clock) {
-        conn->last_anchor_clock_offset = actual_offset;
-        conn->last_anchor_time_of_update = get_absolute_time_in_ns();
-        conn->last_anchor_info_is_valid = 1;
-        if (anchorRTP != NULL)
-          *anchorRTP = conn->anchor_rtptime;
-        if (anchorLocalTime != NULL)
-          *anchorLocalTime = conn->anchor_time - conn->last_anchor_clock_offset;
-      } else {
-        if (conn->last_anchor_info_is_valid != 0) {
-          int64_t time_since_last_update =
-              get_absolute_time_in_ns() - conn->last_anchor_time_of_update;
-          if (time_since_last_update > 5000000000) {
-            debug(1, "change master clock to %" PRIx64 ".", actual_clock_id);
-            uint64_t new_anchor_time = conn->anchor_time;
-            new_anchor_time = new_anchor_time - conn->last_anchor_clock_offset; // to local
-            new_anchor_time = new_anchor_time + actual_offset;                  // to the next clock
-            conn->anchor_time = new_anchor_time;
-            conn->anchor_clock = actual_clock_id;
-            if (anchorRTP != NULL)
-              *anchorRTP = conn->anchor_rtptime;
-            if (anchorLocalTime != NULL)
-              *anchorLocalTime = conn->anchor_time - actual_offset;
-          } else {
-            if (anchorRTP != NULL)
-              *anchorRTP = conn->anchor_rtptime;
-            if (anchorLocalTime != NULL)
-              *anchorLocalTime = conn->anchor_time - conn->last_anchor_clock_offset;
-          }
-        } else {
-          debug(2, "no clock and no old anchor times");
-          response = -1;
-        }
-      }
-    } else {
-      debug(2, "don't have anchor_remote_time_info");
-      response = -1;
-    }
-  } else if (ptp_status == -1) {
-    debug(3, "don't have the ptp clock interface");
-    response = -1;
-  } else {
-    debug(3, "ptp clock not valid");
-    response = -1;
-  }
-  return response;
-}
-
-int get_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
-                               uint64_t *anchorLocalTime) {
-  return get_ptp_anchor_local_time_info(conn, anchorRTP,anchorLocalTime);
-}
-
-int have_ptp_timing_information(rtsp_conn_info *conn) {
-  if (get_anchor_local_time_info(conn, NULL, NULL) == 0)
-    return 1;
-  else
-    return 0;
-}
-
-int have_timing_information(rtsp_conn_info *conn) {
-  return have_ptp_timing_information(conn);
-}
-
-int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
-  int result = -1;
-  uint32_t anchor_rtptime;
-  uint64_t anchor_local_time;
-  if (get_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == 0) {
-    int32_t frame_difference = timestamp - anchor_rtptime;
-    int64_t time_difference = frame_difference;
-    time_difference = time_difference * 1000000000;
-    time_difference = time_difference / conn->input_rate;
-    uint64_t ltime = anchor_local_time + time_difference;
-    *time = ltime;
-    result = 0;
-  } else {
-    debug(3, "frame_to_local_time can't get anchor local time information");
-  }
-  return result;
-}
-
-int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
-  return frame_to_ntp_local_time(timestamp, time, conn);
-}
-
-int local_ptp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
-  int result = -1;
-  uint32_t anchor_rtptime;
-  uint64_t anchor_local_time;
-  if (get_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == 0) {
-    int64_t time_difference = time - anchor_local_time;
-    int64_t frame_difference = time_difference;
-    frame_difference = frame_difference * conn->input_rate; // but this is by 10^9
-    frame_difference = frame_difference / 1000000000;
-    int32_t fd32 = frame_difference;
-    uint32_t lframe = anchor_rtptime + fd32;
-    *frame = lframe;
-    result = 0;
-  } else {
-    debug(3, "local_time_to_frame can't get anchor local time information");
-  }
-  return result;
-}
-
-int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
-  return local_ntp_time_to_frame(time, frame, conn);
-}
-
 void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
   // debug(1, "rtp_request_resend of %u packets from sequence number %u.", count, first);
   if (conn->rtp_running) {
@@ -1330,8 +1196,133 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
   }
 }
 
-#if 0
+int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
+  return frame_to_ntp_local_time(timestamp, time, conn);
+}
+
+int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
+  return local_ntp_time_to_frame(time, frame, conn);
+}
+
+
 #ifdef CONFIG_AIRPLAY_2
+
+void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
+                     uint64_t networktime) {
+  if (conn->anchor_clock != clock_id)
+    debug(1, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
+  conn->anchor_remote_info_is_valid = 1;
+  conn->anchor_rtptime = rtptime;
+  conn->anchor_time = networktime;
+  conn->anchor_clock = clock_id;
+}
+
+void reset_ptp_anchor_info(rtsp_conn_info *conn) {
+  debug(2, "Connection %d: Clear anchor information.", conn->connection_number);
+  conn->last_anchor_info_is_valid = 0;
+  conn->anchor_remote_info_is_valid = 0;
+}
+
+int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
+                               uint64_t *anchorLocalTime) {
+  int response = 0;
+  uint64_t actual_clock_id, actual_offset;
+
+  int ptp_status = ptp_get_clock_info(&actual_clock_id, &actual_offset);
+
+  if (ptp_status == 0) {
+    if (conn->anchor_remote_info_is_valid != 0) {
+      if (actual_clock_id == conn->anchor_clock) {
+        conn->last_anchor_clock_offset = actual_offset;
+        conn->last_anchor_time_of_update = get_absolute_time_in_ns();
+        conn->last_anchor_info_is_valid = 1;
+        if (anchorRTP != NULL)
+          *anchorRTP = conn->anchor_rtptime;
+        if (anchorLocalTime != NULL)
+          *anchorLocalTime = conn->anchor_time - conn->last_anchor_clock_offset;
+      } else {
+        if (conn->last_anchor_info_is_valid != 0) {
+          int64_t time_since_last_update =
+              get_absolute_time_in_ns() - conn->last_anchor_time_of_update;
+          if (time_since_last_update > 5000000000) {
+            debug(1, "change master clock to %" PRIx64 ".", actual_clock_id);
+            uint64_t new_anchor_time = conn->anchor_time;
+            new_anchor_time = new_anchor_time - conn->last_anchor_clock_offset; // to local
+            new_anchor_time = new_anchor_time + actual_offset;                  // to the next clock
+            conn->anchor_time = new_anchor_time;
+            conn->anchor_clock = actual_clock_id;
+            if (anchorRTP != NULL)
+              *anchorRTP = conn->anchor_rtptime;
+            if (anchorLocalTime != NULL)
+              *anchorLocalTime = conn->anchor_time - actual_offset;
+          } else {
+            if (anchorRTP != NULL)
+              *anchorRTP = conn->anchor_rtptime;
+            if (anchorLocalTime != NULL)
+              *anchorLocalTime = conn->anchor_time - conn->last_anchor_clock_offset;
+          }
+        } else {
+          debug(2, "no clock and no old anchor times");
+          response = -1;
+        }
+      }
+    } else {
+      debug(2, "don't have anchor_remote_time_info");
+      response = -1;
+    }
+  } else if (ptp_status == -1) {
+    debug(3, "don't have the ptp clock interface");
+    response = -1;
+  } else {
+    debug(3, "ptp clock not valid");
+    response = -1;
+  }
+  return response;
+}
+
+int have_ptp_timing_information(rtsp_conn_info *conn) {
+  if (get_anchor_local_time_info(conn, NULL, NULL) == 0)
+    return 1;
+  else
+    return 0;
+}
+
+int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
+  int result = -1;
+  uint32_t anchor_rtptime;
+  uint64_t anchor_local_time;
+  if (get_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == 0) {
+    int32_t frame_difference = timestamp - anchor_rtptime;
+    int64_t time_difference = frame_difference;
+    time_difference = time_difference * 1000000000;
+    time_difference = time_difference / conn->input_rate;
+    uint64_t ltime = anchor_local_time + time_difference;
+    *time = ltime;
+    result = 0;
+  } else {
+    debug(3, "frame_to_local_time can't get anchor local time information");
+  }
+  return result;
+}
+
+int local_ptp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
+  int result = -1;
+  uint32_t anchor_rtptime;
+  uint64_t anchor_local_time;
+  if (get_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == 0) {
+    int64_t time_difference = time - anchor_local_time;
+    int64_t frame_difference = time_difference;
+    frame_difference = frame_difference * conn->input_rate; // but this is by 10^9
+    frame_difference = frame_difference / 1000000000;
+    int32_t fd32 = frame_difference;
+    uint32_t lframe = anchor_rtptime + fd32;
+    *frame = lframe;
+    result = 0;
+  } else {
+    debug(3, "local_time_to_frame can't get anchor local time information");
+  }
+  return result;
+}
 
 void rtp_event_receiver_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
@@ -1454,7 +1445,7 @@ int32_t decipher_player_put_packet(uint8_t *ciphered_audio_alt, ssize_t nread,
     if (new_payload_length > max_int)
       debug(1, "Madly long payload length!");
     int plen = new_payload_length; //
-    player_put_packet(sequence_number, timestamp, m, plen,
+    player_put_packet(1, sequence_number, timestamp, m, plen,
                       conn); // the '1' means is original format
     return sequence_number;
   } else {
@@ -2094,8 +2085,7 @@ void *rtp_buffered_audio_processor(void *arg) {
                 if (streaming_has_started == 0)
                   debug(1, "rtp lead time is %f ms.", 0.000001 * lead_time);
                 streaming_has_started = 1;
-//                player_put_packet(0, 0, pcm_buffer_read_point_rtptime,
-                player_put_packet(0, pcm_buffer_read_point_rtptime,
+                player_put_packet(0, 0, pcm_buffer_read_point_rtptime,
                                   pcm_buffer + pcm_buffer_read_point, 352, conn);
               }
 
@@ -2373,5 +2363,3 @@ void *rtp_buffered_audio_processor(void *arg) {
 }
 
 #endif
-#endif
-
