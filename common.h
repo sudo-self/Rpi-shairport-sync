@@ -447,4 +447,10 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len);
 // from https://stackoverflow.com/questions/13663617/memdup-function-in-c, with thanks
 void *memdup(const void *mem, size_t size);
 
+int bind_socket_and_port(int type, int ip_family, const char *self_ip_address, uint32_t scope_id,
+                         uint16_t *port, int *sock);
+
+uint16_t bind_UDP_port(int ip_family, const char *self_ip_address, uint32_t scope_id, int *sock);
+
+
 #endif // _COMMON_H

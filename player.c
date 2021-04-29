@@ -117,13 +117,6 @@ uint32_t modulo_32_offset(uint32_t from, uint32_t to) {
     return UINT32_MAX - from + to + 1;
 }
 
-uint64_t modulo_64_offset(uint64_t from, uint64_t to) {
-  if (from <= to)
-    return to - from;
-  else
-    return UINT64_MAX - from + to + 1;
-}
-
 void do_flush(uint32_t timestamp, rtsp_conn_info *conn);
 
 static void ab_resync(rtsp_conn_info *conn) {
@@ -1589,7 +1582,7 @@ void player_thread_cleanup_handler(void *arg) {
   if (conn->stream.type == ast_apple_lossless)
     terminate_decoders(conn);
 
-  clear_reference_timestamp(conn);
+  reset_anchor_info(conn);
   conn->rtp_running = 0;
   pthread_setcancelstate(oldState, NULL);
 }

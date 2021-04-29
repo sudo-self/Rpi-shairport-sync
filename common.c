@@ -43,6 +43,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <ifaddrs.h>
+#include <netpacket/packet.h>
+
 #ifdef COMPILE_FOR_OSX
 #include <CoreServices/CoreServices.h>
 #include <mach/mach.h>
@@ -264,6 +267,148 @@ uint16_t nextFreeUDPPort() {
   else
     UDPPortIndex++;
   return UDPPortIndex;
+}
+
+// if port is zero, pick any port
+// otherwise, try the given port only
+int bind_socket_and_port(int type, int ip_family, const char *self_ip_address, uint32_t scope_id,
+                         uint16_t *port, int *sock) {
+  int ret = 0; // no error
+  int local_socket = socket(ip_family, type, 0);
+  if (local_socket == -1)
+    ret = errno;
+  if (ret == 0) {
+    SOCKADDR myaddr;
+    memset(&myaddr, 0, sizeof(myaddr));
+    if (ip_family == AF_INET) {
+      struct sockaddr_in *sa = (struct sockaddr_in *)&myaddr;
+      sa->sin_family = AF_INET;
+      sa->sin_port = ntohs(*port);
+      inet_pton(AF_INET, self_ip_address, &(sa->sin_addr));
+      ret = bind(local_socket, (struct sockaddr *)sa, sizeof(struct sockaddr_in));
+    }
+#ifdef AF_INET6
+    if (ip_family == AF_INET6) {
+      struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)&myaddr;
+      sa6->sin6_family = AF_INET6;
+      sa6->sin6_port = ntohs(*port);
+      inet_pton(AF_INET6, self_ip_address, &(sa6->sin6_addr));
+      sa6->sin6_scope_id = scope_id;
+      ret = bind(local_socket, (struct sockaddr *)sa6, sizeof(struct sockaddr_in6));
+    }
+#endif
+    if (ret < 0) {
+      ret = errno;
+      close(local_socket);
+      char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      warn("error %d: \"%s\". Could not bind a port!", errno, errorstring);
+    } else {
+      uint16_t sport;
+      SOCKADDR local;
+      socklen_t local_len = sizeof(local);
+      ret = getsockname(local_socket, (struct sockaddr *)&local, &local_len);
+      if (ret < 0) {
+        ret = errno;
+        close(local_socket);
+        char errorstring[1024];
+        strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+        warn("error %d: \"%s\". Could not retrieve socket's port!", errno, errorstring);
+      } else {
+#ifdef AF_INET6
+        if (local.SAFAMILY == AF_INET6) {
+          struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)&local;
+          sport = ntohs(sa6->sin6_port);
+        } else
+#endif
+        {
+          struct sockaddr_in *sa = (struct sockaddr_in *)&local;
+          sport = ntohs(sa->sin_port);
+        }
+        *sock = local_socket;
+        *port = sport;
+      }
+    }
+  }
+  return ret;
+}
+
+uint16_t bind_UDP_port(int ip_family, const char *self_ip_address, uint32_t scope_id, int *sock) {
+  // look for a port in the range, if any was specified.
+  int ret = 0;
+
+  int local_socket = socket(ip_family, SOCK_DGRAM, IPPROTO_UDP);
+  if (local_socket == -1)
+    die("Could not allocate a socket.");
+
+  /*
+    int val = 1;
+    ret = setsockopt(local_socket, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+    if (ret < 0) {
+      char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      debug(1, "Error %d: \"%s\". Couldn't set SO_REUSEADDR");
+    }
+  */
+
+  SOCKADDR myaddr;
+  int tryCount = 0;
+  uint16_t desired_port;
+  do {
+    tryCount++;
+    desired_port = nextFreeUDPPort();
+    memset(&myaddr, 0, sizeof(myaddr));
+    if (ip_family == AF_INET) {
+      struct sockaddr_in *sa = (struct sockaddr_in *)&myaddr;
+      sa->sin_family = AF_INET;
+      sa->sin_port = ntohs(desired_port);
+      inet_pton(AF_INET, self_ip_address, &(sa->sin_addr));
+      ret = bind(local_socket, (struct sockaddr *)sa, sizeof(struct sockaddr_in));
+    }
+#ifdef AF_INET6
+    if (ip_family == AF_INET6) {
+      struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)&myaddr;
+      sa6->sin6_family = AF_INET6;
+      sa6->sin6_port = ntohs(desired_port);
+      inet_pton(AF_INET6, self_ip_address, &(sa6->sin6_addr));
+      sa6->sin6_scope_id = scope_id;
+      ret = bind(local_socket, (struct sockaddr *)sa6, sizeof(struct sockaddr_in6));
+    }
+#endif
+
+  } while ((ret < 0) && (errno == EADDRINUSE) && (desired_port != 0) &&
+           (tryCount < config.udp_port_range));
+
+  // debug(1,"UDP port chosen: %d.",desired_port);
+
+  if (ret < 0) {
+    close(local_socket);
+    char errorstring[1024];
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    die("error %d: \"%s\". Could not bind a UDP port! Check the udp_port_range is large enough -- "
+        "it must be "
+        "at least 3, and 10 or more is suggested -- or "
+        "check for restrictive firewall settings or a bad router! UDP base is %u, range is %u and "
+        "current suggestion is %u.",
+        errno, errorstring, config.udp_port_base, config.udp_port_range, desired_port);
+  }
+
+  uint16_t sport;
+  SOCKADDR local;
+  socklen_t local_len = sizeof(local);
+  getsockname(local_socket, (struct sockaddr *)&local, &local_len);
+#ifdef AF_INET6
+  if (local.SAFAMILY == AF_INET6) {
+    struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)&local;
+    sport = ntohs(sa6->sin6_port);
+  } else
+#endif
+  {
+    struct sockaddr_in *sa = (struct sockaddr_in *)&local;
+    sport = ntohs(sa->sin_port);
+  }
+  *sock = local_socket;
+  return sport;
 }
 
 int get_requested_connection_state_to_output() { return requested_connection_state_to_output; }

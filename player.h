@@ -21,6 +21,11 @@
 #include <openssl/aes.h>
 #endif
 
+#ifdef CONFIG_AIRPLAY_2
+#include "pair_ap/pair-internal.h"
+#include "plist/plist.h"
+#endif
+
 #include "alac.h"
 #include "audio.h"
 
@@ -76,6 +81,11 @@ typedef enum {
   ast_apple_lossless,
 } audio_stream_type;
 
+typedef enum {
+  ts_ntp,
+  ts_ptp
+} timing_source_type;
+
 typedef struct {
   int encrypted;
   uint8_t aesiv[16], aeskey[16];
@@ -83,8 +93,20 @@ typedef struct {
   audio_stream_type type;
 } stream_cfg;
 
+#ifdef CONFIG_AIRPLAY_2
+typedef struct file_cipher_context {
+  struct pair_cipher_context *cipher_context;
+  int active; // can be created during a pair setup but not activated until next read
+  int fd;
+  void *input_plaintext_buffer;
+  void *input_plaintext_buffer_toq;
+  size_t input_plaintext_buffer_bytes_occupied;
+} file_cipher_context;
+#endif
+
 typedef struct {
   int connection_number;     // for debug ID purposes, nothing else...
+  timing_source_type type_of_timing; // are we using NTP or PTP?
   int resend_interval;       // this is really just for debugging
   char *UserAgent;           // free this on teardown
   int AirPlayVersion;        // zero if not an AirPlay session. Used to help calculate latency
@@ -94,7 +116,7 @@ typedef struct {
   uint32_t maximum_latency;  // set if an a=max-latency: line appears in the ANNOUNCE message; zero
                              // otherwise
   int software_mute_enabled; // if we don't have a real mute that we can use
-  int unachievable_audio_backend_latency_offset_notified; // set when a latency warning is issued
+
 
   int fd;
   int authorized;   // set if a password is required and has been supplied
@@ -214,8 +236,56 @@ typedef struct {
 
   // this is what connects an rtp timestamp to the remote time
 
-  uint32_t reference_timestamp;
-  uint64_t remote_reference_timestamp_time;
+  int anchor_remote_info_is_valid;
+  uint64_t anchor_clock;
+  uint64_t anchor_time; // this is the time according to the clock
+  uint32_t anchor_rtptime;
+
+
+#ifdef CONFIG_AIRPLAY_2
+  pthread_t rtp_event_thread;
+  pthread_t rtp_ap2_control_thread;
+  pthread_t rtp_realtime_audio_thread;
+  pthread_t rtp_buffered_audio_thread;
+
+  int pairing_mode;
+  file_cipher_context control_cipher_context;
+  struct verifier_setup_context *server_setup_ctx;
+
+  int last_anchor_info_is_valid;
+  uint64_t last_anchor_clock_offset;
+  uint64_t last_anchor_time_of_update;
+  uint64_t last_anchor_clock;
+
+
+  ssize_t ap2_audio_buffer_size;
+  int ap2_flush_requested;
+  uint32_t ap2_flush_rtp_timestamp;
+  uint32_t ap2_flush_sequence_number;
+  int ap2_rate;         // protect with flush mutex, 0 means don't play, 1 means play
+  int ap2_play_enabled; // protect with flush mutex
+
+  int event_socket;
+  SOCKADDR ap2_remote_control_socket_addr; // a socket pointing to the control port of the client
+  socklen_t ap2_remote_control_socket_addr_length;
+  int ap2_control_socket;
+  int realtime_audio_socket;
+  int buffered_audio_socket;
+
+  uint16_t local_event_port;
+  uint16_t local_ap2_control_port;
+  uint16_t local_realtime_audio_port;
+  uint16_t local_buffered_audio_port;
+
+  plist_t client_setup_plist;
+  uint64_t audio_format;
+  uint64_t compression;
+  unsigned char *session_key; // needs to be free'd at the end
+  uint64_t frames_packet;
+  uint64_t type;
+  uint64_t networkTimeTimelineID;           // the clock ID used by the player
+
+#endif
 
   // used as the initials values for calculating the rate at which the source thinks it's sending
   // frames
@@ -272,7 +342,6 @@ typedef struct {
 } rtsp_conn_info;
 
 uint32_t modulo_32_offset(uint32_t from, uint32_t to);
-uint64_t modulo_64_offset(uint64_t from, uint64_t to);
 
 int player_play(rtsp_conn_info *conn);
 int player_stop(rtsp_conn_info *conn);
