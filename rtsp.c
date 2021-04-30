@@ -30,7 +30,11 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <ifaddrs.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <memory.h>
+#include <net/if.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -43,6 +47,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <sys/ioctl.h>
 
 #include "config.h"
 
@@ -76,6 +82,17 @@
 #define INETx_ADDRSTRLEN INET6_ADDRSTRLEN
 #else
 #define INETx_ADDRSTRLEN INET_ADDRSTRLEN
+#endif
+
+#ifdef CONFIG_AIRPLAY_2
+#include "csrp/srp.h"
+#include "pair_ap/pair-tlv.h"
+#include "pair_ap/pair.h"
+#include "plist/plist.h"
+#include <sodium.h>
+// #include "proxy_ap/server.h"
+#include "plist_xml_strings.h"
+#include "ptp-utilities.h"
 #endif
 
 #define METADATA_SNDBUF (4 * 1024 * 1024)
@@ -138,6 +155,7 @@ typedef struct {
 
   // for requests
   char method[16];
+  char path[256];
 
   // for responses
   int respcode;
@@ -451,13 +469,6 @@ void *player_watchdog_thread_code(void *arg) {
   pthread_exit(NULL);
 }
 
-void ask_other_rtsp_conversation_threads_to_stop(pthread_t except_this_thread);
-
-void rtsp_request_shutdown_stream(void) {
-  debug(1, "Request to shut down all rtsp conversation threads");
-  ask_other_rtsp_conversation_threads_to_stop(0); // i.e. ask all playing threads to stop
-}
-
 // keep track of the threads we have spawned so we can join() them
 static int nconns = 0;
 static void track_thread(rtsp_conn_info *conn) {
@@ -499,24 +510,6 @@ void cleanup_threads(void) {
         conns[i] = conns[nconns];
     } else {
       i++;
-    }
-  }
-}
-
-// ask all rtsp_conversation threads to stop -- there should be at most one, but
-// ya never know.
-
-void ask_other_rtsp_conversation_threads_to_stop(pthread_t except_this_thread) {
-  int i;
-  debug(1, "asking playing threads to stop");
-  for (i = 0; i < nconns; i++) {
-    if (((except_this_thread == 0) || (pthread_equal(conns[i]->thread, except_this_thread) == 0)) &&
-        (conns[i]->running != 0)) {
-      pthread_cancel(conns[i]->thread);
-      pthread_join(conns[i]->thread, NULL);
-      debug(1, "Connection %d: asked to stop.", conns[i]->connection_number);
-      // conns[i]->stop = 1;
-      // pthread_kill(conns[i]->thread, SIGUSR1);
     }
   }
 }
@@ -683,6 +676,7 @@ int msg_handle_line(rtsp_message **pmsg, char *line) {
     p = strtok_r(NULL, " ", &sp);
     if (!p)
       goto fail;
+    strncpy(msg->path, p, sizeof(msg->path) - 1);
 
     p = strtok_r(NULL, " ", &sp);
     if (!p)
@@ -720,6 +714,502 @@ fail:
   return 0;
 }
 
+#ifdef CONFIG_AIRPLAY_2
+
+int rtsp_message_contains_plist(rtsp_message *message) {
+  int reply = 0; // assume there is no plist in the message
+  if ((message->contentlength >= strlen("bplist00")) &&
+      (strstr(message->content, "bplist00") == message->content))
+    reply = 1;
+  return reply;
+}
+
+plist_t plist_from_rtsp_content(rtsp_message *message) {
+  plist_t the_plist = NULL;
+  if (rtsp_message_contains_plist(message)) {
+    plist_from_memory(message->content, message->contentlength, &the_plist);
+  }
+  return the_plist;
+}
+
+char *plist_content(plist_t the_plist) {
+  // caller must free the returned character buffer
+  // convert it to xml format
+  uint32_t size;
+  char *plist_out = NULL;
+  plist_to_xml(the_plist, &plist_out, &size);
+
+  // put it into a NUL-terminated string
+  char *reply = malloc(size + 1);
+  if (reply) {
+    memcpy(reply, plist_out, size);
+    reply[size] = '\0';
+  }
+  if (the_plist)
+    plist_free(the_plist);
+  if (plist_out)
+    free(plist_out);
+  return reply;
+}
+
+// caller must free the returned character buffer
+char *rtsp_plist_content(rtsp_message *message) {
+  char *reply = NULL;
+  // first, check if it has binary plist content
+  if (rtsp_message_contains_plist(message)) {
+    // get the plist from the content
+
+    plist_t the_plist = plist_from_rtsp_content(message);
+
+    // convert it to xml format
+    uint32_t size;
+    char *plist_out = NULL;
+    plist_to_xml(the_plist, &plist_out, &size);
+
+    // put it into a NUL-terminated string
+    reply = malloc(size + 1);
+    if (reply) {
+      memcpy(reply, plist_out, size);
+      reply[size] = '\0';
+    }
+    if (the_plist)
+      plist_free(the_plist);
+    if (plist_out)
+      free(plist_out);
+  }
+  return reply;
+}
+
+#endif
+
+void debug_log_rtsp_message(int level, char *prompt, rtsp_message *message) {
+  if (level > debuglev)
+    return;
+  if ((prompt) && (*prompt != '\0')) // okay to pass NULL or an empty list...
+    debug(level, prompt);
+    // debug_print_msg_headers(level, message);
+#ifdef CONFIG_AIRPLAY_2
+  char *plist_content = rtsp_plist_content(message);
+  if (plist_content) {
+    debug(level, "  Content Plist (as XML):\n--\n%s--", plist_content);
+    free(plist_content);
+  } else
+#endif
+  {
+    debug(level, "  No Content Plist. Content length: %d.", message->contentlength);
+  }
+}
+
+// this will read a block of the size specified to the buffer
+// and will return either with the block or on error
+ssize_t read_sized_block(int fd, void *buf, size_t count) {
+  ssize_t response, nread;
+  size_t inbuf = 0; // bytes already in the buffer
+  int keep_trying = 1;
+
+  do {
+    nread = read(fd, buf + inbuf, count - inbuf);
+    if (nread == 0) {
+      // a blocking read that returns zero means eof -- implies connection closed
+      debug(3, "read_sized_block connection closed.");
+      keep_trying = 0;
+    } else if (nread < 0) {
+      if (errno == EAGAIN) {
+        debug(1, "read_sized_block getting Error 11 -- EAGAIN from a blocking read!");
+      }
+      if ((errno != ECONNRESET) && (errno != EAGAIN) && (errno != EINTR)) {
+        char errorstring[1024];
+        strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+        debug(1, "read_sized_block read error %d: \"%s\".", errno, (char *)errorstring);
+        keep_trying = 0;
+      }
+    } else {
+      inbuf += (size_t)nread;
+    }
+  } while ((keep_trying != 0) && (inbuf < count));
+  if (nread <= 0)
+    response = nread;
+  else
+    response = inbuf;
+  return response;
+}
+
+#ifdef CONFIG_AIRPLAY_2
+
+/* ----------------------------- DEFINES ETC ------------------------------- */
+
+#define USERNAME "Pair-Setup"
+#define AUTHTAG_LENGTH 16
+#define NONCE_LENGTH 12 // 96 bits according to chacha poly1305
+#define RESPONSE_BUFSIZE 8192
+#define ENCRYPTED_LEN_MAX 0x400
+#define PASSWORD "3939"
+
+#define RTSP_VERSION "RTSP/1.0"
+#define POST_PAIR_SETUP "POST /pair-setup"
+#define OPTIONS "OPTIONS *"
+#define GET_INFO "GET /info"
+#define POST_AUTH_SETUP "POST /auth-setup"
+#define POST_FP_SETUP "POST /fp-setup"
+
+/* Fairplay magic */
+/*
+static uint8_t server_fp_reply1[] =
+    "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x00\x0f\x9f\x3f\x9e\x0a"
+    "\x25\x21\xdb\xdf\x31\x2a\xb2\xbf\xb2\x9e\x8d\x23\x2b\x63\x76\xa8\xc8\x18\x70"
+    "\x1d\x22\xae\x93\xd8\x27\x37\xfe\xaf\x9d\xb4\xfd\xf4\x1c\x2d\xba\x9d\x1f\x49"
+    "\xca\xaa\xbf\x65\x91\xac\x1f\x7b\xc6\xf7\xe0\x66\x3d\x21\xaf\xe0\x15\x65\x95"
+    "\x3e\xab\x81\xf4\x18\xce\xed\x09\x5a\xdb\x7c\x3d\x0e\x25\x49\x09\xa7\x98\x31"
+    "\xd4\x9c\x39\x82\x97\x34\x34\xfa\xcb\x42\xc6\x3a\x1c\xd9\x11\xa6\xfe\x94\x1a"
+    "\x8a\x6d\x4a\x74\x3b\x46\xc3\xa7\x64\x9e\x44\xc7\x89\x55\xe4\x9d\x81\x55\x00"
+    "\x95\x49\xc4\xe2\xf7\xa3\xf6\xd5\xba";
+static uint8_t server_fp_reply2[] =
+    "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x01\xcf\x32\xa2\x57\x14"
+    "\xb2\x52\x4f\x8a\xa0\xad\x7a\xf1\x64\xe3\x7b\xcf\x44\x24\xe2\x00\x04\x7e\xfc"
+    "\x0a\xd6\x7a\xfc\xd9\x5d\xed\x1c\x27\x30\xbb\x59\x1b\x96\x2e\xd6\x3a\x9c\x4d"
+    "\xed\x88\xba\x8f\xc7\x8d\xe6\x4d\x91\xcc\xfd\x5c\x7b\x56\xda\x88\xe3\x1f\x5c"
+    "\xce\xaf\xc7\x43\x19\x95\xa0\x16\x65\xa5\x4e\x19\x39\xd2\x5b\x94\xdb\x64\xb9"
+    "\xe4\x5d\x8d\x06\x3e\x1e\x6a\xf0\x7e\x96\x56\x16\x2b\x0e\xfa\x40\x42\x75\xea"
+    "\x5a\x44\xd9\x59\x1c\x72\x56\xb9\xfb\xe6\x51\x38\x98\xb8\x02\x27\x72\x19\x88"
+    "\x57\x16\x50\x94\x2a\xd9\x46\x68\x8a";
+static uint8_t server_fp_reply3[] =
+    "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x02\xc1\x69\xa3\x52\xee"
+    "\xed\x35\xb1\x8c\xdd\x9c\x58\xd6\x4f\x16\xc1\x51\x9a\x89\xeb\x53\x17\xbd\x0d"
+    "\x43\x36\xcd\x68\xf6\x38\xff\x9d\x01\x6a\x5b\x52\xb7\xfa\x92\x16\xb2\xb6\x54"
+    "\x82\xc7\x84\x44\x11\x81\x21\xa2\xc7\xfe\xd8\x3d\xb7\x11\x9e\x91\x82\xaa\xd7"
+    "\xd1\x8c\x70\x63\xe2\xa4\x57\x55\x59\x10\xaf\x9e\x0e\xfc\x76\x34\x7d\x16\x40"
+    "\x43\x80\x7f\x58\x1e\xe4\xfb\xe4\x2c\xa9\xde\xdc\x1b\x5e\xb2\xa3\xaa\x3d\x2e"
+    "\xcd\x59\xe7\xee\xe7\x0b\x36\x29\xf2\x2a\xfd\x16\x1d\x87\x73\x53\xdd\xb9\x9a"
+    "\xdc\x8e\x07\x00\x6e\x56\xf8\x50\xce";
+static uint8_t server_fp_reply4[] =
+    "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x03\x90\x01\xe1\x72\x7e"
+    "\x0f\x57\xf9\xf5\x88\x0d\xb1\x04\xa6\x25\x7a\x23\xf5\xcf\xff\x1a\xbb\xe1\xe9"
+    "\x30\x45\x25\x1a\xfb\x97\xeb\x9f\xc0\x01\x1e\xbe\x0f\x3a\x81\xdf\x5b\x69\x1d"
+    "\x76\xac\xb2\xf7\xa5\xc7\x08\xe3\xd3\x28\xf5\x6b\xb3\x9d\xbd\xe5\xf2\x9c\x8a"
+    "\x17\xf4\x81\x48\x7e\x3a\xe8\x63\xc6\x78\x32\x54\x22\xe6\xf7\x8e\x16\x6d\x18"
+    "\xaa\x7f\xd6\x36\x25\x8b\xce\x28\x72\x6f\x66\x1f\x73\x88\x93\xce\x44\x31\x1e"
+    "\x4b\xe6\xc0\x53\x51\x93\xe5\xef\x72\xe8\x68\x62\x33\x72\x9c\x22\x7d\x82\x0c"
+    "\x99\x94\x45\xd8\x92\x46\xc8\xc3\x59";
+
+static uint8_t server_fp_header[] = "\x46\x50\x4c\x59\x03\x01\x04\x00\x00\x00\x00\x14";
+*/
+
+/* 3072 n and g for SRP*/
+
+const char *nl_hex = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B"
+                     "139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485"
+                     "B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1F"
+                     "E649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23"
+                     "DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32"
+                     "905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF69558"
+                     "17183995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D04507A33A85521"
+                     "ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7DB3970F85A6E1E4C7ABF5AE8CDB0933D7"
+                     "1E8C94E04A25619DCEE3D2261AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B1817"
+                     "7B200CBBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFCE0FD108E4B82"
+                     "D120A93AD2CAFFFFFFFFFFFFFFFF";
+const char *gl_hex = "5";
+
+enum pair_keys {
+  PAIR_SETUP_MSG01 = 0,
+  PAIR_SETUP_MSG02,
+  PAIR_SETUP_MSG03,
+  PAIR_SETUP_MSG04,
+  PAIR_SETUP_MSG05,
+  PAIR_SETUP_MSG06,
+  PAIR_SETUP_SIGN,
+  PAIR_VERIFY_MSG01,
+  PAIR_VERIFY_MSG02,
+  PAIR_VERIFY_MSG03,
+  PAIR_VERIFY_MSG04,
+  PAIR_CONTROL_WRITE,
+  PAIR_CONTROL_READ,
+  PAIR_EVENTS_WRITE,
+  PAIR_EVENTS_READ,
+};
+
+struct pair_keys_map {
+  uint8_t state;
+  const char *salt;
+  const char *info;
+  const char nonce[8];
+};
+
+static struct pair_keys_map pair_keys_map[] = {
+    // Used for /pair-setup
+    {0x01, NULL, NULL, ""},
+    {0x02, NULL, NULL, ""},
+    {0x03, NULL, NULL, ""},
+    {0x04, NULL, NULL, ""},
+    {0x05, "Pair-Setup-Encrypt-Salt", "Pair-Setup-Encrypt-Info", "PS-Msg05"},
+    {0x06, "Pair-Setup-Encrypt-Salt", "Pair-Setup-Encrypt-Info", "PS-Msg06"},
+    {0, "Pair-Setup-Controller-Sign-Salt", "Pair-Setup-Controller-Sign-Info", ""},
+
+    // Used for /pair-verify
+    {0x01, NULL, NULL, ""},
+    {0x02, "Pair-Verify-Encrypt-Salt", "Pair-Verify-Encrypt-Info", "PV-Msg02"},
+    {0x03, "Pair-Verify-Encrypt-Salt", "Pair-Verify-Encrypt-Info", "PV-Msg03"},
+    {0x04, NULL, NULL, ""},
+
+    // Encryption/decryption of control channel
+    {0, "Control-Salt", "Control-Write-Encryption-Key", ""},
+    {0, "Control-Salt", "Control-Read-Encryption-Key", ""},
+
+    // Encryption/decryption of event channel
+    {0, "Events-Salt", "Events-Write-Encryption-Key", ""},
+    {0, "Events-Salt", "Events-Read-Encryption-Key", ""},
+};
+
+enum pair_method {
+  PairingMethodPairSetup = 0x00,
+  PairingMethodPairSetupWithAuth = 0x01,
+  PairingMethodPairVerify = 0x02,
+  PairingMethodAddPairing = 0x03,
+  PairingMethodRemovePairing = 0x04,
+  PairingMethodListPairings = 0x05
+};
+
+enum pair_flags {
+  PairingFlagsTransient = 0x10,
+};
+
+struct verifier_setup_context {
+  struct pair_definition *type;
+
+  struct SRPVerifier *verifier;
+
+  char pin[4];
+  char device_id[17]; // Incl. zero term
+
+  uint8_t *pkA;
+  uint64_t pkA_len;
+
+  const uint8_t *pkB;
+  int pkB_len;
+
+  const uint8_t *b;
+  int b_len;
+
+  uint8_t *M1;
+  uint64_t M1_len;
+
+  const uint8_t *M2;
+  int M2_len;
+
+  const uint8_t *v;
+  int v_len;
+
+  const uint8_t *salt;
+  int salt_len;
+  uint8_t public_key[crypto_sign_PUBLICKEYBYTES];
+  uint8_t private_key[crypto_sign_SECRETKEYBYTES];
+  // Hex-formatet concatenation of public + private, 0-terminated
+  char auth_key[2 * (crypto_sign_PUBLICKEYBYTES + crypto_sign_SECRETKEYBYTES) + 1];
+
+  // We don't actually use the server's epk and authtag for anything
+  uint8_t *epk;
+  uint64_t epk_len;
+  uint8_t *authtag;
+  uint64_t authtag_len;
+
+  int setup_is_completed;
+  const char *errmsg;
+};
+
+// static struct verifier_setup_context server_setup_ctx;
+
+ssize_t write_encrypted(file_cipher_context *context, const void *buf, size_t count) {
+  // need to make this cancellable!
+  // encrypt the contents of the buffer
+  ssize_t response;
+  uint8_t nonce[NONCE_LENGTH] = {0};
+  // uint8_t tag[AUTHTAG_LENGTH];
+  uint8_t *plain_block;
+  uint8_t *cipher_block;
+  uint16_t block_len;
+  int nblocks;
+  int ret;
+  int i;
+
+  if ((count == 0) || (buf == NULL)) {
+    debug(1, "encrypting a null character sequence");
+    response = 0;
+  } else {
+    // Encryption is done in blocks, where each block consists of a short, the
+    // encrypted data and an auth tag. The short is the size of the encrypted
+    // data. The encrypted data in the block cannot exceed ENCRYPTED_LEN_MAX.
+    nblocks = 1 + ((count - 1) / ENCRYPTED_LEN_MAX); // Ceiling of division
+
+    ssize_t ctl = nblocks * (sizeof(block_len) + AUTHTAG_LENGTH) + count;
+    // size_t hdh = 0;
+    void *ciphertext = malloc(ctl);
+    if (ciphertext != NULL) {
+
+      context->cipher_context->encryption_counter_prev =
+          context->cipher_context->encryption_counter;
+
+      for (i = 0, plain_block = (uint8_t *)buf, cipher_block = ciphertext; i < nblocks; i++) {
+        // If it is the last block we will encrypt only the remaining data
+        if (i == nblocks - 1) {
+          uint8_t *b = (uint8_t *)buf;
+          block_len = b + count - plain_block;
+        } else
+          block_len = ENCRYPTED_LEN_MAX;
+
+        memcpy(nonce + 4, &(context->cipher_context->encryption_counter),
+               sizeof(context->cipher_context->encryption_counter)); // TODO BE or LE?
+
+        // Write the ciphered block
+        memcpy(cipher_block, &block_len, sizeof(block_len)); // TODO BE or LE?
+
+        unsigned long long cipher_length = 0;
+        ret = crypto_aead_chacha20poly1305_ietf_encrypt(
+            cipher_block + sizeof(block_len), // ciphertext
+            &cipher_length,
+            plain_block,                 // message
+            block_len,                   // message length
+            (unsigned char *)&block_len, // additional data
+            sizeof(block_len),           // additional data length
+            NULL,
+            nonce,                                  // nonce
+            context->cipher_context->encryption_key // key
+        );
+
+        if (ret < 0) {
+          debug(1, "Encryption with chacha poly1305 failed");
+          context->cipher_context->encryption_counter =
+              context->cipher_context->encryption_counter_prev;
+          free(ciphertext);
+        } else {
+          plain_block += block_len;
+          cipher_block += block_len + sizeof(block_len) + AUTHTAG_LENGTH;
+          context->cipher_context->encryption_counter++;
+        }
+      }
+      // maybe this really should be write_sized_block, similar to read_sized_block
+      ssize_t trywrite = write(context->fd, ciphertext, ctl);
+      if (trywrite != ctl)
+        debug(1, "write_encrypted write failure");
+      free(ciphertext);
+      response = count; // pretend only the plaintext number of bytes were written
+    } else {
+      // can't allocate memory for the cyphertext
+      errno = ENOMEM;
+      response = -1;
+    }
+  }
+  return response;
+}
+
+ssize_t read_encrypted(file_cipher_context *context, void *buf, size_t count) {
+  // need to make this cancellable!
+  // if the plaintext buffer is empty, this will
+  // read an encrypted block and decipher it to plaintext
+  // this will then return bytes in the plaintext buffer
+  // up to the limit of the count
+  ssize_t response = 0;
+  if (context->input_plaintext_buffer == NULL) {
+    response = -1;
+    uint16_t block_len;
+    if (read_sized_block(context->fd, &block_len, sizeof(block_len)) == sizeof(block_len)) {
+      void *cipher_block = malloc(block_len + AUTHTAG_LENGTH);
+      if (cipher_block != NULL) {
+        if (read_sized_block(context->fd, cipher_block, (block_len + AUTHTAG_LENGTH)) ==
+            block_len + AUTHTAG_LENGTH) {
+          // here we have the encrypted block
+          uint8_t nonce[NONCE_LENGTH] = {0};
+          uint8_t tag[AUTHTAG_LENGTH];
+          context->input_plaintext_buffer = malloc(block_len); // this should be more than enough
+          if (context->input_plaintext_buffer != NULL) {
+            memcpy(tag, cipher_block + block_len, sizeof(tag));
+            memcpy(nonce + 4, &(context->cipher_context->decryption_counter),
+                   sizeof(context->cipher_context->decryption_counter)); // TODO BE or LE?
+            unsigned long long new_payload_length = 0;
+            int ret = crypto_aead_chacha20poly1305_ietf_decrypt(
+                context->input_plaintext_buffer,        // m
+                &new_payload_length,                    // mlen_p
+                NULL,                                   // nsec,
+                cipher_block,                           // cipher text
+                block_len + AUTHTAG_LENGTH,             // length of the ciphertext
+                (unsigned char *)&block_len,            // authenticated additional data
+                sizeof(block_len),                      // authenticated additional data length
+                nonce,                                  // nonce
+                context->cipher_context->decryption_key // key
+            );
+            free(cipher_block);
+            cipher_block = NULL;
+            if (ret == 0) {
+              response = 0; // decryption was successful
+              context->cipher_context->decryption_counter++;
+              context->input_plaintext_buffer_toq = context->input_plaintext_buffer;
+              context->input_plaintext_buffer_bytes_occupied = block_len;
+            } else {
+              // decryption failed
+              debug(1, "decryption failed.");
+              free(context->input_plaintext_buffer);
+              context->input_plaintext_buffer = NULL;
+              errno = EILSEQ; // illegal byte sequence
+            }
+          } else {
+            // failed to allocate a plaintext buffer
+            debug(1, "could not allocate a plaintext buffer");
+            free(cipher_block);
+            cipher_block = NULL;
+            errno = ENOMEM;
+          }
+        } else {
+          // failed to read a block properly -- errno will be set
+          // debug(1, "could not read a block");
+          free(cipher_block);
+          cipher_block = NULL;
+        }
+      } else {
+        // failed to allocate a ciphertext buffer
+        debug(1, "could not allocate a ciphertext buffer");
+        errno = ENOMEM;
+      }
+    } else {
+      debug(2, "could not read the block_len");
+      // failed to read the encrypted block size -- errno will be set
+    }
+  }
+  if (response == 0) {
+    // now, transfer bytes to the output buffer up to the limit of the count requested
+    if (context->input_plaintext_buffer_bytes_occupied) {
+      size_t bytes_to_transfer = context->input_plaintext_buffer_bytes_occupied;
+      if (bytes_to_transfer > count)
+        bytes_to_transfer = count;
+      if (bytes_to_transfer == 0)
+        debug(1, "Shome problem -- zero bytes to transfer!");
+      memcpy(buf, context->input_plaintext_buffer_toq, bytes_to_transfer);
+      context->input_plaintext_buffer_bytes_occupied =
+          context->input_plaintext_buffer_bytes_occupied - bytes_to_transfer;
+      if (context->input_plaintext_buffer_bytes_occupied == 0) {
+        free(context->input_plaintext_buffer);
+        context->input_plaintext_buffer = NULL;
+      } else {
+        context->input_plaintext_buffer_toq =
+            context->input_plaintext_buffer_toq + bytes_to_transfer;
+      }
+      response = bytes_to_transfer;
+    }
+  }
+  return response;
+}
+#endif
+
+ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
+#ifdef CONFIG_AIRPLAY_2
+  if ((conn->control_cipher_context.cipher_context != NULL) &&
+      (conn->control_cipher_context.active != 0)) {
+    return read_encrypted(&conn->control_cipher_context, buf, count);
+  } else {
+    return read(conn->fd, buf, count);
+  }
+#else
+  return read(conn->fd, buf, count);
+#endif
+}
+
 enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_message **the_packet) {
 
   *the_packet = NULL; // need this for error handling
@@ -744,7 +1234,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       goto shutdown;
     }
 
-    nread = read(conn->fd, buf + inbuf, buflen - inbuf);
+    nread = read_from_rtsp_connection(conn, buf + inbuf, buflen - inbuf);
 
     if (nread == 0) {
       // a blocking read that returns zero means eof -- implies connection closed
@@ -764,8 +1254,9 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       if (errno != ECONNRESET) {
         char errorstring[1024];
         strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-        debug(1, "Connection %d: rtsp_read_request_response_read_error %d: \"%s\".",
-              conn->connection_number, errno, (char *)errorstring);
+        if (errno != 0)
+          debug(2, "Connection %d: rtsp_read_request_response_read_error %d: \"%s\".",
+                conn->connection_number, errno, (char *)errorstring);
       }
       reply = rtsp_read_request_response_read_error;
       goto shutdown;
@@ -843,8 +1334,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
     size_t read_chunk = msg_size - inbuf;
     if (read_chunk > max_read_chunk)
       read_chunk = max_read_chunk;
-    usleep(80000); // wait about 80 milliseconds between reads of up to about 64 kB
-    nread = read(conn->fd, buf + inbuf, read_chunk);
+    usleep(80000); // wait about 80 milliseconds between reads of up to max_read_chunk
+    nread = read_from_rtsp_connection(conn, buf + inbuf, read_chunk);
     if (!nread) {
       reply = rtsp_read_request_response_error;
       goto shutdown;
@@ -883,8 +1374,8 @@ shutdown:
   return reply;
 }
 
-int msg_write_response(int fd, rtsp_message *resp) {
-  char pkt[2048];
+int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
+  char pkt[4096];
   int pktfree = sizeof(pkt);
   char *p = pkt;
   int n;
@@ -910,7 +1401,7 @@ int msg_write_response(int fd, rtsp_message *resp) {
   // Here, if there's content, write the Content-Length header ...
 
   if (resp->contentlength) {
-    debug(1, "Responding with content of length %d", resp->contentlength);
+    debug(2, "Responding with content of length %d", resp->contentlength);
     n = snprintf(p, pktfree, "Content-Length: %d\r\n", resp->contentlength);
     pktfree -= n;
     p += n;
@@ -932,7 +1423,21 @@ int msg_write_response(int fd, rtsp_message *resp) {
     debug(1, "Attempted to write overlong RTSP packet 3");
     return -3;
   }
-  ssize_t reply = write(fd, pkt, p - pkt);
+
+  // here, if the link is encrypted, better do it
+
+#ifdef CONFIG_AIRPLAY_2
+  ssize_t reply;
+  if ((conn->control_cipher_context.cipher_context != NULL) &&
+      (conn->control_cipher_context.active != 0)) {
+    reply = write_encrypted(&conn->control_cipher_context, pkt, p - pkt);
+  } else {
+    reply = write(conn->fd, pkt, p - pkt);
+  }
+#else
+  ssize_t reply = write(conn->fd, pkt, p - pkt);
+#endif
+
   if (reply == -1) {
     char errorstring[1024];
     strerror_r(errno, (char *)errorstring, sizeof(errorstring));
@@ -945,6 +1450,12 @@ int msg_write_response(int fd, rtsp_message *resp) {
     return -5;
   }
   return 0;
+}
+
+void handle_record_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  debug(2, "Connection %d: RECORD (AirPlay 2)", conn->connection_number);
+  debug_log_rtsp_message(2, "RECORD incoming message", req);
+  resp->respcode = 200;
 }
 
 void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
@@ -992,8 +1503,572 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
   }
 }
 
+#ifdef CONFIG_AIRPLAY_2
+
+void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *req,
+                     rtsp_message *resp) {
+  if (rtsp_message_contains_plist(req)) { // it's stage one
+
+    resp->close_on_response = 0;
+    resp->suppress_crlf = 0;
+
+    plist_t info_plist = NULL;
+    plist_from_memory(req->content, req->contentlength, &info_plist);
+
+    plist_t qualifier = plist_dict_get_item(info_plist, "qualifier");
+    if (qualifier == NULL) {
+      debug(1, "GET /info Stage 1: plist->qualifier was NULL");
+      goto user_fail;
+    }
+    if (plist_array_get_size(qualifier) < 1) {
+      debug(1, "GET /info Stage 1: plist->qualifier array length < 1");
+      goto user_fail;
+    }
+    plist_t qualifier_array_value = plist_array_get_item(qualifier, 0);
+    char *qualifier_array_val_cstr;
+    plist_get_string_val(qualifier_array_value, &qualifier_array_val_cstr);
+    if (qualifier_array_val_cstr == NULL) {
+      debug(1, "GET /info Stage 1: first item in qualifier array not a string");
+      goto user_fail;
+    }
+    debug(2, "GET /info Stage 1: qualifier: %s", qualifier_array_val_cstr);
+    plist_free(info_plist);
+    free(qualifier_array_val_cstr);
+
+    // uint8_t bt_addr[6] = {0xB8, 0x27, 0xEB, 0xB7, 0xD4, 0x0E};
+    plist_t response_plist = NULL;
+    plist_from_xml((const char *)plists_get_info_response_xml, plists_get_info_response_xml_len,
+                   &response_plist);
+    if (response_plist == NULL) {
+      debug(1, "GET /info Stage 1: response plist not created from XML!");
+    } else {
+      plist_dict_set_item(response_plist, "features", plist_new_uint(config.airplay_features));
+      plist_dict_set_item(response_plist, "deviceID", plist_new_string(config.airplay_device_id));
+      plist_dict_set_item(response_plist, "pi", plist_new_string(config.airplay_pi));
+      plist_dict_set_item(response_plist, "name", plist_new_string(config.service_name));
+      char *vs = get_version_string();
+      plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+      plist_to_bin(response_plist, &resp->content, &resp->contentlength);
+      if (resp->contentlength == 0)
+        debug(1, "GET /info Stage 1: response bplist not created!");
+      plist_free(response_plist);
+      free(vs);
+    }
+    msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
+    debug_log_rtsp_message(2, "GET /info Stage 1 Response:", resp);
+    resp->respcode = 200;
+    return;
+
+  user_fail:
+    resp->respcode = 400;
+    return;
+  } else { // stage two
+    plist_t response_plist = NULL;
+    plist_from_xml((const char *)plists_get_info_response_xml, plists_get_info_response_xml_len,
+                   &response_plist);
+    plist_dict_set_item(response_plist, "features", plist_new_uint(config.airplay_features));
+    plist_dict_set_item(response_plist, "deviceID", plist_new_string(config.airplay_device_id));
+    plist_dict_set_item(response_plist, "pi", plist_new_string(config.airplay_pi));
+    plist_dict_set_item(response_plist, "name", plist_new_string(config.service_name));
+    char *vs = get_version_string();
+    plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+    free(vs);
+    plist_to_bin(response_plist, &resp->content, &resp->contentlength);
+    plist_free(response_plist);
+    msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
+    debug_log_rtsp_message(2, "GET /info Stage 2 Response", resp);
+    resp->respcode = 200;
+    return;
+  }
+}
+
+void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  debug(3, "Connection %d: FLUSHBUFFERED %s :: Content-Length %d", conn->connection_number,
+        req->path, req->contentlength);
+  debug_log_rtsp_message(2, "FLUSHBUFFERED request", req);
+
+  uint64_t flushUntilSeq = 0;
+  uint64_t flushUntilTS = 0;
+  plist_t messagePlist = plist_from_rtsp_content(req);
+
+  plist_t item = plist_dict_get_item(messagePlist, "flushUntilSeq");
+  if (item == NULL) {
+    debug(1, "Can't find the flushUntilSeq");
+  } else {
+    plist_get_uint_val(item, &flushUntilSeq);
+    debug(2, "flushUntilSeq is %" PRId64 ".", flushUntilSeq);
+  }
+
+  item = plist_dict_get_item(messagePlist, "flushUntilTS");
+  if (item == NULL) {
+    debug(1, "Can't find the flushUntilTS");
+  } else {
+    plist_get_uint_val(item, &flushUntilTS);
+    debug(2, "flushUntilTS is %" PRId64 ".", flushUntilTS);
+  }
+
+  debug_mutex_lock(&conn->flush_mutex, 1000, 1);
+  conn->ap2_flush_sequence_number = flushUntilSeq;
+  conn->ap2_flush_rtp_timestamp = flushUntilTS;
+  conn->ap2_flush_requested = 1;
+  debug_mutex_unlock(&conn->flush_mutex, 3);
+
+  // player_full_flush(conn);
+
+  resp->respcode = 200;
+}
+
+void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  debug(3, "Connection %d: SETRATEANCHORI %s :: Content-Length %d", conn->connection_number,
+        req->path, req->contentlength);
+  debug_log_rtsp_message(2, "SETRATEANCHORI request", req);
+
+  plist_t messagePlist = plist_from_rtsp_content(req);
+
+  if (messagePlist != NULL) {
+    plist_t item = plist_dict_get_item(messagePlist, "networkTimeSecs");
+    if (item != NULL) {
+      plist_t item_2 = plist_dict_get_item(messagePlist, "networkTimeTimelineID");
+      if (item_2 == NULL) {
+        debug(1, "Can't identify the Clock ID of the player.");
+      } else {
+        uint64_t nid;
+        plist_get_uint_val(item_2, &nid);
+        debug(2, "networkTimeTimelineID \"%" PRIx64 "\".", nid);
+        conn->networkTimeTimelineID = nid;
+      }
+      uint64_t networkTimeSecs;
+      plist_get_uint_val(item, &networkTimeSecs);
+      debug(2, "anchor networkTimeSecs is 0x%" PRIx64 ".", networkTimeSecs);
+
+      item = plist_dict_get_item(messagePlist, "networkTimeFrac");
+      uint64_t networkTimeFrac;
+      plist_get_uint_val(item, &networkTimeFrac);
+      debug(2, "anchor networkTimeFrac is 0x%" PRIx64 ".", networkTimeFrac);
+      // it looks like the networkTimeFrac is a fraction where the msb is work 1/2, the
+      // next 1/4 and so on
+      // now, convert the network time and fraction into nanoseconds
+      networkTimeFrac = networkTimeFrac >> 32; // reduce precision to about 1/4 nanosecond
+      networkTimeFrac = networkTimeFrac * 1000000000;
+      networkTimeFrac = networkTimeFrac >> 32; // we should now be left with the ns
+
+      networkTimeSecs = networkTimeSecs * 1000000000; // turn the whole seconds into ns
+      uint64_t anchorTimeNanoseconds = networkTimeSecs + networkTimeFrac;
+
+      debug(2, "anchorTimeNanoseconds looks like 0x%" PRIx64 ".", anchorTimeNanoseconds);
+
+      item = plist_dict_get_item(messagePlist, "rtpTime");
+      uint64_t rtpTime;
+
+      plist_get_uint_val(item, &rtpTime);
+      // debug(1, "anchor rtpTime is %" PRId64 ".", rtpTime);
+      uint32_t anchorRTPTime = rtpTime;
+
+      int32_t added_latency = (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
+      set_ptp_anchor_info(conn, conn->networkTimeTimelineID, anchorRTPTime - added_latency,
+                      anchorTimeNanoseconds);
+    }
+
+    item = plist_dict_get_item(messagePlist, "rate");
+    if (item != NULL) {
+      uint64_t rate;
+      plist_get_uint_val(item, &rate);
+      debug(2, "anchor rate 0x%016" PRIx64 ".", rate);
+      debug_mutex_lock(&conn->flush_mutex, 1000, 1);
+      conn->ap2_rate = rate;
+      if ((rate & 1) != 0) {
+
+        get_play_lock(conn);
+
+        if (conn->ap2_timing_peer_list_message)
+          ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
+        else
+          debug(1, "Connection %d: No timing peer list!", conn->connection_number);
+
+        debug(2, "Connection %d: Start playing.", conn->connection_number);
+        conn->ap2_play_enabled = 1;
+      } else {
+        debug(1, "Connection %d: Stop playing.", conn->connection_number);
+        conn->ap2_play_enabled = 0;
+        // not sure this is needed yet
+        reset_anchor_info(conn); // needed if the player resumes
+        release_play_lock(conn);
+      }
+      debug_mutex_unlock(&conn->flush_mutex, 3);
+      if ((rate & 1) == 0)
+        player_full_flush(conn);
+    }
+    plist_free(messagePlist);
+  } else {
+    debug(1, "missing plist!");
+  }
+  resp->respcode = 200;
+}
+
+void handle_get(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  debug(2, "Connection %d: GET %s :: Content-Length %d", conn->connection_number, req->path,
+        req->contentlength);
+  debug_log_rtsp_message(2, "GET request", req);
+  if (strcmp(req->path, "/info") == 0) {
+    handle_get_info(conn, req, resp);
+  } else {
+    debug(1, "Unhandled GET, path \"%s\".", req->path);
+    resp->respcode = 404; // makes sense, right?
+  }
+}
+
+#else
+void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)) rtsp_message *req,
+                __attribute((unused)) rtsp_message *resp) {
+  debug(1, "Connection %d: GET %s Content-Length %d", conn->connection_number, req->path,
+        req->contentlength);
+  resp->respcode = 500;
+}
+#endif
+
+#ifdef CONFIG_AIRPLAY_2
+void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  int ret;
+  resp->respcode = 200; // assume everything works out okay
+  debug(2, "Connection %d: pair-setup Content-Length %d", conn->connection_number,
+        req->contentlength);
+  pair_tlv_values_t *values = pair_tlv_new();
+  pair_tlv_t *state;
+  pair_tlv_t *method;
+  pair_tlv_t *flags;
+  ret = pair_tlv_parse((const unsigned char *)req->content, req->contentlength, values);
+  if (ret < 0)
+    debug(1, "Could not parse TLV");
+  state = pair_tlv_get_value(values, TLVType_State);
+  if (!state || state->size != 1) {
+    debug(1, "Missing/unexpected pairing state in TLV.");
+  }
+
+  if (state->value[0] == pair_keys_map[PAIR_SETUP_MSG01].state) {
+    debug(2, "pair-setup part 1");
+    method = pair_tlv_get_value(values, TLVType_Method);
+    if (!method || method->size != 1 || method->value[0] != 0) {
+      debug(1, "Missing/unexpected pairing method in TLV.");
+    }
+    if (method->value[0] != PairingMethodPairSetup)
+      debug(1, "Unexpected method value %u.", method->value[0]);
+    flags = pair_tlv_get_value(values, TLVType_Flags);
+    if (!flags || flags->size != 1) {
+      debug(1, "Missing/unexpected pairing flags in TLV.");
+    }
+    if (flags->value[0] == PairingFlagsTransient) {
+      debug(2, "Transient pairing selected.");
+      conn->pairing_mode =
+          PairingFlagsTransient; // when pairing step 2 is finished, turn on encryption
+    }
+
+    // Note this is modified to return a 16 byte salt
+    srp_create_salted_verification_key(
+        SRP_SHA512, SRP_NG_CUSTOM, USERNAME, (const unsigned char *)PASSWORD, strlen(PASSWORD),
+        &conn->server_setup_ctx->salt, &conn->server_setup_ctx->salt_len,
+        &conn->server_setup_ctx->v, &conn->server_setup_ctx->v_len, nl_hex, gl_hex);
+
+    srp_verifier_get_B(SRP_SHA512, SRP_NG_CUSTOM, conn->server_setup_ctx->v,
+                       conn->server_setup_ctx->v_len, &conn->server_setup_ctx->b,
+                       &conn->server_setup_ctx->b_len, &conn->server_setup_ctx->pkB,
+                       &conn->server_setup_ctx->pkB_len, nl_hex, gl_hex);
+
+    pair_tlv_values_t *payload = pair_tlv_new();
+
+    pair_tlv_add_value(payload, TLVType_State, &pair_keys_map[PAIR_SETUP_MSG02].state,
+                       sizeof(pair_keys_map[PAIR_SETUP_MSG02].state));
+    pair_tlv_add_value(payload, TLVType_Salt, conn->server_setup_ctx->salt,
+                       conn->server_setup_ctx->salt_len); // 16
+    pair_tlv_add_value(payload, TLVType_PublicKey, conn->server_setup_ctx->pkB,
+                       conn->server_setup_ctx->pkB_len); // 384
+
+    // turn the tlv to binary form
+
+    char *body = malloc(RESPONSE_BUFSIZE);
+    size_t body_len;
+    body_len = RESPONSE_BUFSIZE;
+
+    ret = pair_tlv_format(payload, (uint8_t *)body, &body_len);
+    if (ret < 0)
+      debug(1, "Can't convert response to a binary stream");
+    pair_tlv_free(payload);
+    resp->content = body; // these will be freed when the data is sent
+    resp->contentlength = body_len;
+    msg_add_header(resp, "Content-Type", "application/octet-stream");
+    debug_log_rtsp_message(2, "pair-setup part 1 response", resp);
+    resp->respcode = 200; // it all worked out okay
+
+  } else if (state->value[0] == pair_keys_map[PAIR_SETUP_MSG03].state) {
+    debug(2, "pair setup part 2");
+
+    // uint8_t *out;
+    // size_t out_len;
+    const uint8_t *key;
+    int key_len;
+    pair_tlv_t *pk;
+    pair_tlv_t *proof;
+    pair_tlv_values_t *payload;
+
+    pk = pair_tlv_get_value(values, TLVType_PublicKey);
+    proof = pair_tlv_get_value(values, TLVType_Proof);
+
+    if ((pk != NULL) && (proof != NULL)) {
+      conn->server_setup_ctx->pkA_len = pk->size; // 384
+      conn->server_setup_ctx->pkA = malloc(conn->server_setup_ctx->pkA_len);
+      memcpy(conn->server_setup_ctx->pkA, pk->value, conn->server_setup_ctx->pkA_len);
+
+      conn->server_setup_ctx->M1_len = proof->size; // 64
+      conn->server_setup_ctx->M1 = malloc(conn->server_setup_ctx->M1_len);
+      memcpy(conn->server_setup_ctx->M1, proof->value, conn->server_setup_ctx->M1_len);
+
+      conn->server_setup_ctx->verifier = srp_verifier_new(
+          SRP_SHA512, SRP_NG_CUSTOM, USERNAME, conn->server_setup_ctx->salt,
+          conn->server_setup_ctx->salt_len, conn->server_setup_ctx->v,
+          conn->server_setup_ctx->v_len, conn->server_setup_ctx->pkA,
+          conn->server_setup_ctx->pkA_len, conn->server_setup_ctx->b, conn->server_setup_ctx->b_len,
+          conn->server_setup_ctx->pkB, conn->server_setup_ctx->pkB_len, nl_hex, gl_hex);
+      if (conn->server_setup_ctx->verifier != NULL) {
+        if (!conn->server_setup_ctx->verifier) {
+          die("Error verifier");
+        }
+
+        conn->server_setup_ctx->M2_len = 64; // 512 bit hash
+        srp_verifier_verify_session(conn->server_setup_ctx->verifier, conn->server_setup_ctx->M1,
+                                    &conn->server_setup_ctx->M2);
+        if (conn->server_setup_ctx->M2 != NULL) {
+
+          key = srp_verifier_get_session_key(conn->server_setup_ctx->verifier, &key_len);
+
+          conn->control_cipher_context.cipher_context =
+              pair_cipher_new(PAIR_SERVER_HOMEKIT_TRANSIENT, 2, key, key_len);
+          conn->control_cipher_context.fd = conn->fd;
+          conn->control_cipher_context.input_plaintext_buffer = NULL;
+          conn->control_cipher_context.input_plaintext_buffer_toq = NULL;
+          conn->control_cipher_context.input_plaintext_buffer_bytes_occupied = 0;
+          conn->control_cipher_context.active = 0;
+          payload = pair_tlv_new();
+
+          pair_tlv_add_value(payload, TLVType_State, &pair_keys_map[PAIR_SETUP_MSG04].state,
+                             sizeof(pair_keys_map[PAIR_SETUP_MSG04].state));
+          pair_tlv_add_value(payload, TLVType_Proof, conn->server_setup_ctx->M2,
+                             conn->server_setup_ctx->M2_len); // 384
+
+          char *body = malloc(RESPONSE_BUFSIZE);
+          size_t body_len;
+          body_len = RESPONSE_BUFSIZE;
+
+          ret = pair_tlv_format(payload, (uint8_t *)body, &body_len);
+          if (ret < 0)
+            debug(1, "Can't convert response to a binary stream");
+          pair_tlv_free(payload);
+
+          // free the verifier created by srp_verifier_new()
+          if (conn->server_setup_ctx->verifier != NULL) {
+            srp_verifier_delete(conn->server_setup_ctx->verifier);
+          }
+
+          // free mallocs made here for pkA and M1
+          if (conn->server_setup_ctx->pkA != NULL)
+            free((void *)conn->server_setup_ctx->pkA);
+          if (conn->server_setup_ctx->M1 != NULL)
+            free((void *)conn->server_setup_ctx->M1);
+
+          // free mallocs made by srp_create_salted_verification_key()
+          if (conn->server_setup_ctx->salt != NULL)
+            free((void *)conn->server_setup_ctx->salt);
+          if (conn->server_setup_ctx->v != NULL)
+            free((void *)conn->server_setup_ctx->v);
+
+          // free mallocs made by srp_verifier_get_B()
+          if (conn->server_setup_ctx->b != NULL)
+            free((void *)conn->server_setup_ctx->b);
+          //    if (conn->server_setup_ctx->pkB != NULL)
+          //      free((void *)conn->server_setup_ctx->pkB);
+
+          resp->content = body; // these will be freed when the data is sent
+          resp->contentlength = body_len;
+          msg_add_header(resp, "Content-Type", "application/octet-stream");
+          debug_log_rtsp_message(2, "pair-setup part 2 response", resp);
+          resp->respcode = 200; // it all worked out okay
+        } else {
+          debug(1, "Error M2");
+          resp->respcode = 451; // 451 is "Parameter not understood"
+        }
+      } else {
+        debug(1, "Error verifier");
+        resp->respcode = 451;
+      }
+    } else {
+      debug(1, "Error pkA ver");
+      resp->respcode = 451;
+    }
+  } else {
+    debug(1, "don't recognise pair setup message");
+  }
+  pair_tlv_free(values);
+}
+
+void handle_fp_setup(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *req,
+                     rtsp_message *resp) {
+
+  /* Fairplay magic */
+  static uint8_t server_fp_reply1[] =
+      "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x00\x0f\x9f\x3f\x9e\x0a"
+      "\x25\x21\xdb\xdf\x31\x2a\xb2\xbf\xb2\x9e\x8d\x23\x2b\x63\x76\xa8\xc8\x18\x70"
+      "\x1d\x22\xae\x93\xd8\x27\x37\xfe\xaf\x9d\xb4\xfd\xf4\x1c\x2d\xba\x9d\x1f\x49"
+      "\xca\xaa\xbf\x65\x91\xac\x1f\x7b\xc6\xf7\xe0\x66\x3d\x21\xaf\xe0\x15\x65\x95"
+      "\x3e\xab\x81\xf4\x18\xce\xed\x09\x5a\xdb\x7c\x3d\x0e\x25\x49\x09\xa7\x98\x31"
+      "\xd4\x9c\x39\x82\x97\x34\x34\xfa\xcb\x42\xc6\x3a\x1c\xd9\x11\xa6\xfe\x94\x1a"
+      "\x8a\x6d\x4a\x74\x3b\x46\xc3\xa7\x64\x9e\x44\xc7\x89\x55\xe4\x9d\x81\x55\x00"
+      "\x95\x49\xc4\xe2\xf7\xa3\xf6\xd5\xba";
+  static uint8_t server_fp_reply2[] =
+      "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x01\xcf\x32\xa2\x57\x14"
+      "\xb2\x52\x4f\x8a\xa0\xad\x7a\xf1\x64\xe3\x7b\xcf\x44\x24\xe2\x00\x04\x7e\xfc"
+      "\x0a\xd6\x7a\xfc\xd9\x5d\xed\x1c\x27\x30\xbb\x59\x1b\x96\x2e\xd6\x3a\x9c\x4d"
+      "\xed\x88\xba\x8f\xc7\x8d\xe6\x4d\x91\xcc\xfd\x5c\x7b\x56\xda\x88\xe3\x1f\x5c"
+      "\xce\xaf\xc7\x43\x19\x95\xa0\x16\x65\xa5\x4e\x19\x39\xd2\x5b\x94\xdb\x64\xb9"
+      "\xe4\x5d\x8d\x06\x3e\x1e\x6a\xf0\x7e\x96\x56\x16\x2b\x0e\xfa\x40\x42\x75\xea"
+      "\x5a\x44\xd9\x59\x1c\x72\x56\xb9\xfb\xe6\x51\x38\x98\xb8\x02\x27\x72\x19\x88"
+      "\x57\x16\x50\x94\x2a\xd9\x46\x68\x8a";
+  static uint8_t server_fp_reply3[] =
+      "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x02\xc1\x69\xa3\x52\xee"
+      "\xed\x35\xb1\x8c\xdd\x9c\x58\xd6\x4f\x16\xc1\x51\x9a\x89\xeb\x53\x17\xbd\x0d"
+      "\x43\x36\xcd\x68\xf6\x38\xff\x9d\x01\x6a\x5b\x52\xb7\xfa\x92\x16\xb2\xb6\x54"
+      "\x82\xc7\x84\x44\x11\x81\x21\xa2\xc7\xfe\xd8\x3d\xb7\x11\x9e\x91\x82\xaa\xd7"
+      "\xd1\x8c\x70\x63\xe2\xa4\x57\x55\x59\x10\xaf\x9e\x0e\xfc\x76\x34\x7d\x16\x40"
+      "\x43\x80\x7f\x58\x1e\xe4\xfb\xe4\x2c\xa9\xde\xdc\x1b\x5e\xb2\xa3\xaa\x3d\x2e"
+      "\xcd\x59\xe7\xee\xe7\x0b\x36\x29\xf2\x2a\xfd\x16\x1d\x87\x73\x53\xdd\xb9\x9a"
+      "\xdc\x8e\x07\x00\x6e\x56\xf8\x50\xce";
+  static uint8_t server_fp_reply4[] =
+      "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x03\x90\x01\xe1\x72\x7e"
+      "\x0f\x57\xf9\xf5\x88\x0d\xb1\x04\xa6\x25\x7a\x23\xf5\xcf\xff\x1a\xbb\xe1\xe9"
+      "\x30\x45\x25\x1a\xfb\x97\xeb\x9f\xc0\x01\x1e\xbe\x0f\x3a\x81\xdf\x5b\x69\x1d"
+      "\x76\xac\xb2\xf7\xa5\xc7\x08\xe3\xd3\x28\xf5\x6b\xb3\x9d\xbd\xe5\xf2\x9c\x8a"
+      "\x17\xf4\x81\x48\x7e\x3a\xe8\x63\xc6\x78\x32\x54\x22\xe6\xf7\x8e\x16\x6d\x18"
+      "\xaa\x7f\xd6\x36\x25\x8b\xce\x28\x72\x6f\x66\x1f\x73\x88\x93\xce\x44\x31\x1e"
+      "\x4b\xe6\xc0\x53\x51\x93\xe5\xef\x72\xe8\x68\x62\x33\x72\x9c\x22\x7d\x82\x0c"
+      "\x99\x94\x45\xd8\x92\x46\xc8\xc3\x59";
+
+  static uint8_t server_fp_header[] = "\x46\x50\x4c\x59\x03\x01\x04\x00\x00\x00\x00\x14";
+
+  resp->respcode = 200; // assume it's not handled
+
+  // uint8_t *out;
+  // size_t out_len;
+  int version_pos = 4;
+  int mode_pos = 14;
+  int type_pos = 5;
+  int seq_pos = 6;
+  int setup_message_type = 1;
+  int setup1_message_seq = 1;
+  int setup2_message_seq = 3;
+  int setup2_suffix_len = 20;
+  // int ret;
+
+  // response and len are dummy values and can be ignored
+
+  // debug(1, "Version: %02x, mode: %02x, type: %02x, seq: %02x", req->content[version_pos],
+  //       req->content[mode_pos], req->content[type_pos], req->content[seq_pos]);
+
+  if (req->content[version_pos] != 3 || req->content[type_pos] != setup_message_type) {
+    debug(1, "Unsupported FP version.");
+  }
+
+  char *response = NULL;
+  size_t len = 0;
+
+  if (req->content[seq_pos] == setup1_message_seq) {
+    // All replies are the same length. -1 to account for the NUL byte at the end.
+    len = sizeof(server_fp_reply1) - 1;
+
+    if (req->content[mode_pos] == 0)
+      response = memdup(server_fp_reply1, len);
+    if (req->content[mode_pos] == 1)
+      response = memdup(server_fp_reply2, len);
+    if (req->content[mode_pos] == 2)
+      response = memdup(server_fp_reply3, len);
+    if (req->content[mode_pos] == 3)
+      response = memdup(server_fp_reply4, len);
+
+  } else if (req->content[seq_pos] == setup2_message_seq) {
+    // -1 to account for the NUL byte at the end.
+    len = sizeof(server_fp_header) - 1 + setup2_suffix_len;
+    response = malloc(len);
+    if (response) {
+      memcpy(response, server_fp_header, sizeof(server_fp_header) - 1);
+      memcpy(response + sizeof(server_fp_header) - 1,
+             req->content + req->contentlength - setup2_suffix_len, setup2_suffix_len);
+    }
+  }
+
+  if (response == NULL) {
+    debug(1, "Cannot create a response.");
+  }
+
+  resp->content = response; // these will be freed when the data is sent
+  resp->contentlength = len;
+  msg_add_header(resp, "Content-Type", "application/octet-stream");
+}
+
+void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  resp->respcode = 200;
+  if (strcmp(req->path, "/pair-setup") == 0) {
+    handle_pair_setup(conn, req, resp);
+  } else if (strcmp(req->path, "/fp-setup") == 0) {
+    handle_fp_setup(conn, req, resp);
+  } else {
+    debug(2, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
+          req->contentlength);
+    debug_log_rtsp_message(2, "POST request", req);
+    debug(2, "Unhandled POST, path \"%s\".", req->path);
+  }
+}
+
+void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  debug(2, "Connection %d: SETPEERS %s Content-Length %d", conn->connection_number, req->path,
+        req->contentlength);
+  debug_log_rtsp_message(2, "SETPEERS request", req);
+
+  char timing_list_message[4096];
+  timing_list_message[0] = 'T';
+  timing_list_message[1] = 0;
+
+  plist_t addresses_array = NULL;
+  plist_from_memory(req->content, req->contentlength, &addresses_array);
+  uint32_t items = plist_array_get_size(addresses_array);
+  if (items) {
+    uint32_t item;
+    for (item = 0; item < items; item++) {
+      plist_t n = plist_array_get_item(addresses_array, item);
+      char *ip_address = NULL;
+      plist_get_string_val(n, &ip_address);
+      // debug(1,ip_address);
+      strncat(timing_list_message, " ",
+              sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+      strncat(timing_list_message, ip_address,
+              sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+      if (ip_address != NULL)
+        free(ip_address);
+    }
+
+    if (conn->ap2_timing_peer_list_message != NULL)
+      free(conn->ap2_timing_peer_list_message);
+    conn->ap2_timing_peer_list_message = strdup(timing_list_message);
+    // if this rtsp thread is playing...
+    if (try_to_hold_play_lock(conn) == 0) {
+      ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
+      release_hold_on_play_lock(conn);
+    }
+  }
+  plist_free(addresses_array);
+  resp->respcode = 200;
+}
+#endif
+
+#ifndef CONFIG_AIRPLAY_2
 void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                     rtsp_message *resp) {
+  debug_log_rtsp_message(2, "OPTIONS request", req);
   debug(3, "Connection %d: OPTIONS", conn->connection_number);
   resp->respcode = 200;
   msg_add_header(resp, "Public",
@@ -1001,9 +2076,134 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
                  "PAUSE, FLUSH, TEARDOWN, "
                  "OPTIONS, GET_PARAMETER, SET_PARAMETER");
 }
+#endif
+
+#ifdef CONFIG_AIRPLAY_2
+
+void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
+                    rtsp_message *resp) {
+  debug_log_rtsp_message(2, "OPTIONS request", req);
+  debug(3, "Connection %d: OPTIONS", conn->connection_number);
+  resp->respcode = 200;
+  msg_add_header(resp, "Public",
+                 "ANNOUNCE, SETUP, RECORD, "
+                 "PAUSE, FLUSH, TEARDOWN, "
+                 "OPTIONS, GET_PARAMETER, SET_PARAMETER, GET");
+}
 
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                      rtsp_message *resp) {
+  debug(2, "Connection %d: TEARDOWN", conn->connection_number);
+
+  // debug_log_rtsp_message(1, "TEARDOWN: ", req);
+  // if (have_player(conn)) {
+  resp->respcode = 200;
+  msg_add_header(resp, "Connection", "close");
+
+  plist_t messagePlist = plist_from_rtsp_content(req);
+  if (messagePlist != NULL) {
+    // now see if the incoming plist contains a "streams" array
+    plist_t streams = plist_dict_get_item(messagePlist, "streams");
+
+    if (streams) {
+      // we are being asked to close a stream
+      // at present, we just close this one
+      debug(2,
+            "Connection %d: A \"streams\" array has been found -- stop the player, stop and delete "
+            "the control "
+            "and audio threads and close the ports",
+            conn->connection_number);
+
+      // get stream[0]
+      plist_t stream0 = plist_array_get_item(streams, 0);
+
+      plist_t item = plist_dict_get_item(stream0, "type");
+      uint64_t item_value;
+      plist_get_uint_val(item, &item_value);
+
+      switch (item_value) {
+      case 96: {
+        release_play_lock(conn);
+        debug(2, "Connection %d: TEARDOWN Delete Realtime Audio Stream Thread",
+              conn->connection_number);
+        pthread_cancel(conn->rtp_realtime_audio_thread);
+        pthread_join(conn->rtp_realtime_audio_thread, NULL);
+        if (conn->realtime_audio_socket)
+          close(conn->realtime_audio_socket);
+      } break;
+      case 103: {
+        release_play_lock(conn); // shoulda been released when stopped...
+        debug(2, "Connection %d: TEARDOWN Delete Buffered Audio Stream Thread",
+              conn->connection_number);
+        pthread_cancel(conn->rtp_buffered_audio_thread);
+        pthread_join(conn->rtp_buffered_audio_thread, NULL);
+        if (conn->buffered_audio_socket)
+          close(conn->buffered_audio_socket);
+      } break;
+      default: {}
+      }
+
+      debug(2, "Connection %d: TEARDOWN Close Control Thread", conn->connection_number);
+      pthread_cancel(conn->rtp_ap2_control_thread);
+      pthread_join(conn->rtp_ap2_control_thread, NULL);
+
+      debug(2, "Connection %d: TEARDOWN Close Control Socket.", conn->connection_number);
+      if (conn->ap2_control_socket) {
+        close(conn->ap2_control_socket);
+        conn->ap2_remote_control_socket_addr_length =
+            0; // indicates to the control receiver thread that the socket address need to be
+               // recreated.
+      }
+
+      debug(2, "Connection %d: TEARDOWN Stop the Player.", conn->connection_number);
+      player_stop(conn);
+
+      if (conn->session_key) {
+        free(conn->session_key);
+        conn->session_key = NULL;
+      }
+      plist_free(streams);
+
+      release_play_lock(conn);
+
+      // if (ptp_shm_interface_close() != 0)
+      //  warn("Error closing the nqptp interface.");
+
+      debug(2, "Connection %d: Stream TEARDOWN complete", conn->connection_number);
+    } else {
+      // we are being asked to disconnect
+      debug(2, "Connection %d: TEARDOWN No \"streams\" array has been found.",
+            conn->connection_number);
+      debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
+      pthread_cancel(conn->rtp_event_thread);
+      pthread_join(conn->rtp_event_thread, NULL);
+      debug(2, "Connection %d: TEARDOWN Close Event Socket.", conn->connection_number);
+      if (conn->event_socket)
+        close(conn->event_socket);
+
+      if (conn->client_setup_plist) {
+        plist_free(conn->client_setup_plist);
+        conn->client_setup_plist = NULL;
+      }
+      debug(2, "Connection %d: non-stream TEARDOWN complete", conn->connection_number);
+    }
+    //} else {
+    //  warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
+    //       conn->connection_number);
+    //  resp->respcode = 451;
+
+    plist_free(messagePlist);
+    resp->respcode = 200;
+  } else {
+    debug(1, "Connection %d: missing plist!", conn->connection_number);
+    resp->respcode = 451; // don't know what to do here
+  }
+}
+
+#else
+void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
+                     rtsp_message *resp) {
+  debug_log_rtsp_message(2, "TEARDOWN request", req);
   debug(2, "Connection %d: TEARDOWN", conn->connection_number);
   if (have_play_lock(conn)) {
     resp->respcode = 200;
@@ -1021,45 +2221,341 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
     resp->respcode = 451;
   }
 }
+#endif
 
 void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  // TODO -- don't know what this is for in AP2
+  debug_log_rtsp_message(2, "FLUSH request", req);
   debug(3, "Connection %d: FLUSH", conn->connection_number);
-  if (have_play_lock(conn)) {
-    char *p = NULL;
-    uint32_t rtptime = 0;
-    char *hdr = msg_get_header(req, "RTP-Info");
+  char *p = NULL;
+  uint32_t rtptime = 0;
+  char *hdr = msg_get_header(req, "RTP-Info");
 
-    if (hdr) {
-      // debug(1,"FLUSH message received: \"%s\".",hdr);
-      // get the rtp timestamp
-      p = strstr(hdr, "rtptime=");
-      if (p) {
-        p = strchr(p, '=');
-        if (p)
-          rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
-      }
+  if (hdr) {
+    // debug(1,"FLUSH message received: \"%s\".",hdr);
+    // get the rtp timestamp
+    p = strstr(hdr, "rtptime=");
+    if (p) {
+      p = strchr(p, '=');
+      if (p)
+        rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
     }
-    // debug(1,"RTSP Flush Requested: %u.",rtptime);
-
-    // the following is now done better by the player_flush routine as a 'pfls'
-    /*
-    #ifdef CONFIG_METADATA
-        if (p)
-          send_metadata('ssnc', 'flsr', p + 1, strlen(p + 1), req, 1);
-        else
-          send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
-    #endif
-    */
-
+  }
+  // debug(1,"RTSP Flush Requested: %u.",rtptime);
+  if (have_play_lock(conn)) {
+#ifdef CONFIG_METADATA
+    if (p)
+      send_metadata('ssnc', 'flsr', p + 1, strlen(p + 1), req, 1);
+    else
+      send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
+#endif
     player_flush(rtptime, conn); // will not crash even it there is no player thread.
     resp->respcode = 200;
 
   } else {
-    warn("Connection %d FLUSH received without having the player (no ANNOUNCE?)",
-         conn->connection_number);
+    warn("Connection %d FLUSH %u received without having the player (no ANNOUNCE?)",
+         conn->connection_number, rtptime);
     resp->respcode = 451;
+    //  #ifdef CONFIG_AIRPLAY_2
+    //  debug(1, "Connection %d FLUSH %u received without having the player but do it anyway...",
+    //         conn->connection_number, rtptime);
+    //	player_flush(rtptime, conn); // will not crash even it there is no player thread.
+    //    resp->respcode = 200;
+    //  #endif
   }
 }
+
+#ifdef CONFIG_AIRPLAY_2
+void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  int err;
+  resp->close_on_response = 0;
+  resp->suppress_crlf = 0;
+  debug(2, "Connection %d: SETUP (AirPlay 2)", conn->connection_number);
+
+  // we need to get the timing peer interfaces.
+  // I'm guessing they are all this device's adresses that are on the same subnets as
+  // the timing peer info in the accompanying plist
+
+  plist_t messagePlist = plist_from_rtsp_content(req);
+  plist_t setupResponsePlist = plist_new_dict();
+
+  // now see if the incoming plist contains a "streams" array
+  plist_t streams = plist_dict_get_item(messagePlist, "streams");
+
+  if (streams) {
+    debug(2,
+          "SETUP on Connection %d: A \"streams\" array has been found -- create control and audio "
+          "threads and ports",
+          conn->connection_number);
+    // open a player)
+
+    // if (ptp_shm_interface_open() != 0)
+    //  warn("Error opening the nqptp clock daemon!");
+
+    // get stream[0]
+    plist_t stream0 = plist_array_get_item(streams, 0);
+
+    plist_t streams_array = plist_new_array(); // to hold the ports and stuff
+    plist_t stream0dict = plist_new_dict();
+    // more stuff
+    // set up a UDP control stream and thread and a UDP or TCP audio stream and thread
+
+    // bind a new UDP port and get a socket
+    conn->local_ap2_control_port = 0; // any port
+    err = bind_socket_and_port(SOCK_DGRAM, conn->connection_ip_family, conn->self_ip_string,
+                               conn->self_scope_id, &conn->local_ap2_control_port,
+                               &conn->ap2_control_socket);
+    if (err) {
+      die("Error %d: could not find a UDP port to use as an ap2_control port", err);
+    }
+
+    pthread_create(&conn->rtp_ap2_control_thread, NULL, &rtp_ap2_control_receiver, (void *)conn);
+
+    // get the session key
+
+    plist_t item = plist_dict_get_item(stream0, "shk"); // session key
+    uint64_t item_value = 0;
+    plist_get_data_val(item, (char **)&conn->session_key, &item_value);
+
+    // now, get the type of the stream.
+    item = plist_dict_get_item(stream0, "type");
+    item_value = 0;
+    plist_get_uint_val(item, &item_value);
+
+    switch (item_value) {
+    case 96: {
+      debug(1, "Connection %d. Realtime Audio Stream Detected.", conn->connection_number);
+      debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
+      get_play_lock(conn);
+
+      // bind a new UDP port and get a socket
+      conn->local_realtime_audio_port = 0; // any port
+      err = bind_socket_and_port(SOCK_DGRAM, conn->connection_ip_family, conn->self_ip_string,
+                                 conn->self_scope_id, &conn->local_realtime_audio_port,
+                                 &conn->realtime_audio_socket);
+      if (err) {
+        die("Error %d: could not find a UDP port to use as a realtime_audio port", err);
+      }
+
+      pthread_create(&conn->rtp_realtime_audio_thread, NULL, &rtp_realtime_audio_receiver,
+                     (void *)conn);
+
+      plist_dict_set_item(stream0dict, "type", plist_new_uint(96));
+      plist_dict_set_item(stream0dict, "dataPort", plist_new_uint(conn->local_realtime_audio_port));
+
+      conn->stream.type = ast_apple_lossless;
+      debug(3, "An ALAC stream has been detected.");
+
+      // Set reasonable connection defaults
+      conn->stream.fmtp[0] = 96;
+      conn->stream.fmtp[1] = 352;
+      conn->stream.fmtp[2] = 0;
+      conn->stream.fmtp[3] = 16;
+      conn->stream.fmtp[4] = 40;
+      conn->stream.fmtp[5] = 10;
+      conn->stream.fmtp[6] = 14;
+      conn->stream.fmtp[7] = 2;
+      conn->stream.fmtp[8] = 255;
+      conn->stream.fmtp[9] = 0;
+      conn->stream.fmtp[10] = 0;
+      conn->stream.fmtp[11] = 44100;
+
+      // set the parameters of the player (as distinct from the parameters of the decoder --
+      // that's done later).
+      conn->max_frames_per_packet = conn->stream.fmtp[1]; // number of audio frames per packet.
+      conn->input_rate = conn->stream.fmtp[11];
+      conn->input_num_channels = conn->stream.fmtp[7];
+      conn->input_bit_depth = conn->stream.fmtp[3];
+      conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
+      debug(1, "Realtime Stream Play");
+      if (conn->ap2_timing_peer_list_message)
+        ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
+      else
+        debug(1, "No timing peer list!");
+
+      player_play(conn);
+
+      conn->rtp_running = 1; // hack!
+    } break;
+    case 103: {
+      debug(1, "Connection %d. Buffered Audio Stream Detected.", conn->connection_number);
+      debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
+      // get needed stuff
+
+      // bind a new TCP port and get a socket
+      conn->local_buffered_audio_port = 0; // any port
+      err = bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family, conn->self_ip_string,
+                                 conn->self_scope_id, &conn->local_buffered_audio_port,
+                                 &conn->buffered_audio_socket);
+      if (err) {
+        die("Error %d: could not find a TCP port to use as a buffered_audio port", err);
+      }
+
+      pthread_create(&conn->rtp_buffered_audio_thread, NULL, &rtp_buffered_audio_processor,
+                     (void *)conn);
+
+      plist_dict_set_item(stream0dict, "type", plist_new_uint(103));
+      plist_dict_set_item(stream0dict, "dataPort", plist_new_uint(conn->local_buffered_audio_port));
+      plist_dict_set_item(stream0dict, "audioBufferSize",
+                          plist_new_uint(conn->ap2_audio_buffer_size));
+
+      // hack.
+      conn->max_frames_per_packet = 352; // number of audio frames per packet.
+      conn->input_rate = 44100;
+      conn->input_num_channels = 2;
+      conn->input_bit_depth = 16;
+      conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
+
+      player_play(conn);
+
+      conn->rtp_running = 1; // hack!
+    } break;
+    default:
+      debug(1, "Unhandled stream type %" PRIu64 ".", item_value);
+    }
+
+    plist_dict_set_item(stream0dict, "controlPort", plist_new_uint(conn->local_ap2_control_port));
+
+    plist_array_append_item(streams_array, stream0dict);
+    plist_dict_set_item(setupResponsePlist, "streams", streams_array);
+
+  } else {
+    debug(2,
+          "SETUP on Connection %d: No \"streams\" array has been found -- create an event thread "
+          "and open a TCP port.",
+          conn->connection_number);
+    // first, get and retain the incoming plist.
+    if (conn->client_setup_plist) {
+      plist_free(conn->client_setup_plist);
+    }
+    conn->client_setup_plist = messagePlist;
+    plist_t addresses = plist_new_array(); // to hold the device's peer interfaces
+
+    // now determine which of the present device's IP numbers are in the
+    // same subnet as any IP numbers in the timing peer info
+    // provided by the client
+
+    plist_t timing_peer_info = plist_dict_get_item(conn->client_setup_plist, "timingPeerInfo");
+    if (timing_peer_info) {
+      plist_t addresses_array = plist_dict_get_item(timing_peer_info, "Addresses");
+      if (addresses_array) {
+        // iterate through the array of items
+        uint32_t items = plist_array_get_size(addresses_array);
+        if (items) {
+
+          uint32_t item;
+          struct ifaddrs *addrs, *iap;
+          getifaddrs(&addrs);
+          for (item = 0; item < items; item++) {
+            plist_t n = plist_array_get_item(addresses_array, item);
+            char *ip_address = NULL;
+            plist_get_string_val(n, &ip_address);
+            // debug(1, "Timing peer: %s", ip_address);
+            // find its family and convert it into an IPv4/6 address
+
+            struct sockaddr_storage peer_address;
+            struct sockaddr_in6 *pa6 = (struct sockaddr_in6 *)&peer_address;
+            struct sockaddr_in *pa4 = (struct sockaddr_in *)&peer_address;
+
+            if (inet_pton(AF_INET6, ip_address, &pa6->sin6_addr) == 1) { // is an IPv6 address...
+              peer_address.ss_family = AF_INET6;
+              for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
+                if ((iap->ifa_addr) && (iap->ifa_netmask) && (iap->ifa_flags & IFF_UP) &&
+                    ((iap->ifa_flags & IFF_LOOPBACK) == 0) &&
+                    (iap->ifa_addr->sa_family == AF_INET6)) {
+                  struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
+                  struct sockaddr_in6 *mask6 = (struct sockaddr_in6 *)(iap->ifa_netmask);
+                  unsigned int i;
+                  int different = 0;
+                  for (i = 0; ((i < 16) && (different == 0)); i++) {
+                    unsigned char host_byte =
+                        (addr6->sin6_addr.s6_addr[i] & mask6->sin6_addr.s6_addr[i]);
+                    unsigned char peer_byte =
+                        (pa6->sin6_addr.s6_addr[i] & mask6->sin6_addr.s6_addr[i]);
+                    if (host_byte != peer_byte)
+                      different = 1;
+                  }
+
+                  char buf[32];
+                  memset(buf, 0, sizeof(buf));
+                  inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf, sizeof(buf));
+                  if (!different) {
+                    // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
+                    plist_array_append_item(addresses, plist_new_string(buf));
+                  }
+                }
+              }
+            } else if (inet_pton(AF_INET, ip_address, &pa4->sin_addr) == 1) {
+              peer_address.ss_family = AF_INET;
+              for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
+                if ((iap->ifa_addr) && (iap->ifa_netmask) && (iap->ifa_flags & IFF_UP) &&
+                    ((iap->ifa_flags & IFF_LOOPBACK) == 0) &&
+                    (iap->ifa_addr->sa_family == AF_INET)) {
+                  struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
+                  struct sockaddr_in *mask = (struct sockaddr_in *)(iap->ifa_netmask);
+                  if ((addr->sin_addr.s_addr & mask->sin_addr.s_addr) ==
+                      (pa4->sin_addr.s_addr & mask->sin_addr.s_addr)) {
+                    char buf[32];
+                    memset(buf, 0, sizeof(buf));
+                    inet_ntop(AF_INET, (void *)&addr->sin_addr, buf, sizeof(buf));
+                    // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
+                    plist_array_append_item(addresses, plist_new_string(buf));
+                  }
+                }
+              }
+            } else {
+              debug(1, "Don't recognise this as an IP address.");
+            }
+            free(ip_address);
+          }
+          freeifaddrs(addrs);
+        } else {
+          debug(1, "No timingPeerInfo addresses in the array.");
+        }
+      } else {
+        debug(1, "Can't find timingPeerInfo addresses");
+      }
+    } else {
+      debug(1, "Can't find timingPeerInfo");
+    }
+
+    // make up the timing peer info list part of the response...
+    // debug(1,"Create timingPeerInfoPlist");
+    plist_t timingPeerInfoPlist = plist_new_dict();
+    plist_dict_set_item(timingPeerInfoPlist, "Addresses", addresses);
+    plist_dict_set_item(timingPeerInfoPlist, "ID", plist_new_string(conn->self_ip_string));
+    plist_dict_set_item(setupResponsePlist, "timingPeerInfo", timingPeerInfoPlist);
+    // get a port to use as an event port
+
+    // bind a new TCP port and get a socket
+    conn->local_event_port = 0; // any port
+
+    int err =
+        bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family, conn->self_ip_string,
+                             conn->self_scope_id, &conn->local_event_port, &conn->event_socket);
+    if (err) {
+      die("Error %d: could not find a TCP port to use as an event port", err);
+    }
+
+    pthread_create(&conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
+
+    plist_dict_set_item(setupResponsePlist, "eventPort", plist_new_uint(conn->local_event_port));
+    plist_dict_set_item(setupResponsePlist, "timingPort", plist_new_uint(0)); // dummy
+  }
+
+  plist_to_bin(setupResponsePlist, &resp->content, &resp->contentlength);
+  plist_free(setupResponsePlist);
+
+  msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
+  debug_log_rtsp_message(2, " SETUP response", resp);
+  resp->respcode = 200; // it all worked out okay
+                        // } else {
+                        //   resp->respcode = 453;
+  //   debug(1, "Connection %d: SETUP failed because another connection is already playing.",
+  //         conn->connection_number);
+  // }
+}
+#endif
 
 void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: SETUP", conn->connection_number);
@@ -1172,10 +2668,7 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     }
     if (resp->respcode != 200) {
       debug(1, "Connection %d: SETUP error -- releasing the player lock.", conn->connection_number);
-      debug_mutex_lock(&playing_conn_lock, 1000000, 3);
-      if (playing_conn == conn) // if we have the player
-        playing_conn = NULL;    // let it go
-      debug_mutex_unlock(&playing_conn_lock, 3);
+      release_play_lock(conn);
     }
 
   } else {
@@ -2294,10 +3787,7 @@ out:
   if (resp->respcode != 200 && resp->respcode != 453) {
     debug(1, "Connection %d: Error in handling ANNOUNCE. Unlocking the play lock.",
           conn->connection_number);
-    debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
-    if (playing_conn == conn)                         // if we managed to acquire it
-      playing_conn = NULL;                            // let it go
-    debug_mutex_unlock(&playing_conn_lock, 3);
+    release_play_lock(conn);
   }
 }
 
@@ -2308,10 +3798,26 @@ static struct method_handler {
                        {"ANNOUNCE", handle_announce},
                        {"FLUSH", handle_flush},
                        {"TEARDOWN", handle_teardown},
+#ifdef CONFIG_AIRPLAY_2
+                       {"SETUP", handle_setup_2},
+#else
                        {"SETUP", handle_setup},
+#endif
                        {"GET_PARAMETER", handle_get_parameter},
                        {"SET_PARAMETER", handle_set_parameter},
+#ifdef CONFIG_AIRPLAY_2
+                       {"RECORD", handle_record_2},
+#else
                        {"RECORD", handle_record},
+#endif
+#ifdef CONFIG_AIRPLAY_2
+
+                       {"GET", handle_get},
+                       {"POST", handle_post},
+                       {"SETPEERS", handle_setpeers},
+                       {"SETRATEANCHORTI", handle_setrateanchori},
+                       {"FLUSHBUFFERED", handle_flushbuffered},
+#endif
                        {NULL, NULL}};
 
 static void apple_challenge(int fd, rtsp_message *req, rtsp_message *resp) {
@@ -2578,7 +4084,8 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   if (conn->player_thread)
     player_stop(conn);
 
-  debug(3, "Closing timing, control and audio sockets...");
+  debug(3, "Connection %d terminating:Closing timing, control and audio sockets...",
+        conn->connection_number);
   if (conn->control_socket)
     close(conn->control_socket);
   if (conn->timing_socket)
@@ -2587,14 +4094,27 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     close(conn->audio_socket);
 
   if (conn->fd > 0) {
-    debug(3, "Connection %d: closing fd %d.", conn->connection_number, conn->fd);
+    debug(3, "Connection %d terminating: closing fd %d.", conn->connection_number, conn->fd);
     close(conn->fd);
-    debug(3, "Connection %d: closed fd %d.", conn->connection_number, conn->fd);
+    debug(3, "Connection %d terminating: closed fd %d.", conn->connection_number, conn->fd);
   }
   if (conn->auth_nonce) {
     free(conn->auth_nonce);
     conn->auth_nonce = NULL;
   }
+
+#ifdef CONFIG_AIRPLAY_2
+  if (conn->client_setup_plist) {
+    plist_free(conn->client_setup_plist);
+    conn->client_setup_plist = NULL;
+  }
+
+  // free the cipher context, if allocated
+  if (conn->control_cipher_context.cipher_context)
+    free(conn->control_cipher_context.cipher_context);
+
+#endif
+
   rtp_terminate(conn);
 
   if (conn->dacp_id) {
@@ -2631,14 +4151,14 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   pthread_mutex_destroy(&conn->watchdog_mutex);
 
   debug(3, "Connection %d: Checking play lock.", conn->connection_number);
-  debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
-  if (playing_conn == conn) {                       // if it's ours
-    debug(3, "Connection %d: Unlocking play lock.", conn->connection_number);
-    playing_conn = NULL; // let it go
-  }
-  debug_mutex_unlock(&playing_conn_lock, 3);
+  release_play_lock(conn);
 
-  debug(2, "Connection %d: terminated.", conn->connection_number);
+  #ifdef CONFIG_AIRPLAY_2
+  if (conn->server_setup_ctx)
+    free(conn->server_setup_ctx);
+  #endif
+
+  debug(1, "Connection %d: terminated.", conn->connection_number);
   conn->running = 0;
   pthread_setcancelstate(oldState, NULL);
 }
@@ -2681,8 +4201,22 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   int rtsp_read_request_attempt_count = 1; // 1 means exit immediately
   rtsp_message *req, *resp;
 
+#ifdef CONFIG_AIRPLAY_2
+  conn->ap2_audio_buffer_size = 1024 * 1024 * 8;
+  conn->server_setup_ctx =
+      (struct verifier_setup_context *)malloc(sizeof(struct verifier_setup_context));
+  if (conn->server_setup_ctx != NULL)
+    memset(conn->server_setup_ctx, 0, sizeof(struct verifier_setup_context));
+#endif
+
   while (conn->stop == 0) {
     int debug_level = 3; // for printing the request and response
+#ifdef CONFIG_AIRPLAY_2
+    // transactions should be begin to be encrypted after a read/response cycle has
+    // been completed
+    conn->control_cipher_context.active = 1;
+
+#endif
     reply = rtsp_read_request(conn, &req);
     if (reply == rtsp_read_request_response_ok) {
       pthread_cleanup_push(msg_cleanup_function, (void *)&req);
@@ -2702,8 +4236,12 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       hdr = msg_get_header(req, "CSeq");
       if (hdr)
         msg_add_header(resp, "CSeq", hdr);
-      //      msg_add_header(resp, "Audio-Jack-Status", "connected; type=analog");
+        //      msg_add_header(resp, "Audio-Jack-Status", "connected; type=analog");
+#ifdef CONFIG_AIRPLAY_2
+      msg_add_header(resp, "Server", "AirTunes/366.0");
+#else
       msg_add_header(resp, "Server", "AirTunes/105.1");
+#endif
 
       if ((conn->authorized == 1) || (rtsp_auth(&conn->auth_nonce, req, resp)) == 0) {
         conn->authorized = 1; // it must have been authorized or didn't need a password
@@ -2717,7 +4255,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         }
         if (method_selected == 0) {
-          debug(3, "Connection %d: Unrecognised and unhandled rtsp request \"%s\".",
+          debug(1, "Connection %d: Unrecognised and unhandled rtsp request \"%s\".",
                 conn->connection_number, req->method);
 
           int y = req->contentlength;
@@ -2734,7 +4272,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
               obfp += 2;
             };
             *obfp = 0;
-            debug(3, "Content: \"%s\".", obf);
+            debug(1, "Content: \"%s\".", obf);
           }
         }
       }
@@ -2742,7 +4280,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       debug_print_msg_headers(debug_level, resp);
 
       if (conn->stop == 0) {
-        int err = msg_write_response(conn->fd, resp);
+        int err = msg_write_response(conn, resp);
         if (err) {
           debug(1,
                 "Connection %d: Unable to write an RTSP message response. Terminating the "
@@ -2817,6 +4355,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   }
   pthread_cleanup_pop(1);
   pthread_exit(NULL);
+  debug(1, "Connection %d: RTSP thread exit.", conn->connection_number);
 }
 
 /*
@@ -2845,8 +4384,14 @@ void rtsp_listen_loop_cleanup_handler(__attribute__((unused)) void *arg) {
   cancel_all_RTSP_threads();
   int *sockfd = (int *)arg;
   mdns_unregister();
-  if (sockfd)
+  if (sockfd) {
+    int i;
+    for (i = 1; i <= sockfd[0]; i++) {
+      debug(2, "closing socket %d.", sockfd[i]);
+      close(sockfd[i]);
+    }
     free(sockfd);
+  }
   pthread_setcancelstate(oldState, NULL);
 }
 
@@ -2881,63 +4426,67 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     int yes = 1;
 
     // Handle socket open failures if protocol unavailable (or IPV6 not handled)
-    if (fd == -1) {
-      // debug(1, "Failed to get socket: fam=%d, %s\n", p->ai_family,
-      // strerror(errno));
-      continue;
-    }
-    // Set the RTSP socket to close on exec() of child processes
-    // otherwise background run_this_before_play_begins or run_this_after_play_ends commands
-    // that are sleeping prevent the daemon from being restarted because
-    // the listening RTSP port is still in use.
-    // See: https://github.com/mikebrady/shairport-sync/issues/329
-    fcntl(fd, F_SETFD, FD_CLOEXEC);
-    ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
+    if (fd != -1) {
+      // Set the RTSP socket to close on exec() of child processes
+      // otherwise background run_this_before_play_begins or run_this_after_play_ends commands
+      // that are sleeping prevent the daemon from being restarted because
+      // the listening RTSP port is still in use.
+      // See: https://github.com/mikebrady/shairport-sync/issues/329
+      fcntl(fd, F_SETFD, FD_CLOEXEC);
+      ret = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
 
-    struct timeval tv;
-    tv.tv_sec = 3; // three seconds write timeout
-    tv.tv_usec = 0;
-    if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
-      debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
-
-    if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
-      tv.tv_sec = config.timeout; // 120 seconds read timeout by default.
+      struct timeval tv;
+      tv.tv_sec = 3; // three seconds write timeout
       tv.tv_usec = 0;
-      if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
-        debug(1, "Error %d setting read timeout for rtsp connection.", errno);
-    }
+      if (setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, (const char *)&tv, sizeof tv) == -1)
+        debug(1, "Error %d setting send timeout for rtsp writeback.", errno);
+
+      if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
+        tv.tv_sec = config.timeout; // 120 seconds read timeout by default.
+        tv.tv_usec = 0;
+        if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) == -1)
+          debug(1, "Error %d setting read timeout for rtsp connection.", errno);
+      }
 #ifdef IPV6_V6ONLY
-    // some systems don't support v4 access on v6 sockets, but some do.
-    // since we need to account for two sockets we might as well
-    // always.
-    if (p->ai_family == AF_INET6) {
-      ret |= setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yes, sizeof(yes));
-    }
-#endif
-
-    if (!ret)
-      ret = bind(fd, p->ai_addr, p->ai_addrlen);
-
-    // one of the address families will fail on some systems that
-    // report its availability. do not complain.
-
-    if (ret) {
-      char *family;
-#ifdef AF_INET6
+      // some systems don't support v4 access on v6 sockets, but some do.
+      // since we need to account for two sockets we might as well
+      // always.
       if (p->ai_family == AF_INET6) {
-        family = "IPv6";
-      } else
+        ret |= setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yes, sizeof(yes));
+      }
 #endif
-        family = "IPv4";
-      debug(1, "unable to listen on %s port %d. The error is: \"%s\".", family, config.port,
-            strerror(errno));
-      continue;
+
+      if (!ret)
+        ret = bind(fd, p->ai_addr, p->ai_addrlen);
+
+      // one of the address families will fail on some systems that
+      // report its availability. do not complain.
+
+      if (ret) {
+        char *family;
+#ifdef AF_INET6
+        if (p->ai_family == AF_INET6) {
+          family = "IPv6";
+        } else
+#endif
+          family = "IPv4";
+        debug(1, "unable to listen on %s port %d. The error is: \"%s\".", family, config.port,
+              strerror(errno));
+      } else {
+        listen(fd, 5);
+        nsock++;
+        sockfd = realloc(sockfd, (nsock + 1) * sizeof(int));
+        sockfd[nsock] = fd;
+        sockfd[0] = nsock; // the first entry is the number of sockets in the array
+      }
     }
 
-    listen(fd, 5);
-    nsock++;
-    sockfd = realloc(sockfd, nsock * sizeof(int));
-    sockfd[nsock - 1] = fd;
+    /*
+        listen(fd, 5);
+        nsock++;
+        sockfd = realloc(sockfd, nsock * sizeof(int));
+        sockfd[nsock - 1] = fd;
+    */
   }
 
   freeaddrinfo(info);
@@ -2946,7 +4495,8 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     int maxfd = -1;
     fd_set fds;
     FD_ZERO(&fds);
-    for (i = 0; i < nsock; i++) {
+    // skip the first element in sockfd -- it's the count
+    for (i = 1; i <= nsock; i++) {
       if (sockfd[i] > maxfd)
         maxfd = sockfd[i];
     }
@@ -3037,7 +4587,8 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
       tv.tv_sec = 60;
       tv.tv_usec = 0;
 
-      for (i = 0; i < nsock; i++)
+      // skip the first element in sockfd -- it's the count
+      for (i = 1; i <= nsock; i++)
         FD_SET(sockfd[i], &fds);
 
       ret = select(maxfd + 1, &fds, 0, 0, &tv);
@@ -3050,7 +4601,8 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
       cleanup_threads();
 
       acceptfd = -1;
-      for (i = 0; i < nsock; i++) {
+      // skip the first element in sockfd -- it's the count
+      for (i = 1; i <= nsock; i++) {
         if (FD_ISSET(sockfd[i], &fds)) {
           acceptfd = sockfd[i];
           break;
@@ -3064,61 +4616,54 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
         die("Couldn't allocate memory for an rtsp_conn_info record.");
       memset(conn, 0, sizeof(rtsp_conn_info));
       conn->connection_number = RTSP_connection_index++;
-      socklen_t slen = sizeof(conn->remote);
 
-      conn->fd = accept(acceptfd, (struct sockaddr *)&conn->remote, &slen);
+      socklen_t size_of_reply = sizeof(SOCKADDR);
+      conn->fd = accept(acceptfd, (struct sockaddr *)&conn->remote, &size_of_reply);
       if (conn->fd < 0) {
         debug(1, "Connection %d: New connection on port %d not accepted:", conn->connection_number,
               config.port);
         perror("failed to accept connection");
         free(conn);
       } else {
-        SOCKADDR *local_info = (SOCKADDR *)&conn->local;
-        socklen_t size_of_reply = sizeof(*local_info);
-        memset(local_info, 0, sizeof(SOCKADDR));
-        if (getsockname(conn->fd, (struct sockaddr *)local_info, &size_of_reply) == 0) {
+        size_of_reply = sizeof(SOCKADDR);
+        if (getsockname(conn->fd, (struct sockaddr *)&conn->local, &size_of_reply) == 0) {
+          // initialise the connection info
+          void *client_addr = NULL, *self_addr = NULL;
+          conn->connection_ip_family = conn->local.SAFAMILY;
 
-          // IPv4:
-          if (local_info->SAFAMILY == AF_INET) {
-            char ip4[INET_ADDRSTRLEN];        // space to hold the IPv4 string
-            char remote_ip4[INET_ADDRSTRLEN]; // space to hold the IPv4 string
-            struct sockaddr_in *sa = (struct sockaddr_in *)local_info;
-            inet_ntop(AF_INET, &(sa->sin_addr), ip4, INET_ADDRSTRLEN);
-            unsigned short int tport = ntohs(sa->sin_port);
-            sa = (struct sockaddr_in *)&conn->remote;
-            inet_ntop(AF_INET, &(sa->sin_addr), remote_ip4, INET_ADDRSTRLEN);
-            unsigned short int rport = ntohs(sa->sin_port);
-            debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
-                  conn->connection_number, remote_ip4, rport, ip4, tport);
-          }
 #ifdef AF_INET6
-          if (local_info->SAFAMILY == AF_INET6) {
-            // IPv6:
+          if (conn->connection_ip_family == AF_INET6) {
+            struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)&conn->remote;
+            client_addr = &(sa6->sin6_addr);
+            conn->client_rtsp_port = ntohs(sa6->sin6_port);
 
-            char ip6[INET6_ADDRSTRLEN];        // space to hold the IPv6 string
-            char remote_ip6[INET6_ADDRSTRLEN]; // space to hold the IPv6 string
-            struct sockaddr_in6 *sa6 =
-                (struct sockaddr_in6 *)local_info; // pretend this is loaded with something
-            inet_ntop(AF_INET6, &(sa6->sin6_addr), ip6, INET6_ADDRSTRLEN);
-            u_int16_t tport = ntohs(sa6->sin6_port);
-
-            sa6 = (struct sockaddr_in6 *)&conn->remote; // pretend this is loaded with something
-            inet_ntop(AF_INET6, &(sa6->sin6_addr), remote_ip6, INET6_ADDRSTRLEN);
-            u_int16_t rport = ntohs(sa6->sin6_port);
-            debug(2, "Connection %d: new connection from [%s]:%u to self at [%s]:%u.",
-                  conn->connection_number, remote_ip6, rport, ip6, tport);
+            sa6 = (struct sockaddr_in6 *)&conn->local;
+            self_addr = &(sa6->sin6_addr);
+            conn->self_rtsp_port = ntohs(sa6->sin6_port);
+            conn->self_scope_id = sa6->sin6_scope_id;
           }
 #endif
+          if (conn->connection_ip_family == AF_INET) {
+            struct sockaddr_in *sa4 = (struct sockaddr_in *)&conn->remote;
+            client_addr = &(sa4->sin_addr);
+            conn->client_rtsp_port = ntohs(sa4->sin_port);
 
+            sa4 = (struct sockaddr_in *)&conn->local;
+            self_addr = &(sa4->sin_addr);
+            conn->self_rtsp_port = ntohs(sa4->sin_port);
+          }
+
+          inet_ntop(conn->connection_ip_family, client_addr, conn->client_ip_string,
+                    sizeof(conn->client_ip_string));
+          inet_ntop(conn->connection_ip_family, self_addr, conn->self_ip_string,
+                    sizeof(conn->self_ip_string));
+
+          debug(1, "Connection %d: new connection from %s:%u to self at %s:%u.",
+                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+                conn->self_ip_string, conn->self_rtsp_port);
         } else {
           debug(1, "Error figuring out Shairport Sync's own IP number.");
         }
-        //      usleep(500000);
-        //      pthread_t rtsp_conversation_thread;
-        //      conn->thread = rtsp_conversation_thread;
-        //      conn->stop = 0; // record's memory has been zeroed
-        //      conn->authorized = 0; // record's memory has been zeroed
-        // fcntl(conn->fd, F_SETFL, O_NONBLOCK);
 
         ret = pthread_create(&conn->thread, NULL, rtsp_conversation_thread_func,
                              conn); // also acts as a memory barrier
@@ -3135,11 +4680,10 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     } while (1);
     pthread_cleanup_pop(1); // should never happen
   } else {
-    die("could not establish a service on port %d -- program terminating. Is another instance of "
-        "Shairport Sync running on this device?",
-        config.port);
+    warn("could not establish a service on port %d -- program terminating. Is another instance of "
+         "Shairport Sync running on this device?",
+         config.port);
   }
-  // debug(1, "Oops -- fell out of the RTSP select loop");
   debug(1, "Oops -- fell out of the RTSP select loop");
   pthread_exit(NULL);
 }
