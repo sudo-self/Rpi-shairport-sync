@@ -1007,19 +1007,11 @@ void reset_ntp_anchor_info(rtsp_conn_info *conn) {
   debug_mutex_unlock(&conn->reference_time_mutex, 3);
 }
 
-void reset_anchor_info(rtsp_conn_info *conn) {
-  reset_ntp_anchor_info(conn);
-}
-
 int have_ntp_timestamp_timing_information(rtsp_conn_info *conn) {
   if (conn->anchor_rtptime == 0)
     return 0;
   else
     return 1;
-}
-
-int have_timestamp_timing_information(rtsp_conn_info *conn) {
-  return have_ntp_timestamp_timing_information(conn);
 }
 
 // set this to zero to use the rates supplied by the sources, which might not always be completely
@@ -1194,14 +1186,6 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
     //  request_sent = 1;
     //}
   }
-}
-
-int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
-  return frame_to_ntp_local_time(timestamp, time, conn);
-}
-
-int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
-  return local_ntp_time_to_frame(time, frame, conn);
 }
 
 #ifdef CONFIG_AIRPLAY_2
@@ -2360,5 +2344,38 @@ void *rtp_buffered_audio_processor(void *arg) {
   pthread_cleanup_pop(1); // do the cleanup.
   pthread_exit(NULL);
 }
+int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
+  return frame_to_ptp_local_time(timestamp, time, conn);
+}
 
+int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
+  return local_ptp_time_to_frame(time, frame, conn);
+}
+
+void reset_anchor_info(rtsp_conn_info *conn) {
+  reset_ptp_anchor_info(conn);
+}
+
+int have_timestamp_timing_information(rtsp_conn_info *conn) {
+  return have_ptp_timing_information(conn);
+}
+
+#else
+int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
+  return frame_to_ntp_local_time(timestamp, time, conn);
+}
+
+int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
+  return local_ntp_time_to_frame(time, frame, conn);
+}
+
+void reset_anchor_info(rtsp_conn_info *conn) {
+  reset_ntp_anchor_info(conn);
+}
+
+int have_timestamp_timing_information(rtsp_conn_info *conn) {
+  return have_ntp_timestamp_timing_information(conn);
+}
 #endif
+
+

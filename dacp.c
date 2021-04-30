@@ -415,10 +415,12 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
     // This is different to other AirPlay clients
     // which return immediately with a 403 code if there are no changes.
     dacp_server.always_use_revision_number_1 = 0;
-    char *p = strstr(conn->UserAgent, "forked-daapd");
-    if ((p != 0) &&
-        (p == conn->UserAgent)) { // must exist and be at the start of the UserAgent string
-      dacp_server.always_use_revision_number_1 = 1;
+    if (conn->UserAgent != NULL) {
+      char *p = strstr(conn->UserAgent, "forked-daapd");
+      if ((p != 0) &&
+          (p == conn->UserAgent)) { // must exist and be at the start of the UserAgent string
+        dacp_server.always_use_revision_number_1 = 1;
+      }
     }
 
     metadata_hub_modify_prolog();

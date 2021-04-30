@@ -2016,10 +2016,10 @@ void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   } else if (strcmp(req->path, "/fp-setup") == 0) {
     handle_fp_setup(conn, req, resp);
   } else {
-    debug(2, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
+    debug(3, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
           req->contentlength);
     debug_log_rtsp_message(2, "POST request", req);
-    debug(2, "Unhandled POST, path \"%s\".", req->path);
+    debug(3, "Unhandled POST, path \"%s\".", req->path);
   }
 }
 
