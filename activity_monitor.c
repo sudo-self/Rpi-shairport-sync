@@ -153,18 +153,7 @@ void *activity_monitor_thread_code(void *arg) {
   if (rc)
     die("activity_monitor: error %d initialising activity_monitor_mutex.", rc);
 
-// set the flowcontrol condition variable to wait on a monotonic clock
-#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-  pthread_condattr_t attr;
-  pthread_condattr_init(&attr);
-  pthread_condattr_setclock(&attr, CLOCK_MONOTONIC); // can't do this in OS X, and don't need it.
-  rc = pthread_cond_init(&activity_monitor_cv, &attr);
-  pthread_condattr_destroy(&attr);
-
-#endif
-#ifdef COMPILE_FOR_OSX
   rc = pthread_cond_init(&activity_monitor_cv, NULL);
-#endif
   if (rc)
     die("activity_monitor: error %d initialising activity_monitor_cv.");
   pthread_cleanup_push(activity_thread_cleanup_handler, arg);

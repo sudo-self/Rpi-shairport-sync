@@ -1250,7 +1250,8 @@ uint64_t get_absolute_time_in_ns() {
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
   struct timespec tn;
   // can't use CLOCK_MONOTONIC_RAW as it's not implemented in OpenWrt
-  clock_gettime(CLOCK_MONOTONIC, &tn);
+  // CLOCK_REALTIME because PTP uses it.
+  clock_gettime(CLOCK_REALTIME, &tn);
   uint64_t tnnsec = tn.tv_sec;
   tnnsec = tnnsec * 1000000000;
   uint64_t tnjnsec = tn.tv_nsec;

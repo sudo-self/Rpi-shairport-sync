@@ -936,18 +936,9 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
 void dacp_monitor_start() {
   int rc;
 
-#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-  pthread_condattr_t attr;
-  pthread_condattr_init(&attr);
-  pthread_condattr_setclock(&attr, CLOCK_MONOTONIC); // can't do this in OS X, and don't need it.
-  rc = pthread_cond_init(&dacp_server_information_cv, &attr);
+  rc = pthread_cond_init(&dacp_server_information_cv, NULL);
   if (rc)
     debug(1, "Error initialising the DACP Server Information Condition Variable");
-  pthread_condattr_destroy(&attr);
-#endif
-#ifdef COMPILE_FOR_OSX
-  rc = pthread_cond_init(&dacp_server_information_cv, NULL);
-#endif
 
   pthread_mutexattr_t mta;
 
