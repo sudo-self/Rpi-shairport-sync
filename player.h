@@ -215,8 +215,10 @@ typedef struct {
   uint64_t rtp_time_of_last_resend_request_error_ns;
 
   char client_ip_string[INET6_ADDRSTRLEN]; // the ip string pointing to the client
+  uint16_t client_rtsp_port;
   char self_ip_string[INET6_ADDRSTRLEN];   // the ip string being used by this program -- it
-                                           // could be one of many, so we need to know it
+  uint16_t self_rtsp_port;                 // could be one of many, so we need to know it
+
   uint32_t self_scope_id;                  // if it's an ipv6 connection, this will be its scope
   short connection_ip_family;              // AF_INET / AF_INET6
 
@@ -341,6 +343,9 @@ typedef struct {
   uint64_t dac_buffer_queue_minimum_length;
 } rtsp_conn_info;
 
+void get_audio_buffer_size_and_occupancy(unsigned int *size, unsigned int *occupancy,
+                                         rtsp_conn_info *conn);
+
 int32_t modulo_32_offset(uint32_t from, uint32_t to);
 
 int player_play(rtsp_conn_info *conn);
@@ -349,6 +354,7 @@ int player_stop(rtsp_conn_info *conn);
 void player_volume(double f, rtsp_conn_info *conn);
 void player_volume_without_notification(double f, rtsp_conn_info *conn);
 void player_flush(uint32_t timestamp, rtsp_conn_info *conn);
+void player_full_flush(rtsp_conn_info *conn);
 void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timestamp, uint8_t *data, int len,
                        rtsp_conn_info *conn);
 int64_t monotonic_timestamp(uint32_t timestamp,

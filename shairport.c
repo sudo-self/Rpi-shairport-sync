@@ -1568,8 +1568,7 @@ int main(int argc, char **argv) {
       0.002; // this number of seconds of timing error before attempting to correct it.
   config.buffer_start_fill = 220;
 
-#if 0
-// #ifdef CONFIG_AIRPLAY_2
+#ifdef CONFIG_AIRPLAY_2
   config.timeout = 0; // disable watchdog
   config.port = 7000;
   // the features code is a 64-bit number, but in the mDNS advertisement, the least significant 32

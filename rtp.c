@@ -1204,8 +1204,7 @@ int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
   return local_ntp_time_to_frame(time, frame, conn);
 }
 
-
-#if 0
+#ifdef CONFIG_AIRPLAY_2
 
 void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
                      uint64_t networktime) {
@@ -1281,7 +1280,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
 }
 
 int have_ptp_timing_information(rtsp_conn_info *conn) {
-  if (get_anchor_local_time_info(conn, NULL, NULL) == 0)
+  if (get_ptp_anchor_local_time_info(conn, NULL, NULL) == 0)
     return 1;
   else
     return 0;
@@ -1291,7 +1290,7 @@ int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *
   int result = -1;
   uint32_t anchor_rtptime;
   uint64_t anchor_local_time;
-  if (get_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == 0) {
+  if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == 0) {
     int32_t frame_difference = timestamp - anchor_rtptime;
     int64_t time_difference = frame_difference;
     time_difference = time_difference * 1000000000;
@@ -1309,7 +1308,7 @@ int local_ptp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn
   int result = -1;
   uint32_t anchor_rtptime;
   uint64_t anchor_local_time;
-  if (get_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == 0) {
+  if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == 0) {
     int64_t time_difference = time - anchor_local_time;
     int64_t frame_difference = time_difference;
     frame_difference = frame_difference * conn->input_rate; // but this is by 10^9
