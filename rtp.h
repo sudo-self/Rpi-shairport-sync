@@ -24,4 +24,15 @@ int have_timestamp_timing_information(rtsp_conn_info *conn);
 int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn);
 int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn);
 
+#ifdef CONFIG_AIRPLAY_2
+void *rtp_event_receiver(void *arg);
+void *rtp_ap2_control_receiver(void *arg);
+void *rtp_realtime_audio_receiver(void *arg);
+void *rtp_buffered_audio_processor(void *arg);
+void *rtp_ap2_timing_receiver(void *arg);
+void *rtp_ap2_general_message_timing_receiver(void *arg);
+void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
+                     uint64_t networktime);
+#endif
+
 #endif // _RTP_H

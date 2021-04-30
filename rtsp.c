@@ -150,7 +150,7 @@ typedef struct {
   char *name[16];
   char *value[16];
 
-  int contentlength;
+  uint32_t contentlength;
   char *content;
 
   // for requests
@@ -1509,9 +1509,6 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
                      rtsp_message *resp) {
   if (rtsp_message_contains_plist(req)) { // it's stage one
 
-    resp->close_on_response = 0;
-    resp->suppress_crlf = 0;
-
     plist_t info_plist = NULL;
     plist_from_memory(req->content, req->contentlength, &info_plist);
 
@@ -2268,8 +2265,6 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 #ifdef CONFIG_AIRPLAY_2
 void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int err;
-  resp->close_on_response = 0;
-  resp->suppress_crlf = 0;
   debug(2, "Connection %d: SETUP (AirPlay 2)", conn->connection_number);
 
   // we need to get the timing peer interfaces.
