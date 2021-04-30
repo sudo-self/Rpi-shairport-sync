@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef _COMMON_H
 #define _COMMON_H
 
@@ -289,14 +293,23 @@ typedef struct {
                    // can't use IP numbers as they might be given to different devices
                    // can't get hold of MAC addresses.
                    // can't define the nvll linked list struct here
+
+#ifdef CONFIG_AIRPLAY_2
+  uint64_t airplay_features;
+  char *airplay_device_id; // for the Bonjour advertisement and the GETINFO PList
+  char *airplay_pk;        // "pk" string in the Bonjour advertisement
+  char *airplay_pi;        //  UUID in the Bonjour advertisement and the GETINFO Plist
+  char *airplay_gid;       // UUID in the Bonjour advertisement -- initially the same as the pi
+#endif
 } shairport_cfg;
 
 // accessors to config for multi-thread access
 double get_config_airplay_volume();
 void set_config_airplay_volume(double v);
 
-uint32_t nctohl(const uint8_t *p); // read 4 characters from *p and do ntohl on them
-uint16_t nctohs(const uint8_t *p); // read 2 characters from *p and do ntohs on them
+uint32_t nctohl(const uint8_t *p);  // read 4 characters from *p and do ntohl on them
+uint16_t nctohs(const uint8_t *p);  // read 2 characters from *p and do ntohs on them
+uint64_t nctoh64(const uint8_t *p); // read 8 characters from *p to a uint64_t
 
 void memory_barrier();
 
@@ -452,5 +465,30 @@ int bind_socket_and_port(int type, int ip_family, const char *self_ip_address, u
 
 uint16_t bind_UDP_port(int ip_family, const char *self_ip_address, uint32_t scope_id, int *sock);
 
+void socket_cleanup(void *arg);
+void mutex_unlock(void *arg);
+void mutex_cleanup(void *arg);
+void cv_cleanup(void *arg);
+void thread_cleanup(void *arg);
+
+char *debug_malloc_hex_cstring(void *packet, size_t nread);
+
+// from https://stackoverflow.com/questions/13663617/memdup-function-in-c, with thanks
+// allocates memory and copies the content to it
+// analogous to strndup;
+void *memdup(const void *mem, size_t size);
+
+// the difference between two unsigned 32-bit modulo values as a signed 32-bit result
+// now, if the two numbers are constrained to be within 2^(n-1)-1 of one another,
+// we can use their as a signed 2^n bit number which will be positive
+// if the first number is the same or "after" the second, and
+// negative otherwise
+
+int32_t mod32Difference(uint32_t a, uint32_t b);
+char *get_device_id();
 
 #endif // _COMMON_H
+
+#ifdef __cplusplus
+}
+#endif

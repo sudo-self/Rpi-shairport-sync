@@ -1412,6 +1412,16 @@ uint16_t nctohs(const uint8_t *p) { // read 2 characters from *p and do ntohs on
   return ntohs(holder);
 }
 
+uint64_t nctoh64(const uint8_t *p) {
+  uint32_t landing = nctohl(p); // get the high order 32 bits
+  uint64_t vl = landing;
+  vl = vl << 32;                          // shift them into the correct location
+  landing = nctohl(p + sizeof(uint32_t)); // and the low order 32 bits
+  uint64_t ul = landing;
+  vl = vl + ul;
+  return vl;
+}
+
 pthread_mutex_t barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void memory_barrier() {
@@ -1441,35 +1451,16 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
 
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  struct timespec tn;
-  clock_gettime(CLOCK_REALTIME, &tn);
-  uint64_t tnfpsec = tn.tv_sec;
-  if (tnfpsec > 0x100000000)
-    warn("clock_gettime seconds overflow!");
-  uint64_t tnfpnsec = tn.tv_nsec;
-  if (tnfpnsec > 0x100000000)
-    warn("clock_gettime nanoseconds seconds overflow!");
-  tnfpsec = tnfpsec << 32;
-  tnfpnsec = tnfpnsec << 32;
-  tnfpnsec = tnfpnsec / 1000000000;
-
-  uint64_t time_now_in_fp = tnfpsec + tnfpnsec; // types okay
-
-  uint64_t dally_time_in_fp = dally_time;                // microseconds
-  dally_time_in_fp = (dally_time_in_fp << 32) / 1000000; // convert to fp format
-  uint64_t time_then = time_now_in_fp + dally_time_in_fp;
-
-  uint64_t time_then_nsec = time_then & 0xffffffff; // remove integral part
-  time_then_nsec = time_then_nsec * 1000000000;     // multiply fractional part to nanoseconds
 
   struct timespec timeoutTime;
+  uint64_t wait_until_time = dally_time * 1000;    // to nanoseconds
+  uint64_t start_time = get_absolute_time_in_ns(); // this is from CLOCK_REALTIME
+  wait_until_time = wait_until_time + start_time;
+  uint64_t wait_until_sec = wait_until_time / 1000000000;
+  uint64_t wait_until_nsec = wait_until_time % 1000000000;
+  timeoutTime.tv_sec = wait_until_sec;
+  timeoutTime.tv_nsec = wait_until_nsec;
 
-  time_then = time_then >> 32;           // get the seconds
-  time_then_nsec = time_then_nsec >> 32; // and the nanoseconds
-
-  timeoutTime.tv_sec = time_then;
-  timeoutTime.tv_nsec = time_then_nsec;
-  uint64_t start_time = get_absolute_time_in_ns();
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
   uint64_t et = get_absolute_time_in_ns() - start_time;
 
@@ -1477,9 +1468,9 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
     char errstr[1000];
     if (r == ETIMEDOUT)
       debug(debuglevel,
-            "timed out waiting for a mutex, having waited %f microseconds, with a maximum "
-            "waiting time of %d microseconds. \"%s\".",
-            (1.0E6 * et) / 1000000000, dally_time, debugmessage);
+            "Timed out waiting for a mutex, having waited %f seconds with a maximum "
+            "waiting time of %f seconds. \"%s\".",
+            (1.0 * et) / 1000000000, dally_time * 0.000001, debugmessage);
     else
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
             strerror_r(r, errstr, sizeof(errstr)), debugmessage);
@@ -1508,9 +1499,8 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
   if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
     char errstr[1000];
     if (r == EBUSY) {
-      debug(debuglevel,
-            "waiting for a mutex, maximum expected time of %d microseconds exceeded \"%s\".",
-            dally_time, debugmessage);
+      debug(debuglevel, "waiting for a mutex, maximum expected time of %f seconds exceeded \"%s\".",
+            dally_time * 0.000001, debugmessage);
       r = ETIMEDOUT; // for compatibility
     } else {
       debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
@@ -1539,8 +1529,8 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
     result = pthread_mutex_lock(mutex);
     uint64_t time_delay = get_absolute_time_in_ns() - time_at_start;
     debug(debuglevel,
-          "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f microseconds.",
-          mutexname, dstring, (1.0 * dally_time), 0.001 * time_delay);
+          "Mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.",
+          mutexname, dstring, (1.0 * dally_time) / 1000000, 0.000000001 * time_delay);
   }
   pthread_setcancelstate(oldState, NULL);
   return result;
@@ -1569,6 +1559,36 @@ void malloc_cleanup(void *arg) {
   // debug(1, "malloc cleanup called.");
   free(arg);
   arg = NULL;
+}
+
+void socket_cleanup(void *arg) {
+  // debug(1, "socket_cleanup called.");
+  intptr_t fdp = (intptr_t)arg;
+  close(fdp);
+}
+
+void cv_cleanup(void *arg) {
+  // debug(1, "cv_cleanup called.");
+  pthread_cond_t *cv = (pthread_cond_t *)arg;
+  pthread_cond_destroy(cv);
+}
+
+void mutex_cleanup(void *arg) {
+  // debug(1, "mutex_cleanup called.");
+  pthread_mutex_t *mutex = (pthread_mutex_t *)arg;
+  pthread_mutex_destroy(mutex);
+}
+
+void mutex_unlock(void *arg) { pthread_mutex_unlock((pthread_mutex_t *)arg); }
+
+void thread_cleanup(void *arg) {
+  // debug(1, "mutex_cleanup called.");
+  pthread_t *thread = (pthread_t *)arg;
+  pthread_cancel(*thread);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+  pthread_join(*thread, NULL);
+  pthread_setcancelstate(oldState, NULL);
 }
 
 void pthread_cleanup_debug_mutex_unlock(void *arg) { pthread_mutex_unlock((pthread_mutex_t *)arg); }
@@ -1868,4 +1888,64 @@ void *memdup(const void *mem, size_t size) {
     memcpy(out, mem, size);
 
   return out;
+}
+
+// This will allocate memory and place the NUL-terminated hex character equivalent of
+// the bytearray passed in whose length is given.
+char *debug_malloc_hex_cstring(void *packet, size_t nread) {
+  char *response = malloc(nread * 3 + 1);
+  unsigned char *q = packet;
+  char *obfp = response;
+  size_t obfc;
+  for (obfc = 0; obfc < nread; obfc++) {
+    snprintf(obfp, 4, "%02x ", *q);
+    obfp += 3; // two digit characters and a space
+    q++;
+  };
+  obfp--; // overwrite the last space with a NUL
+  *obfp = 0;
+  return response;
+}
+
+// the difference between two unsigned 32-bit modulo values as a signed 32-bit result
+// now, if the two numbers are constrained to be within 2^(n-1)-1 of one another,
+// we can use their as a signed 2^n bit number which will be positive
+// if the first number is the same or "after" the second, and
+// negative otherwise
+
+int32_t mod32Difference(uint32_t a, uint32_t b) {
+  int32_t result = a - b;
+  return result;
+}
+
+char *get_device_id() {
+  char *response = NULL;
+  struct ifaddrs *ifaddr = NULL;
+  struct ifaddrs *ifa = NULL;
+  int i = 0;
+
+  if (getifaddrs(&ifaddr) == -1) {
+    debug(1, "getifaddrs");
+  } else {
+    int found = 0;
+    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+      if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
+        char obf[256] = {0};
+        char *obfp = obf;
+        struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
+        if ((strcmp(ifa->ifa_name, "lo") != 0) && (found == 0)) {
+          for (i = 0; i < s->sll_halen; i++) {
+            snprintf(obfp, 4, "%02x:", s->sll_addr[i]);
+            obfp += 3;
+          }
+          obfp -= 1;
+          *obfp = 0;
+          response = strdup(obf);
+          found = 1;
+        }
+      }
+    }
+    freeifaddrs(ifaddr);
+  }
+  return response;
 }
