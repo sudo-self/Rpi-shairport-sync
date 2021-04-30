@@ -1409,15 +1409,17 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
       debug(1, "Attempted to write overlong RTSP packet 2");
       return -2;
     }
-    debug(1, "Content is \"%s\"", resp->content);
-    memcpy(p, resp->content, resp->contentlength);
-    pktfree -= resp->contentlength;
-    p += resp->contentlength;
   }
 
   n = snprintf(p, pktfree, "\r\n");
   pktfree -= n;
   p += n;
+
+  if (resp->contentlength) {
+    memcpy(p, resp->content, resp->contentlength);
+    pktfree -= resp->contentlength;
+    p += resp->contentlength;
+  }
 
   if (pktfree <= 1024) {
     debug(1, "Attempted to write overlong RTSP packet 3");
