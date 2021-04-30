@@ -33,7 +33,8 @@
 
 static DNSServiceRef service;
 
-static int mdns_dns_sd_register(char *apname, int port) {
+static int mdns_dns_sd_register(char *apname, int port,
+                                __attribute__((unused)) char **txt_records) {
   char *recordwithoutmetadata[] = {MDNS_RECORD_WITHOUT_METADATA, NULL};
 #ifdef CONFIG_METADATA
   char *recordwithmetadata[] = {MDNS_RECORD_WITH_METADATA, NULL};

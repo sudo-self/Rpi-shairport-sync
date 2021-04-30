@@ -61,6 +61,8 @@ typedef struct {
 
 dacp_browser_struct private_dbs;
 
+AvahiStringList *text_record_string_list = NULL;
+
 // static AvahiServiceBrowser *sb = NULL;
 static AvahiClient *client = NULL;
 // static AvahiClient *service_client = NULL;
@@ -229,36 +231,29 @@ static void register_service(AvahiClient *c) {
     if (!avahi_entry_group_is_empty(group))
       return;
 
-    int ret;
+    int ret = 0;
+
     AvahiIfIndex selected_interface;
     if (config.interface != NULL)
       selected_interface = config.interface_index;
     else
       selected_interface = AVAHI_IF_UNSPEC;
-#ifdef CONFIG_METADATA
-    if (config.metadata_enabled) {
-      ret = avahi_entry_group_add_service(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
-                                          service_name, config.regtype, NULL, NULL, port,
-                                          MDNS_RECORD_WITH_METADATA, NULL);
-      if (ret == 0)
-        debug(2, "avahi: request to add \"%s\" service with metadata", config.regtype);
+    if (text_record_string_list) {
+      ret = avahi_entry_group_add_service_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
+                                                 service_name, config.regtype, NULL, NULL, port,
+                                                 text_record_string_list);
+      if (ret == 0) {
+        ret = avahi_entry_group_commit(group);
+        debug(2, "avahi: avahi_entry_group_commit %d", ret);
+        if (ret < 0)
+          debug(1, "avahi: avahi_entry_group_commit failed");
+      } else if (ret < 0) {
+        debug(1, "avahi: avahi_entry_group_add_service failed");
+      } else {
+        debug(1, "avahi: unexpected positive return");
+      }
     } else {
-#endif
-      ret = avahi_entry_group_add_service(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
-                                          service_name, config.regtype, NULL, NULL, port,
-                                          MDNS_RECORD_WITHOUT_METADATA, NULL);
-      if (ret == 0)
-        debug(2, "avahi: request to add \"%s\" service without metadata", config.regtype);
-#ifdef CONFIG_METADATA
-    }
-#endif
-
-    if (ret < 0)
-      debug(1, "avahi: avahi_entry_group_add_service failed");
-    else {
-      ret = avahi_entry_group_commit(group);
-      if (ret < 0)
-        debug(1, "avahi: avahi_entry_group_commit failed");
+      debug(1, "Can't find a valid text_record_string_list");
     }
   }
 }
@@ -317,9 +312,12 @@ static void client_callback(AvahiClient *c, AvahiClientState state,
   }
 }
 
-static int avahi_register(char *srvname, int srvport) {
+static int avahi_register(char *srvname, int srvport, char **txt_records) {
   // debug(1, "avahi_register.");
   service_name = strdup(srvname);
+
+  text_record_string_list = avahi_string_list_new_from_array((const char **)txt_records, -1);
+
   port = srvport;
 
   int err;
@@ -342,7 +340,7 @@ static int avahi_register(char *srvname, int srvport) {
 }
 
 static void avahi_unregister(void) {
-  // debug(1, "avahi_unregister.");
+  debug(2, "avahi_unregister.");
   if (tpoll) {
     debug(2, "avahi: stop the threaded poll.");
     avahi_threaded_poll_stop(tpoll);
@@ -366,6 +364,12 @@ static void avahi_unregister(void) {
     free(service_name);
   } else
     debug(1, "avahi attempt to free NULL service name");
+
+  if (text_record_string_list) {
+    debug(2, "avahi free text_record_string_list");
+    avahi_string_list_free(text_record_string_list);
+  }
+
   service_name = NULL;
 }
 

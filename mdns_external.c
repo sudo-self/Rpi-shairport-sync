@@ -80,7 +80,8 @@ static int fork_execvp(const char *file, char *const argv[]) {
   return response;
 }
 
-static int mdns_external_avahi_register(char *apname, __attribute__((unused)) int port) {
+static int mdns_external_avahi_register(char *apname, __attribute__((unused)) int port,
+                                        __attribute__((unused)) char **txt_records) {
   char mdns_port[6];
   snprintf(mdns_port, sizeof(mdns_port), "%d", config.port);
 
@@ -119,7 +120,8 @@ static int mdns_external_avahi_register(char *apname, __attribute__((unused)) in
   return -1;
 }
 
-static int mdns_external_dns_sd_register(char *apname, __attribute__((unused)) int port) {
+static int mdns_external_dns_sd_register(char *apname, __attribute__((unused)) int port,
+                                         __attribute__((unused)) char **txt_records) {
   char mdns_port[6];
   snprintf(mdns_port, sizeof(mdns_port), "%d", config.port);
 

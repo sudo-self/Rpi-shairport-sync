@@ -1205,7 +1205,7 @@ int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
 }
 
 
-#ifdef CONFIG_AIRPLAY_2
+#if 0
 
 void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
                      uint64_t networktime) {

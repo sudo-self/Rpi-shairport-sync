@@ -6,7 +6,8 @@
 extern rtsp_conn_info *playing_conn;
 extern rtsp_conn_info **conns;
 
-void rtsp_listen_loop(void);
+void *rtsp_listen_loop(__attribute((unused)) void *arg);
+
 // void rtsp_shutdown_stream(void);
 void rtsp_request_shutdown_stream(void);
 

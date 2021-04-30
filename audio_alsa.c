@@ -1771,7 +1771,7 @@ int do_close() {
     // debug(1,"alsa: do_close() -- closing the output device");
     if ((derr = snd_pcm_drop(alsa_handle)))
       debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
-    usleep(5000);
+    usleep(5000); // this make the function pthread cancellable
     if ((derr = snd_pcm_hw_free(alsa_handle)))
       debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
 

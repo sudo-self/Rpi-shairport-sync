@@ -1,6 +1,7 @@
 /*
  * mDNS registration handler. This file is part of Shairport.
  * Copyright (c) James Laird 2013
+ * Modifications, updates and additions (c) Mike Brady 2014 -- 2020
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -63,15 +64,17 @@ static mdns_backend *mdns_backends[] = {
 #endif
     NULL};
 
-void mdns_register(void) {
+void mdns_register(char **txt_records) {
   char *mdns_service_name = alloca(strlen(config.service_name) + 14);
   char *p = mdns_service_name;
+#ifndef CONFIG_AIRPLAY_2
   int i;
   for (i = 0; i < 6; i++) {
     snprintf(p, 3, "%02X", config.hw_addr[i]);
     p += 2;
   }
   *p++ = '@';
+#endif
   strcpy(p, config.service_name);
 
   mdns_backend **b = NULL;
@@ -80,7 +83,7 @@ void mdns_register(void) {
     for (b = mdns_backends; *b; b++) {
       if (strcmp((*b)->name, config.mdns_name) != 0) // Not the one we are looking for
         continue;
-      int error = (*b)->mdns_register(mdns_service_name, config.port);
+      int error = (*b)->mdns_register(mdns_service_name, config.port, txt_records);
       if (error >= 0) {
         config.mdns = *b;
       }
@@ -91,7 +94,7 @@ void mdns_register(void) {
       warn("%s mDNS backend not found");
   } else {
     for (b = mdns_backends; *b; b++) {
-      int error = (*b)->mdns_register(mdns_service_name, config.port);
+      int error = (*b)->mdns_register(mdns_service_name, config.port, txt_records);
       if (error >= 0) {
         config.mdns = *b;
         break;

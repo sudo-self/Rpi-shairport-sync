@@ -299,12 +299,108 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
 
 #endif
 
-int have_player(rtsp_conn_info *conn) {
+int have_play_lock(rtsp_conn_info *conn) {
   int response = 0;
   debug_mutex_lock(&playing_conn_lock, 1000000, 3);
   if (playing_conn == conn) // this connection definitely has the play lock
     response = 1;
   debug_mutex_unlock(&playing_conn_lock, 3);
+  return response;
+}
+
+int try_to_hold_play_lock(rtsp_conn_info *conn) {
+  int response = -1;
+  if (pthread_mutex_trylock(&playing_conn_lock) == 0) {
+    if (playing_conn == conn) {
+      response = 0;
+    } else {
+      pthread_mutex_unlock(&playing_conn_lock);
+    }
+  }
+  return response;
+}
+
+void release_hold_on_play_lock(__attribute__((unused)) rtsp_conn_info *conn) {
+  pthread_mutex_unlock(&playing_conn_lock);
+}
+
+void release_play_lock(rtsp_conn_info *conn) {
+  debug_mutex_lock(&playing_conn_lock, 1000000, 3);
+  if (playing_conn == conn) { // if we have the player
+    playing_conn = NULL;      // let it go
+    debug(2, "Connection %d: release play lock.", conn->connection_number);
+  }
+  debug_mutex_unlock(&playing_conn_lock, 3);
+}
+
+int get_play_lock(rtsp_conn_info *conn) {
+  // returns -1 if it failed, 0 if it succeeded and 1 if it succeeded but
+  // interrupted an existing session
+  int response = 0;
+
+  int have_the_player = 0;
+  int should_wait = 0; // this will be true if you're trying to break in to the current session
+  int interrupting_current_session = 0;
+
+  // try to become the current playing_conn
+
+  debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
+
+  if (playing_conn == NULL) {
+    playing_conn = conn;
+    have_the_player = 1;
+  } else if (playing_conn == conn) {
+    have_the_player = 1;
+    warn("Duplicate attempt to acquire the player by the same connection, by the look of it!");
+  } else if (playing_conn->stop) {
+    debug(1, "Connection %d: Waiting for Connection %d to stop playing.", conn->connection_number,
+          playing_conn->connection_number);
+    should_wait = 1;
+#ifdef CONFIG_AIRPLAY_2
+  } else { // ignore the allow_session_interruption in AirPlay 2 -- it is always permissible, it
+           // seems
+#else
+  } else if (config.allow_session_interruption == 1) {
+#endif
+    debug(1, "Connection %d: Asking Connection %d to stop playing.", conn->connection_number,
+          playing_conn->connection_number);
+    playing_conn->stop = 1;
+    interrupting_current_session = 1;
+    should_wait = 1;
+    pthread_cancel(playing_conn->thread); // asking the RTSP thread to exit
+  }
+  debug_mutex_unlock(&playing_conn_lock, 3);
+
+  if (should_wait) {
+    int time_remaining = 3000000; // must be signed, as it could go negative...
+
+    while ((time_remaining > 0) && (have_the_player == 0)) {
+      debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
+      if (playing_conn == NULL) {
+        playing_conn = conn;
+        have_the_player = 1;
+      }
+      debug_mutex_unlock(&playing_conn_lock, 3);
+
+      if (have_the_player == 0) {
+        usleep(100000);
+        time_remaining -= 100000;
+      }
+    }
+
+    if ((have_the_player == 1) && (interrupting_current_session == 1)) {
+      debug(1, "Connection %d: got player lock", conn->connection_number);
+      response = 1;
+    } else {
+      debug(1, "Connection %d: failed to get player lock", conn->connection_number);
+      response = -1;
+    }
+  }
+
+  if ((have_the_player) && (interrupting_current_session == 0)) {
+    debug(2, "Connection %d: got player lock.", conn->connection_number);
+    response = 0;
+  }
   return response;
 }
 
@@ -853,7 +949,7 @@ int msg_write_response(int fd, rtsp_message *resp) {
 
 void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(2, "Connection %d: RECORD", conn->connection_number);
-  if (have_player(conn)) {
+  if (have_play_lock(conn)) {
     if (conn->player_thread)
       warn("Connection %d: RECORD: Duplicate RECORD message -- ignored", conn->connection_number);
     else
@@ -909,7 +1005,7 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                      rtsp_message *resp) {
   debug(2, "Connection %d: TEARDOWN", conn->connection_number);
-  if (have_player(conn)) {
+  if (have_play_lock(conn)) {
     resp->respcode = 200;
     msg_add_header(resp, "Connection", "close");
     debug(
@@ -928,7 +1024,7 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
 
 void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: FLUSH", conn->connection_number);
-  if (have_player(conn)) {
+  if (have_play_lock(conn)) {
     char *p = NULL;
     uint32_t rtptime = 0;
     char *hdr = msg_get_header(req, "RTP-Info");
@@ -968,7 +1064,7 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: SETUP", conn->connection_number);
   resp->respcode = 451; // invalid arguments -- expect them
-  if (have_player(conn)) {
+  if (have_play_lock(conn)) {
     uint16_t cport, tport;
     char *ar = msg_get_header(req, "Active-Remote");
     if (ar) {
@@ -1962,66 +2058,14 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
 
 static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: ANNOUNCE", conn->connection_number);
-
-  int have_the_player = 0;
-  int should_wait = 0; // this will be true if you're trying to break in to the current session
-  int interrupting_current_session = 0;
-
-  // try to become the current playing_conn
-
-  debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
-
-  if (playing_conn == NULL) {
-    playing_conn = conn;
-    have_the_player = 1;
-  } else if (playing_conn == conn) {
-    have_the_player = 1;
-    warn("Duplicate ANNOUNCE, by the look of it!");
-  } else if (playing_conn->stop) {
-    debug(1, "Connection %d ANNOUNCE is waiting for connection %d to shut down.",
-          conn->connection_number, playing_conn->connection_number);
-    should_wait = 1;
-  } else if (config.allow_session_interruption == 1) {
-    debug(2, "Connection %d: ANNOUNCE: asking playing connection %d to shut down.",
-          conn->connection_number, playing_conn->connection_number);
-    playing_conn->stop = 1;
-    interrupting_current_session = 1;
-    should_wait = 1;
-    pthread_cancel(playing_conn->thread); // asking the RTSP thread to exit
-  }
-  debug_mutex_unlock(&playing_conn_lock, 3);
-
-  if (should_wait) {
-    int time_remaining = 3000000; // must be signed, as it could go negative...
-
-    while ((time_remaining > 0) && (have_the_player == 0)) {
-      debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
-      if (playing_conn == NULL) {
-        playing_conn = conn;
-        have_the_player = 1;
-      }
-      debug_mutex_unlock(&playing_conn_lock, 3);
-
-      if (have_the_player == 0) {
-        usleep(100000);
-        time_remaining -= 100000;
-      }
-    }
-
-    if ((have_the_player == 1) && (interrupting_current_session == 1)) {
-      debug(2, "Connection %d: ANNOUNCE got the player", conn->connection_number);
-    } else {
-      debug(2, "Connection %d: ANNOUNCE failed to get the player", conn->connection_number);
-    }
-  }
-
-  if (have_the_player) {
+  int get_play_status = get_play_lock(conn);
+  if (get_play_status != -1) {
     debug(3, "Connection %d: ANNOUNCE has acquired play lock.", conn->connection_number);
 
     // now, if this new session did not break in, then it's okay to reset the next UDP ports
     // to the start of the range
 
-    if (interrupting_current_session == 0) { // will be zero if it wasn't waiting to break in
+    if (get_play_status == 1) { // will be zero if it wasn't waiting to break in
       resetFreeUDPPort();
     }
 
@@ -2036,7 +2080,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
         cp_left -= strlen(cp) + 1;
       }
     }
-*/
+    */
 
     conn->stream.type = ast_unknown;
     resp->respcode = 456; // 456 - Header Field Not Valid for Resource
@@ -2815,7 +2859,7 @@ void rtsp_listen_loop_cleanup_handler(__attribute__((unused)) void *arg) {
   pthread_setcancelstate(oldState, NULL);
 }
 
-void rtsp_listen_loop(void) {
+void *rtsp_listen_loop(__attribute((unused)) void *arg) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   struct addrinfo hints, *info, *p;
@@ -2916,7 +2960,82 @@ void rtsp_listen_loop(void) {
         maxfd = sockfd[i];
     }
 
-    mdns_register();
+    // make up a txt record
+    char *txt_records[64];
+    char **p = txt_records;
+
+#ifdef CONFIG_AIRPLAY_2
+    *p++ = "srcvers=366.0";
+    char deviceIdString[64];
+    snprintf(deviceIdString, sizeof(deviceIdString) - 1, "deviceid=%s", config.airplay_device_id);
+    *p++ = deviceIdString;
+    // features is a 64 bit number, least significant 32 bits
+
+    char featuresString[64];
+    uint64_t features_hi = config.airplay_features;
+    features_hi = (features_hi >> 32) & 0xffffffff;
+    uint64_t features_lo = config.airplay_features;
+    features_lo = features_lo & 0xffffffff;
+    snprintf(featuresString, sizeof(featuresString) - 1, "features=0x%" PRIx64 ",0x%" PRIx64 "",
+             features_lo, features_hi);
+
+    *p++ = featuresString;
+    *p++ = "flags=0x4";
+    *p++ = "protovers=1.1";
+    *p++ = "acl=0";
+    *p++ = "rsf=0x0";
+    *p++ = "fv=p20.78000.12";
+    *p++ = "model=SPS";
+    char piString[64];
+    snprintf(piString, sizeof(piString) - 1, "pi=%s", config.airplay_pi);
+    *p++ = piString;
+    char gidString[64];
+    snprintf(gidString, sizeof(gidString) - 1, "gid=%s", config.airplay_gid);
+    *p++ = gidString;
+    *p++ = "gcgl=0";
+    char pkString[128];
+    snprintf(pkString, sizeof(pkString) - 1, "pk=%s", config.airplay_pk);
+    *p++ = pkString;
+    *p++ = NULL;
+#else
+    // here, just replicate what happens in mdns.h when using those #defines
+    *p++ = "sf=0x4";
+    *p++ = "fv=76400.10";
+    *p++ = "am=ShairportSync";
+    *p++ = "vs=105.1";
+    *p++ = "tp=TCP,UDP";
+    *p++ = "vn=65537";
+#ifdef CONFIG_METADATA
+    if (config.get_coverart == 0)
+      *p++ = "md=0,2";
+    else
+      *p++ = "md=0,1,2";
+#endif
+    *p++ = "ss=16";
+    *p++ = "sr=44100";
+    *p++ = "da=true";
+    *p++ = "sv=false";
+    *p++ = "et=0,1";
+    *p++ = "ek=1";
+    *p++ = "cn=0,1";
+    *p++ = "ch=2";
+    *p++ = "am=ShairportSync";
+    *p++ = "txtvers=1";
+    if (config.password == 0)
+      *p++ = "pw=false";
+    else
+      *p++ = "pw=true";
+    *p++ = NULL;
+#endif
+
+    /*
+    debug(1,"txt_record:");
+    p = txt_records;
+    while (*p)
+            debug(1,"  %s", *p++);
+    */
+
+    mdns_register(txt_records);
 
     pthread_setcancelstate(oldState, NULL);
     int acceptfd;
@@ -3030,4 +3149,6 @@ void rtsp_listen_loop(void) {
         config.port);
   }
   // debug(1, "Oops -- fell out of the RTSP select loop");
+  debug(1, "Oops -- fell out of the RTSP select loop");
+  pthread_exit(NULL);
 }

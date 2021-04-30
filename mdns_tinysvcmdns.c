@@ -38,7 +38,8 @@
 
 static struct mdnsd *svr = NULL;
 
-static int mdns_tinysvcmdns_register(char *apname, int port) {
+static int mdns_tinysvcmdns_register(char *apname, int port,
+                                     __attribute__((unused)) char **txt_records) {
   struct ifaddrs *ifalist;
   struct ifaddrs *ifa;
 

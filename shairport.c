@@ -2,7 +2,7 @@
  * Shairport, an Apple Airplay receiver
  * Copyright (c) James Laird 2013
  * All rights reserved.
- * Modifications and additions (c) Mike Brady 2014--2019
+ * Modifications and additions (c) Mike Brady 2014--2021
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -42,6 +42,11 @@
 #include <unistd.h>
 
 #include "config.h"
+
+#ifdef CONFIG_AIRPLAY_2
+#include <sodium.h>
+#include <uuid/uuid.h>
+#endif
 
 #ifdef CONFIG_MBEDTLS
 #include <mbedtls/md5.h>
@@ -109,6 +114,8 @@
 pid_t pid;
 int this_is_the_daemon_process = 0;
 #endif
+
+pthread_t rtsp_listener_thread;
 
 int killOption = 0;
 int daemonisewith = 0;
@@ -494,8 +501,13 @@ int parse_options(int argc, char **argv) {
       /* Get the port setting. */
       if (config_lookup_int(config.cfg, "general.port", &value)) {
         if ((value < 0) || (value > 65535))
+#ifdef CONFIG_AIRPLAY_2
+          die("Invalid port number  \"%sd\". It should be between 0 and 65535, default is 7000",
+              value);
+#else
           die("Invalid port number  \"%sd\". It should be between 0 and 65535, default is 5000",
               value);
+#endif
         else
           config.port = value;
       }
@@ -1234,7 +1246,11 @@ int parse_options(int argc, char **argv) {
 
   /* if the regtype hasn't been set, do it now */
   if (config.regtype == NULL)
+#ifdef CONFIG_AIRPLAY_2
+    config.regtype = strdup("_airplay._tcp");
+#else
     config.regtype = strdup("_raop._tcp");
+#endif
 
   if (tdebuglev != 0)
     debuglev = tdebuglev;
@@ -1313,6 +1329,11 @@ const char *pid_file_proc(void) {
 }
 #endif
 
+void exit_rtsp_listener() {
+  pthread_cancel(rtsp_listener_thread);
+  pthread_join(rtsp_listener_thread, NULL); // not sure you need this
+}
+
 void exit_function() {
 
   if (emergency_exit == 0) {
@@ -1342,13 +1363,14 @@ void exit_function() {
       #endif
       */
 #ifdef CONFIG_DBUS_INTERFACE
-      stop_dbus_service();
+    debug(2, "Stopping D-Bus service");
+    stop_dbus_service();
 #endif
-      if (g_main_loop) {
-        debug(2, "Stopping DBUS Loop Thread");
-        g_main_loop_quit(g_main_loop);
-        pthread_join(dbus_thread, NULL);
-      }
+    if (g_main_loop) {
+      debug(2, "Stopping D-Bus Loop Thread");
+      g_main_loop_quit(g_main_loop);
+      pthread_join(dbus_thread, NULL);
+    }
 #endif
 
 #ifdef CONFIG_DACP_CLIENT
@@ -1362,8 +1384,11 @@ void exit_function() {
 #endif
 
 #ifdef CONFIG_METADATA
-      metadata_stop(); // close down the metadata pipe
+    debug(2, "Stopping metadata");
+    metadata_stop(); // close down the metadata pipe
 #endif
+    debug(2, "Deinitialising the audio backend.");
+    activity_monitor_stop(0);
 
       activity_monitor_stop(0);
 
@@ -1373,8 +1398,9 @@ void exit_function() {
       }
 
 #ifdef CONFIG_SOXR
-      // be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
-      pthread_join(soxr_time_check_thread, NULL);
+    // be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
+    debug(2, "Waiting for SoXr timecheck to terminate...");
+    pthread_join(soxr_time_check_thread, NULL);
 #endif
 
       if (conns)
@@ -1436,8 +1462,14 @@ void handle_sigchld(__attribute__((unused)) int sig) {
   errno = saved_errno;
 }
 
-void main_thread_cleanup_handler(__attribute__((unused)) void *arg) {
-  debug(2, "main thread cleanup handler called");
+// for clean exits
+void intHandler(__attribute__((unused)) int k) {
+  debug(2, "exit on SIGINT");
+  exit(EXIT_SUCCESS);
+}
+
+void termHandler(__attribute__((unused)) int k) {
+  debug(2, "exit on SIGTERM");
   exit(EXIT_SUCCESS);
 }
 
@@ -1535,7 +1567,54 @@ int main(int argc, char **argv) {
   config.tolerance =
       0.002; // this number of seconds of timing error before attempting to correct it.
   config.buffer_start_fill = 220;
+
+#if 0
+// #ifdef CONFIG_AIRPLAY_2
+  config.timeout = 0; // disable watchdog
+  config.port = 7000;
+  // the features code is a 64-bit number, but in the mDNS advertisement, the least significant 32
+  // bit are given first for example, if the features number is 0x1C340405F4A00, it will be given as
+  // features=0x405F4A00,0x1C340 in the mDNS string, and in a signed decimal number in the plist:
+  // 496155702020608 this setting here is the source of both the plist features response and the
+  // mDNS string.
+  config.airplay_features = 0x1C340405F4A00;
+  // get a device id -- the first non-local MAC address, not necessarily the one in use
+  config.airplay_device_id = get_device_id();
+  if (config.airplay_device_id) {
+    debug(1, "Started in Airplay 2 mode on device \"%s\"!", config.airplay_device_id);
+  } else
+    debug(1, "Started in Airplay 2 mode!");
+
+  // now make up a 32-byte "pk" string from random numbers
+  const ssize_t pk_size = 32;
+  char pk_bytes[pk_size];
+  char pk_string[pk_size * 2 + 1];
+  randombytes_buf(pk_bytes, pk_size); // using libsodium
+  char *obfp = pk_string;
+  int obfc;
+  for (obfc = 0; obfc < pk_size; obfc++) {
+    snprintf(obfp, 3, "%02X", pk_bytes[obfc]);
+    obfp += 2;
+  };
+  *obfp = 0;
+  debug(1, "pk string: \"%s\"", pk_string);
+  config.airplay_pk = strdup(pk_string);
+
+  // now generate a UUID
+  // from https://stackoverflow.com/questions/51053568/generating-a-random-uuid-in-c
+  // with thanks
+  uuid_t binuuid;
+  uuid_generate_random(binuuid);
+  char *uuid = malloc(UUID_STR_LEN);
+  /* Produces a UUID string at uuid consisting of lower-case letters. */
+  uuid_unparse_lower(binuuid, uuid);
+  config.airplay_pi = strdup(uuid);
+  config.airplay_gid = strdup(uuid); // initially the gid is the same as the pi
+
+  // now we need to create the sequence of items for a Bonjour TXT record.
+#else
   config.port = 5000;
+#endif
 
 #ifdef CONFIG_SOXR
   config.packet_stuffing = ST_auto; // use soxr interpolation by default if support has been
@@ -1728,6 +1807,24 @@ int main(int argc, char **argv) {
 #endif
   debug(1, "Started!");
 
+#ifdef CONFIG_AIRPLAY_2
+  debug(1, "Started in Airplay 2 mode!");
+#else
+  debug(1, "Started in Airplay 1 mode!");
+#endif
+
+  // control-c (SIGINT) cleanly
+  struct sigaction act;
+  memset(&act, 0, sizeof(struct sigaction));
+  act.sa_handler = intHandler;
+  sigaction(SIGINT, &act, NULL);
+
+  // terminate (SIGTERM)
+  struct sigaction act2;
+  memset(&act2, 0, sizeof(struct sigaction));
+  act2.sa_handler = termHandler;
+  sigaction(SIGTERM, &act2, NULL);
+
   // stop a pipe signal from killing the program
   signal(SIGPIPE, SIG_IGN);
 
@@ -1768,7 +1865,7 @@ int main(int argc, char **argv) {
   }
   config.output->init(argc - audio_arg, argv + audio_arg);
 
-  pthread_cleanup_push(main_thread_cleanup_handler, NULL);
+  // pthread_cleanup_push(main_cleanup_handler, NULL);
 
   // daemon_log(LOG_NOTICE, "startup");
 
@@ -1783,6 +1880,14 @@ int main(int argc, char **argv) {
     debug(2, "The processor is running pdp-endian.");
     break;
   }
+
+#ifdef CONFIG_AIRPLAY_2
+  if (sodium_init() < 0) {
+    debug(1, "Can't initialise libsodium!");
+  } else {
+    debug(1, "libsodium initialised.");
+  }
+#endif
 
   /* Mess around with the latency options */
   // Basically, we expect the source to set the latency and add a fixed offset of 11025 frames to
@@ -1983,8 +2088,9 @@ int main(int argc, char **argv) {
   }
 #endif
 
-  activity_monitor_start();
-  rtsp_listen_loop();
-  pthread_cleanup_pop(1);
+  activity_monitor_start(); // not yet for AP2
+  pthread_create(&rtsp_listener_thread, NULL, &rtsp_listen_loop, NULL);
+  atexit(exit_rtsp_listener);
+  pthread_join(rtsp_listener_thread, NULL);
   return 0;
 }
