@@ -1497,6 +1497,8 @@ void *rtp_ap2_control_receiver(void *arg) {
           // add in the audio_backend_latency_offset;
           int32_t notified_latency = frame_2 - frame_1;
           int32_t added_latency = (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
+          // the actual latency is the notified latency plus the fixed latency + the added latency
+
           if (added_latency < (-(notified_latency + 11035)))
             debug(1, "the audio_backend_latency_offset is causing a negative latency!");
 
@@ -1507,7 +1509,9 @@ void *rtp_ap2_control_receiver(void *arg) {
               frame_1 - 11035 - added_latency; // add the latency in to the anchortime
           debug_mutex_unlock(&conn->reference_time_mutex, 0);
           */
-
+          // this is now only used for calculating when to ask for resends
+          conn->latency = notified_latency + 11035 + added_latency;
+          // debug(1,"conn->latency is %d.", conn->latency);
           set_ptp_anchor_info(conn, clock_id, frame_1 - 11035 - added_latency, remote_packet_time_ns);
 
         } break;
