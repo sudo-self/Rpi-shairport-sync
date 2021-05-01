@@ -75,11 +75,17 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *raw_offset) {
     struct shm_structure nqptp_data;
     if (get_nqptp_data(&nqptp_data) == 0) {
       if (nqptp_data.version == NQPTP_SHM_STRUCTURES_VERSION) {
-      if (actual_clock_id != NULL)
-        *actual_clock_id = nqptp_data.master_clock_id;
-      if (raw_offset != NULL)
-        *raw_offset = nqptp_data.local_to_master_time_offset;
-      response = 0;
+        // assuming a clock id can not be zero
+        if (nqptp_data.master_clock_id != 0) {
+          if (actual_clock_id != NULL)
+            *actual_clock_id = nqptp_data.master_clock_id;
+          if (raw_offset != NULL)
+            *raw_offset = nqptp_data.local_to_master_time_offset;
+          response = 0;
+        } else {
+          debug(1,"clock not valid");
+          response = -2; // clock info not valid
+        }
       } else {
         if (failure_message_sent == 0) {
           warn("This version of Shairport Sync requires an NQPTP with a Shared Memory Interface Version %u, but the installed version is %u. Please install the correct version of NQPTP.", NQPTP_SHM_STRUCTURES_VERSION, nqptp_data.version);

@@ -1256,8 +1256,11 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   } else if (ptp_status == -1) {
     debug(3, "don't have the ptp clock interface");
     response = -1;
+  } else if (ptp_status == -2) {
+    debug(1, "ptp clock not valid");
+    response = -1;
   } else {
-    debug(3, "ptp clock not valid");
+    debug(3, "ptp clock error");
     response = -1;
   }
   return response;
@@ -2040,7 +2043,7 @@ void *rtp_buffered_audio_processor(void *arg) {
       // debug(1,"player buffer size and occupancy: %u and %u", player_buffer_size,
       // player_buffer_occupancy);
       if (player_buffer_occupancy >
-          ((0.5 + 0.1) * 44100.0 / 352)) { // must be greater than the lead time.
+          ((0.25 + 0.1) * 44100.0 / 352)) { // must be greater than the lead time.
         // if there is enough stuff in the player's buffer, sleep for a while and try again
         // debug(1,"sleep for 20 ms");
         usleep(20000); // wait for a while
@@ -2064,7 +2067,7 @@ void *rtp_buffered_audio_processor(void *arg) {
               int64_t lead_time = buffer_should_be_time - get_absolute_time_in_ns();
               // debug(1,"lead time in buffered_audio is %f milliseconds.", lead_time * 0.000001);
               // ask for 0.5 sec of leadtime
-              if ((lead_time >= (int64_t)(0.5 * 1000000000)) || (streaming_has_started == 1)) {
+              if ((lead_time >= (int64_t)(0.25 * 1000000000)) || (streaming_has_started == 1)) {
                 if (streaming_has_started == 0)
                   debug(1, "rtp lead time is %f ms.", 0.000001 * lead_time);
                 streaming_has_started = 1;
