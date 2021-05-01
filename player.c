@@ -435,93 +435,93 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
   conn->packet_count_since_flush++;
   conn->time_of_last_audio_packet = time_now;
   if (conn->connection_state_to_output) { // if we are supposed to be processing these packets
-      abuf_t *abuf = 0;
-      if (!conn->ab_synced) {
-        // if this is the first packet...
-        debug(3, "syncing to seqno %u.", seqno);
-        conn->ab_write = seqno;
-        conn->ab_read = seqno;
-        conn->ab_synced = 1;
-      } else if (original_format == 0) {
-        // if the packet is coming in original format, the sequence number is important
-        // otherwise, ignore is by setting it equal to the expected sequence number in ab_write
-        seqno = conn->ab_write;
-      }
-      if (conn->ab_write ==
-          seqno) { // if this is the expected packet (which could be the first packet...)
-        if (conn->input_frame_rate_starting_point_is_valid == 0) {
-          if ((conn->packet_count_since_flush >= 500) && (conn->packet_count_since_flush <= 510)) {
-            conn->frames_inward_measurement_start_time = time_now;
-            conn->frames_inward_frames_received_at_measurement_start_time = actual_timestamp;
-            conn->input_frame_rate_starting_point_is_valid = 1; // valid now
-          }
+    abuf_t *abuf = 0;
+    if (!conn->ab_synced) {
+      // if this is the first packet...
+      debug(3, "syncing to seqno %u.", seqno);
+      conn->ab_write = seqno;
+      conn->ab_read = seqno;
+      conn->ab_synced = 1;
+    } else if (original_format == 0) {
+      // if the packet is coming in original format, the sequence number is important
+      // otherwise, ignore is by setting it equal to the expected sequence number in ab_write
+      seqno = conn->ab_write;
+    }
+    if (conn->ab_write ==
+        seqno) { // if this is the expected packet (which could be the first packet...)
+      if (conn->input_frame_rate_starting_point_is_valid == 0) {
+        if ((conn->packet_count_since_flush >= 500) && (conn->packet_count_since_flush <= 510)) {
+          conn->frames_inward_measurement_start_time = time_now;
+          conn->frames_inward_frames_received_at_measurement_start_time = actual_timestamp;
+          conn->input_frame_rate_starting_point_is_valid = 1; // valid now
         }
-        conn->frames_inward_measurement_time = time_now;
-        conn->frames_inward_frames_received_at_measurement_time = actual_timestamp;
-        abuf = conn->audio_buffer + BUFIDX(seqno);
-        conn->ab_write = seqno + 1; // move the write pointer to the next free space
-      } else if (seq_order(conn->ab_write, seqno, conn->ab_read)) { // newer than expected
-        int32_t gap = seq_diff(conn->ab_write, seqno, conn->ab_read);
-        if (gap <= 0)
-          debug(1, "Unexpected gap size: %d.", gap);
-        int i;
-        for (i = 0; i < gap; i++) {
-          abuf = conn->audio_buffer + BUFIDX(seq_sum(conn->ab_write, i));
-          abuf->ready = 0; // to be sure, to be sure
-          abuf->resend_request_number = 0;
-          abuf->initialisation_time =
-              time_now;          // this represents when the packet was noticed to be missing
-          abuf->status = 1 << 0; // signifying missing
-          abuf->resend_time = 0;
-          abuf->given_timestamp = 0;
-          abuf->sequence_number = 0;
-        }
-        // debug(1,"N %d s %u.",seq_diff(ab_write,PREDECESSOR(seqno))+1,ab_write);
-        abuf = conn->audio_buffer + BUFIDX(seqno);
-        //        rtp_request_resend(ab_write, gap);
-        //        resend_requests++;
-        conn->ab_write = seqno + 1;
-      } else if (seq_order(conn->ab_read, seqno,
-                           conn->ab_read)) { // older than expected but not too late
-        conn->late_packets++;
-        abuf = conn->audio_buffer + BUFIDX(seqno);
-      } else { // too late.
-        conn->too_late_packets++;
       }
-
-      if (abuf) {
-        int datalen = conn->max_frames_per_packet;
-        abuf->initialisation_time = time_now;
+      conn->frames_inward_measurement_time = time_now;
+      conn->frames_inward_frames_received_at_measurement_time = actual_timestamp;
+      abuf = conn->audio_buffer + BUFIDX(seqno);
+      conn->ab_write = seqno + 1; // move the write pointer to the next free space
+    } else if (seq_order(conn->ab_write, seqno, conn->ab_read)) { // newer than expected
+      int32_t gap = seq_diff(conn->ab_write, seqno, conn->ab_read);
+      if (gap <= 0)
+        debug(1, "Unexpected gap size: %d.", gap);
+      int i;
+      for (i = 0; i < gap; i++) {
+        abuf = conn->audio_buffer + BUFIDX(seq_sum(conn->ab_write, i));
+        abuf->ready = 0; // to be sure, to be sure
+        abuf->resend_request_number = 0;
+        abuf->initialisation_time =
+            time_now;          // this represents when the packet was noticed to be missing
+        abuf->status = 1 << 0; // signifying missing
         abuf->resend_time = 0;
-        if ((original_format != 0) &&
-            (audio_packet_decode(abuf->data, &datalen, data, len, conn) == 0)) {
-          abuf->ready = 1;
-          abuf->status = 0; // signifying that it was received
-          abuf->length = datalen;
-          abuf->given_timestamp = actual_timestamp;
-          abuf->sequence_number = seqno;
-        } else if (original_format == 0) {
-          memcpy(abuf->data, data, len * conn->input_bytes_per_frame);
-          abuf->ready = 1;
-          abuf->status = 0; // signifying that it was received
-          abuf->length = len;
-          abuf->given_timestamp = actual_timestamp;
-          abuf->sequence_number = seqno;
-        } else {
-          debug(1, "Bad audio packet detected and discarded.");
-          abuf->ready = 0;
-          abuf->status = 1 << 1; // bad packet, discarded
-          abuf->resend_request_number = 0;
-          abuf->given_timestamp = 0;
-          abuf->sequence_number = 0;
-        }
+        abuf->given_timestamp = 0;
+        abuf->sequence_number = 0;
       }
+      // debug(1,"N %d s %u.",seq_diff(ab_write,PREDECESSOR(seqno))+1,ab_write);
+      abuf = conn->audio_buffer + BUFIDX(seqno);
+      //        rtp_request_resend(ab_write, gap);
+      //        resend_requests++;
+      conn->ab_write = seqno + 1;
+    } else if (seq_order(conn->ab_read, seqno,
+                         conn->ab_read)) { // older than expected but not too late
+      conn->late_packets++;
+      abuf = conn->audio_buffer + BUFIDX(seqno);
+    } else { // too late.
+      conn->too_late_packets++;
+    }
 
-      int rc = pthread_cond_signal(&conn->flowcontrol);
-      if (rc)
-        debug(1, "Error signalling flowcontrol.");
+    if (abuf) {
+      int datalen = conn->max_frames_per_packet;
+      abuf->initialisation_time = time_now;
+      abuf->resend_time = 0;
+      if ((original_format != 0) &&
+          (audio_packet_decode(abuf->data, &datalen, data, len, conn) == 0)) {
+        abuf->ready = 1;
+        abuf->status = 0; // signifying that it was received
+        abuf->length = datalen;
+        abuf->given_timestamp = actual_timestamp;
+        abuf->sequence_number = seqno;
+      } else if (original_format == 0) {
+        memcpy(abuf->data, data, len * conn->input_bytes_per_frame);
+        abuf->ready = 1;
+        abuf->status = 0; // signifying that it was received
+        abuf->length = len;
+        abuf->given_timestamp = actual_timestamp;
+        abuf->sequence_number = seqno;
+      } else {
+        debug(1, "Bad audio packet detected and discarded.");
+        abuf->ready = 0;
+        abuf->status = 1 << 1; // bad packet, discarded
+        abuf->resend_request_number = 0;
+        abuf->given_timestamp = 0;
+        abuf->sequence_number = 0;
+      }
+    }
 
-     // resend checks
+    int rc = pthread_cond_signal(&conn->flowcontrol);
+    if (rc)
+      debug(1, "Error signalling flowcontrol.");
+
+    // resend checks
     {
       uint64_t minimum_wait_time =
           (uint64_t)(config.resend_control_first_check_time * (uint64_t)1000000000);
@@ -1050,7 +1050,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               // The desired latency, typically 88200 frames, will be calculated for in rtp.c,
               // and any desired backend latency offset included in it there.
 
-
               uint64_t should_be_time;
 
               frame_to_local_time(conn->first_packet_timestamp, // this will go modulo 2^32
@@ -1243,9 +1242,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         // we must enable packets to be released early enough for the
         // audio buffer to be filled to the desired length
 
-        uint32_t buffer_latency_offset = (uint32_t)(config.audio_backend_buffer_desired_length * conn->input_rate);
-        frame_to_local_time(curframe->given_timestamp - buffer_latency_offset, // this will go modulo 2^32
-                                &time_to_play, conn);
+        uint32_t buffer_latency_offset =
+            (uint32_t)(config.audio_backend_buffer_desired_length * conn->input_rate);
+        frame_to_local_time(curframe->given_timestamp -
+                                buffer_latency_offset, // this will go modulo 2^32
+                            &time_to_play, conn);
 
         if (local_time_now >= time_to_play) {
           do_wait = 0;
@@ -2984,7 +2985,7 @@ void player_flush(uint32_t timestamp, rtsp_conn_info *conn) {
   debug(3, "player_flush");
   do_flush(timestamp, conn);
 #ifdef CONFIG_METADATA
-// only send a flush metadata message if the first packet has been seen -- it's a bogus message
+  // only send a flush metadata message if the first packet has been seen -- it's a bogus message
   // otherwise
   if (conn->first_packet_timestamp) {
     debug(2, "pfls");

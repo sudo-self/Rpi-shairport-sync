@@ -1457,29 +1457,28 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
 
     snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
 
-/*
-// must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
-#if SND_LIB_MINOR != 0
-    snd_htimestamp_t driver_htstamp;
-    snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &driver_htstamp);
-    uint64_t driver_htstamp_ns = driver_htstamp.tv_sec;
-    driver_htstamp_ns = driver_htstamp_ns * 1000000000;
-    driver_htstamp_ns = driver_htstamp_ns + driver_htstamp.tv_nsec;
-    debug(1,"driver_htstamp: %f.", driver_htstamp_ns * 0.000000001);
-#endif
-*/
+    /*
+    // must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
+    #if SND_LIB_MINOR != 0
+        snd_htimestamp_t driver_htstamp;
+        snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &driver_htstamp);
+        uint64_t driver_htstamp_ns = driver_htstamp.tv_sec;
+        driver_htstamp_ns = driver_htstamp_ns * 1000000000;
+        driver_htstamp_ns = driver_htstamp_ns + driver_htstamp.tv_nsec;
+        debug(1,"driver_htstamp: %f.", driver_htstamp_ns * 0.000000001);
+    #endif
+    */
 
     *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
 
     if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
 
- //     uint64_t update_timestamp_ns =
- //         update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
+      //     uint64_t update_timestamp_ns =
+      //         update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
 
       uint64_t update_timestamp_ns = update_timestamp.tv_sec;
       update_timestamp_ns = update_timestamp_ns * 1000000000;
       update_timestamp_ns = update_timestamp_ns + update_timestamp.tv_nsec;
-
 
       // if the update_timestamp is zero, we take this to mean that the device doesn't report
       // interrupt timings. (It could be that it's not a real hardware device.)
@@ -1531,7 +1530,6 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
         time_now_ns = time_now_ns * 1000000000;
         time_now_ns = time_now_ns + tn.tv_nsec;
 
-
         // see if it's stalled
 
         if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == delay_temp)) {
@@ -1561,18 +1559,22 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
         if (ret == 0) {
           uint64_t delta = time_now_ns - update_timestamp_ns;
 
-//          uint64_t frames_played_since_last_interrupt =
-//              ((uint64_t)config.output_rate * delta) / 1000000000;
+          //          uint64_t frames_played_since_last_interrupt =
+          //              ((uint64_t)config.output_rate * delta) / 1000000000;
 
-            uint64_t frames_played_since_last_interrupt = config.output_rate;
-            frames_played_since_last_interrupt = frames_played_since_last_interrupt * delta;
-            frames_played_since_last_interrupt = frames_played_since_last_interrupt / 1000000000;
-
+          uint64_t frames_played_since_last_interrupt = config.output_rate;
+          frames_played_since_last_interrupt = frames_played_since_last_interrupt * delta;
+          frames_played_since_last_interrupt = frames_played_since_last_interrupt / 1000000000;
 
           snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
               frames_played_since_last_interrupt;
-          if ((frames_played_since_last_interrupt_sized < 0) || ((uint64_t)frames_played_since_last_interrupt_sized != frames_played_since_last_interrupt))
-            debug(1,"overflow resizing frames_played_since_last_interrupt % " PRIx64 " to frames_played_since_last_interrupt %lx.", frames_played_since_last_interrupt, frames_played_since_last_interrupt_sized);
+          if ((frames_played_since_last_interrupt_sized < 0) ||
+              ((uint64_t)frames_played_since_last_interrupt_sized !=
+               frames_played_since_last_interrupt))
+            debug(1,
+                  "overflow resizing frames_played_since_last_interrupt % " PRIx64
+                  " to frames_played_since_last_interrupt %lx.",
+                  frames_played_since_last_interrupt, frames_played_since_last_interrupt_sized);
           delay_temp = delay_temp - frames_played_since_last_interrupt_sized;
         }
         *delay = delay_temp;

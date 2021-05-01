@@ -53,7 +53,6 @@
 #include <sodium.h>
 #endif
 
-
 struct Nvll {
   char *name;
   double value;
@@ -289,8 +288,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-
-
+                                             
+                                             
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -301,19 +300,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-
+                                             
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-
+                                             
                                                               // Best guess is that this delay is 11,025 frames.
-
+                                             
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-
+                                             
                                                               uint32_t fl = nctohs(&packet[2]); //
-
+                                             
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -390,10 +389,15 @@ void *rtp_control_receiver(void *arg) {
                      la, max_frames, conn->latency);
               } else {
 
-                // here we have the latency but it does not yet account for the audio_backend_latency_offset
-                int32_t latency_offset = (uint32_t)(config.audio_backend_latency_offset * conn->input_rate);
+                // here we have the latency but it does not yet account for the
+                // audio_backend_latency_offset
+                int32_t latency_offset =
+                    (uint32_t)(config.audio_backend_latency_offset * conn->input_rate);
                 int32_t adjusted_latency = latency_offset + (int32_t)la;
-                if ((adjusted_latency < 0) || (adjusted_latency > (int32_t)(conn->max_frames_per_packet * (BUFFER_FRAMES - config.minimum_free_buffer_headroom))))
+                if ((adjusted_latency < 0) ||
+                    (adjusted_latency >
+                     (int32_t)(conn->max_frames_per_packet *
+                               (BUFFER_FRAMES - config.minimum_free_buffer_headroom))))
                   warn("audio_backend_latency_offset out of range -- ignored.");
                 else
                   la = adjusted_latency;
@@ -403,9 +407,11 @@ void *rtp_control_receiver(void *arg) {
                   debug(1,
                         "New latency: %" PRIu32 ", sync latency: %" PRIu32
                         ", minimum latency: %" PRIu32 ", maximum "
-                        "latency: %" PRIu32 ", fixed offset: %" PRIu32 ", audio_backend_latency_offset: %f.",
+                        "latency: %" PRIu32 ", fixed offset: %" PRIu32
+                        ", audio_backend_latency_offset: %f.",
                         la, sync_rtp_timestamp - rtp_timestamp_less_latency, conn->minimum_latency,
-                        conn->maximum_latency, config.fixedLatencyOffset, config.audio_backend_latency_offset);
+                        conn->maximum_latency, config.fixedLatencyOffset,
+                        config.audio_backend_latency_offset);
                 }
               }
             }
@@ -979,11 +985,11 @@ void rtp_setup(SOCKADDR *local, SOCKADDR *remote, uint16_t cport, uint16_t tport
     conn->remote_timing_port = tport;
 
     conn->local_control_port = bind_UDP_port(conn->connection_ip_family, conn->self_ip_string,
-                                         conn->self_scope_id, &conn->control_socket);
+                                             conn->self_scope_id, &conn->control_socket);
     conn->local_timing_port = bind_UDP_port(conn->connection_ip_family, conn->self_ip_string,
-                                        conn->self_scope_id, &conn->timing_socket);
+                                            conn->self_scope_id, &conn->timing_socket);
     conn->local_audio_port = bind_UDP_port(conn->connection_ip_family, conn->self_ip_string,
-                                       conn->self_scope_id, &conn->audio_socket);
+                                           conn->self_scope_id, &conn->audio_socket);
 
     debug(3, "listening for audio, control and timing on ports %d, %d, %d.", conn->local_audio_port,
           conn->local_control_port, conn->local_timing_port);
@@ -1050,8 +1056,7 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_con
   return result;
 }
 
-void set_ntp_anchor_info(rtsp_conn_info *conn, uint32_t rtptime,
-                     uint64_t networktime) {
+void set_ntp_anchor_info(rtsp_conn_info *conn, uint32_t rtptime, uint64_t networktime) {
   conn->anchor_remote_info_is_valid = 1;
   conn->anchor_rtptime = rtptime;
   conn->anchor_time = networktime;
@@ -1071,14 +1076,14 @@ int frame_to_ntp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *
   int32_t timestamp_interval = timestamp - conn->anchor_rtptime;
   int64_t timestamp_interval_time = timestamp_interval;
   timestamp_interval_time = timestamp_interval_time * time_difference;
-  timestamp_interval_time = timestamp_interval_time /
-                              frame_difference; // this is the nominal time, based on the
-                                                // fps specified between current and
-                                                // previous sync frame.
-  remote_time_of_timestamp = conn->anchor_time +
-                               timestamp_interval_time; // based on the reference timestamp time
-                                                        // plus the time interval calculated based
-                                                        // on the specified fps.
+  timestamp_interval_time =
+      timestamp_interval_time / frame_difference; // this is the nominal time, based on the
+                                                  // fps specified between current and
+                                                  // previous sync frame.
+  remote_time_of_timestamp =
+      conn->anchor_time + timestamp_interval_time; // based on the reference timestamp time
+                                                   // plus the time interval calculated based
+                                                   // on the specified fps.
   *time = remote_time_of_timestamp - local_to_remote_time_difference_now(conn);
   debug_mutex_unlock(&conn->reference_time_mutex, 0);
   return result;
@@ -1191,7 +1196,7 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
 #ifdef CONFIG_AIRPLAY_2
 
 void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
-                     uint64_t networktime) {
+                         uint64_t networktime) {
   if (conn->anchor_clock != clock_id)
     debug(1, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
   conn->anchor_remote_info_is_valid = 1;
@@ -1207,7 +1212,7 @@ void reset_ptp_anchor_info(rtsp_conn_info *conn) {
 }
 
 int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
-                               uint64_t *anchorLocalTime) {
+                                   uint64_t *anchorLocalTime) {
   int response = 0;
   uint64_t actual_clock_id, actual_offset;
 
@@ -1512,7 +1517,8 @@ void *rtp_ap2_control_receiver(void *arg) {
           // this is now only used for calculating when to ask for resends
           conn->latency = notified_latency + 11035 + added_latency;
           // debug(1,"conn->latency is %d.", conn->latency);
-          set_ptp_anchor_info(conn, clock_id, frame_1 - 11035 - added_latency, remote_packet_time_ns);
+          set_ptp_anchor_info(conn, clock_id, frame_1 - 11035 - added_latency,
+                              remote_packet_time_ns);
 
         } break;
         case 0xd6:
@@ -2359,9 +2365,7 @@ int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
   return local_ptp_time_to_frame(time, frame, conn);
 }
 
-void reset_anchor_info(rtsp_conn_info *conn) {
-  reset_ptp_anchor_info(conn);
-}
+void reset_anchor_info(rtsp_conn_info *conn) { reset_ptp_anchor_info(conn); }
 
 int have_timestamp_timing_information(rtsp_conn_info *conn) {
   return have_ptp_timing_information(conn);
@@ -2376,13 +2380,9 @@ int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
   return local_ntp_time_to_frame(time, frame, conn);
 }
 
-void reset_anchor_info(rtsp_conn_info *conn) {
-  reset_ntp_anchor_info(conn);
-}
+void reset_anchor_info(rtsp_conn_info *conn) { reset_ntp_anchor_info(conn); }
 
 int have_timestamp_timing_information(rtsp_conn_info *conn) {
   return have_ntp_timestamp_timing_information(conn);
 }
 #endif
-
-

@@ -1665,7 +1665,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
 
       int32_t added_latency = (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
       set_ptp_anchor_info(conn, conn->networkTimeTimelineID, anchorRTPTime - added_latency,
-                      anchorTimeNanoseconds);
+                          anchorTimeNanoseconds);
     }
 
     item = plist_dict_get_item(messagePlist, "rate");
@@ -4150,10 +4150,10 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   debug(3, "Connection %d: Checking play lock.", conn->connection_number);
   release_play_lock(conn);
 
-  #ifdef CONFIG_AIRPLAY_2
+#ifdef CONFIG_AIRPLAY_2
   if (conn->server_setup_ctx)
     free(conn->server_setup_ctx);
-  #endif
+#endif
 
   debug(1, "Connection %d: terminated.", conn->connection_number);
   conn->running = 0;

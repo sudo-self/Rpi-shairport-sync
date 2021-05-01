@@ -32,7 +32,7 @@ void *rtp_buffered_audio_processor(void *arg);
 void *rtp_ap2_timing_receiver(void *arg);
 void *rtp_ap2_general_message_timing_receiver(void *arg);
 void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
-                     uint64_t networktime);
+                         uint64_t networktime);
 #endif
 
 #endif // _RTP_H

@@ -1363,14 +1363,14 @@ void exit_function() {
       #endif
       */
 #ifdef CONFIG_DBUS_INTERFACE
-    debug(2, "Stopping D-Bus service");
-    stop_dbus_service();
+      debug(2, "Stopping D-Bus service");
+      stop_dbus_service();
 #endif
-    if (g_main_loop) {
-      debug(2, "Stopping D-Bus Loop Thread");
-      g_main_loop_quit(g_main_loop);
-      pthread_join(dbus_thread, NULL);
-    }
+      if (g_main_loop) {
+        debug(2, "Stopping D-Bus Loop Thread");
+        g_main_loop_quit(g_main_loop);
+        pthread_join(dbus_thread, NULL);
+      }
 #endif
 
 #ifdef CONFIG_DACP_CLIENT
@@ -1384,11 +1384,11 @@ void exit_function() {
 #endif
 
 #ifdef CONFIG_METADATA
-    debug(2, "Stopping metadata");
-    metadata_stop(); // close down the metadata pipe
+      debug(2, "Stopping metadata");
+      metadata_stop(); // close down the metadata pipe
 #endif
-    debug(2, "Deinitialising the audio backend.");
-    activity_monitor_stop(0);
+      debug(2, "Deinitialising the audio backend.");
+      activity_monitor_stop(0);
 
       activity_monitor_stop(0);
 
@@ -1398,9 +1398,9 @@ void exit_function() {
       }
 
 #ifdef CONFIG_SOXR
-    // be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
-    debug(2, "Waiting for SoXr timecheck to terminate...");
-    pthread_join(soxr_time_check_thread, NULL);
+      // be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
+      debug(2, "Waiting for SoXr timecheck to terminate...");
+      pthread_join(soxr_time_check_thread, NULL);
 #endif
 
       if (conns)

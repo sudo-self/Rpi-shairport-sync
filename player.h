@@ -81,10 +81,7 @@ typedef enum {
   ast_apple_lossless,
 } audio_stream_type;
 
-typedef enum {
-  ts_ntp,
-  ts_ptp
-} timing_source_type;
+typedef enum { ts_ntp, ts_ptp } timing_source_type;
 
 typedef struct {
   int encrypted;
@@ -105,10 +102,10 @@ typedef struct file_cipher_context {
 #endif
 
 typedef struct {
-  int connection_number;     // for debug ID purposes, nothing else...
+  int connection_number;             // for debug ID purposes, nothing else...
   timing_source_type type_of_timing; // are we using NTP or PTP?
-  int resend_interval;       // this is really just for debugging
-  char *UserAgent;           // free this on teardown
+  int resend_interval;               // this is really just for debugging
+  char *UserAgent;                   // free this on teardown
   int AirPlayVersion;        // zero if not an AirPlay session. Used to help calculate latency
   uint32_t latency;          // the actual latency used for this play session
   uint32_t minimum_latency;  // set if an a=min-latency: line appears in the ANNOUNCE message; zero
@@ -116,7 +113,6 @@ typedef struct {
   uint32_t maximum_latency;  // set if an a=max-latency: line appears in the ANNOUNCE message; zero
                              // otherwise
   int software_mute_enabled; // if we don't have a real mute that we can use
-
 
   int fd;
   int authorized;   // set if a password is required and has been supplied
@@ -216,11 +212,11 @@ typedef struct {
 
   char client_ip_string[INET6_ADDRSTRLEN]; // the ip string pointing to the client
   uint16_t client_rtsp_port;
-  char self_ip_string[INET6_ADDRSTRLEN];   // the ip string being used by this program -- it
-  uint16_t self_rtsp_port;                 // could be one of many, so we need to know it
+  char self_ip_string[INET6_ADDRSTRLEN]; // the ip string being used by this program -- it
+  uint16_t self_rtsp_port;               // could be one of many, so we need to know it
 
-  uint32_t self_scope_id;                  // if it's an ipv6 connection, this will be its scope
-  short connection_ip_family;              // AF_INET / AF_INET6
+  uint32_t self_scope_id;     // if it's an ipv6 connection, this will be its scope
+  short connection_ip_family; // AF_INET / AF_INET6
 
   SOCKADDR rtp_client_control_socket; // a socket pointing to the control port of the client
   SOCKADDR rtp_client_timing_socket;  // a socket pointing to the timing port of the client
@@ -243,7 +239,6 @@ typedef struct {
   uint64_t anchor_time; // this is the time according to the clock
   uint32_t anchor_rtptime;
 
-
 #ifdef CONFIG_AIRPLAY_2
   pthread_t rtp_event_thread;
   pthread_t rtp_ap2_control_thread;
@@ -258,7 +253,6 @@ typedef struct {
   uint64_t last_anchor_clock_offset;
   uint64_t last_anchor_time_of_update;
   uint64_t last_anchor_clock;
-
 
   ssize_t ap2_audio_buffer_size;
   int ap2_flush_requested;
@@ -285,7 +279,7 @@ typedef struct {
   unsigned char *session_key; // needs to be free'd at the end
   uint64_t frames_packet;
   uint64_t type;
-  uint64_t networkTimeTimelineID;           // the clock ID used by the player
+  uint64_t networkTimeTimelineID; // the clock ID used by the player
 
   char *ap2_timing_peer_list_message;
 
@@ -357,8 +351,8 @@ void player_volume(double f, rtsp_conn_info *conn);
 void player_volume_without_notification(double f, rtsp_conn_info *conn);
 void player_flush(uint32_t timestamp, rtsp_conn_info *conn);
 void player_full_flush(rtsp_conn_info *conn);
-void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timestamp, uint8_t *data, int len,
-                       rtsp_conn_info *conn);
+void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timestamp, uint8_t *data,
+                       int len, rtsp_conn_info *conn);
 int64_t monotonic_timestamp(uint32_t timestamp,
                             rtsp_conn_info *conn); // add an epoch to the timestamp. The monotonic
 // timestamp guaranteed to start between 2^32 2^33
