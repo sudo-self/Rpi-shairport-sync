@@ -120,7 +120,7 @@ void rtp_audio_receiver_cleanup_handler(__attribute__((unused)) void *arg) {
 }
 
 void *rtp_audio_receiver(void *arg) {
-  debug(1,"rtp_audio_receiver start");
+  debug(1, "rtp_audio_receiver start");
   pthread_cleanup_push(rtp_audio_receiver_cleanup_handler, arg);
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
@@ -259,7 +259,7 @@ void rtp_control_handler_cleanup_handler(__attribute__((unused)) void *arg) {
 }
 
 void *rtp_control_receiver(void *arg) {
-  debug(1,"rtp_control_receiver start");
+  debug(1, "rtp_control_receiver start");
   pthread_cleanup_push(rtp_control_handler_cleanup_handler, arg);
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-
-
+                                             
+                                             
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-
+                                             
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-
+                                             
                                                               // Best guess is that this delay is 11,025 frames.
-
+                                             
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-
+                                             
                                                               uint32_t fl = nctohs(&packet[2]); //
-
+                                             
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -508,7 +508,7 @@ void rtp_timing_sender_cleanup_handler(void *arg) {
 }
 
 void *rtp_timing_sender(void *arg) {
-  debug(1,"rtp_timing_sender start");
+  debug(1, "rtp_timing_sender start");
   pthread_cleanup_push(rtp_timing_sender_cleanup_handler, arg);
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   struct timing_request {
@@ -610,7 +610,7 @@ void rtp_timing_receiver_cleanup_handler(void *arg) {
 }
 
 void *rtp_timing_receiver(void *arg) {
-  debug(1,"rtp_timing_receiver start");
+  debug(1, "rtp_timing_receiver start");
   pthread_cleanup_push(rtp_timing_receiver_cleanup_handler, arg);
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
@@ -1127,16 +1127,16 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
     req[0] = 0x80;
 #ifdef CONFIG_AIRPLAY_2
     if (conn->airplay_type == ap_2) {
-    if (conn->ap2_remote_control_socket_addr_length == 0) {
-      debug(2, "No remote socket -- skipping the resend");
-      return; // hack
-    }
-    req[1] = 0xD5; // Airplay 2 'resend'
+      if (conn->ap2_remote_control_socket_addr_length == 0) {
+        debug(2, "No remote socket -- skipping the resend");
+        return; // hack
+      }
+      req[1] = 0xD5; // Airplay 2 'resend'
     } else {
 #endif
-    req[1] = (char)0x55 | (char)0x80; // Apple 'resend'
+      req[1] = (char)0x55 | (char)0x80; // Apple 'resend'
 #ifdef CONFIG_AIRPLAY_2
-  }
+    }
 #endif
     *(unsigned short *)(req + 2) = htons(1);     // our sequence number
     *(unsigned short *)(req + 4) = htons(first); // missed seqnum
@@ -1156,29 +1156,29 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
         timeout.tv_usec = 100000;
         int response;
 #ifdef CONFIG_AIRPLAY_2
-    if (conn->airplay_type == ap_2) {
-        if (setsockopt(conn->ap2_control_socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
-                       sizeof(timeout)) < 0)
-          debug(1, "Can't set timeout on resend request socket.");
-        response = sendto(conn->ap2_control_socket, req, sizeof(req), 0,
-                   (struct sockaddr *)&conn->ap2_remote_control_socket_addr,
-                   conn->ap2_remote_control_socket_addr_length);
-    } else {
+        if (conn->airplay_type == ap_2) {
+          if (setsockopt(conn->ap2_control_socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
+                         sizeof(timeout)) < 0)
+            debug(1, "Can't set timeout on resend request socket.");
+          response = sendto(conn->ap2_control_socket, req, sizeof(req), 0,
+                            (struct sockaddr *)&conn->ap2_remote_control_socket_addr,
+                            conn->ap2_remote_control_socket_addr_length);
+        } else {
 #endif
-        if (setsockopt(conn->control_socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
-                       sizeof(timeout)) < 0)
-          debug(1, "Can't set timeout on resend request socket.");
-        socklen_t msgsize = sizeof(struct sockaddr_in);
+          if (setsockopt(conn->control_socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
+                         sizeof(timeout)) < 0)
+            debug(1, "Can't set timeout on resend request socket.");
+          socklen_t msgsize = sizeof(struct sockaddr_in);
 #ifdef AF_INET6
-        if (conn->rtp_client_control_socket.SAFAMILY == AF_INET6) {
-          msgsize = sizeof(struct sockaddr_in6);
-        }
+          if (conn->rtp_client_control_socket.SAFAMILY == AF_INET6) {
+            msgsize = sizeof(struct sockaddr_in6);
+          }
 #endif
-        response = sendto(conn->control_socket, req, sizeof(req), 0,
-                   (struct sockaddr *)&conn->rtp_client_control_socket, msgsize);
+          response = sendto(conn->control_socket, req, sizeof(req), 0,
+                            (struct sockaddr *)&conn->rtp_client_control_socket, msgsize);
 
 #ifdef CONFIG_AIRPLAY_2
-  }
+        }
 #endif
         if (response == -1) {
           char em[1024];

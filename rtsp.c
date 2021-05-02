@@ -2091,7 +2091,7 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
 }
 
 void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
-                     rtsp_message *resp) {
+                       rtsp_message *resp) {
   debug(2, "Connection %d: TEARDOWN", conn->connection_number);
 
   // debug_log_rtsp_message(1, "TEARDOWN: ", req);
@@ -2220,7 +2220,6 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
     resp->respcode = 451;
   }
 }
-
 
 void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   // TODO -- don't know what this is for in AP2
@@ -3815,7 +3814,8 @@ static struct method_handler {
 #else
 static struct method_handler {
   char *method;
-  void (*handler)(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp); // for AirPlay 1 only
+  void (*handler)(rtsp_conn_info *conn, rtsp_message *req,
+                  rtsp_message *resp); // for AirPlay 1 only
 } method_handlers[] = {{"OPTIONS", handle_options},
                        {"ANNOUNCE", handle_announce},
                        {"FLUSH", handle_flush},
@@ -4631,10 +4631,9 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
       memset(conn, 0, sizeof(rtsp_conn_info));
       conn->connection_number = RTSP_connection_index++;
 #ifdef CONFIG_AIRPLAY_2
-      conn->airplay_type = ap_2; // changed if an ANNOUNCE is received
+      conn->airplay_type = ap_2;  // changed if an ANNOUNCE is received
       conn->timing_type = ts_ptp; // changed if an ANNOUNCE is received
 #endif
-
 
       socklen_t size_of_reply = sizeof(SOCKADDR);
       conn->fd = accept(acceptfd, (struct sockaddr *)&conn->remote, &size_of_reply);

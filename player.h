@@ -81,7 +81,6 @@ typedef enum {
   ast_apple_lossless,
 } audio_stream_type;
 
-
 typedef struct {
   int encrypted;
   uint8_t aesiv[16], aeskey[16];
@@ -104,9 +103,9 @@ typedef struct file_cipher_context {
 #endif
 
 typedef struct {
-  int connection_number;             // for debug ID purposes, nothing else...
-  int resend_interval;               // this is really just for debugging
-  char *UserAgent;                   // free this on teardown
+  int connection_number;     // for debug ID purposes, nothing else...
+  int resend_interval;       // this is really just for debugging
+  char *UserAgent;           // free this on teardown
   int AirPlayVersion;        // zero if not an AirPlay session. Used to help calculate latency
   uint32_t latency;          // the actual latency used for this play session
   uint32_t minimum_latency;  // set if an a=min-latency: line appears in the ANNOUNCE message; zero
@@ -242,7 +241,7 @@ typedef struct {
 
 #ifdef CONFIG_AIRPLAY_2
   airplay_t airplay_type; // are we using AirPlay 1 or AirPlay 2 protocol on this connection?
-  timing_t timing_type; // are we using NTP or PTP on this connection?
+  timing_t timing_type;   // are we using NTP or PTP on this connection?
 
   pthread_t rtp_event_thread;
   pthread_t rtp_ap2_control_thread;

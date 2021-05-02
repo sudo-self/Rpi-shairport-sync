@@ -1926,10 +1926,10 @@ void *player_thread_func(void *arg) {
   if (conn->timing_type == ts_ntp) {
 #endif
 
-  // create and start the timing, control and audio receiver threads
-  pthread_create(&conn->rtp_audio_thread, NULL, &rtp_audio_receiver, (void *)conn);
-  pthread_create(&conn->rtp_control_thread, NULL, &rtp_control_receiver, (void *)conn);
-  pthread_create(&conn->rtp_timing_thread, NULL, &rtp_timing_receiver, (void *)conn);
+    // create and start the timing, control and audio receiver threads
+    pthread_create(&conn->rtp_audio_thread, NULL, &rtp_audio_receiver, (void *)conn);
+    pthread_create(&conn->rtp_control_thread, NULL, &rtp_control_receiver, (void *)conn);
+    pthread_create(&conn->rtp_timing_thread, NULL, &rtp_timing_receiver, (void *)conn);
 
 #ifdef CONFIG_AIRPLAY_2
   }
