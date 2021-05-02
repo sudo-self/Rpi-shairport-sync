@@ -51,6 +51,8 @@ Next, download Shairport Sync, configure it, compile and install it:
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
+$ git submodule init
+$ git submodule update
 $ autoreconf -fi
 $ ./configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-systemd
 $ make
