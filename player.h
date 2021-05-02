@@ -342,6 +342,8 @@ typedef struct {
   uint64_t dac_buffer_queue_minimum_length;
 } rtsp_conn_info;
 
+extern pthread_mutex_t playing_conn_lock;
+
 void get_audio_buffer_size_and_occupancy(unsigned int *size, unsigned int *occupancy,
                                          rtsp_conn_info *conn);
 

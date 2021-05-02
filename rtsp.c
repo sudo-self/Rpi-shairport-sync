@@ -112,7 +112,7 @@ rtsp_conn_info **conns;
 int metadata_running = 0;
 
 // always lock use this when accessing the playing conn value
-static pthread_mutex_t playing_conn_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t playing_conn_lock = PTHREAD_MUTEX_INITIALIZER;
 
 // every time we want to retain or release a reference count, lock it with this
 // if a reference count is read as zero, it means the it's being deallocated.
@@ -326,6 +326,9 @@ int have_play_lock(rtsp_conn_info *conn) {
   return response;
 }
 
+// return 0 if the playing_conn isn't already locked by someone else and if
+// it belongs to the conn passed in.
+// remember to release it!
 int try_to_hold_play_lock(rtsp_conn_info *conn) {
   int response = -1;
   if (pthread_mutex_trylock(&playing_conn_lock) == 0) {

@@ -1537,13 +1537,21 @@ void player_thread_initial_cleanup_handler(__attribute__((unused)) void *arg) {
 
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  if (pthread_mutex_trylock(&playing_conn_lock) == 0) {
+
+  pthread_cleanup_push(mutex_unlock,&playing_conn_lock);
+  if (playing_conn == conn) {
+    if (config.output->stop)
+      config.output->stop();
+  }
+  pthread_cleanup_pop(1); // unlock the mutex
+  }
+
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(3, "Connection %d: player thread main loop exit via player_thread_cleanup_handler.",
         conn->connection_number);
 
-  if (config.output->stop)
-    config.output->stop();
 
   if (config.statistics_requested) {
     int rawSeconds = (int)difftime(time(NULL), conn->playstart);
