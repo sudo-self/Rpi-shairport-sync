@@ -71,7 +71,7 @@ You should include the relevant users in the `nqptp` group -- including the `sha
 Next, download Shairport Sync, configure it, compile and install it:
 ```
 $ git clone git@github.com:aillwee/shairport-sync.git
-$ cd sps2-ex1
+$ cd shairport-sync
 $ git checkout development
 $ git submodule init
 $ git submodule update
