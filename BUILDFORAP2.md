@@ -1,6 +1,6 @@
 Experimental Build Instructions for AirPlay 2
 ==
-* This code is experimental and much of the normal functionality of Shairport Sync is broken. Please do not use it in situations where reliable service is critical!
+* This code is experimental and much of the normal functionality of Shairport Sync is broken. Please do not use it in situations where reliable service is expected!
 * Be especially careful with audio systems capable of very high volume output -- the volume control in this software may not be reliable!
 * Initially, at least, leave the settings in the configuration file at default except as noted below.
 * At the time of writing, May 2, 2021, everything is on the latest version of the software -- macOS 11..3, iOS 14.5, Raspberry Pi OS 5.10.17-v7l+ (Buster), Ubuntu 20.04 -- fully updated.
