@@ -7,7 +7,7 @@ Experimental Build Instructions for AirPlay 2
 * At present, Shairport Sync will compile *but not work* on Raspbian Stretch (thanks JD Smith).
 * AirPlay 2 uses a timing system based on the Precision Timing Protocol (PTP). Shairport Sync relies on a program called `nqptp` ("Not Quite PTP") to monitor PTP signals. This program uses ports 319 and 320 and replaces any PTP service you have on the computer.
   In addition, `nqptp` must run with `root` privileges. (FYI, most computers do not have a PTP clock running -- instead, they may use an NTP service to keep the system clock synchronised with world time.)
-  When Shairport Sync is updated, it may be necessary to update `nqptp` at the same time.
+* When Shairport Sync is updated, you should check and update `nqptp` *before* building the update.
 
 Installation Instructions
 ==
@@ -58,7 +58,7 @@ First, install the packages needed by Shairport Sync:
 (Note: if you don't want the `D-Bus` interface, you may omit `libglib2.0-dev`.)
 
 ### nqptp ###
-Download, install and start/enable `nqptp` ("Not Quite PTP") from [here](https://github.com/mikebrady/nqptp).
+Download, install and start/enable `nqptp` from [here](https://github.com/mikebrady/nqptp).
 
 ***Note:*** At present, Shairport Sync expects the `nqptp` repository folder to be in the same directory as the `shairport-sync` repository folder, as it will look for a header file at `../nqptp/nqptp-shm-structures.h`.
 
