@@ -51,6 +51,7 @@ Next, download Shairport Sync, configure it, compile and install it:
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
+$ git checkout development
 $ git submodule init
 $ git submodule update
 $ autoreconf -fi
@@ -71,7 +72,7 @@ general =
 alsa =
 {
   output_device = "hw:0";
-  mixer_control_name = "PCM";
+  mixer_control_name = "Headphone";
 };
 
 ```
