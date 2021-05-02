@@ -2090,7 +2090,7 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
                  "OPTIONS, GET_PARAMETER, SET_PARAMETER, GET");
 }
 
-void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
+void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                      rtsp_message *resp) {
   debug(2, "Connection %d: TEARDOWN", conn->connection_number);
 
@@ -2198,8 +2198,8 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
     resp->respcode = 451; // don't know what to do here
   }
 }
+#endif
 
-#else
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                      rtsp_message *resp) {
   debug_log_rtsp_message(2, "TEARDOWN request", req);
@@ -2220,7 +2220,7 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
     resp->respcode = 451;
   }
 }
-#endif
+
 
 void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   // TODO -- don't know what this is for in AP2
@@ -3571,6 +3571,11 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
       }
     }
     */
+    // In AirPlay 2, an ANNOUNCE signifies the start of an AirPlay 1 session.
+#ifdef CONFIG_AIRPLAY_2
+    conn->airplay_type = ap_1;
+    conn->timing_type = ts_ntp;
+#endif
 
     conn->stream.type = ast_unknown;
     resp->respcode = 456; // 456 - Header Field Not Valid for Resource
@@ -3788,34 +3793,39 @@ out:
   }
 }
 
+#ifdef CONFIG_AIRPLAY_2
 static struct method_handler {
   char *method;
-  void (*handler)(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp);
+  void (*ap1_handler)(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp); // for AirPlay 1
+  void (*ap2_handler)(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp); // for AirPlay 2
+} method_handlers[] = {{"OPTIONS", handle_options, handle_options},
+                       {"ANNOUNCE", handle_announce, handle_announce},
+                       {"FLUSH", handle_flush, handle_flush},
+                       {"TEARDOWN", handle_teardown, handle_teardown_2},
+                       {"SETUP", handle_setup, handle_setup_2},
+                       {"GET_PARAMETER", handle_get_parameter, handle_get_parameter},
+                       {"SET_PARAMETER", handle_set_parameter, handle_set_parameter},
+                       {"RECORD", handle_record, handle_record_2},
+                       {"GET", handle_get, handle_get},
+                       {"POST", handle_post, handle_post},
+                       {"SETPEERS", handle_setpeers, handle_setpeers},
+                       {"SETRATEANCHORTI", handle_setrateanchori, handle_setrateanchori},
+                       {"FLUSHBUFFERED", handle_flushbuffered, handle_flushbuffered},
+                       {NULL, NULL, NULL}};
+#else
+static struct method_handler {
+  char *method;
+  void (*handler)(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp); // for AirPlay 1 only
 } method_handlers[] = {{"OPTIONS", handle_options},
                        {"ANNOUNCE", handle_announce},
                        {"FLUSH", handle_flush},
                        {"TEARDOWN", handle_teardown},
-#ifdef CONFIG_AIRPLAY_2
-                       {"SETUP", handle_setup_2},
-#else
                        {"SETUP", handle_setup},
-#endif
                        {"GET_PARAMETER", handle_get_parameter},
                        {"SET_PARAMETER", handle_set_parameter},
-#ifdef CONFIG_AIRPLAY_2
-                       {"RECORD", handle_record_2},
-#else
                        {"RECORD", handle_record},
-#endif
-#ifdef CONFIG_AIRPLAY_2
-
-                       {"GET", handle_get},
-                       {"POST", handle_post},
-                       {"SETPEERS", handle_setpeers},
-                       {"SETRATEANCHORTI", handle_setrateanchori},
-                       {"FLUSHBUFFERED", handle_flushbuffered},
-#endif
                        {NULL, NULL}};
+#endif
 
 static void apple_challenge(int fd, rtsp_message *req, rtsp_message *resp) {
   char *hdr = msg_get_header(req, "Apple-Challenge");
@@ -4247,7 +4257,14 @@ static void *rtsp_conversation_thread_func(void *pconn) {
         for (mh = method_handlers; mh->method; mh++) {
           if (!strcmp(mh->method, req->method)) {
             method_selected = 1;
+#ifdef CONFIG_AIRPLAY_2
+            if (conn->airplay_type == ap_1)
+              mh->ap1_handler(conn, req, resp);
+            else
+              mh->ap2_handler(conn, req, resp);
+#else
             mh->handler(conn, req, resp);
+#endif
             break;
           }
         }
@@ -4613,6 +4630,11 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
         die("Couldn't allocate memory for an rtsp_conn_info record.");
       memset(conn, 0, sizeof(rtsp_conn_info));
       conn->connection_number = RTSP_connection_index++;
+#ifdef CONFIG_AIRPLAY_2
+      conn->airplay_type = ap_2; // changed if an ANNOUNCE is received
+      conn->timing_type = ts_ptp; // changed if an ANNOUNCE is received
+#endif
+
 
       socklen_t size_of_reply = sizeof(SOCKADDR);
       conn->fd = accept(acceptfd, (struct sockaddr *)&conn->remote, &size_of_reply);

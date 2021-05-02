@@ -120,6 +120,7 @@ void rtp_audio_receiver_cleanup_handler(__attribute__((unused)) void *arg) {
 }
 
 void *rtp_audio_receiver(void *arg) {
+  debug(1,"rtp_audio_receiver start");
   pthread_cleanup_push(rtp_audio_receiver_cleanup_handler, arg);
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
@@ -258,6 +259,7 @@ void rtp_control_handler_cleanup_handler(__attribute__((unused)) void *arg) {
 }
 
 void *rtp_control_receiver(void *arg) {
+  debug(1,"rtp_control_receiver start");
   pthread_cleanup_push(rtp_control_handler_cleanup_handler, arg);
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
@@ -288,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-                                             
-                                             
+
+
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -300,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-                                             
+
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-                                             
+
                                                               // Best guess is that this delay is 11,025 frames.
-                                             
+
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-                                             
+
                                                               uint32_t fl = nctohs(&packet[2]); //
-                                             
+
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -506,6 +508,7 @@ void rtp_timing_sender_cleanup_handler(void *arg) {
 }
 
 void *rtp_timing_sender(void *arg) {
+  debug(1,"rtp_timing_sender start");
   pthread_cleanup_push(rtp_timing_sender_cleanup_handler, arg);
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   struct timing_request {
@@ -607,6 +610,7 @@ void rtp_timing_receiver_cleanup_handler(void *arg) {
 }
 
 void *rtp_timing_receiver(void *arg) {
+  debug(1,"rtp_timing_receiver start");
   pthread_cleanup_push(rtp_timing_receiver_cleanup_handler, arg);
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
@@ -672,7 +676,7 @@ void *rtp_timing_receiver(void *arg) {
         if (packet[1] == 0xd3) { // timing reply
 
           return_time = arrival_time - conn->departure_time;
-          debug(3, "clock synchronisation request: return time is %8.3f milliseconds.",
+          debug(1, "clock synchronisation request: return time is %8.3f milliseconds.",
                 0.000001 * return_time);
 
           if (return_time < 200000000) { // must be less than 0.2 seconds
@@ -2358,20 +2362,35 @@ void *rtp_buffered_audio_processor(void *arg) {
   pthread_exit(NULL);
 }
 int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
-  return frame_to_ptp_local_time(timestamp, time, conn);
+  if (conn->timing_type == ts_ptp)
+    return frame_to_ptp_local_time(timestamp, time, conn);
+  else
+    return frame_to_ntp_local_time(timestamp, time, conn);
 }
 
 int local_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
-  return local_ptp_time_to_frame(time, frame, conn);
+  if (conn->timing_type == ts_ptp)
+    return local_ptp_time_to_frame(time, frame, conn);
+  else
+    return local_ntp_time_to_frame(time, frame, conn);
 }
 
-void reset_anchor_info(rtsp_conn_info *conn) { reset_ptp_anchor_info(conn); }
+void reset_anchor_info(rtsp_conn_info *conn) {
+  if (conn->timing_type == ts_ptp)
+    reset_ptp_anchor_info(conn);
+  else
+    reset_ntp_anchor_info(conn);
+}
 
 int have_timestamp_timing_information(rtsp_conn_info *conn) {
-  return have_ptp_timing_information(conn);
+  if (conn->timing_type == ts_ptp)
+    return have_ptp_timing_information(conn);
+  else
+    return have_ntp_timestamp_timing_information(conn);
 }
 
 #else
+
 int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
   return frame_to_ntp_local_time(timestamp, time, conn);
 }

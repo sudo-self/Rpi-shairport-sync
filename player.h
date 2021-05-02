@@ -81,7 +81,6 @@ typedef enum {
   ast_apple_lossless,
 } audio_stream_type;
 
-typedef enum { ts_ntp, ts_ptp } timing_source_type;
 
 typedef struct {
   int encrypted;
@@ -91,6 +90,9 @@ typedef struct {
 } stream_cfg;
 
 #ifdef CONFIG_AIRPLAY_2
+typedef enum { ts_ntp, ts_ptp } timing_t;
+typedef enum { ap_1, ap_2 } airplay_t;
+
 typedef struct file_cipher_context {
   struct pair_cipher_context *cipher_context;
   int active; // can be created during a pair setup but not activated until next read
@@ -103,7 +105,6 @@ typedef struct file_cipher_context {
 
 typedef struct {
   int connection_number;             // for debug ID purposes, nothing else...
-  timing_source_type type_of_timing; // are we using NTP or PTP?
   int resend_interval;               // this is really just for debugging
   char *UserAgent;                   // free this on teardown
   int AirPlayVersion;        // zero if not an AirPlay session. Used to help calculate latency
@@ -240,6 +241,9 @@ typedef struct {
   uint32_t anchor_rtptime;
 
 #ifdef CONFIG_AIRPLAY_2
+  airplay_t airplay_type; // are we using AirPlay 1 or AirPlay 2 protocol on this connection?
+  timing_t timing_type; // are we using NTP or PTP on this connection?
+
   pthread_t rtp_event_thread;
   pthread_t rtp_ap2_control_thread;
   pthread_t rtp_realtime_audio_thread;
