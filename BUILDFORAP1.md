@@ -1,6 +1,6 @@
-Simple Build Instructions
+Build Instructions for AirPlay 1
 ==
-Here are simple instructions for building and installing Shairport Sync on a recent Linux based on Debian, including Ubiuntu and Raspberry Pi OS.
+Here are simple instructions for building and installing Shairport Sync to provide an AirPlay 1 service on a recent Linux based on Debian, including Ubuntu and Raspberry Pi OS.
 
 In the commands below, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `apt-get update` in superuser mode and you are in user mode, enter `sudo apt-get update`.
 
