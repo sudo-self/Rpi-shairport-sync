@@ -5,6 +5,9 @@ Experimental Build Instructions for AirPlay 2
 * Initially, at least, leave the settings in the configuration file at default except as noted below.
 * At the time of writing, May 2, 2021, everything is on the latest version of the software -- macOS 11..3, iOS 14.5, Raspberry Pi OS 5.10.17-v7l+ (Buster), Ubuntu 20.04 -- fully updated.
 * At present, Shairport Sync will compile *but not work* on Raspbian Stretch (thanks JD Smith).
+* AirPlay 2 uses a timing system based on the Precision Timing Protocol (PTP). Shairport Sync relies on a program called `nqptp` ("Not Quite PTP") to monitor PTP signals. This program uses ports 319 and 320 and replaces any PTP service you have on the computer.
+  In addition, `nqptp` must run with `root` privileges. (FYI, most computers do not have a PTP clock running -- instead, they may use an NTP service to keep the system clock synchronised with world time.)
+  When Shairport Sync is updated, it may be necessary to update `nqptp` at the same time.
 
 Installation Instructions
 ==
@@ -67,7 +70,7 @@ You should include the relevant users in the `nqptp` group -- including the `sha
 
 Next, download Shairport Sync, configure it, compile and install it:
 ```
-$ git clone git@github.com:mikebrady/sps2-ex1.git
+$ git clone git@github.com:aillwee/shairport-sync.git
 $ cd sps2-ex1
 $ git checkout development
 $ git submodule init
@@ -101,7 +104,7 @@ To enable Shairport Sync to start automatically on boot up:
 ```
 # systemctl enable shairport-sync
 ```
-Now, either reboot the Pi or start the `shairport-sync` service:
+Now, either reboot or start the `shairport-sync` service:
 ```
 # systemctl start shairport-sync
 ```
