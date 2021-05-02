@@ -48,7 +48,7 @@ First, install the packages needed by Shairport Sync:
 ```
 Next, download Shairport Sync, configure it, compile and install it:
 ```
-$ git clone https://github.com/mikebrady/shairport-sync.git
+$ git clone https://github.com/aillwee/shairport-sync.git
 $ cd shairport-sync
 $ git checkout development
 $ git submodule init
