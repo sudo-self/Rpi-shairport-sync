@@ -676,7 +676,7 @@ void *rtp_timing_receiver(void *arg) {
         if (packet[1] == 0xd3) { // timing reply
 
           return_time = arrival_time - conn->departure_time;
-          debug(1, "clock synchronisation request: return time is %8.3f milliseconds.",
+          debug(2, "clock synchronisation request: return time is %8.3f milliseconds.",
                 0.000001 * return_time);
 
           if (return_time < 200000000) { // must be less than 0.2 seconds
@@ -1126,25 +1126,22 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
     char req[8]; // *not* a standard RTCP NACK
     req[0] = 0x80;
 #ifdef CONFIG_AIRPLAY_2
+    if (conn->airplay_type == ap_2) {
     if (conn->ap2_remote_control_socket_addr_length == 0) {
       debug(2, "No remote socket -- skipping the resend");
       return; // hack
     }
     req[1] = 0xD5; // Airplay 2 'resend'
-#else
+    } else {
+#endif
     req[1] = (char)0x55 | (char)0x80; // Apple 'resend'
+#ifdef CONFIG_AIRPLAY_2
+  }
 #endif
     *(unsigned short *)(req + 2) = htons(1);     // our sequence number
     *(unsigned short *)(req + 4) = htons(first); // missed seqnum
     *(unsigned short *)(req + 6) = htons(count); // count
-#ifndef CONFIG_AIRPLAY_2
-    socklen_t msgsize = sizeof(struct sockaddr_in);
-#ifdef AF_INET6
-    if (conn->rtp_client_control_socket.SAFAMILY == AF_INET6) {
-      msgsize = sizeof(struct sockaddr_in6);
-    }
-#endif
-#endif
+
     uint64_t time_of_sending_ns = get_absolute_time_in_ns();
     uint64_t resend_error_backoff_time = 300000000; // 0.3 seconds
     if ((conn->rtp_time_of_last_resend_request_error_ns == 0) ||
@@ -1157,21 +1154,33 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
         struct timeval timeout;
         timeout.tv_sec = 0;
         timeout.tv_usec = 100000;
+        int response;
 #ifdef CONFIG_AIRPLAY_2
+    if (conn->airplay_type == ap_2) {
         if (setsockopt(conn->ap2_control_socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
                        sizeof(timeout)) < 0)
           debug(1, "Can't set timeout on resend request socket.");
-        if (sendto(conn->ap2_control_socket, req, sizeof(req), 0,
+        response = sendto(conn->ap2_control_socket, req, sizeof(req), 0,
                    (struct sockaddr *)&conn->ap2_remote_control_socket_addr,
-                   conn->ap2_remote_control_socket_addr_length) == -1) {
-#else
+                   conn->ap2_remote_control_socket_addr_length);
+    } else {
+#endif
         if (setsockopt(conn->control_socket, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout,
                        sizeof(timeout)) < 0)
           debug(1, "Can't set timeout on resend request socket.");
-
-        if (sendto(conn->control_socket, req, sizeof(req), 0,
-                   (struct sockaddr *)&conn->rtp_client_control_socket, msgsize) == -1) {
+        socklen_t msgsize = sizeof(struct sockaddr_in);
+#ifdef AF_INET6
+        if (conn->rtp_client_control_socket.SAFAMILY == AF_INET6) {
+          msgsize = sizeof(struct sockaddr_in6);
+        }
 #endif
+        response = sendto(conn->control_socket, req, sizeof(req), 0,
+                   (struct sockaddr *)&conn->rtp_client_control_socket, msgsize);
+
+#ifdef CONFIG_AIRPLAY_2
+  }
+#endif
+        if (response == -1) {
           char em[1024];
           strerror_r(errno, em, sizeof(em));
           debug(2, "Error %d using sendto to request a resend: \"%s\".", errno, em);
