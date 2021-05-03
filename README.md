@@ -1,7 +1,7 @@
 
 Shairport Sync
 =============
-* Shairport Sync is an AirPlay audio player – it plays audio streamed from Apple devices and AirPlay sources such a [ForkedDaapd](http://ejurgensen.github.io/forked-daapd/).
+* Shairport Sync is an AirPlay audio player – it plays audio streamed from Apple devices and from AirPlay sources such [ForkedDaapd](http://ejurgensen.github.io/forked-daapd/).
 * Shairport Sync supports AirPlay 1 or AirPlay 2.
 * **AirPlay 2 support is experimental and incomplete.** The focus of the development effort is to get a good and stable audio experience. Thus, many features are missing or broken. So integration with Apple's Home app is missing; remote control doesn't work.
 * When built for AirPlay 1, Shairport Sync runs on Linux, FreeBSD and OpenBSD.
@@ -16,10 +16,10 @@ For more information, and a complete account of how to build Shairport Sync for 
 Acknowledgements
 ---
 Special thanks are due to:
-* @ejurgensen for advice and code to deal with pairing and encryption.
-* @ckdo for pointing the way, with a functional Python implementation.
-* @jds for thorough testing, support and encouragement.
-* @invano for showing what might be possible.
-* @ccc for testing and enthusiasm.
+* [JD Smith](https://github.com/jdtsmith) for really thorough testing, support and encouragement.
+* [ejurgensen](https://github.com/ejurgensen) for advice and [code to deal with pairing and encryption](https://github.com/ejurgensen/pair_ap).
+* [ckdo](https://github.com/ckdo) for pointing the way, with a [functional Python implementation](https://github.com/ckdo/airplay2-receiver) of AirPlay 2.
+* [invano](https://github.com/invano) for showing what might be possible and for initial Python development.
+* [Charles Somer](https://github.com/charlesomer) for testing, encouragement and enthusiasm.
 
 And of course, thanks to everyone who has supported and improved Shairport Sync over the years.
