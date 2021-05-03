@@ -2,8 +2,8 @@
 Shairport Sync
 =============
 * Shairport Sync is an AirPlay audio player – it plays audio streamed from Apple devices and from AirPlay sources such [ForkedDaapd](http://ejurgensen.github.io/forked-daapd/).
-* Shairport Sync supports AirPlay 1 or AirPlay 2.
-* **AirPlay 2 support is experimental and incomplete.** The focus of the development effort is to get a good, stable, audio experience. Thus, many features are missing or broken. So integration with Apple's Home app is missing; remote control doesn't work.
+* Shairport Sync can be built to support AirPlay 1 only or AirPlay 2. The AirPlay 2 build requires a good deal of extra library support and may not fit into smaller devices.
+* **AirPlay 2 support is experimental and incomplete.** The focus of the development effort is on a good, stable, audio experience. Thus, many out-of-scope features are missing or broken. So integration with Apple's Home app is missing; remote control doesn't work.
 * When built for AirPlay 1, Shairport Sync runs on Linux, FreeBSD and OpenBSD.
 * AirPlay 2 support is only available on recent Linux builds.
 
