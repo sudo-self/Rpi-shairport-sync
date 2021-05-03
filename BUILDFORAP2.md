@@ -9,8 +9,9 @@ Experimental Build Instructions for AirPlay 2
   In addition, `nqptp` must run with `root` privileges.  
  (FYI, most computers do not have a PTP clock running -- instead, they may use a [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time.)
 * When Shairport Sync is updated, you should check and update `nqptp` *before* building the update.
+* Build instructions are likely to change.
 
-Installation Instructions
+Build and Install Instructions
 ==
 In the commands below, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `apt-get update` in superuser mode and you are in user mode, enter `sudo apt-get update`.
 
