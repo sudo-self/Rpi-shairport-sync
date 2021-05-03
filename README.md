@@ -25,7 +25,7 @@ Acknowledgements
 For the development of AirPlay 2 support, special thanks are due to:
 * [JD Smith](https://github.com/jdtsmith) for really thorough testing, support and encouragement.
 * [ejurgensen](https://github.com/ejurgensen) for advice and [code to deal with pairing and encryption](https://github.com/ejurgensen/pair_ap).
-* [ckdo](https://github.com/ckdo) for pointing the way, with a [functional Python implementation](https://github.com/ckdo/airplay2-receiver) of AirPlay 2.
+* [ckdo](https://github.com/ckdo) for pointing the way, particularly with pairing and encryption protocols, with a [functional Python implementation](https://github.com/ckdo/airplay2-receiver) of AirPlay 2.
 * [invano](https://github.com/invano) for showing what might be possible and for initial Python development.
 * [Charles Somer](https://github.com/charlesomer) for testing, encouragement and enthusiasm.
 
