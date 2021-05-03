@@ -18,7 +18,7 @@ Shairport Sync does not support AirPlay video or photo streaming.
 
 More Information
 ===
-For more information, and a complete account of how to build Shairport Sync for AirPlay 1, please visit [MOREINFO.md](https://github.com/aillwee/shairport-sync/blob/development/MOREINFO.md).
+For more information, and for a more complete account of how to build Shairport Sync for AirPlay 1, please visit [MOREINFO.md](https://github.com/aillwee/shairport-sync/blob/development/MOREINFO.md).
 
 Acknowledgements
 ---
