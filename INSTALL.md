@@ -9,7 +9,7 @@ Do the usual update and upgrade:
 ```
 # apt-get update
 # apt-get upgrade
-``` 
+```
 (Separately, if you haven't done so already, consider using the `raspi-config` tool to expand the file system to use the entire card.)
 
 ### Turn Off WiFi Power Management
@@ -63,13 +63,13 @@ Now to configure Shairport Sync. Here are the important options for the Shairpor
 // Sample Configuration File for Shairport Sync on a Raspberry Pi using the built-in audio DAC
 general =
 {
-  volume_range_db = 60; 
+  volume_range_db = 60;
 };
 
 alsa =
 {
-  output_device = "hw:0";
-  mixer_control_name = "PCM";
+  output_device = "hw:Headphones";
+  mixer_control_name = "Headphone";
 };
 
 ```
