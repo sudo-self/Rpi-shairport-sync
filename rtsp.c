@@ -85,12 +85,8 @@
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
-#include "csrp/srp.h"
-#include "pair_ap/pair-tlv.h"
 #include "pair_ap/pair.h"
 #include "plist/plist.h"
-#include <sodium.h>
-// #include "proxy_ap/server.h"
 #include "plist_xml_strings.h"
 #include "ptp-utilities.h"
 #endif
@@ -803,408 +799,100 @@ void debug_log_rtsp_message(int level, char *prompt, rtsp_message *message) {
   }
 }
 
-// this will read a block of the size specified to the buffer
-// and will return either with the block or on error
-ssize_t read_sized_block(int fd, void *buf, size_t count) {
-  ssize_t response, nread;
-  size_t inbuf = 0; // bytes already in the buffer
-  int keep_trying = 1;
+#ifdef CONFIG_AIRPLAY_2
+static void buf_add(ap2_buffer *buf, uint8_t *in, size_t in_len) {
+  if (buf->len + in_len > buf->size) {
+    buf->size = buf->len + in_len + 2048; // Extra legroom to avoid future memcpy's
+    uint8_t *new = malloc(buf->size);
+    memcpy(new, buf->data, buf->len);
+    free(buf->data);
+    buf->data = new;
+  }
+  memcpy(buf->data + buf->len, in, in_len);
+  buf->len += in_len;
+}
+
+static void buf_drain(ap2_buffer *buf, ssize_t len) {
+  if (len < 0 || (size_t)len >= buf->len) {
+    free(buf->data);
+    memset(buf, 0, sizeof(ap2_buffer));
+    return;
+  }
+  memmove(buf->data, buf->data + len, buf->len - len);
+  buf->len -= len;
+}
+
+static size_t buf_remove(ap2_buffer *buf, uint8_t *out, size_t out_len) {
+  size_t bytes = (buf->len > out_len) ? out_len : buf->len;
+  memcpy(out, buf->data, bytes);
+  buf_drain(buf, bytes);
+  return bytes;
+}
+
+static ssize_t read_encrypted(int fd, ap2_pairing *ctx, void *buf, size_t count) {
+  uint8_t in[4096];
+  uint8_t *plain;
+  size_t plain_len;
+
+  // If there is leftover decoded content from the last pass just return that
+  if (ctx->plain_buf.len > 0) {
+    return buf_remove(&ctx->plain_buf, buf, count);
+  }
 
   do {
-    nread = read(fd, buf + inbuf, count - inbuf);
-    if (nread == 0) {
-      // a blocking read that returns zero means eof -- implies connection closed
-      debug(3, "read_sized_block connection closed.");
-      keep_trying = 0;
-    } else if (nread < 0) {
-      if (errno == EAGAIN) {
-        debug(1, "read_sized_block getting Error 11 -- EAGAIN from a blocking read!");
-      }
-      if ((errno != ECONNRESET) && (errno != EAGAIN) && (errno != EINTR)) {
-        char errorstring[1024];
-        strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-        debug(1, "read_sized_block read error %d: \"%s\".", errno, (char *)errorstring);
-        keep_trying = 0;
-      }
-    } else {
-      inbuf += (size_t)nread;
-    }
-  } while ((keep_trying != 0) && (inbuf < count));
-  if (nread <= 0)
-    response = nread;
-  else
-    response = inbuf;
-  return response;
-}
+    ssize_t got = read(fd, in, sizeof(in));
+    if (got <= 0)
+      return got;
+    buf_add(&ctx->encrypted_buf, in, got);
 
-#ifdef CONFIG_AIRPLAY_2
+    ssize_t consumed = pair_decrypt(&plain, &plain_len, ctx->encrypted_buf.data, ctx->encrypted_buf.len, ctx->cipher_ctx);
+    if (consumed < 0)
+      return -1;
+    buf_drain(&ctx->encrypted_buf, consumed);
+  } while (plain_len == 0);
 
-/* ----------------------------- DEFINES ETC ------------------------------- */
-
-#define USERNAME "Pair-Setup"
-#define AUTHTAG_LENGTH 16
-#define NONCE_LENGTH 12 // 96 bits according to chacha poly1305
-#define RESPONSE_BUFSIZE 8192
-#define ENCRYPTED_LEN_MAX 0x400
-#define PASSWORD "3939"
-
-#define RTSP_VERSION "RTSP/1.0"
-#define POST_PAIR_SETUP "POST /pair-setup"
-#define OPTIONS "OPTIONS *"
-#define GET_INFO "GET /info"
-#define POST_AUTH_SETUP "POST /auth-setup"
-#define POST_FP_SETUP "POST /fp-setup"
-
-/* Fairplay magic */
-/*
-static uint8_t server_fp_reply1[] =
-    "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x00\x0f\x9f\x3f\x9e\x0a"
-    "\x25\x21\xdb\xdf\x31\x2a\xb2\xbf\xb2\x9e\x8d\x23\x2b\x63\x76\xa8\xc8\x18\x70"
-    "\x1d\x22\xae\x93\xd8\x27\x37\xfe\xaf\x9d\xb4\xfd\xf4\x1c\x2d\xba\x9d\x1f\x49"
-    "\xca\xaa\xbf\x65\x91\xac\x1f\x7b\xc6\xf7\xe0\x66\x3d\x21\xaf\xe0\x15\x65\x95"
-    "\x3e\xab\x81\xf4\x18\xce\xed\x09\x5a\xdb\x7c\x3d\x0e\x25\x49\x09\xa7\x98\x31"
-    "\xd4\x9c\x39\x82\x97\x34\x34\xfa\xcb\x42\xc6\x3a\x1c\xd9\x11\xa6\xfe\x94\x1a"
-    "\x8a\x6d\x4a\x74\x3b\x46\xc3\xa7\x64\x9e\x44\xc7\x89\x55\xe4\x9d\x81\x55\x00"
-    "\x95\x49\xc4\xe2\xf7\xa3\xf6\xd5\xba";
-static uint8_t server_fp_reply2[] =
-    "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x01\xcf\x32\xa2\x57\x14"
-    "\xb2\x52\x4f\x8a\xa0\xad\x7a\xf1\x64\xe3\x7b\xcf\x44\x24\xe2\x00\x04\x7e\xfc"
-    "\x0a\xd6\x7a\xfc\xd9\x5d\xed\x1c\x27\x30\xbb\x59\x1b\x96\x2e\xd6\x3a\x9c\x4d"
-    "\xed\x88\xba\x8f\xc7\x8d\xe6\x4d\x91\xcc\xfd\x5c\x7b\x56\xda\x88\xe3\x1f\x5c"
-    "\xce\xaf\xc7\x43\x19\x95\xa0\x16\x65\xa5\x4e\x19\x39\xd2\x5b\x94\xdb\x64\xb9"
-    "\xe4\x5d\x8d\x06\x3e\x1e\x6a\xf0\x7e\x96\x56\x16\x2b\x0e\xfa\x40\x42\x75\xea"
-    "\x5a\x44\xd9\x59\x1c\x72\x56\xb9\xfb\xe6\x51\x38\x98\xb8\x02\x27\x72\x19\x88"
-    "\x57\x16\x50\x94\x2a\xd9\x46\x68\x8a";
-static uint8_t server_fp_reply3[] =
-    "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x02\xc1\x69\xa3\x52\xee"
-    "\xed\x35\xb1\x8c\xdd\x9c\x58\xd6\x4f\x16\xc1\x51\x9a\x89\xeb\x53\x17\xbd\x0d"
-    "\x43\x36\xcd\x68\xf6\x38\xff\x9d\x01\x6a\x5b\x52\xb7\xfa\x92\x16\xb2\xb6\x54"
-    "\x82\xc7\x84\x44\x11\x81\x21\xa2\xc7\xfe\xd8\x3d\xb7\x11\x9e\x91\x82\xaa\xd7"
-    "\xd1\x8c\x70\x63\xe2\xa4\x57\x55\x59\x10\xaf\x9e\x0e\xfc\x76\x34\x7d\x16\x40"
-    "\x43\x80\x7f\x58\x1e\xe4\xfb\xe4\x2c\xa9\xde\xdc\x1b\x5e\xb2\xa3\xaa\x3d\x2e"
-    "\xcd\x59\xe7\xee\xe7\x0b\x36\x29\xf2\x2a\xfd\x16\x1d\x87\x73\x53\xdd\xb9\x9a"
-    "\xdc\x8e\x07\x00\x6e\x56\xf8\x50\xce";
-static uint8_t server_fp_reply4[] =
-    "\x46\x50\x4c\x59\x03\x01\x02\x00\x00\x00\x00\x82\x02\x03\x90\x01\xe1\x72\x7e"
-    "\x0f\x57\xf9\xf5\x88\x0d\xb1\x04\xa6\x25\x7a\x23\xf5\xcf\xff\x1a\xbb\xe1\xe9"
-    "\x30\x45\x25\x1a\xfb\x97\xeb\x9f\xc0\x01\x1e\xbe\x0f\x3a\x81\xdf\x5b\x69\x1d"
-    "\x76\xac\xb2\xf7\xa5\xc7\x08\xe3\xd3\x28\xf5\x6b\xb3\x9d\xbd\xe5\xf2\x9c\x8a"
-    "\x17\xf4\x81\x48\x7e\x3a\xe8\x63\xc6\x78\x32\x54\x22\xe6\xf7\x8e\x16\x6d\x18"
-    "\xaa\x7f\xd6\x36\x25\x8b\xce\x28\x72\x6f\x66\x1f\x73\x88\x93\xce\x44\x31\x1e"
-    "\x4b\xe6\xc0\x53\x51\x93\xe5\xef\x72\xe8\x68\x62\x33\x72\x9c\x22\x7d\x82\x0c"
-    "\x99\x94\x45\xd8\x92\x46\xc8\xc3\x59";
-
-static uint8_t server_fp_header[] = "\x46\x50\x4c\x59\x03\x01\x04\x00\x00\x00\x00\x14";
+  // Fast path, avoids some memcpy + allocs in case of the normal, small message
+/*  if (ctx->plain_buf.len == 0 && plain_len < count) {
+    memcpy(buf, plain, plain_len);
+    free(plain);
+    return plain_len;
+  }
 */
+  buf_add(&ctx->plain_buf, plain, plain_len);
+  free(plain);
 
-/* 3072 n and g for SRP*/
-
-const char *nl_hex = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B"
-                     "139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485"
-                     "B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1F"
-                     "E649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23"
-                     "DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32"
-                     "905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF69558"
-                     "17183995497CEA956AE515D2261898FA051015728E5A8AAAC42DAD33170D04507A33A85521"
-                     "ABDF1CBA64ECFB850458DBEF0A8AEA71575D060C7DB3970F85A6E1E4C7ABF5AE8CDB0933D7"
-                     "1E8C94E04A25619DCEE3D2261AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B1817"
-                     "7B200CBBE117577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFCE0FD108E4B82"
-                     "D120A93AD2CAFFFFFFFFFFFFFFFF";
-const char *gl_hex = "5";
-
-enum pair_keys {
-  PAIR_SETUP_MSG01 = 0,
-  PAIR_SETUP_MSG02,
-  PAIR_SETUP_MSG03,
-  PAIR_SETUP_MSG04,
-  PAIR_SETUP_MSG05,
-  PAIR_SETUP_MSG06,
-  PAIR_SETUP_SIGN,
-  PAIR_VERIFY_MSG01,
-  PAIR_VERIFY_MSG02,
-  PAIR_VERIFY_MSG03,
-  PAIR_VERIFY_MSG04,
-  PAIR_CONTROL_WRITE,
-  PAIR_CONTROL_READ,
-  PAIR_EVENTS_WRITE,
-  PAIR_EVENTS_READ,
-};
-
-struct pair_keys_map {
-  uint8_t state;
-  const char *salt;
-  const char *info;
-  const char nonce[8];
-};
-
-static struct pair_keys_map pair_keys_map[] = {
-    // Used for /pair-setup
-    {0x01, NULL, NULL, ""},
-    {0x02, NULL, NULL, ""},
-    {0x03, NULL, NULL, ""},
-    {0x04, NULL, NULL, ""},
-    {0x05, "Pair-Setup-Encrypt-Salt", "Pair-Setup-Encrypt-Info", "PS-Msg05"},
-    {0x06, "Pair-Setup-Encrypt-Salt", "Pair-Setup-Encrypt-Info", "PS-Msg06"},
-    {0, "Pair-Setup-Controller-Sign-Salt", "Pair-Setup-Controller-Sign-Info", ""},
-
-    // Used for /pair-verify
-    {0x01, NULL, NULL, ""},
-    {0x02, "Pair-Verify-Encrypt-Salt", "Pair-Verify-Encrypt-Info", "PV-Msg02"},
-    {0x03, "Pair-Verify-Encrypt-Salt", "Pair-Verify-Encrypt-Info", "PV-Msg03"},
-    {0x04, NULL, NULL, ""},
-
-    // Encryption/decryption of control channel
-    {0, "Control-Salt", "Control-Write-Encryption-Key", ""},
-    {0, "Control-Salt", "Control-Read-Encryption-Key", ""},
-
-    // Encryption/decryption of event channel
-    {0, "Events-Salt", "Events-Write-Encryption-Key", ""},
-    {0, "Events-Salt", "Events-Read-Encryption-Key", ""},
-};
-
-enum pair_method {
-  PairingMethodPairSetup = 0x00,
-  PairingMethodPairSetupWithAuth = 0x01,
-  PairingMethodPairVerify = 0x02,
-  PairingMethodAddPairing = 0x03,
-  PairingMethodRemovePairing = 0x04,
-  PairingMethodListPairings = 0x05
-};
-
-enum pair_flags {
-  PairingFlagsTransient = 0x10,
-};
-
-struct verifier_setup_context {
-  struct pair_definition *type;
-
-  struct SRPVerifier *verifier;
-
-  char pin[4];
-  char device_id[17]; // Incl. zero term
-
-  uint8_t *pkA;
-  uint64_t pkA_len;
-
-  const uint8_t *pkB;
-  int pkB_len;
-
-  const uint8_t *b;
-  int b_len;
-
-  uint8_t *M1;
-  uint64_t M1_len;
-
-  const uint8_t *M2;
-  int M2_len;
-
-  const uint8_t *v;
-  int v_len;
-
-  const uint8_t *salt;
-  int salt_len;
-  uint8_t public_key[crypto_sign_PUBLICKEYBYTES];
-  uint8_t private_key[crypto_sign_SECRETKEYBYTES];
-  // Hex-formatet concatenation of public + private, 0-terminated
-  char auth_key[2 * (crypto_sign_PUBLICKEYBYTES + crypto_sign_SECRETKEYBYTES) + 1];
-
-  // We don't actually use the server's epk and authtag for anything
-  uint8_t *epk;
-  uint64_t epk_len;
-  uint8_t *authtag;
-  uint64_t authtag_len;
-
-  int setup_is_completed;
-  const char *errmsg;
-};
-
-// static struct verifier_setup_context server_setup_ctx;
-
-ssize_t write_encrypted(file_cipher_context *context, const void *buf, size_t count) {
-  // need to make this cancellable!
-  // encrypt the contents of the buffer
-  ssize_t response;
-  uint8_t nonce[NONCE_LENGTH] = {0};
-  // uint8_t tag[AUTHTAG_LENGTH];
-  uint8_t *plain_block;
-  uint8_t *cipher_block;
-  uint16_t block_len;
-  int nblocks;
-  int ret;
-  int i;
-
-  if ((count == 0) || (buf == NULL)) {
-    debug(1, "encrypting a null character sequence");
-    response = 0;
-  } else {
-    // Encryption is done in blocks, where each block consists of a short, the
-    // encrypted data and an auth tag. The short is the size of the encrypted
-    // data. The encrypted data in the block cannot exceed ENCRYPTED_LEN_MAX.
-    nblocks = 1 + ((count - 1) / ENCRYPTED_LEN_MAX); // Ceiling of division
-
-    ssize_t ctl = nblocks * (sizeof(block_len) + AUTHTAG_LENGTH) + count;
-    // size_t hdh = 0;
-    void *ciphertext = malloc(ctl);
-    if (ciphertext != NULL) {
-
-      context->cipher_context->encryption_counter_prev =
-          context->cipher_context->encryption_counter;
-
-      for (i = 0, plain_block = (uint8_t *)buf, cipher_block = ciphertext; i < nblocks; i++) {
-        // If it is the last block we will encrypt only the remaining data
-        if (i == nblocks - 1) {
-          uint8_t *b = (uint8_t *)buf;
-          block_len = b + count - plain_block;
-        } else
-          block_len = ENCRYPTED_LEN_MAX;
-
-        memcpy(nonce + 4, &(context->cipher_context->encryption_counter),
-               sizeof(context->cipher_context->encryption_counter)); // TODO BE or LE?
-
-        // Write the ciphered block
-        memcpy(cipher_block, &block_len, sizeof(block_len)); // TODO BE or LE?
-
-        unsigned long long cipher_length = 0;
-        ret = crypto_aead_chacha20poly1305_ietf_encrypt(
-            cipher_block + sizeof(block_len), // ciphertext
-            &cipher_length,
-            plain_block,                 // message
-            block_len,                   // message length
-            (unsigned char *)&block_len, // additional data
-            sizeof(block_len),           // additional data length
-            NULL,
-            nonce,                                  // nonce
-            context->cipher_context->encryption_key // key
-        );
-
-        if (ret < 0) {
-          debug(1, "Encryption with chacha poly1305 failed");
-          context->cipher_context->encryption_counter =
-              context->cipher_context->encryption_counter_prev;
-          free(ciphertext);
-        } else {
-          plain_block += block_len;
-          cipher_block += block_len + sizeof(block_len) + AUTHTAG_LENGTH;
-          context->cipher_context->encryption_counter++;
-        }
-      }
-      // maybe this really should be write_sized_block, similar to read_sized_block
-      ssize_t trywrite = write(context->fd, ciphertext, ctl);
-      if (trywrite != ctl)
-        debug(1, "write_encrypted write failure");
-      free(ciphertext);
-      response = count; // pretend only the plaintext number of bytes were written
-    } else {
-      // can't allocate memory for the cyphertext
-      errno = ENOMEM;
-      response = -1;
-    }
-  }
-  return response;
+  return buf_remove(&ctx->plain_buf, buf, count);
 }
 
-ssize_t read_encrypted(file_cipher_context *context, void *buf, size_t count) {
-  // need to make this cancellable!
-  // if the plaintext buffer is empty, this will
-  // read an encrypted block and decipher it to plaintext
-  // this will then return bytes in the plaintext buffer
-  // up to the limit of the count
-  ssize_t response = 0;
-  if (context->input_plaintext_buffer == NULL) {
-    response = -1;
-    uint16_t block_len;
-    if (read_sized_block(context->fd, &block_len, sizeof(block_len)) == sizeof(block_len)) {
-      void *cipher_block = malloc(block_len + AUTHTAG_LENGTH);
-      if (cipher_block != NULL) {
-        if (read_sized_block(context->fd, cipher_block, (block_len + AUTHTAG_LENGTH)) ==
-            block_len + AUTHTAG_LENGTH) {
-          // here we have the encrypted block
-          uint8_t nonce[NONCE_LENGTH] = {0};
-          uint8_t tag[AUTHTAG_LENGTH];
-          context->input_plaintext_buffer = malloc(block_len); // this should be more than enough
-          if (context->input_plaintext_buffer != NULL) {
-            memcpy(tag, cipher_block + block_len, sizeof(tag));
-            memcpy(nonce + 4, &(context->cipher_context->decryption_counter),
-                   sizeof(context->cipher_context->decryption_counter)); // TODO BE or LE?
-            unsigned long long new_payload_length = 0;
-            int ret = crypto_aead_chacha20poly1305_ietf_decrypt(
-                context->input_plaintext_buffer,        // m
-                &new_payload_length,                    // mlen_p
-                NULL,                                   // nsec,
-                cipher_block,                           // cipher text
-                block_len + AUTHTAG_LENGTH,             // length of the ciphertext
-                (unsigned char *)&block_len,            // authenticated additional data
-                sizeof(block_len),                      // authenticated additional data length
-                nonce,                                  // nonce
-                context->cipher_context->decryption_key // key
-            );
-            free(cipher_block);
-            cipher_block = NULL;
-            if (ret == 0) {
-              response = 0; // decryption was successful
-              context->cipher_context->decryption_counter++;
-              context->input_plaintext_buffer_toq = context->input_plaintext_buffer;
-              context->input_plaintext_buffer_bytes_occupied = block_len;
-            } else {
-              // decryption failed
-              debug(1, "decryption failed.");
-              free(context->input_plaintext_buffer);
-              context->input_plaintext_buffer = NULL;
-              errno = EILSEQ; // illegal byte sequence
-            }
-          } else {
-            // failed to allocate a plaintext buffer
-            debug(1, "could not allocate a plaintext buffer");
-            free(cipher_block);
-            cipher_block = NULL;
-            errno = ENOMEM;
-          }
-        } else {
-          // failed to read a block properly -- errno will be set
-          // debug(1, "could not read a block");
-          free(cipher_block);
-          cipher_block = NULL;
-        }
-      } else {
-        // failed to allocate a ciphertext buffer
-        debug(1, "could not allocate a ciphertext buffer");
-        errno = ENOMEM;
-      }
-    } else {
-      debug(2, "could not read the block_len");
-      // failed to read the encrypted block size -- errno will be set
-    }
+static ssize_t write_encrypted(rtsp_conn_info *conn, const void *buf, size_t count) {
+  uint8_t *encrypted;
+  size_t encrypted_len;
+
+  ssize_t ret = pair_encrypt(&encrypted, &encrypted_len, buf, count, conn->ap2_control_pairing.cipher_ctx);
+  if (ret < 0) {
+    debug(1, pair_cipher_errmsg(conn->ap2_control_pairing.cipher_ctx));
+    return -1;
   }
-  if (response == 0) {
-    // now, transfer bytes to the output buffer up to the limit of the count requested
-    if (context->input_plaintext_buffer_bytes_occupied) {
-      size_t bytes_to_transfer = context->input_plaintext_buffer_bytes_occupied;
-      if (bytes_to_transfer > count)
-        bytes_to_transfer = count;
-      if (bytes_to_transfer == 0)
-        debug(1, "Shome problem -- zero bytes to transfer!");
-      memcpy(buf, context->input_plaintext_buffer_toq, bytes_to_transfer);
-      context->input_plaintext_buffer_bytes_occupied =
-          context->input_plaintext_buffer_bytes_occupied - bytes_to_transfer;
-      if (context->input_plaintext_buffer_bytes_occupied == 0) {
-        free(context->input_plaintext_buffer);
-        context->input_plaintext_buffer = NULL;
-      } else {
-        context->input_plaintext_buffer_toq =
-            context->input_plaintext_buffer_toq + bytes_to_transfer;
-      }
-      response = bytes_to_transfer;
+
+  size_t remain = encrypted_len;
+  while (remain > 0) {
+    ssize_t wrote = write(conn->fd, encrypted + (encrypted_len - remain), remain);
+    if (wrote <= 0) {
+      free(encrypted);
+      return wrote;
     }
+    remain -= wrote;
   }
-  return response;
+  free(encrypted);
+  return count;
 }
 #endif
 
 ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
 #ifdef CONFIG_AIRPLAY_2
-  if ((conn->control_cipher_context.cipher_context != NULL) &&
-      (conn->control_cipher_context.active != 0)) {
-    return read_encrypted(&conn->control_cipher_context, buf, count);
+  if (conn->ap2_control_pairing.cipher_ctx) {
+    conn->ap2_control_pairing.is_encrypted = 1;
+    return read_encrypted(conn->fd, &conn->ap2_control_pairing, buf, count);
   } else {
     return read(conn->fd, buf, count);
   }
@@ -1433,9 +1121,8 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
 
 #ifdef CONFIG_AIRPLAY_2
   ssize_t reply;
-  if ((conn->control_cipher_context.cipher_context != NULL) &&
-      (conn->control_cipher_context.active != 0)) {
-    reply = write_encrypted(&conn->control_cipher_context, pkt, p - pkt);
+  if (conn->ap2_control_pairing.is_encrypted) {
+    reply = write_encrypted(conn, pkt, p - pkt);
   } else {
     reply = write(conn->fd, pkt, p - pkt);
   }
@@ -1731,183 +1418,44 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
 #ifdef CONFIG_AIRPLAY_2
 void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int ret;
-  resp->respcode = 200; // assume everything works out okay
+  uint8_t *body;
+  size_t body_len;
+  struct pair_result *result;
   debug(2, "Connection %d: pair-setup Content-Length %d", conn->connection_number,
         req->contentlength);
-  pair_tlv_values_t *values = pair_tlv_new();
-  pair_tlv_t *state;
-  pair_tlv_t *method;
-  pair_tlv_t *flags;
-  ret = pair_tlv_parse((const unsigned char *)req->content, req->contentlength, values);
-  if (ret < 0)
-    debug(1, "Could not parse TLV");
-  state = pair_tlv_get_value(values, TLVType_State);
-  if (!state || state->size != 1) {
-    debug(1, "Missing/unexpected pairing state in TLV.");
-  }
 
-  if (state->value[0] == pair_keys_map[PAIR_SETUP_MSG01].state) {
-    debug(2, "pair-setup part 1");
-    method = pair_tlv_get_value(values, TLVType_Method);
-    if (!method || method->size != 1 || method->value[0] != 0) {
-      debug(1, "Missing/unexpected pairing method in TLV.");
-    }
-    if (method->value[0] != PairingMethodPairSetup)
-      debug(1, "Unexpected method value %u.", method->value[0]);
-    flags = pair_tlv_get_value(values, TLVType_Flags);
-    if (!flags || flags->size != 1) {
-      debug(1, "Missing/unexpected pairing flags in TLV.");
-    }
-    if (flags->value[0] == PairingFlagsTransient) {
-      debug(2, "Transient pairing selected.");
-      conn->pairing_mode =
-          PairingFlagsTransient; // when pairing step 2 is finished, turn on encryption
-    }
-
-    // Note this is modified to return a 16 byte salt
-    srp_create_salted_verification_key(
-        SRP_SHA512, SRP_NG_CUSTOM, USERNAME, (const unsigned char *)PASSWORD, strlen(PASSWORD),
-        &conn->server_setup_ctx->salt, &conn->server_setup_ctx->salt_len,
-        &conn->server_setup_ctx->v, &conn->server_setup_ctx->v_len, nl_hex, gl_hex);
-
-    srp_verifier_get_B(SRP_SHA512, SRP_NG_CUSTOM, conn->server_setup_ctx->v,
-                       conn->server_setup_ctx->v_len, &conn->server_setup_ctx->b,
-                       &conn->server_setup_ctx->b_len, &conn->server_setup_ctx->pkB,
-                       &conn->server_setup_ctx->pkB_len, nl_hex, gl_hex);
-
-    pair_tlv_values_t *payload = pair_tlv_new();
-
-    pair_tlv_add_value(payload, TLVType_State, &pair_keys_map[PAIR_SETUP_MSG02].state,
-                       sizeof(pair_keys_map[PAIR_SETUP_MSG02].state));
-    pair_tlv_add_value(payload, TLVType_Salt, conn->server_setup_ctx->salt,
-                       conn->server_setup_ctx->salt_len); // 16
-    pair_tlv_add_value(payload, TLVType_PublicKey, conn->server_setup_ctx->pkB,
-                       conn->server_setup_ctx->pkB_len); // 384
-
-    // turn the tlv to binary form
-
-    char *body = malloc(RESPONSE_BUFSIZE);
-    size_t body_len;
-    body_len = RESPONSE_BUFSIZE;
-
-    ret = pair_tlv_format(payload, (uint8_t *)body, &body_len);
-    if (ret < 0)
-      debug(1, "Can't convert response to a binary stream");
-    pair_tlv_free(payload);
-    resp->content = body; // these will be freed when the data is sent
-    resp->contentlength = body_len;
-    msg_add_header(resp, "Content-Type", "application/octet-stream");
-    debug_log_rtsp_message(2, "pair-setup part 1 response", resp);
-    resp->respcode = 200; // it all worked out okay
-
-  } else if (state->value[0] == pair_keys_map[PAIR_SETUP_MSG03].state) {
-    debug(2, "pair setup part 2");
-
-    // uint8_t *out;
-    // size_t out_len;
-    const uint8_t *key;
-    int key_len;
-    pair_tlv_t *pk;
-    pair_tlv_t *proof;
-    pair_tlv_values_t *payload;
-
-    pk = pair_tlv_get_value(values, TLVType_PublicKey);
-    proof = pair_tlv_get_value(values, TLVType_Proof);
-
-    if ((pk != NULL) && (proof != NULL)) {
-      conn->server_setup_ctx->pkA_len = pk->size; // 384
-      conn->server_setup_ctx->pkA = malloc(conn->server_setup_ctx->pkA_len);
-      memcpy(conn->server_setup_ctx->pkA, pk->value, conn->server_setup_ctx->pkA_len);
-
-      conn->server_setup_ctx->M1_len = proof->size; // 64
-      conn->server_setup_ctx->M1 = malloc(conn->server_setup_ctx->M1_len);
-      memcpy(conn->server_setup_ctx->M1, proof->value, conn->server_setup_ctx->M1_len);
-
-      conn->server_setup_ctx->verifier = srp_verifier_new(
-          SRP_SHA512, SRP_NG_CUSTOM, USERNAME, conn->server_setup_ctx->salt,
-          conn->server_setup_ctx->salt_len, conn->server_setup_ctx->v,
-          conn->server_setup_ctx->v_len, conn->server_setup_ctx->pkA,
-          conn->server_setup_ctx->pkA_len, conn->server_setup_ctx->b, conn->server_setup_ctx->b_len,
-          conn->server_setup_ctx->pkB, conn->server_setup_ctx->pkB_len, nl_hex, gl_hex);
-      if (conn->server_setup_ctx->verifier != NULL) {
-        if (!conn->server_setup_ctx->verifier) {
-          die("Error verifier");
-        }
-
-        conn->server_setup_ctx->M2_len = 64; // 512 bit hash
-        srp_verifier_verify_session(conn->server_setup_ctx->verifier, conn->server_setup_ctx->M1,
-                                    &conn->server_setup_ctx->M2);
-        if (conn->server_setup_ctx->M2 != NULL) {
-
-          key = srp_verifier_get_session_key(conn->server_setup_ctx->verifier, &key_len);
-
-          conn->control_cipher_context.cipher_context =
-              pair_cipher_new(PAIR_SERVER_HOMEKIT_TRANSIENT, 2, key, key_len);
-          conn->control_cipher_context.fd = conn->fd;
-          conn->control_cipher_context.input_plaintext_buffer = NULL;
-          conn->control_cipher_context.input_plaintext_buffer_toq = NULL;
-          conn->control_cipher_context.input_plaintext_buffer_bytes_occupied = 0;
-          conn->control_cipher_context.active = 0;
-          payload = pair_tlv_new();
-
-          pair_tlv_add_value(payload, TLVType_State, &pair_keys_map[PAIR_SETUP_MSG04].state,
-                             sizeof(pair_keys_map[PAIR_SETUP_MSG04].state));
-          pair_tlv_add_value(payload, TLVType_Proof, conn->server_setup_ctx->M2,
-                             conn->server_setup_ctx->M2_len); // 384
-
-          char *body = malloc(RESPONSE_BUFSIZE);
-          size_t body_len;
-          body_len = RESPONSE_BUFSIZE;
-
-          ret = pair_tlv_format(payload, (uint8_t *)body, &body_len);
-          if (ret < 0)
-            debug(1, "Can't convert response to a binary stream");
-          pair_tlv_free(payload);
-
-          // free the verifier created by srp_verifier_new()
-          if (conn->server_setup_ctx->verifier != NULL) {
-            srp_verifier_delete(conn->server_setup_ctx->verifier);
-          }
-
-          // free mallocs made here for pkA and M1
-          if (conn->server_setup_ctx->pkA != NULL)
-            free((void *)conn->server_setup_ctx->pkA);
-          if (conn->server_setup_ctx->M1 != NULL)
-            free((void *)conn->server_setup_ctx->M1);
-
-          // free mallocs made by srp_create_salted_verification_key()
-          if (conn->server_setup_ctx->salt != NULL)
-            free((void *)conn->server_setup_ctx->salt);
-          if (conn->server_setup_ctx->v != NULL)
-            free((void *)conn->server_setup_ctx->v);
-
-          // free mallocs made by srp_verifier_get_B()
-          if (conn->server_setup_ctx->b != NULL)
-            free((void *)conn->server_setup_ctx->b);
-          //    if (conn->server_setup_ctx->pkB != NULL)
-          //      free((void *)conn->server_setup_ctx->pkB);
-
-          resp->content = body; // these will be freed when the data is sent
-          resp->contentlength = body_len;
-          msg_add_header(resp, "Content-Type", "application/octet-stream");
-          debug_log_rtsp_message(2, "pair-setup part 2 response", resp);
-          resp->respcode = 200; // it all worked out okay
-        } else {
-          debug(1, "Error M2");
-          resp->respcode = 451; // 451 is "Parameter not understood"
-        }
-      } else {
-        debug(1, "Error verifier");
-        resp->respcode = 451;
-      }
-    } else {
-      debug(1, "Error pkA ver");
+  if (!conn->ap2_control_pairing.setup_ctx) {
+    conn->ap2_control_pairing.setup_ctx = pair_setup_new(PAIR_SERVER_HOMEKIT, NULL, NULL, NULL, config.airplay_device_id);
+    if (!conn->ap2_control_pairing.setup_ctx) {
+      debug(1, "Error creating setup context");
       resp->respcode = 451;
+      return;
     }
-  } else {
-    debug(1, "don't recognise pair setup message");
   }
-  pair_tlv_free(values);
+
+  ret = pair_setup(&body, &body_len, conn->ap2_control_pairing.setup_ctx, (const uint8_t *)req->content, req->contentlength);
+  if (ret < 0) {
+    debug(1, pair_setup_errmsg(conn->ap2_control_pairing.setup_ctx));
+    resp->respcode = 451;
+    return;
+  }
+
+  ret = pair_setup_result(NULL, &result, conn->ap2_control_pairing.setup_ctx);
+  if (ret == 0 && result->shared_secret_len > 0) {
+    // Transient pairing completed (pair-setup step 2), prepare encryption, but
+    // don't activate yet, the response to this request is still plaintext
+    conn->ap2_control_pairing.cipher_ctx = pair_cipher_new(PAIR_SERVER_HOMEKIT, 2, result->shared_secret, result->shared_secret_len);
+    if (!conn->ap2_control_pairing.cipher_ctx) {
+      debug(1, "Error setting up rtsp control channel ciphering\n");
+      resp->respcode = 451;
+      return;
+    }
+  }
+
+  resp->content = (char *)body; // these will be freed when the data is sent
+  resp->contentlength = body_len;
+  msg_add_header(resp, "Content-Type", "application/octet-stream");
+  debug_log_rtsp_message(2, "pair-setup response", resp);
 }
 
 void handle_fp_setup(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *req,
@@ -4119,10 +3667,11 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     conn->client_setup_plist = NULL;
   }
 
-  // free the cipher context, if allocated
-  if (conn->control_cipher_context.cipher_context)
-    free(conn->control_cipher_context.cipher_context);
-
+  buf_drain(&conn->ap2_control_pairing.plain_buf, -1);
+  buf_drain(&conn->ap2_control_pairing.encrypted_buf, -1);
+  pair_setup_free(conn->ap2_control_pairing.setup_ctx);
+  pair_verify_free(conn->ap2_control_pairing.verify_ctx);
+  pair_cipher_free(conn->ap2_control_pairing.cipher_ctx);
 #endif
 
   rtp_terminate(conn);
@@ -4162,11 +3711,6 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
 
   debug(3, "Connection %d: Checking play lock.", conn->connection_number);
   release_play_lock(conn);
-
-#ifdef CONFIG_AIRPLAY_2
-  if (conn->server_setup_ctx)
-    free(conn->server_setup_ctx);
-#endif
 
   debug(1, "Connection %d: terminated.", conn->connection_number);
   conn->running = 0;
@@ -4213,20 +3757,10 @@ static void *rtsp_conversation_thread_func(void *pconn) {
 
 #ifdef CONFIG_AIRPLAY_2
   conn->ap2_audio_buffer_size = 1024 * 1024 * 8;
-  conn->server_setup_ctx =
-      (struct verifier_setup_context *)malloc(sizeof(struct verifier_setup_context));
-  if (conn->server_setup_ctx != NULL)
-    memset(conn->server_setup_ctx, 0, sizeof(struct verifier_setup_context));
 #endif
 
   while (conn->stop == 0) {
     int debug_level = 3; // for printing the request and response
-#ifdef CONFIG_AIRPLAY_2
-    // transactions should be begin to be encrypted after a read/response cycle has
-    // been completed
-    conn->control_cipher_context.active = 1;
-
-#endif
     reply = rtsp_read_request(conn, &req);
     if (reply == rtsp_read_request_response_ok) {
       pthread_cleanup_push(msg_cleanup_function, (void *)&req);
