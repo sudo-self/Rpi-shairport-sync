@@ -1232,6 +1232,7 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
       debug(1, "GET /info Stage 1: response plist not created from XML!");
     } else {
       plist_dict_set_item(response_plist, "features", plist_new_uint(config.airplay_features));
+      plist_dict_set_item(response_plist, "statusFlags", plist_new_uint(config.airplay_statusflags));
       plist_dict_set_item(response_plist, "deviceID", plist_new_string(config.airplay_device_id));
       plist_dict_set_item(response_plist, "pi", plist_new_string(config.airplay_pi));
       plist_dict_set_item(response_plist, "name", plist_new_string(config.service_name));
@@ -1256,6 +1257,7 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
     plist_from_xml((const char *)plists_get_info_response_xml, plists_get_info_response_xml_len,
                    &response_plist);
     plist_dict_set_item(response_plist, "features", plist_new_uint(config.airplay_features));
+    plist_dict_set_item(response_plist, "statusFlags", plist_new_uint(config.airplay_statusflags));
     plist_dict_set_item(response_plist, "deviceID", plist_new_string(config.airplay_device_id));
     plist_dict_set_item(response_plist, "pi", plist_new_string(config.airplay_pi));
     plist_dict_set_item(response_plist, "name", plist_new_string(config.service_name));
@@ -1416,6 +1418,40 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
+void handle_pair_verify(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  int ret;
+  uint8_t *body;
+  size_t body_len;
+  struct pair_result *result;
+  debug(2, "Connection %d: pair-verify Content-Length %d", conn->connection_number,
+        req->contentlength);
+
+  if (!conn->ap2_control_pairing.verify_ctx) {
+    conn->ap2_control_pairing.verify_ctx = pair_verify_new(PAIR_SERVER_HOMEKIT, NULL, NULL, NULL, config.airplay_device_id);
+    if (!conn->ap2_control_pairing.verify_ctx) {
+      debug(1, "Error creating verify context");
+    }
+  }
+
+  ret = pair_verify(&body, &body_len, conn->ap2_control_pairing.verify_ctx, (const uint8_t *)req->content, req->contentlength);
+  if (ret < 0) {
+    debug(1, pair_verify_errmsg(conn->ap2_control_pairing.verify_ctx));
+  }
+
+  ret = pair_verify_result(&result, conn->ap2_control_pairing.verify_ctx);
+  if (ret == 0 && result->shared_secret_len > 0) {
+    conn->ap2_control_pairing.cipher_ctx = pair_cipher_new(PAIR_SERVER_HOMEKIT, 2, result->shared_secret, result->shared_secret_len);
+    if (!conn->ap2_control_pairing.cipher_ctx) {
+      debug(1, "Error setting up rtsp control channel ciphering\n");
+    }
+  }
+
+  resp->content = (char *)body; // these will be freed when the data is sent
+  resp->contentlength = body_len;
+  msg_add_header(resp, "Content-Type", "application/octet-stream");
+  debug_log_rtsp_message(2, "pair-verify response", resp);
+}
+
 void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int ret;
   uint8_t *body;
@@ -1425,7 +1461,7 @@ void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *re
         req->contentlength);
 
   if (!conn->ap2_control_pairing.setup_ctx) {
-    conn->ap2_control_pairing.setup_ctx = pair_setup_new(PAIR_SERVER_HOMEKIT, NULL, NULL, NULL, config.airplay_device_id);
+    conn->ap2_control_pairing.setup_ctx = pair_setup_new(PAIR_SERVER_HOMEKIT, config.airplay_pin, NULL, NULL, config.airplay_device_id);
     if (!conn->ap2_control_pairing.setup_ctx) {
       debug(1, "Error creating setup context");
       resp->respcode = 451;
@@ -1564,6 +1600,8 @@ void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   resp->respcode = 200;
   if (strcmp(req->path, "/pair-setup") == 0) {
     handle_pair_setup(conn, req, resp);
+  } else if (strcmp(req->path, "/pair-verify") == 0) {
+    handle_pair_verify(conn, req, resp);
   } else if (strcmp(req->path, "/fp-setup") == 0) {
     handle_fp_setup(conn, req, resp);
   } else {
@@ -4062,17 +4100,18 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     snprintf(deviceIdString, sizeof(deviceIdString) - 1, "deviceid=%s", config.airplay_device_id);
     *p++ = deviceIdString;
     // features is a 64 bit number, least significant 32 bits
-
     char featuresString[64];
     uint64_t features_hi = config.airplay_features;
     features_hi = (features_hi >> 32) & 0xffffffff;
     uint64_t features_lo = config.airplay_features;
     features_lo = features_lo & 0xffffffff;
+    // @mikebrady I don't think the -1 here (and other places) is necessary
     snprintf(featuresString, sizeof(featuresString) - 1, "features=0x%" PRIx64 ",0x%" PRIx64 "",
              features_lo, features_hi);
-
     *p++ = featuresString;
-    *p++ = "flags=0x4";
+    char statusflagsString[32];
+    snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIx32, config.airplay_statusflags);
+    *p++ = statusflagsString;
     *p++ = "protovers=1.1";
     *p++ = "acl=0";
     *p++ = "rsf=0x0";
