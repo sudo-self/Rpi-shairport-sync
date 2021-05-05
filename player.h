@@ -22,7 +22,7 @@
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
-#include "pair_ap/pair-internal.h"
+#include "pair_ap/pair.h"
 #include "plist/plist.h"
 #endif
 
@@ -92,6 +92,23 @@ typedef struct {
 typedef enum { ts_ntp, ts_ptp } timing_t;
 typedef enum { ap_1, ap_2 } airplay_t;
 
+typedef struct {
+  uint8_t *data;
+  size_t len;
+  size_t size;
+} ap2_buffer;
+
+typedef struct {
+  int is_encrypted;
+  struct pair_setup_context *setup_ctx;
+  struct pair_verify_context *verify_ctx;
+  struct pair_cipher_context *cipher_ctx;
+
+  ap2_buffer encrypted_buf;
+  ap2_buffer plain_buf;
+} ap2_pairing;
+
+/*
 typedef struct file_cipher_context {
   struct pair_cipher_context *cipher_context;
   int active; // can be created during a pair setup but not activated until next read
@@ -100,6 +117,7 @@ typedef struct file_cipher_context {
   void *input_plaintext_buffer_toq;
   size_t input_plaintext_buffer_bytes_occupied;
 } file_cipher_context;
+*/
 #endif
 
 typedef struct {
@@ -248,10 +266,6 @@ typedef struct {
   pthread_t rtp_realtime_audio_thread;
   pthread_t rtp_buffered_audio_thread;
 
-  int pairing_mode;
-  file_cipher_context control_cipher_context;
-  struct verifier_setup_context *server_setup_ctx;
-
   int last_anchor_info_is_valid;
   uint64_t last_anchor_clock_offset;
   uint64_t last_anchor_time_of_update;
@@ -263,6 +277,8 @@ typedef struct {
   uint32_t ap2_flush_sequence_number;
   int ap2_rate;         // protect with flush mutex, 0 means don't play, 1 means play
   int ap2_play_enabled; // protect with flush mutex
+
+  ap2_pairing ap2_control_pairing;
 
   int event_socket;
   SOCKADDR ap2_remote_control_socket_addr; // a socket pointing to the control port of the client
