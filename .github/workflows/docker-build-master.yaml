@@ -5,7 +5,7 @@ name: Build and push docker image based on master branch.
 
 on:
   push:
-    branches: master
+    branches: [ master, development ]
  
 jobs:
   main:
@@ -29,4 +29,4 @@ jobs:
           file: ./docker/Dockerfile
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
           push: true
-          tags: registry.nova.do/shairport-sync:unstable
+          tags: registry.nova.do/shairport-sync:unstable-${GITHUB_REF##*/} # ${GITHUB_REF##*/} gets the current branch name.
