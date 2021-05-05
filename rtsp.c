@@ -3163,6 +3163,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 #ifdef CONFIG_AIRPLAY_2
     conn->airplay_type = ap_1;
     conn->timing_type = ts_ntp;
+    debug(1, "Connection %d. AirPlay 1 Audio Stream Detected.", conn->connection_number);
 #endif
 
     conn->stream.type = ast_unknown;
