@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-                                             
-                                             
+
+
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-                                             
+
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-                                             
+
                                                               // Best guess is that this delay is 11,025 frames.
-                                             
+
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-                                             
+
                                                               uint32_t fl = nctohs(&packet[2]); //
-                                             
+
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -2065,8 +2065,9 @@ void *rtp_buffered_audio_processor(void *arg) {
       get_audio_buffer_size_and_occupancy(&player_buffer_size, &player_buffer_occupancy, conn);
       // debug(1,"player buffer size and occupancy: %u and %u", player_buffer_size,
       // player_buffer_occupancy);
+      double reqested_lead_time = 0.4; //
       if (player_buffer_occupancy >
-          ((0.25 + 0.1) * 44100.0 / 352)) { // must be greater than the lead time.
+          ((reqested_lead_time + 0.1) * 44100.0 / 352)) { // must be greater than the lead time.
         // if there is enough stuff in the player's buffer, sleep for a while and try again
         // debug(1,"sleep for 20 ms");
         usleep(20000); // wait for a while
@@ -2089,8 +2090,7 @@ void *rtp_buffered_audio_processor(void *arg) {
                 0) {
               int64_t lead_time = buffer_should_be_time - get_absolute_time_in_ns();
               // debug(1,"lead time in buffered_audio is %f milliseconds.", lead_time * 0.000001);
-              // ask for 0.5 sec of leadtime
-              if ((lead_time >= (int64_t)(0.25 * 1000000000)) || (streaming_has_started == 1)) {
+              if ((lead_time >= (int64_t)(reqested_lead_time * 1000000000)) || (streaming_has_started == 1)) {
                 if (streaming_has_started == 0)
                   debug(1, "rtp lead time is %f ms.", 0.000001 * lead_time);
                 streaming_has_started = 1;

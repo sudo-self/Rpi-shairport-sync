@@ -442,6 +442,8 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
       conn->ab_write = seqno;
       conn->ab_read = seqno;
       conn->ab_synced = 1;
+      conn->first_packet_timestamp = 0;
+      debug(1,"synced by first packet");
     } else if (original_format == 0) {
       // if the packet is coming in original format, the sequence number is important
       // otherwise, ignore is by setting it equal to the expected sequence number in ab_write
@@ -1279,7 +1281,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     if (do_wait == 0)
       if ((conn->ab_synced != 0) && (conn->ab_read == conn->ab_write)) { // the buffer is empty!
         if (notified_buffer_empty == 0) {
-          debug(3, "Buffers exhausted.");
+          debug(1, "Buffers exhausted.");
           notified_buffer_empty = 1;
           // reset_input_flow_metrics(conn); // don't do a full flush parameters reset
           conn->initial_reference_time = 0;
@@ -1559,11 +1561,11 @@ void player_thread_cleanup_handler(void *arg) {
     int elapsedMin = (rawSeconds / 60) % 60;
     int elapsedSec = rawSeconds % 60;
     if (conn->frame_rate_status)
-      inform("Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, output: %0.2f "
-             "frames per second.",
+      inform("Connection %d: Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, output: %0.2f "
+             "frames per second.", conn->connection_number,
              elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate, conn->frame_rate);
     else
-      inform("Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f frames per second.",
+      inform("Connection %d: Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f frames per second.", conn->connection_number,
              elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate);
   }
 
@@ -2280,7 +2282,7 @@ void *player_thread_func(void *arg) {
               int64_t filler_length =
                   (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
-                debug(2, "Large positive sync error: %" PRId64 ".", sync_error);
+                debug(1, "Large positive sync error of: %" PRId64 " frames (%f seconds).", sync_error, (sync_error * 1.0)/config.output_rate);
                 int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
                 uint32_t frames_to_drop_sized = local_frames_to_drop;
 
@@ -2292,10 +2294,10 @@ void *player_thread_func(void *arg) {
                 debug_mutex_unlock(&conn->flush_mutex, 3);
 
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
-                debug(2,
-                      "Large negative sync error: %" PRId64 " with should_be_frame_32 of %" PRIu32
+                debug(1,
+                      "Large negative sync error of: %" PRId64 " frames (%f seconds), with should_be_frame_32 of %" PRIu32
                       ", nt of %" PRId64 " and current_delay of %" PRId64 ".",
-                      sync_error, should_be_frame_32,
+                      sync_error, (sync_error * 1.0)/config.output_rate, should_be_frame_32,
                       inframe->given_timestamp * conn->output_sample_ratio, current_delay);
                 int64_t silence_length = -sync_error;
                 if (silence_length > (filler_length * 5))
