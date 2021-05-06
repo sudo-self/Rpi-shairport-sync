@@ -49,7 +49,10 @@ COPY --from=builder-alac /usr/local/lib/libalac.* /usr/local/lib/
 COPY --from=builder-alac /usr/local/lib/pkgconfig/alac.pc /usr/local/lib/pkgconfig/alac.pc
 COPY --from=builder-alac /usr/local/include /usr/local/include
 
-RUN --mount=type=ssh git clone git@github.com:charlesomer/nqptp.git
+# TODO: Remove when no longer pulling from private repos.
+RUN mkdir -p -m 0600 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+RUN --mount=type=ssh,id=github git clone git@github.com:charlesomer/nqptp.git
 WORKDIR /nqptp
 # Use development branch for now.
 RUN git checkout development
@@ -59,7 +62,7 @@ RUN make
 RUN make install
 WORKDIR /
 
-RUN --mount=type=ssh git clone git@github.com:aillwee/shairport-sync.git
+RUN --mount=type=ssh,id=github git clone git@github.com:aillwee/shairport-sync.git
 WORKDIR /shairport-sync
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
 RUN autoreconf -fi
