@@ -15,6 +15,9 @@ jobs:
         uses: actions/checkout@v2
       - name: Set branch env.
         run: echo "BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+      - uses: webfactory/ssh-agent # Can be removed when no longer pulling from private repos.
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
       - name: Set up Docker Buildx
@@ -30,9 +33,9 @@ jobs:
         with:
           context: ./
           file: ./docker/Dockerfile
-          # ssh: github=${{ secrets.SSH_PRIVATE_KEY }} # Has to be added to repo without line breaks. Can be removed when no longer pulling from private repos.
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
           push: true
           tags: registry.nova.do/shairport-sync:unstable-${{ env.BRANCH }}
           build-args: |
             BRANCH=${{ env.BRANCH }}
+          ssh: github=${{ env.SSH_AUTH_SOCK }} # Can be removed when no longer pulling from private repos.
