@@ -15,7 +15,8 @@ jobs:
         uses: actions/checkout@v2
       - name: Set branch env.
         run: echo "BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
-      - uses: webfactory/ssh-agent # Can be removed when no longer pulling from private repos.
+      - name: Set up ssh agent
+        uses: webfactory/ssh-agent # Can be removed when no longer pulling from private repos.
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       - name: Set up QEMU
