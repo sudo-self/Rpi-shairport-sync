@@ -35,4 +35,4 @@ jobs:
           tags: registry.nova.do/shairport-sync:unstable-${{ env.BRANCH }}
           build-args: |
             BRANCH=${{ env.BRANCH }}
-          ssh: default=${{ secrets.SSH_PRIVATE_KEY }}
+          ssh: ${{ secrets.SSH_PRIVATE_KEY }}
