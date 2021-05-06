@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:experimental
+
 FROM alpine:3.12 AS builder-base
 # Version 3.12 is required for now since libplist has breaking changes in v3.13 and above which are not yet standard
 # in debian/ubuntu.
@@ -34,7 +36,6 @@ FROM builder-base AS builder-alac
 
 RUN git clone https://github.com/mikebrady/alac
 WORKDIR /alac
-RUN git pull
 RUN autoreconf -fi
 RUN ./configure
 RUN make
@@ -50,11 +51,12 @@ COPY --from=builder-alac /usr/local/lib/libalac.* /usr/local/lib/
 COPY --from=builder-alac /usr/local/lib/pkgconfig/alac.pc /usr/local/lib/pkgconfig/alac.pc
 COPY --from=builder-alac /usr/local/include /usr/local/include
 
+RUN mkdir -p -m 0600 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+
 RUN --mount=type=ssh git clone git@github.com:charlesomer/nqptp.git
 WORKDIR /nqptp
 # Use development branch for now.
 RUN git checkout development
-RUN git pull
 RUN autoreconf -fi
 RUN ./configure
 RUN make
@@ -64,7 +66,6 @@ WORKDIR /
 RUN --mount=type=ssh git clone git@github.com:aillwee/shairport-sync.git
 WORKDIR /shairport-sync
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
-RUN git pull
 RUN autoreconf -fi
 RUN git submodule init
 RUN git submodule update
