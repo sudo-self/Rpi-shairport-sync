@@ -1,4 +1,4 @@
-# Pushes to tag 'unstable' since it uses the master branch directly.
+# Pushes to tag 'unstable-BRANCH'.
 # Releases are pushed to latest and tagged - see docker-build-releases.yaml.
 
 name: Build and push docker image based on master branch.
