@@ -1420,8 +1420,8 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
 #ifdef CONFIG_AIRPLAY_2
 void handle_pair_verify(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int ret;
-  uint8_t *body;
-  size_t body_len;
+  uint8_t *body = NULL;
+  size_t body_len = 0;
   struct pair_result *result;
   debug(2, "Connection %d: pair-verify Content-Length %d", conn->connection_number,
         req->contentlength);
@@ -1430,12 +1430,16 @@ void handle_pair_verify(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *r
     conn->ap2_control_pairing.verify_ctx = pair_verify_new(PAIR_SERVER_HOMEKIT, NULL, NULL, NULL, config.airplay_device_id);
     if (!conn->ap2_control_pairing.verify_ctx) {
       debug(1, "Error creating verify context");
+      resp->respcode = 500; // Internal Server Error
+      goto out;
     }
   }
 
   ret = pair_verify(&body, &body_len, conn->ap2_control_pairing.verify_ctx, (const uint8_t *)req->content, req->contentlength);
   if (ret < 0) {
     debug(1, pair_verify_errmsg(conn->ap2_control_pairing.verify_ctx));
+    resp->respcode = 470; // Connection Authorization Required
+    goto out;
   }
 
   ret = pair_verify_result(&result, conn->ap2_control_pairing.verify_ctx);
@@ -1443,19 +1447,22 @@ void handle_pair_verify(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *r
     conn->ap2_control_pairing.cipher_ctx = pair_cipher_new(PAIR_SERVER_HOMEKIT, 2, result->shared_secret, result->shared_secret_len);
     if (!conn->ap2_control_pairing.cipher_ctx) {
       debug(1, "Error setting up rtsp control channel ciphering\n");
+      goto out;
     }
   }
 
+ out:
   resp->content = (char *)body; // these will be freed when the data is sent
   resp->contentlength = body_len;
-  msg_add_header(resp, "Content-Type", "application/octet-stream");
+  if (body)
+    msg_add_header(resp, "Content-Type", "application/octet-stream");
   debug_log_rtsp_message(2, "pair-verify response", resp);
 }
 
 void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int ret;
-  uint8_t *body;
-  size_t body_len;
+  uint8_t *body = NULL;
+  size_t body_len = 0;
   struct pair_result *result;
   debug(2, "Connection %d: pair-setup Content-Length %d", conn->connection_number,
         req->contentlength);
@@ -1464,16 +1471,16 @@ void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *re
     conn->ap2_control_pairing.setup_ctx = pair_setup_new(PAIR_SERVER_HOMEKIT, config.airplay_pin, NULL, NULL, config.airplay_device_id);
     if (!conn->ap2_control_pairing.setup_ctx) {
       debug(1, "Error creating setup context");
-      resp->respcode = 451;
-      return;
+      resp->respcode = 500; // Internal Server Error
+      goto out;
     }
   }
 
   ret = pair_setup(&body, &body_len, conn->ap2_control_pairing.setup_ctx, (const uint8_t *)req->content, req->contentlength);
   if (ret < 0) {
     debug(1, pair_setup_errmsg(conn->ap2_control_pairing.setup_ctx));
-    resp->respcode = 451;
-    return;
+    resp->respcode = 470; // Connection Authorization Required
+    goto out;
   }
 
   ret = pair_setup_result(NULL, &result, conn->ap2_control_pairing.setup_ctx);
@@ -1483,14 +1490,15 @@ void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *re
     conn->ap2_control_pairing.cipher_ctx = pair_cipher_new(PAIR_SERVER_HOMEKIT, 2, result->shared_secret, result->shared_secret_len);
     if (!conn->ap2_control_pairing.cipher_ctx) {
       debug(1, "Error setting up rtsp control channel ciphering\n");
-      resp->respcode = 451;
-      return;
+      goto out;
     }
   }
 
+ out:
   resp->content = (char *)body; // these will be freed when the data is sent
   resp->contentlength = body_len;
-  msg_add_header(resp, "Content-Type", "application/octet-stream");
+  if (body)
+    msg_add_header(resp, "Content-Type", "application/octet-stream");
   debug_log_rtsp_message(2, "pair-setup response", resp);
 }
 
