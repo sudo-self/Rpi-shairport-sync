@@ -886,6 +886,19 @@ static ssize_t write_encrypted(rtsp_conn_info *conn, const void *buf, size_t cou
   free(encrypted);
   return count;
 }
+
+static void pkString_make(char *str, size_t str_size, const char *device_id) {
+  uint8_t public_key[32];
+  if (str_size < 2 * sizeof(public_key) + 1) {
+    warn("Insufficient string size");
+    str[0] = '\0';
+    return;
+  }
+  pair_public_key_get(PAIR_SERVER_HOMEKIT, public_key, device_id);
+  char *ptr = str;
+  for (size_t i = 0; i < sizeof(public_key); i++)
+    ptr += sprintf(ptr, "%02x", public_key[i]);
+}
 #endif
 
 ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
@@ -1238,11 +1251,14 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
       plist_dict_set_item(response_plist, "name", plist_new_string(config.service_name));
       char *vs = get_version_string();
       plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+      free(vs);
+      char pkString[128];
+      pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
+      plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
       plist_to_bin(response_plist, &resp->content, &resp->contentlength);
       if (resp->contentlength == 0)
         debug(1, "GET /info Stage 1: response bplist not created!");
       plist_free(response_plist);
-      free(vs);
     }
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
     debug_log_rtsp_message(2, "GET /info Stage 1 Response:", resp);
@@ -1264,6 +1280,9 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
     char *vs = get_version_string();
     plist_dict_set_item(response_plist, "model", plist_new_string(vs));
     free(vs);
+    char pkString[128];
+    pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
+    plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
     plist_to_bin(response_plist, &resp->content, &resp->contentlength);
     plist_free(response_plist);
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
@@ -4106,7 +4125,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
 #ifdef CONFIG_AIRPLAY_2
     *p++ = "srcvers=366.0";
     char deviceIdString[64];
-    snprintf(deviceIdString, sizeof(deviceIdString) - 1, "deviceid=%s", config.airplay_device_id);
+    snprintf(deviceIdString, sizeof(deviceIdString), "deviceid=%s", config.airplay_device_id);
     *p++ = deviceIdString;
     // features is a 64 bit number, least significant 32 bits
     char featuresString[64];
@@ -4114,8 +4133,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     features_hi = (features_hi >> 32) & 0xffffffff;
     uint64_t features_lo = config.airplay_features;
     features_lo = features_lo & 0xffffffff;
-    // @mikebrady I don't think the -1 here (and other places) is necessary
-    snprintf(featuresString, sizeof(featuresString) - 1, "features=0x%" PRIx64 ",0x%" PRIx64 "",
+    snprintf(featuresString, sizeof(featuresString), "features=0x%" PRIx64 ",0x%" PRIx64 "",
              features_lo, features_hi);
     *p++ = featuresString;
     char statusflagsString[32];
@@ -4127,14 +4145,15 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     *p++ = "fv=p20.78000.12";
     *p++ = "model=SPS";
     char piString[64];
-    snprintf(piString, sizeof(piString) - 1, "pi=%s", config.airplay_pi);
+    snprintf(piString, sizeof(piString), "pi=%s", config.airplay_pi);
     *p++ = piString;
     char gidString[64];
-    snprintf(gidString, sizeof(gidString) - 1, "gid=%s", config.airplay_gid);
+    snprintf(gidString, sizeof(gidString), "gid=%s", config.airplay_gid);
     *p++ = gidString;
     *p++ = "gcgl=0";
     char pkString[128];
-    snprintf(pkString, sizeof(pkString) - 1, "pk=%s", config.airplay_pk);
+    snprintf(pkString, sizeof(pkString), "pk=");
+    pkString_make(pkString + strlen("pk="), sizeof(pkString) - strlen("pk="), config.airplay_device_id);
     *p++ = pkString;
     *p++ = NULL;
 #else
