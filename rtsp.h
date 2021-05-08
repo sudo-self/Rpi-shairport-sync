@@ -8,10 +8,7 @@ extern rtsp_conn_info **conns;
 
 void *rtsp_listen_loop(__attribute((unused)) void *arg);
 
-// void rtsp_shutdown_stream(void);
-void rtsp_request_shutdown_stream(void);
-
-void cancel_all_RTSP_threads(void);
+void release_play_lock(rtsp_conn_info *conn);
 
 // initialise and completely delete the metadata stuff
 

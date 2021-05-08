@@ -91,6 +91,7 @@ typedef struct {
 #ifdef CONFIG_AIRPLAY_2
 typedef enum { ts_ntp, ts_ptp } timing_t;
 typedef enum { ap_1, ap_2 } airplay_t;
+typedef enum { realtime_stream, buffered_stream } airplay_stream_t;
 
 typedef struct {
   uint8_t *data;
@@ -259,7 +260,8 @@ typedef struct {
 
 #ifdef CONFIG_AIRPLAY_2
   airplay_t airplay_type; // are we using AirPlay 1 or AirPlay 2 protocol on this connection?
-  timing_t timing_type;   // are we using NTP or PTP on this connection?
+  airplay_stream_t airplay_stream_type; // is it realtime audio or buffered audio...
+  timing_t timing_type;                 // are we using NTP or PTP on this connection?
 
   pthread_t rtp_event_thread;
   pthread_t rtp_ap2_control_thread;

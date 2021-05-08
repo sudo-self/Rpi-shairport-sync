@@ -845,19 +845,20 @@ static ssize_t read_encrypted(int fd, ap2_pairing *ctx, void *buf, size_t count)
       return got;
     buf_add(&ctx->encrypted_buf, in, got);
 
-    ssize_t consumed = pair_decrypt(&plain, &plain_len, ctx->encrypted_buf.data, ctx->encrypted_buf.len, ctx->cipher_ctx);
+    ssize_t consumed = pair_decrypt(&plain, &plain_len, ctx->encrypted_buf.data,
+                                    ctx->encrypted_buf.len, ctx->cipher_ctx);
     if (consumed < 0)
       return -1;
     buf_drain(&ctx->encrypted_buf, consumed);
   } while (plain_len == 0);
 
   // Fast path, avoids some memcpy + allocs in case of the normal, small message
-/*  if (ctx->plain_buf.len == 0 && plain_len < count) {
-    memcpy(buf, plain, plain_len);
-    free(plain);
-    return plain_len;
-  }
-*/
+  /*  if (ctx->plain_buf.len == 0 && plain_len < count) {
+      memcpy(buf, plain, plain_len);
+      free(plain);
+      return plain_len;
+    }
+  */
   buf_add(&ctx->plain_buf, plain, plain_len);
   free(plain);
 
@@ -868,7 +869,8 @@ static ssize_t write_encrypted(rtsp_conn_info *conn, const void *buf, size_t cou
   uint8_t *encrypted;
   size_t encrypted_len;
 
-  ssize_t ret = pair_encrypt(&encrypted, &encrypted_len, buf, count, conn->ap2_control_pairing.cipher_ctx);
+  ssize_t ret =
+      pair_encrypt(&encrypted, &encrypted_len, buf, count, conn->ap2_control_pairing.cipher_ctx);
   if (ret < 0) {
     debug(1, pair_cipher_errmsg(conn->ap2_control_pairing.cipher_ctx));
     return -1;
@@ -1245,7 +1247,8 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
       debug(1, "GET /info Stage 1: response plist not created from XML!");
     } else {
       plist_dict_set_item(response_plist, "features", plist_new_uint(config.airplay_features));
-      plist_dict_set_item(response_plist, "statusFlags", plist_new_uint(config.airplay_statusflags));
+      plist_dict_set_item(response_plist, "statusFlags",
+                          plist_new_uint(config.airplay_statusflags));
       plist_dict_set_item(response_plist, "deviceID", plist_new_string(config.airplay_device_id));
       plist_dict_set_item(response_plist, "pi", plist_new_string(config.airplay_pi));
       plist_dict_set_item(response_plist, "name", plist_new_string(config.service_name));
@@ -1446,7 +1449,8 @@ void handle_pair_verify(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *r
         req->contentlength);
 
   if (!conn->ap2_control_pairing.verify_ctx) {
-    conn->ap2_control_pairing.verify_ctx = pair_verify_new(PAIR_SERVER_HOMEKIT, NULL, NULL, NULL, config.airplay_device_id);
+    conn->ap2_control_pairing.verify_ctx =
+        pair_verify_new(PAIR_SERVER_HOMEKIT, NULL, NULL, NULL, config.airplay_device_id);
     if (!conn->ap2_control_pairing.verify_ctx) {
       debug(1, "Error creating verify context");
       resp->respcode = 500; // Internal Server Error
@@ -1454,7 +1458,8 @@ void handle_pair_verify(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *r
     }
   }
 
-  ret = pair_verify(&body, &body_len, conn->ap2_control_pairing.verify_ctx, (const uint8_t *)req->content, req->contentlength);
+  ret = pair_verify(&body, &body_len, conn->ap2_control_pairing.verify_ctx,
+                    (const uint8_t *)req->content, req->contentlength);
   if (ret < 0) {
     debug(1, pair_verify_errmsg(conn->ap2_control_pairing.verify_ctx));
     resp->respcode = 470; // Connection Authorization Required
@@ -1463,14 +1468,15 @@ void handle_pair_verify(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *r
 
   ret = pair_verify_result(&result, conn->ap2_control_pairing.verify_ctx);
   if (ret == 0 && result->shared_secret_len > 0) {
-    conn->ap2_control_pairing.cipher_ctx = pair_cipher_new(PAIR_SERVER_HOMEKIT, 2, result->shared_secret, result->shared_secret_len);
+    conn->ap2_control_pairing.cipher_ctx =
+        pair_cipher_new(PAIR_SERVER_HOMEKIT, 2, result->shared_secret, result->shared_secret_len);
     if (!conn->ap2_control_pairing.cipher_ctx) {
       debug(1, "Error setting up rtsp control channel ciphering\n");
       goto out;
     }
   }
 
- out:
+out:
   resp->content = (char *)body; // these will be freed when the data is sent
   resp->contentlength = body_len;
   if (body)
@@ -1487,7 +1493,8 @@ void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *re
         req->contentlength);
 
   if (!conn->ap2_control_pairing.setup_ctx) {
-    conn->ap2_control_pairing.setup_ctx = pair_setup_new(PAIR_SERVER_HOMEKIT, config.airplay_pin, NULL, NULL, config.airplay_device_id);
+    conn->ap2_control_pairing.setup_ctx = pair_setup_new(PAIR_SERVER_HOMEKIT, config.airplay_pin,
+                                                         NULL, NULL, config.airplay_device_id);
     if (!conn->ap2_control_pairing.setup_ctx) {
       debug(1, "Error creating setup context");
       resp->respcode = 500; // Internal Server Error
@@ -1495,7 +1502,8 @@ void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *re
     }
   }
 
-  ret = pair_setup(&body, &body_len, conn->ap2_control_pairing.setup_ctx, (const uint8_t *)req->content, req->contentlength);
+  ret = pair_setup(&body, &body_len, conn->ap2_control_pairing.setup_ctx,
+                   (const uint8_t *)req->content, req->contentlength);
   if (ret < 0) {
     debug(1, pair_setup_errmsg(conn->ap2_control_pairing.setup_ctx));
     resp->respcode = 470; // Connection Authorization Required
@@ -1506,14 +1514,15 @@ void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *re
   if (ret == 0 && result->shared_secret_len > 0) {
     // Transient pairing completed (pair-setup step 2), prepare encryption, but
     // don't activate yet, the response to this request is still plaintext
-    conn->ap2_control_pairing.cipher_ctx = pair_cipher_new(PAIR_SERVER_HOMEKIT, 2, result->shared_secret, result->shared_secret_len);
+    conn->ap2_control_pairing.cipher_ctx =
+        pair_cipher_new(PAIR_SERVER_HOMEKIT, 2, result->shared_secret, result->shared_secret_len);
     if (!conn->ap2_control_pairing.cipher_ctx) {
       debug(1, "Error setting up rtsp control channel ciphering\n");
       goto out;
     }
   }
 
- out:
+out:
   resp->content = (char *)body; // these will be freed when the data is sent
   resp->contentlength = body_len;
   if (body)
@@ -1722,68 +1731,12 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
 
     if (streams) {
       // we are being asked to close a stream
-      // at present, we just close this one
-      debug(2,
-            "Connection %d: A \"streams\" array has been found -- stop the player, stop and delete "
-            "the control "
-            "and audio threads and close the ports",
-            conn->connection_number);
-
-      // get stream[0]
-      plist_t stream0 = plist_array_get_item(streams, 0);
-
-      plist_t item = plist_dict_get_item(stream0, "type");
-      uint64_t item_value;
-      plist_get_uint_val(item, &item_value);
-
-      switch (item_value) {
-      case 96: {
-        release_play_lock(conn);
-        debug(2, "Connection %d: TEARDOWN Delete Realtime Audio Stream Thread",
-              conn->connection_number);
-        pthread_cancel(conn->rtp_realtime_audio_thread);
-        pthread_join(conn->rtp_realtime_audio_thread, NULL);
-        if (conn->realtime_audio_socket)
-          close(conn->realtime_audio_socket);
-      } break;
-      case 103: {
-        release_play_lock(conn); // shoulda been released when stopped...
-        debug(2, "Connection %d: TEARDOWN Delete Buffered Audio Stream Thread",
-              conn->connection_number);
-        pthread_cancel(conn->rtp_buffered_audio_thread);
-        pthread_join(conn->rtp_buffered_audio_thread, NULL);
-        if (conn->buffered_audio_socket)
-          close(conn->buffered_audio_socket);
-      } break;
-      default: {}
-      }
-
-      debug(2, "Connection %d: TEARDOWN Close Control Thread", conn->connection_number);
-      pthread_cancel(conn->rtp_ap2_control_thread);
-      pthread_join(conn->rtp_ap2_control_thread, NULL);
-
-      debug(2, "Connection %d: TEARDOWN Close Control Socket.", conn->connection_number);
-      if (conn->ap2_control_socket) {
-        close(conn->ap2_control_socket);
-        conn->ap2_remote_control_socket_addr_length =
-            0; // indicates to the control receiver thread that the socket address need to be
-               // recreated.
-      }
-
-      debug(2, "Connection %d: TEARDOWN Stop the Player.", conn->connection_number);
       player_stop(conn);
-
       if (conn->session_key) {
         free(conn->session_key);
         conn->session_key = NULL;
       }
       plist_free(streams);
-
-      release_play_lock(conn);
-
-      // if (ptp_shm_interface_close() != 0)
-      //  warn("Error closing the nqptp interface.");
-
       debug(2, "Connection %d: Stream TEARDOWN complete", conn->connection_number);
     } else {
       // we are being asked to disconnect
@@ -1939,7 +1892,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       debug(1, "Connection %d. Realtime Audio Stream Detected.", conn->connection_number);
       debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
       get_play_lock(conn);
-
+      conn->airplay_stream_type = realtime_stream;
       // bind a new UDP port and get a socket
       conn->local_realtime_audio_port = 0; // any port
       err = bind_socket_and_port(SOCK_DGRAM, conn->connection_ip_family, conn->self_ip_string,
@@ -1992,6 +1945,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     case 103: {
       debug(1, "Connection %d. Buffered Audio Stream Detected.", conn->connection_number);
       debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
+      // for buffered audio, delay getting the play lock until we actually start playing...
+      conn->airplay_stream_type = buffered_stream;
       // get needed stuff
 
       // bind a new TCP port and get a socket
@@ -2128,7 +2083,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         debug(1, "Can't find timingPeerInfo addresses");
       }
     } else {
-      debug(1, "Can't find timingPeerInfo");
+      debug_log_rtsp_message(1, "Unrecognised SETUP incoming message", req);
     }
 
     // make up the timing peer info list part of the response...
@@ -4137,7 +4092,8 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
              features_lo, features_hi);
     *p++ = featuresString;
     char statusflagsString[32];
-    snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIx32, config.airplay_statusflags);
+    snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIx32,
+             config.airplay_statusflags);
     *p++ = statusflagsString;
     *p++ = "protovers=1.1";
     *p++ = "acl=0";
@@ -4153,7 +4109,8 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     *p++ = "gcgl=0";
     char pkString[128];
     snprintf(pkString, sizeof(pkString), "pk=");
-    pkString_make(pkString + strlen("pk="), sizeof(pkString) - strlen("pk="), config.airplay_device_id);
+    pkString_make(pkString + strlen("pk="), sizeof(pkString) - strlen("pk="),
+                  config.airplay_device_id);
     *p++ = pkString;
     *p++ = NULL;
 #else

@@ -443,7 +443,7 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
       conn->ab_read = seqno;
       conn->ab_synced = 1;
       conn->first_packet_timestamp = 0;
-      debug(1,"synced by first packet");
+      debug(1, "synced by first packet");
     } else if (original_format == 0) {
       // if the packet is coming in original format, the sequence number is important
       // otherwise, ignore is by setting it equal to the expected sequence number in ab_write
@@ -1541,12 +1541,12 @@ void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   if (pthread_mutex_trylock(&playing_conn_lock) == 0) {
 
-  pthread_cleanup_push(mutex_unlock,&playing_conn_lock);
-  if (playing_conn == conn) {
-    if (config.output->stop)
-      config.output->stop();
-  }
-  pthread_cleanup_pop(1); // unlock the mutex
+    pthread_cleanup_push(mutex_unlock, &playing_conn_lock);
+    if (playing_conn == conn) {
+      if (config.output->stop)
+        config.output->stop();
+    }
+    pthread_cleanup_pop(1); // unlock the mutex
   }
 
   int oldState;
@@ -1554,19 +1554,21 @@ void player_thread_cleanup_handler(void *arg) {
   debug(3, "Connection %d: player thread main loop exit via player_thread_cleanup_handler.",
         conn->connection_number);
 
-
   if (config.statistics_requested) {
     int rawSeconds = (int)difftime(time(NULL), conn->playstart);
     int elapsedHours = rawSeconds / 3600;
     int elapsedMin = (rawSeconds / 60) % 60;
     int elapsedSec = rawSeconds % 60;
     if (conn->frame_rate_status)
-      inform("Connection %d: Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, output: %0.2f "
-             "frames per second.", conn->connection_number,
-             elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate, conn->frame_rate);
+      inform("Connection %d: Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, "
+             "output: %0.2f "
+             "frames per second.",
+             conn->connection_number, elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate,
+             conn->frame_rate);
     else
-      inform("Connection %d: Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f frames per second.", conn->connection_number,
-             elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate);
+      inform("Connection %d: Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f "
+             "frames per second.",
+             conn->connection_number, elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate);
   }
 
 #ifdef CONFIG_DACP_CLIENT
@@ -1576,56 +1578,91 @@ void player_thread_cleanup_handler(void *arg) {
   mdns_dacp_monitor_set_id(NULL); // say we're not interested in following that DACP id any more
 #endif
 
-#ifdef CONFIG_AIRPORT_2
-  if (conn->rtp_ap2_control_thread) {
-    debug(3, "Cancelling rtp_ap2_control_thread");
-    pthread_cancel(conn->rtp_ap2_control_thread);
-    pthread_join(conn->rtp_ap2_control_thread, NULL);
-  }
-  if (conn->ap2_control_socket) {
-    close(conn->ap2_control_socket);
-    conn->ap2_control_socket = 0;
-  }
+  // four possibilities
+  // 1 -- regular AirPlay 1
+  // 2 -- AirPlay 2 in AirPlay 1 mode
+  // 3 -- AirPlay 2 in Buffered Audio Mode
+  // 4 -- AirPlay 3 in Realtime Audio Mode.
 
-  // realtime stuff
-  if (conn->rtp_realtime_audio_thread) {
-    debug(3, "Cancelling rtp_realtime_audio_thread");
-    pthread_cancel(conn->rtp_realtime_audio_thread);
-    pthread_join(conn->rtp_realtime_audio_thread, NULL);
-  }
-  if (conn->realtime_audio_socket) {
-    close(conn->realtime_audio_socket);
-    conn->realtime_audio_socket = 0;
-  }
+#ifdef CONFIG_AIRPLAY_2
+  if (conn->airplay_type == ap_2) {
+    debug(1, "In AP2 mode");
 
-  // buffered stuff
-  if (conn->rtp_buffered_audio_thread) {
-    debug(3, "Cancelling rtp_buffered_audio_thread");
-    pthread_cancel(conn->rtp_buffered_audio_thread);
-    pthread_join(conn->rtp_buffered_audio_thread, NULL);
-  }
-  if (conn->buffered_audio_socket) {
-    close(conn->buffered_audio_socket);
-    conn->buffered_audio_socket = 0;
+    if (conn->airplay_stream_type == realtime_stream) {
+      debug(2, "Connection %d: TEARDOWN Delete Realtime Audio Stream Thread",
+            conn->connection_number);
+      pthread_cancel(conn->rtp_realtime_audio_thread);
+      pthread_join(conn->rtp_realtime_audio_thread, NULL);
+      if (conn->realtime_audio_socket)
+        close(conn->realtime_audio_socket);
+    } else if (conn->airplay_stream_type == buffered_stream) {
+      debug(2, "Connection %d: TEARDOWN Delete Buffered Audio Stream Thread",
+            conn->connection_number);
+      pthread_cancel(conn->rtp_buffered_audio_thread);
+      pthread_join(conn->rtp_buffered_audio_thread, NULL);
+      if (conn->buffered_audio_socket)
+        close(conn->buffered_audio_socket);
+    } else {
+      die("Unrecognised Stream Type");
+    }
+
+    if (conn->rtp_ap2_control_thread) {
+      debug(1, "Cancelling rtp_ap2_control_thread");
+      pthread_cancel(conn->rtp_ap2_control_thread);
+      pthread_join(conn->rtp_ap2_control_thread, NULL);
+    }
+    if (conn->ap2_control_socket) {
+      close(conn->ap2_control_socket);
+      conn->ap2_control_socket = 0;
+      conn->ap2_remote_control_socket_addr_length =
+          0; // indicates to the control receiver thread that the socket address need to be
+             // recreated.
+    }
+
+    if (conn->airplay_stream_type == realtime_stream) {
+      // realtime stuff
+      if (conn->rtp_realtime_audio_thread) {
+        debug(1, "Cancelling rtp_realtime_audio_thread");
+        pthread_cancel(conn->rtp_realtime_audio_thread);
+        pthread_join(conn->rtp_realtime_audio_thread, NULL);
+      }
+      if (conn->realtime_audio_socket) {
+        close(conn->realtime_audio_socket);
+        conn->realtime_audio_socket = 0;
+      }
+    } else if (conn->airplay_stream_type == buffered_stream) {
+      // buffered stuff
+      if (conn->rtp_buffered_audio_thread) {
+        debug(3, "Cancelling rtp_buffered_audio_thread");
+        pthread_cancel(conn->rtp_buffered_audio_thread);
+        pthread_join(conn->rtp_buffered_audio_thread, NULL);
+      }
+      if (conn->buffered_audio_socket) {
+        close(conn->buffered_audio_socket);
+        conn->buffered_audio_socket = 0;
+      }
+    }
+  } else {
+#endif
+    debug(1, "Cancelling AP1 timing, control and audio threads...");
+    debug(3, "Cancel timing thread.");
+    pthread_cancel(conn->rtp_timing_thread);
+    debug(3, "Join timing thread.");
+    pthread_join(conn->rtp_timing_thread, NULL);
+    debug(3, "Timing thread terminated.");
+    debug(3, "Cancel control thread.");
+    pthread_cancel(conn->rtp_control_thread);
+    debug(3, "Join control thread.");
+    pthread_join(conn->rtp_control_thread, NULL);
+    debug(3, "Control thread terminated.");
+    debug(3, "Cancel audio thread.");
+    pthread_cancel(conn->rtp_audio_thread);
+    debug(3, "Join audio thread.");
+    pthread_join(conn->rtp_audio_thread, NULL);
+    debug(3, "Audio thread terminated.");
+#ifdef CONFIG_AIRPLAY_2
   }
 #endif
-
-  debug(3, "Cancelling timing, control and audio threads...");
-  debug(3, "Cancel timing thread.");
-  pthread_cancel(conn->rtp_timing_thread);
-  debug(3, "Join timing thread.");
-  pthread_join(conn->rtp_timing_thread, NULL);
-  debug(3, "Timing thread terminated.");
-  debug(3, "Cancel control thread.");
-  pthread_cancel(conn->rtp_control_thread);
-  debug(3, "Join control thread.");
-  pthread_join(conn->rtp_control_thread, NULL);
-  debug(3, "Control thread terminated.");
-  debug(3, "Cancel audio thread.");
-  pthread_cancel(conn->rtp_audio_thread);
-  debug(3, "Join audio thread.");
-  pthread_join(conn->rtp_audio_thread, NULL);
-  debug(3, "Audio thread terminated.");
 
   if (conn->outbuf) {
     free(conn->outbuf);
@@ -1649,6 +1686,7 @@ void player_thread_cleanup_handler(void *arg) {
     terminate_decoders(conn);
 
   reset_anchor_info(conn);
+  release_play_lock(conn);
   conn->rtp_running = 0;
   pthread_setcancelstate(oldState, NULL);
 }
@@ -2282,7 +2320,8 @@ void *player_thread_func(void *arg) {
               int64_t filler_length =
                   (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
-                debug(1, "Large positive sync error of: %" PRId64 " frames (%f seconds).", sync_error, (sync_error * 1.0)/config.output_rate);
+                debug(1, "Large positive sync error of: %" PRId64 " frames (%f seconds).",
+                      sync_error, (sync_error * 1.0) / config.output_rate);
                 int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
                 uint32_t frames_to_drop_sized = local_frames_to_drop;
 
@@ -2295,9 +2334,10 @@ void *player_thread_func(void *arg) {
 
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
                 debug(1,
-                      "Large negative sync error of: %" PRId64 " frames (%f seconds), with should_be_frame_32 of %" PRIu32
-                      ", nt of %" PRId64 " and current_delay of %" PRId64 ".",
-                      sync_error, (sync_error * 1.0)/config.output_rate, should_be_frame_32,
+                      "Large negative sync error of: %" PRId64
+                      " frames (%f seconds), with should_be_frame_32 of %" PRIu32 ", nt of %" PRId64
+                      " and current_delay of %" PRId64 ".",
+                      sync_error, (sync_error * 1.0) / config.output_rate, should_be_frame_32,
                       inframe->given_timestamp * conn->output_sample_ratio, current_delay);
                 int64_t silence_length = -sync_error;
                 if (silence_length > (filler_length * 5))
