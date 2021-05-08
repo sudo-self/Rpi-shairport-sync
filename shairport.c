@@ -1591,21 +1591,6 @@ int main(int argc, char **argv) {
   } else
     debug(1, "Started in Airplay 2 mode!");
 
-  // now make up a 32-byte "pk" string from random numbers
-  const ssize_t pk_size = 32;
-  char pk_bytes[pk_size];
-  char pk_string[pk_size * 2 + 1];
-  randombytes_buf(pk_bytes, pk_size); // using libsodium
-  char *obfp = pk_string;
-  int obfc;
-  for (obfc = 0; obfc < pk_size; obfc++) {
-    snprintf(obfp, 3, "%02X", pk_bytes[obfc]);
-    obfp += 2;
-  };
-  *obfp = 0;
-  debug(1, "pk string: \"%s\"", pk_string);
-  config.airplay_pk = strdup(pk_string);
-
   // now generate a UUID
   // from https://stackoverflow.com/questions/51053568/generating-a-random-uuid-in-c
   // with thanks
