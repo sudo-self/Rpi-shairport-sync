@@ -471,6 +471,7 @@ void mutex_unlock(void *arg);
 void mutex_cleanup(void *arg);
 void cv_cleanup(void *arg);
 void thread_cleanup(void *arg);
+void plist_cleanup(void *arg);
 
 char *debug_malloc_hex_cstring(void *packet, size_t nread);
 

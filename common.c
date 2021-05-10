@@ -1558,12 +1558,16 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const cha
 void malloc_cleanup(void *arg) {
   // debug(1, "malloc cleanup called.");
   free(arg);
-  arg = NULL;
+}
+
+void plist_cleanup(void *arg) {
+  // debug(1, "plist cleanup called.");
+  plist_free((plist_t)arg);
 }
 
 void socket_cleanup(void *arg) {
-  // debug(1, "socket_cleanup called.");
   intptr_t fdp = (intptr_t)arg;
+  debug(3, "socket_cleanup called for socket: %" PRIdPTR ".", fdp);
   close(fdp);
 }
 
@@ -1582,13 +1586,14 @@ void mutex_cleanup(void *arg) {
 void mutex_unlock(void *arg) { pthread_mutex_unlock((pthread_mutex_t *)arg); }
 
 void thread_cleanup(void *arg) {
-  // debug(1, "mutex_cleanup called.");
+  debug(3, "thread_cleanup called.");
   pthread_t *thread = (pthread_t *)arg;
   pthread_cancel(*thread);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   pthread_join(*thread, NULL);
   pthread_setcancelstate(oldState, NULL);
+  debug(3, "thread_cleanup done.");
 }
 
 void pthread_cleanup_debug_mutex_unlock(void *arg) { pthread_mutex_unlock((pthread_mutex_t *)arg); }
