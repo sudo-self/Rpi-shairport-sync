@@ -255,7 +255,7 @@ void *rtp_audio_receiver(void *arg) {
 }
 
 void rtp_control_handler_cleanup_handler(__attribute__((unused)) void *arg) {
-  debug(1, "Control Receiver Cleanup Done.");
+  debug(2, "Control Receiver Cleanup Done.");
 }
 
 void *rtp_control_receiver(void *arg) {
@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-
-
+                                             
+                                             
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-
+                                             
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-
+                                             
                                                               // Best guess is that this delay is 11,025 frames.
-
+                                             
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-
+                                             
                                                               uint32_t fl = nctohs(&packet[2]); //
-
+                                             
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -1226,13 +1226,13 @@ void reset_ptp_anchor_info(rtsp_conn_info *conn) {
 
 int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
                                    uint64_t *anchorLocalTime) {
-  int response = 0;
+
   uint64_t actual_clock_id, actual_offset;
+  int response = ptp_get_clock_info(&actual_clock_id, &actual_offset);
 
-  int ptp_status = ptp_get_clock_info(&actual_clock_id, &actual_offset);
-
-  if (ptp_status == 0) {
-    if (conn->anchor_remote_info_is_valid != 0) {
+  if (response == clock_ok) {
+    if (conn->anchor_remote_info_is_valid !=
+        0) { // i.e. if we have anchor clock ID and anchor time / rtptime
       if (actual_clock_id == conn->anchor_clock) {
         conn->last_anchor_clock_offset = actual_offset;
         conn->last_anchor_time_of_update = get_absolute_time_in_ns();
@@ -1263,29 +1263,60 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
               *anchorLocalTime = conn->anchor_time - conn->last_anchor_clock_offset;
           }
         } else {
-          debug(2, "no clock and no old anchor times");
-          response = -1;
+          response = clock_not_valid; // no current clock information and no previous clock info
         }
       }
     } else {
-      debug(2, "don't have anchor_remote_time_info");
-      response = -1;
+      response = clock_no_anchor_info; // no anchor information
     }
-  } else if (ptp_status == -1) {
-    debug(3, "don't have the ptp clock interface");
-    response = -1;
-  } else if (ptp_status == -2) {
-    debug(1, "ptp clock not valid");
-    response = -1;
-  } else {
-    debug(3, "ptp clock error");
-    response = -1;
+  }
+
+  // here, check and update the clock status
+  if ((clock_status_t)response != conn->clock_status) {
+    switch (response) {
+    case clock_ok:
+      debug(1, "Connection %d: NQPTP clock is valid and available.", conn->connection_number);
+      break;
+    case clock_service_unavailable:
+      debug(1, "Connection %d: NQPTP clock is not available.", conn->connection_number);
+      warn("Can't access the NQPTP clock. Is NQPTP running?");
+      break;
+    case clock_access_error:
+      debug(1, "Connection %d: Error accessing the NQPTP clock interface.",
+            conn->connection_number);
+      break;
+    case clock_data_unavailable:
+      debug(1, "Connection %d: Can not access NQPTP clock information.", conn->connection_number);
+      break;
+    case clock_no_master:
+      debug(1, "Connection %d: No NQPTP master clock.", conn->connection_number);
+      break;
+    case clock_no_anchor_info:
+      debug(1, "Connection %d: No Clock Anchor.", conn->connection_number);
+      break;
+    case clock_version_mismatch:
+      debug(1, "Connection %d: NQPTP clock interface mismatch.", conn->connection_number);
+      warn("This version of Shairport Sync is not compatible with the installed version of NQPTP. "
+           "Please update.");
+      break;
+    case clock_not_synchronised:
+      debug(1, "Connection %d: NQPTP clock is not synchronised.", conn->connection_number);
+      break;
+    case clock_not_valid:
+      debug(1, "Connection %d: NQPTP clock information is not valid.", conn->connection_number);
+      break;
+    default:
+      debug(3, "Connection %d: NQPTP clock reports an unrecognised status: %u.",
+            conn->connection_number, response);
+      break;
+    }
+    conn->clock_status = response;
   }
   return response;
 }
 
 int have_ptp_timing_information(rtsp_conn_info *conn) {
-  if (get_ptp_anchor_local_time_info(conn, NULL, NULL) == 0)
+  if (get_ptp_anchor_local_time_info(conn, NULL, NULL) == clock_ok)
     return 1;
   else
     return 0;
@@ -1295,7 +1326,7 @@ int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *
   int result = -1;
   uint32_t anchor_rtptime;
   uint64_t anchor_local_time;
-  if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == 0) {
+  if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == clock_ok) {
     int32_t frame_difference = timestamp - anchor_rtptime;
     int64_t time_difference = frame_difference;
     time_difference = time_difference * 1000000000;
@@ -1313,7 +1344,7 @@ int local_ptp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn
   int result = -1;
   uint32_t anchor_rtptime;
   uint64_t anchor_local_time;
-  if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == 0) {
+  if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == clock_ok) {
     int64_t time_difference = time - anchor_local_time;
     int64_t frame_difference = time_difference;
     frame_difference = frame_difference * conn->input_rate; // but this is by 10^9
@@ -1355,8 +1386,9 @@ void *rtp_event_receiver(void *arg) {
     if (nread < 0) {
       char errorstring[1024];
       strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-      debug(1, "Connection %d: error in ap2 rtp_event_receiver %d: \"%s\". Could not recv a packet.", conn->connection_number, errno,
-            errorstring);
+      debug(1,
+            "Connection %d: error in ap2 rtp_event_receiver %d: \"%s\". Could not recv a packet.",
+            conn->connection_number, errno, errorstring);
       // if ((config.diagnostic_drop_packet_fraction == 0.0) ||
       //     (drand48() > config.diagnostic_drop_packet_fraction)) {
     } else if (nread > 0) {
@@ -1364,11 +1396,15 @@ void *rtp_event_receiver(void *arg) {
       // ssize_t plen = nread;
       debug(1, "Packet Received on Event Port.");
       if (packet[1] == 0xD7) {
-        debug(1, "Connection %d: AP2 Event Receiver -- Time Announce RTP packet of type 0x%02X length %d received.", conn->connection_number,
-              packet[1], nread);
+        debug(1,
+              "Connection %d: AP2 Event Receiver -- Time Announce RTP packet of type 0x%02X length "
+              "%d received.",
+              conn->connection_number, packet[1], nread);
       } else {
-        debug(1, "Connection %d: AP2 Event Receiver -- Unknown RTP packet of type 0x%02X length %d received.", conn->connection_number,
-              packet[1], nread);
+        debug(1,
+              "Connection %d: AP2 Event Receiver -- Unknown RTP packet of type 0x%02X length %d "
+              "received.",
+              conn->connection_number, packet[1], nread);
       }
       // } else {
       //   debug(3, "Event Receiver Thread -- dropping incoming packet to simulate a bad network.");
@@ -1377,7 +1413,8 @@ void *rtp_event_receiver(void *arg) {
       finished = 1;
     }
   } while (finished == 0);
-  debug(1, "Connection %d: AP2 Event Receiver RTP thread \"normal\" exit.", conn->connection_number);
+  debug(1, "Connection %d: AP2 Event Receiver RTP thread \"normal\" exit.",
+        conn->connection_number);
   pthread_cleanup_pop(1); // close the socket
 
   pthread_cleanup_pop(1); // do the cleanup
@@ -1680,7 +1717,7 @@ ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count) {
 #define STANDARD_PACKET_SIZE 4096
 
 void buffered_tcp_reader_cleanup_handler(__attribute__((unused)) void *arg) {
-  debug(1, "Buffered TCP Reader Thread Exit via Cleanup.");
+  debug(2, "Buffered TCP Reader Thread Exit via Cleanup.");
 }
 
 void *buffered_tcp_reader(void *arg) {
@@ -1850,11 +1887,11 @@ void addADTStoPacket(uint8_t *packet, int packetLen) {
 }
 
 void rtp_buffered_audio_cleanup_handler(__attribute__((unused)) void *arg) {
-  debug(1, "Buffered Audio Receiver Cleanup Start.");
+  debug(2, "Buffered Audio Receiver Cleanup Start.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   close(conn->buffered_audio_socket);
   conn->buffered_audio_socket = 0;
-  debug(1, "Buffered Audio Receiver Cleanup Done.");
+  debug(2, "Buffered Audio Receiver Cleanup Done.");
 }
 
 void *rtp_buffered_audio_processor(void *arg) {
@@ -2094,7 +2131,8 @@ void *rtp_buffered_audio_processor(void *arg) {
               if ((lead_time >= (int64_t)(reqested_lead_time * 1000000000)) ||
                   (streaming_has_started == 1)) {
                 if (streaming_has_started == 0)
-                  debug(2, "Connection %d: buffered audio lead time is %f seconds.", 0.000000001 * lead_time);
+                  debug(2, "Connection %d: buffered audio lead time is %f seconds.",
+                        0.000000001 * lead_time);
                 streaming_has_started = 1;
                 player_put_packet(0, 0, pcm_buffer_read_point_rtptime,
                                   pcm_buffer + pcm_buffer_read_point, 352, conn);

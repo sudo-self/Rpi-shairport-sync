@@ -33,7 +33,6 @@
 #define time_ping_history                                                                          \
   (1 << time_ping_history_power_of_two) // 2^7 is 128. At 1 per three seconds, approximately six
                                         // minutes of records
-
 typedef struct time_ping_record {
   uint64_t dispersion;
   uint64_t local_time;
@@ -41,6 +40,19 @@ typedef struct time_ping_record {
   int sequence_number;
   int chosen;
 } time_ping_record;
+
+// these are for reporting the status of the clock
+typedef enum {
+  clock_no_anchor_info,
+  clock_ok,
+  clock_service_unavailable,
+  clock_access_error,
+  clock_data_unavailable,
+  clock_no_master,
+  clock_version_mismatch,
+  clock_not_synchronised,
+  clock_not_valid
+} clock_status_t;
 
 typedef uint16_t seq_t;
 
@@ -257,6 +269,8 @@ typedef struct {
   uint64_t anchor_clock;
   uint64_t anchor_time; // this is the time according to the clock
   uint32_t anchor_rtptime;
+
+  clock_status_t clock_status;
 
 #ifdef CONFIG_AIRPLAY_2
   airplay_t airplay_type; // are we using AirPlay 1 or AirPlay 2 protocol on this connection?

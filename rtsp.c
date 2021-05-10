@@ -1395,7 +1395,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         debug(2, "Connection %d: Start playing.", conn->connection_number);
         conn->ap2_play_enabled = 1;
       } else {
-        debug(1, "Connection %d: Stop playing.", conn->connection_number);
+        debug(2, "Connection %d: Stop playing.", conn->connection_number);
         conn->ap2_play_enabled = 0;
         // not sure this is needed yet
         reset_anchor_info(conn); // needed if the player resumes
@@ -1934,7 +1934,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       conn->input_num_channels = conn->stream.fmtp[7];
       conn->input_bit_depth = conn->stream.fmtp[3];
       conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
-      debug(1, "Realtime Stream Play");
+      debug(2, "Realtime Stream Play");
       if (conn->ap2_timing_peer_list_message)
         ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
       else
@@ -2215,7 +2215,7 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
             msg_add_header(resp, "Session", "1");
 
             resp->respcode = 200; // it all worked out okay
-            debug(1,
+            debug(2,
                   "Connection %d: SETUP DACP-ID \"%s\" from %s to %s with UDP ports Control: "
                   "%d, Timing: %d and Audio: %d.",
                   conn->connection_number, conn->dacp_id, &conn->client_ip_string,
@@ -4239,7 +4239,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
           inet_ntop(conn->connection_ip_family, self_addr, conn->self_ip_string,
                     sizeof(conn->self_ip_string));
 
-          debug(1, "Connection %d: new connection from %s:%u to self at %s:%u.",
+          debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
                 conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                 conn->self_ip_string, conn->self_rtsp_port);
         } else {

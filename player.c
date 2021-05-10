@@ -1593,8 +1593,7 @@ void player_thread_cleanup_handler(void *arg) {
     debug(2, "Cancelling AP2 timing, control and audio threads...");
 
     if (conn->airplay_stream_type == realtime_stream) {
-      debug(2, "Connection %d: Delete Realtime Audio Stream thread",
-            conn->connection_number);
+      debug(2, "Connection %d: Delete Realtime Audio Stream thread", conn->connection_number);
       pthread_cancel(conn->rtp_realtime_audio_thread);
       pthread_join(conn->rtp_realtime_audio_thread, NULL);
 
@@ -1613,9 +1612,9 @@ void player_thread_cleanup_handler(void *arg) {
     pthread_join(conn->rtp_ap2_control_thread, NULL);
 
   } else {
-    debug(1, "Cancelling AP1-compatible timing, control and audio threads...");
+    debug(2, "Cancelling AP1-compatible timing, control and audio threads...");
 #else
-    debug(2, "Cancelling AP1 timing, control and audio threads...");
+  debug(2, "Cancelling AP1 timing, control and audio threads...");
 #endif
     debug(3, "Cancel timing thread.");
     pthread_cancel(conn->rtp_timing_thread);

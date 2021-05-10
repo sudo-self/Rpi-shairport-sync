@@ -42,8 +42,6 @@
 int shm_fd;
 void *mapped_addr = NULL;
 
-int failure_message_sent = 0;
-
 static pthread_mutex_t ptp_access_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // returns a copy of the shared memory data from the nqptp
@@ -63,9 +61,8 @@ int get_nqptp_data(struct shm_structure *nqptp_data) {
 }
 
 int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *raw_offset) {
-  int response = -1;
+  int response = clock_ok;
   pthread_cleanup_debug_mutex_lock(&ptp_access_mutex, 10000, 1);
-  // 0 -> valid and working; -1 -> can't connect to nqptp
   if (actual_clock_id != NULL)
     *actual_clock_id = 0;
   if (raw_offset != NULL)
@@ -81,39 +78,28 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *raw_offset) {
             *actual_clock_id = nqptp_data.master_clock_id;
           if (raw_offset != NULL)
             *raw_offset = nqptp_data.local_to_master_time_offset;
-          response = 0;
         } else {
-          debug(1, "clock not valid");
-          response = -2; // clock info not valid
+          response = clock_no_master;
         }
       } else {
-        if (failure_message_sent == 0) {
-          warn("This version of Shairport Sync requires an NQPTP with a Shared Memory Interface "
-               "Version %u, but the installed version is %u. Please install the correct version of "
-               "NQPTP.",
-               NQPTP_SHM_STRUCTURES_VERSION, nqptp_data.version);
-          failure_message_sent = 1;
-        }
+        response = clock_version_mismatch;
       }
+    } else {
+      response = clock_data_unavailable;
     }
-    if (response != -1)
-      response = ptp_shm_interface_close();
+    if (ptp_shm_interface_close() != 0)
+      response = clock_access_error;
   } else {
-    if (failure_message_sent == 0) {
-      warn("Can't open the interface to nqptp. Is the service running?");
-      failure_message_sent = 1;
-    }
+    response = clock_service_unavailable;
   }
   pthread_cleanup_pop(1); // release the mutex
-  if (response == 0)
-    failure_message_sent = 0;
   return response;
 }
 
 int ptp_shm_interface_open() {
   mapped_addr = NULL;
   int shared_memory_file_descriptor = shm_open("/nqptp", O_RDWR, 0);
-  int response = -1;
+  int response = 0;
   if (shared_memory_file_descriptor >= 0) {
     mapped_addr =
         // needs to be PROT_READ | PROT_WRITE to allow the mapped memory to be writable for the
@@ -121,19 +107,13 @@ int ptp_shm_interface_open() {
         mmap(NULL, sizeof(struct shm_structure), PROT_READ | PROT_WRITE, MAP_SHARED,
              shared_memory_file_descriptor, 0);
     if (mapped_addr == MAP_FAILED) {
-      if (failure_message_sent == 0) {
-        debug(1, "unable to open the shared memory interface with nqptp. Is the service running?");
-        failure_message_sent = 1;
-      }
+      response = -1;
     }
     if (close(shared_memory_file_descriptor) == -1) {
-      if (failure_message_sent == 0) {
-        debug(1, "error closing \"/nqptp\" after mapping it.");
-        failure_message_sent = 1;
-      }
-    } else {
-      response = 0;
+      response = -1;
     }
+  } else {
+    response = -1;
   }
   return response;
 }
