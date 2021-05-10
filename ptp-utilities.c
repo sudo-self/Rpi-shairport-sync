@@ -82,7 +82,11 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *raw_offset) {
           response = clock_no_master;
         }
       } else {
-        response = clock_version_mismatch;
+        // the version can not be zero. If zero is returned here, it means that the shared memory is not yet initialised, so not availalbe
+        if (nqptp_data.version == 0)
+          response = clock_service_unavailable;
+        else
+          response = clock_version_mismatch;
       }
     } else {
       response = clock_data_unavailable;

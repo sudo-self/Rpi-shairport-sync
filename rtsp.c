@@ -379,7 +379,7 @@ int get_play_lock(rtsp_conn_info *conn) {
 #else
   } else if (config.allow_session_interruption == 1) {
 #endif
-    debug(1, "Connection %d: Asking Connection %d to stop playing.", conn->connection_number,
+    debug(2, "Connection %d: Asking Connection %d to stop playing.", conn->connection_number,
           playing_conn->connection_number);
     playing_conn->stop = 1;
     interrupting_current_session = 1;
@@ -406,7 +406,7 @@ int get_play_lock(rtsp_conn_info *conn) {
     }
 
     if ((have_the_player == 1) && (interrupting_current_session == 1)) {
-      debug(1, "Connection %d: got player lock", conn->connection_number);
+      debug(2, "Connection %d: Got player lock", conn->connection_number);
       response = 1;
     } else {
       debug(1, "Connection %d: failed to get player lock", conn->connection_number);
@@ -1398,7 +1398,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         debug(2, "Connection %d: Stop playing.", conn->connection_number);
         conn->ap2_play_enabled = 0;
         // not sure this is needed yet
-        reset_anchor_info(conn); // needed if the player resumes
+        // reset_anchor_info(conn); // needed if the player resumes
       }
       pthread_cleanup_pop(1); // unlock the conn->flush_mutex
 
