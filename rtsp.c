@@ -1339,6 +1339,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
   plist_t messagePlist = plist_from_rtsp_content(req);
 
   if (messagePlist != NULL) {
+    pthread_cleanup_push(plist_cleanup, (void *)messagePlist);
     plist_t item = plist_dict_get_item(messagePlist, "networkTimeSecs");
     if (item != NULL) {
       plist_t item_2 = plist_dict_get_item(messagePlist, "networkTimeTimelineID");
@@ -1388,16 +1389,9 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       plist_get_uint_val(item, &rate);
       debug(2, "anchor rate 0x%016" PRIx64 ".", rate);
       debug_mutex_lock(&conn->flush_mutex, 1000, 1);
+      pthread_cleanup_push(mutex_unlock, &conn->flush_mutex);
       conn->ap2_rate = rate;
       if ((rate & 1) != 0) {
-
-        get_play_lock(conn);
-
-        if (conn->ap2_timing_peer_list_message)
-          ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-        else
-          debug(1, "Connection %d: No timing peer list!", conn->connection_number);
-
         debug(2, "Connection %d: Start playing.", conn->connection_number);
         conn->ap2_play_enabled = 1;
       } else {
@@ -1405,13 +1399,21 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         conn->ap2_play_enabled = 0;
         // not sure this is needed yet
         reset_anchor_info(conn); // needed if the player resumes
-        release_play_lock(conn);
       }
-      debug_mutex_unlock(&conn->flush_mutex, 3);
-      if ((rate & 1) == 0)
+      pthread_cleanup_pop(1); // unlock the conn->flush_mutex
+
+      if ((rate & 1) != 0) {
+        // keep this outside the flush_mutex lock
+        if (conn->ap2_timing_peer_list_message) {
+          ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
+        } else {
+          debug(1, "Connection %d: No timing peer list!", conn->connection_number);
+        }
+      } else {
         player_full_flush(conn);
+      }
     }
-    plist_free(messagePlist);
+    pthread_cleanup_pop(1); // plist_free the messagePlist;
   } else {
     debug(1, "missing plist!");
   }
@@ -1945,7 +1947,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     case 103: {
       debug(1, "Connection %d. Buffered Audio Stream Detected.", conn->connection_number);
       debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
-      // for buffered audio, delay getting the play lock until we actually start playing...
+      get_play_lock(conn);
       conn->airplay_stream_type = buffered_stream;
       // get needed stuff
 
@@ -3730,10 +3732,10 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   debug(3, "Delete watchdog mutex.");
   pthread_mutex_destroy(&conn->watchdog_mutex);
 
-  debug(3, "Connection %d: Checking play lock.", conn->connection_number);
-  release_play_lock(conn);
+  // debug(3, "Connection %d: Checking play lock.", conn->connection_number);
+  // release_play_lock(conn);
 
-  debug(1, "Connection %d: terminated.", conn->connection_number);
+  debug(2, "Connection %d: Closed.", conn->connection_number);
   conn->running = 0;
   pthread_setcancelstate(oldState, NULL);
 }

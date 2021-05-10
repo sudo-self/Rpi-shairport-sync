@@ -437,13 +437,11 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
   if (conn->connection_state_to_output) { // if we are supposed to be processing these packets
     abuf_t *abuf = 0;
     if (!conn->ab_synced) {
-      // if this is the first packet...
-      debug(3, "syncing to seqno %u.", seqno);
       conn->ab_write = seqno;
       conn->ab_read = seqno;
       conn->ab_synced = 1;
       conn->first_packet_timestamp = 0;
-      debug(1, "synced by first packet");
+      debug(2, "Connection %d: synced by first packet, seqno %u.", conn->connection_number, seqno);
     } else if (original_format == 0) {
       // if the packet is coming in original format, the sequence number is important
       // otherwise, ignore is by setting it equal to the expected sequence number in ab_write
@@ -904,8 +902,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         conn->flush_rtp_timestamp = 0;
         debug_mutex_unlock(&conn->flush_mutex, 0);
       }
-
     debug_mutex_lock(&conn->flush_mutex, 1000, 0);
+    pthread_cleanup_push(mutex_unlock, &conn->flush_mutex);
     if (conn->flush_requested == 1) {
       if (conn->flush_output_flushed == 0)
         if (config.output->flush) {
@@ -999,7 +997,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       conn->flush_rtp_timestamp = 0;
       conn->flush_output_flushed = 0;
     }
-    debug_mutex_unlock(&conn->flush_mutex, 0);
+    pthread_cleanup_pop(1); // unlock the conn->flush_mutex
     if (conn->ab_synced) {
       curframe = conn->audio_buffer + BUFIDX(conn->ab_read);
 
@@ -1543,10 +1541,16 @@ void player_thread_cleanup_handler(void *arg) {
 
     pthread_cleanup_push(mutex_unlock, &playing_conn_lock);
     if (playing_conn == conn) {
-      if (config.output->stop)
+      if (config.output->stop) {
+        debug(3, "Connection %d: Stop the output backend.", conn->connection_number);
         config.output->stop();
+      }
+    } else {
+      debug(1, "This is not the playing conn.");
     }
     pthread_cleanup_pop(1); // unlock the mutex
+  } else {
+    debug(1, "Can not acquire play lock.");
   }
 
   int oldState;
@@ -1586,65 +1590,33 @@ void player_thread_cleanup_handler(void *arg) {
 
 #ifdef CONFIG_AIRPLAY_2
   if (conn->airplay_type == ap_2) {
-    debug(1, "In AP2 mode");
+    debug(2, "Cancelling AP2 timing, control and audio threads...");
 
     if (conn->airplay_stream_type == realtime_stream) {
-      debug(2, "Connection %d: TEARDOWN Delete Realtime Audio Stream Thread",
+      debug(2, "Connection %d: Delete Realtime Audio Stream thread",
             conn->connection_number);
       pthread_cancel(conn->rtp_realtime_audio_thread);
       pthread_join(conn->rtp_realtime_audio_thread, NULL);
-      if (conn->realtime_audio_socket)
-        close(conn->realtime_audio_socket);
+
     } else if (conn->airplay_stream_type == buffered_stream) {
-      debug(2, "Connection %d: TEARDOWN Delete Buffered Audio Stream Thread",
-            conn->connection_number);
+
+      debug(2, "Connection %d: Delete Buffered Audio Stream thread", conn->connection_number);
       pthread_cancel(conn->rtp_buffered_audio_thread);
       pthread_join(conn->rtp_buffered_audio_thread, NULL);
-      if (conn->buffered_audio_socket)
-        close(conn->buffered_audio_socket);
+
     } else {
       die("Unrecognised Stream Type");
     }
 
-    if (conn->rtp_ap2_control_thread) {
-      debug(1, "Cancelling rtp_ap2_control_thread");
-      pthread_cancel(conn->rtp_ap2_control_thread);
-      pthread_join(conn->rtp_ap2_control_thread, NULL);
-    }
-    if (conn->ap2_control_socket) {
-      close(conn->ap2_control_socket);
-      conn->ap2_control_socket = 0;
-      conn->ap2_remote_control_socket_addr_length =
-          0; // indicates to the control receiver thread that the socket address need to be
-             // recreated.
-    }
+    debug(2, "Connection %d: Delete AirPlay 2 Control thread");
+    pthread_cancel(conn->rtp_ap2_control_thread);
+    pthread_join(conn->rtp_ap2_control_thread, NULL);
 
-    if (conn->airplay_stream_type == realtime_stream) {
-      // realtime stuff
-      if (conn->rtp_realtime_audio_thread) {
-        debug(1, "Cancelling rtp_realtime_audio_thread");
-        pthread_cancel(conn->rtp_realtime_audio_thread);
-        pthread_join(conn->rtp_realtime_audio_thread, NULL);
-      }
-      if (conn->realtime_audio_socket) {
-        close(conn->realtime_audio_socket);
-        conn->realtime_audio_socket = 0;
-      }
-    } else if (conn->airplay_stream_type == buffered_stream) {
-      // buffered stuff
-      if (conn->rtp_buffered_audio_thread) {
-        debug(3, "Cancelling rtp_buffered_audio_thread");
-        pthread_cancel(conn->rtp_buffered_audio_thread);
-        pthread_join(conn->rtp_buffered_audio_thread, NULL);
-      }
-      if (conn->buffered_audio_socket) {
-        close(conn->buffered_audio_socket);
-        conn->buffered_audio_socket = 0;
-      }
-    }
   } else {
+    debug(1, "Cancelling AP1-compatible timing, control and audio threads...");
+#else
+    debug(2, "Cancelling AP1 timing, control and audio threads...");
 #endif
-    debug(1, "Cancelling AP1 timing, control and audio threads...");
     debug(3, "Cancel timing thread.");
     pthread_cancel(conn->rtp_timing_thread);
     debug(3, "Join timing thread.");
@@ -1689,6 +1661,7 @@ void player_thread_cleanup_handler(void *arg) {
   release_play_lock(conn);
   conn->rtp_running = 0;
   pthread_setcancelstate(oldState, NULL);
+  debug(2, "Connection %d: player terminated.", conn->connection_number);
 }
 
 void *player_thread_func(void *arg) {
@@ -3029,7 +3002,7 @@ void player_volume(double airplay_volume, rtsp_conn_info *conn) {
 
 void do_flush(uint32_t timestamp, rtsp_conn_info *conn) {
 
-  debug(2, "do_flush: flush to %u.", timestamp);
+  debug(3, "do_flush: flush to %u.", timestamp);
   debug_mutex_lock(&conn->flush_mutex, 1000, 1);
   conn->flush_requested = 1;
   conn->flush_rtp_timestamp = timestamp; // flush all packets up to, but not including, this one.

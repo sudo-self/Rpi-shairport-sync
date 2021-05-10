@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-                                             
-                                             
+
+
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-                                             
+
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-                                             
+
                                                               // Best guess is that this delay is 11,025 frames.
-                                             
+
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-                                             
+
                                                               uint32_t fl = nctohs(&packet[2]); //
-                                             
+
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -1330,12 +1330,12 @@ int local_ptp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn
 
 void rtp_event_receiver_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(2, "Connection %d: Event Receiver Cleanup.", conn->connection_number);
+  debug(2, "Connection %d: AP2 Event Receiver Cleanup.", conn->connection_number);
 }
 
 void *rtp_event_receiver(void *arg) {
-  debug(2, "Event Receiver started");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(2, "Connection %d: AP2 Event Receiver started", conn->connection_number);
   pthread_cleanup_push(rtp_event_receiver_cleanup_handler, arg);
 
   listen(conn->event_socket, 5);
@@ -1355,7 +1355,7 @@ void *rtp_event_receiver(void *arg) {
     if (nread < 0) {
       char errorstring[1024];
       strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-      debug(1, "error in rtp_event_receiver %d: \"%s\". Could not recv a packet.", errno,
+      debug(1, "Connection %d: error in ap2 rtp_event_receiver %d: \"%s\". Could not recv a packet.", conn->connection_number, errno,
             errorstring);
       // if ((config.diagnostic_drop_packet_fraction == 0.0) ||
       //     (drand48() > config.diagnostic_drop_packet_fraction)) {
@@ -1364,10 +1364,10 @@ void *rtp_event_receiver(void *arg) {
       // ssize_t plen = nread;
       debug(1, "Packet Received on Event Port.");
       if (packet[1] == 0xD7) {
-        debug(1, "Event Receiver -- Time Announce RTP packet of type 0x%02X length %d received.",
+        debug(1, "Connection %d: AP2 Event Receiver -- Time Announce RTP packet of type 0x%02X length %d received.", conn->connection_number,
               packet[1], nread);
       } else {
-        debug(1, "Event Receiver -- Unknown RTP packet of type 0x%02X length %d received.",
+        debug(1, "Connection %d: AP2 Event Receiver -- Unknown RTP packet of type 0x%02X length %d received.", conn->connection_number,
               packet[1], nread);
       }
       // } else {
@@ -1377,17 +1377,22 @@ void *rtp_event_receiver(void *arg) {
       finished = 1;
     }
   } while (finished == 0);
-  debug(1, "Event Receiver RTP thread \"normal\" exit.");
+  debug(1, "Connection %d: AP2 Event Receiver RTP thread \"normal\" exit.", conn->connection_number);
   pthread_cleanup_pop(1); // close the socket
 
   pthread_cleanup_pop(1); // do the cleanup
-  debug(1, "Connection %d: Event Receiver RTP thread exit.", conn->connection_number);
+  debug(1, "Connection %d: AP2 Event Receiver RTP thread exit.", conn->connection_number);
   pthread_exit(NULL);
 }
 
 void rtp_ap2_control_handler_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(2, "Connection %d: AP2 Control Receiver Cleanup.", conn->connection_number);
+  close(conn->ap2_control_socket);
+  conn->ap2_control_socket = 0;
+  conn->ap2_remote_control_socket_addr_length =
+      0; // indicates to the control receiver thread that the socket address need to be
+         // recreated (needed for resend requests in the realtime mode)
 }
 
 int32_t decipher_player_put_packet(uint8_t *ciphered_audio_alt, ssize_t nread,
@@ -1463,7 +1468,8 @@ void *rtp_ap2_control_receiver(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   uint8_t packet[4096];
   ssize_t nread;
-  while (1) {
+  int keep_going = 1;
+  while (keep_going) {
     SOCKADDR from_sock_addr;
     socklen_t from_sock_addr_length = sizeof(SOCKADDR);
     memset(&from_sock_addr, 0, sizeof(SOCKADDR));
@@ -1471,7 +1477,7 @@ void *rtp_ap2_control_receiver(void *arg) {
     nread = recvfrom(conn->ap2_control_socket, packet, sizeof(packet), 0,
                      (struct sockaddr *)&from_sock_addr, &from_sock_addr_length);
 
-    if (nread >= 0) {
+    if (nread > 0) {
       // debug(1,"rtp_ap2_control_receiver coded: %u, %u", packet[0], packet[1]);
 
       if ((config.diagnostic_drop_packet_fraction == 0.0) ||
@@ -1552,22 +1558,25 @@ void *rtp_ap2_control_receiver(void *arg) {
       } else {
         debug(1, "AP2 Control Receiver -- dropping a packet.");
       }
+    } else if (nread == 0) {
+      debug(1, "AP2 Control Receiver -- connection closed.");
+      keep_going = 0;
     } else {
       debug(1, "AP2 Control Receiver -- error %d receiving a packet.", errno);
     }
   }
   debug(1, "AP2 Control RTP thread \"normal\" exit -- this can't happen. Hah!");
-  pthread_cleanup_pop(0); // don't execute anything here.
+  pthread_cleanup_pop(1);
   debug(1, "AP2 Control RTP thread exit.");
   pthread_exit(NULL);
 }
 
 void rtp_realtime_audio_cleanup_handler(__attribute__((unused)) void *arg) {
-  debug(1, "Realtime Audio Receiver Cleanup Start.");
+  debug(2, "Realtime Audio Receiver Cleanup Start.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   close(conn->realtime_audio_socket);
   conn->realtime_audio_socket = 0;
-  debug(1, "Realtime Audio Receiver Cleanup Done.");
+  debug(2, "Realtime Audio Receiver Cleanup Done.");
 }
 
 void *rtp_realtime_audio_receiver(void *arg) {
@@ -1627,14 +1636,6 @@ void *rtp_realtime_audio_receiver(void *arg) {
   pthread_exit(NULL);
 }
 
-void rtp_buffered_audio_receiver_cleanup_handler(__attribute__((unused)) void *arg) {
-  debug(1, "Buffered Audio Receiver Cleanup Start.");
-  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  close(conn->buffered_audio_socket);
-  conn->buffered_audio_socket = 0;
-  debug(1, "Buffered Audio Receiver Cleanup Done.");
-}
-
 ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count) {
   ssize_t response;
   // usleep(1500000);
@@ -1676,10 +1677,10 @@ ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count) {
   return response;
 }
 
-#define STANDARD_PACKET_SIZE 65536
+#define STANDARD_PACKET_SIZE 4096
 
 void buffered_tcp_reader_cleanup_handler(__attribute__((unused)) void *arg) {
-  debug(2, "Buffered TCP Reader Thread Exit via Cleanup.");
+  debug(1, "Buffered TCP Reader Thread Exit via Cleanup.");
 }
 
 void *buffered_tcp_reader(void *arg) {
@@ -1849,11 +1850,11 @@ void addADTStoPacket(uint8_t *packet, int packetLen) {
 }
 
 void rtp_buffered_audio_cleanup_handler(__attribute__((unused)) void *arg) {
-  debug(3, "Buffered Audio Receiver Cleanup Start.");
+  debug(1, "Buffered Audio Receiver Cleanup Start.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   close(conn->buffered_audio_socket);
   conn->buffered_audio_socket = 0;
-  debug(2, "Buffered Audio Receiver Cleanup Done.");
+  debug(1, "Buffered Audio Receiver Cleanup Done.");
 }
 
 void *rtp_buffered_audio_processor(void *arg) {
@@ -2093,7 +2094,7 @@ void *rtp_buffered_audio_processor(void *arg) {
               if ((lead_time >= (int64_t)(reqested_lead_time * 1000000000)) ||
                   (streaming_has_started == 1)) {
                 if (streaming_has_started == 0)
-                  debug(1, "rtp lead time is %f ms.", 0.000001 * lead_time);
+                  debug(2, "Connection %d: buffered audio lead time is %f seconds.", 0.000000001 * lead_time);
                 streaming_has_started = 1;
                 player_put_packet(0, 0, pcm_buffer_read_point_rtptime,
                                   pcm_buffer + pcm_buffer_read_point, 352, conn);
@@ -2371,6 +2372,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   pthread_cleanup_pop(1); // do the cleanup.
   pthread_exit(NULL);
 }
+
 int frame_to_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
   if (conn->timing_type == ts_ptp)
     return frame_to_ptp_local_time(timestamp, time, conn);
