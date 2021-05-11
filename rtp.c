@@ -2100,7 +2100,7 @@ void *rtp_buffered_audio_processor(void *arg) {
       get_audio_buffer_size_and_occupancy(&player_buffer_size, &player_buffer_occupancy, conn);
       // debug(1,"player buffer size and occupancy: %u and %u", player_buffer_size,
       // player_buffer_occupancy);
-      double reqested_lead_time = 0.4; //
+      double reqested_lead_time = 0.0; //
       if (player_buffer_occupancy >
           ((reqested_lead_time + 0.1) * 44100.0 / 352)) { // must be greater than the lead time.
         // if there is enough stuff in the player's buffer, sleep for a while and try again

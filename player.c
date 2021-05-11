@@ -1059,12 +1059,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               int64_t lt = conn->first_packet_time_to_play - local_time_now;
 
-              debug(1, "Connection %d: Lead time: %f seconds.", conn->connection_number,
+              debug(1, "Connection %d: Lead time for first frame %" PRId64 ": %f seconds.", conn->connection_number, conn->first_packet_timestamp,
                     lt * 0.000000001);
 
-              if (local_time_now > conn->first_packet_time_to_play) {
-                uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
-                debug(2, "First packet is %" PRIu64 " nanoseconds late! Flushing 0.5 seconds",
+              int64_t lateness = local_time_now - conn->first_packet_time_to_play;
+              if (lateness > 0) {
+                debug(1, "First packet is %" PRId64 " nanoseconds late! Flushing 0.5 seconds",
                       lateness);
                 do_flush(conn->first_packet_timestamp + 5 * 4410, conn);
               }
@@ -1094,18 +1094,17 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               if (fabs(0.000001 * change_in_should_be_time) >
                   0.001) // the clock drift estimation might be nudging the estimate, and we can
                          // ignore this unless if's more than a microsecond
-                debug(2, "Change in estimated first_packet_time: %8.4f milliseconds.",
+                debug(2, "Change in estimated first_packet_time: %f milliseconds for first_packet .",
                       0.000001 * change_in_should_be_time);
 
               conn->first_packet_time_to_play = should_be_time;
 
-              if (local_time_now > conn->first_packet_time_to_play) {
-                uint64_t lateness = local_time_now - conn->first_packet_time_to_play;
-                debug(2, "Gone past starting time by %" PRIu64 " nanoseconds.", lateness);
+              int64_t lead_time = conn->first_packet_time_to_play - local_time_now; // negative means late
+              if (lead_time < 0) {
+                debug(1, "Gone past starting time for %u by %" PRId64 " nanoseconds.", conn->first_packet_timestamp, -lead_time);
                 conn->ab_buffering = 0;
               } else {
                 // do some calculations
-                int64_t lead_time = conn->first_packet_time_to_play - local_time_now;
                 if ((config.audio_backend_silent_lead_in_time_auto == 1) ||
                     (lead_time <=
                      (int64_t)(config.audio_backend_silent_lead_in_time * (int64_t)1000000000))) {
@@ -1131,7 +1130,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                     if (exact_frame_gap <= frames_needed_to_maintain_desired_buffer) {
                       fs = conn->max_frames_per_packet * 2;
                     }
-
                     // if we are very close to the end of buffering, i.e. within two frame-lengths,
                     // add the remaining silence needed and end buffering
                     if (exact_frame_gap <= conn->max_frames_per_packet * 2) {
@@ -1153,7 +1151,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                             generate_zero_frames(silence, fs, config.output_format,
                                                  conn->enable_dither, conn->previous_random_number);
                         config.output->play(silence, fs);
-                        // debug(1, "Sent %" PRId64 " frames of silence", fs);
+                        debug(2, "Sent %" PRId64 " frames of silence", fs);
                         free(silence);
                         have_sent_prefiller_silence = 1;
                       }
@@ -1172,7 +1170,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                         }
                       }
                     } else {
-                      debug(2, "Unexpected response to getting dac delay: %d.", resp);
+                      debug(1, "Unexpected response to getting dac delay: %d.", resp);
                     }
                   }
                 }
@@ -1978,6 +1976,7 @@ void *player_thread_func(void *arg) {
     pthread_testcancel();                     // allow a pthread_cancel request to take effect.
     abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not
                                               // guaranteed that they'll always be executed
+
     if (inframe) {
       inbuf = inframe->data;
       inbuflength = inframe->length;
@@ -2208,6 +2207,8 @@ void *player_thread_func(void *arg) {
 
             sync_error = delay; // int64_t from int64_t - int32_t, so okay
 
+            // debug(1, "Sync error on frame %u is %" PRId64 " frames.", inframe->given_timestamp, sync_error);
+
             if (at_least_one_frame_seen_this_session == 0) {
               at_least_one_frame_seen_this_session = 1;
 
@@ -2226,7 +2227,7 @@ void *player_thread_func(void *arg) {
 
               // remove the bias when reporting the error to make it the true error
 
-              debug(2,
+              debug(1,
                     "first frame sync error (positive --> late): %" PRId64
                     " frames, %.3f mS at %d frames per second output.",
                     sync_error + first_frame_early_bias,
@@ -3025,6 +3026,7 @@ void player_flush(uint32_t timestamp, rtsp_conn_info *conn) {
 }
 
 void player_full_flush(rtsp_conn_info *conn) {
+  debug(3,"player_full_flush");
   // this basically flushes everything from the player
   // here, find the rtptime of the last from in the buffer and add 1 to it
   // so as to ask to flush everything

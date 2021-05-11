@@ -1810,7 +1810,7 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
         rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
     }
   }
-  // debug(1,"RTSP Flush Requested: %u.",rtptime);
+  debug(1,"RTSP Flush Requested: %u.",rtptime);
   if (have_play_lock(conn)) {
 #ifdef CONFIG_METADATA
     if (p)
@@ -1818,19 +1818,15 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     else
       send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
 #endif
-    player_flush(rtptime, conn); // will not crash even it there is no player thread.
+    // hack -- ignore it for airplay 2
+    if (conn->airplay_type != ap_2)
+      player_flush(rtptime, conn); // will not crash even it there is no player thread.
     resp->respcode = 200;
 
   } else {
-    warn("Connection %d FLUSH %u received without having the player (no ANNOUNCE?)",
+    warn("Connection %d FLUSH %u received without having the player",
          conn->connection_number, rtptime);
     resp->respcode = 451;
-    //  #ifdef CONFIG_AIRPLAY_2
-    //  debug(1, "Connection %d FLUSH %u received without having the player but do it anyway...",
-    //         conn->connection_number, rtptime);
-    //	player_flush(rtptime, conn); // will not crash even it there is no player thread.
-    //    resp->respcode = 200;
-    //  #endif
   }
 }
 
