@@ -1810,7 +1810,7 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
         rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
     }
   }
-  debug(1,"RTSP Flush Requested: %u.",rtptime);
+  debug(1, "RTSP Flush Requested: %u.", rtptime);
   if (have_play_lock(conn)) {
 #ifdef CONFIG_METADATA
     if (p)
@@ -1824,8 +1824,8 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     resp->respcode = 200;
 
   } else {
-    warn("Connection %d FLUSH %u received without having the player",
-         conn->connection_number, rtptime);
+    warn("Connection %d FLUSH %u received without having the player", conn->connection_number,
+         rtptime);
     resp->respcode = 451;
   }
 }
