@@ -1811,7 +1811,7 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
         rtptime = uatoi(p + 1); // unsigned integer -- up to 2^32-1
     }
   }
-  debug(1, "RTSP Flush Requested: %u.", rtptime);
+  debug(2, "RTSP Flush Requested: %u.", rtptime);
   if (have_play_lock(conn)) {
 #ifdef CONFIG_METADATA
     if (p)
@@ -1819,8 +1819,11 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     else
       send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
 #endif
-    // hack -- ignore it for airplay 2
+
+// hack -- ignore it for airplay 2
+#ifdef CONFIG_AIRPLAY_2
     if (conn->airplay_type != ap_2)
+#endif
       player_flush(rtptime, conn); // will not crash even it there is no player thread.
     resp->respcode = 200;
 
