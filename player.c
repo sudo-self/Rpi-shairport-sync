@@ -885,6 +885,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
     local_time_now = get_absolute_time_in_ns(); // type okay
     // debug(3, "buffer_get_frame is iterating");
 
+    // we must have timing information before we can do anything here
     if (have_timestamp_timing_information(conn)) {
 
       int rco = get_requested_connection_state_to_output();
@@ -1762,16 +1763,6 @@ void *player_thread_func(void *arg) {
         conn->dac_buffer_queue_minimum_length);
 
   conn->session_corrections = 0;
-  // conn->play_segment_reference_frame = 0; // zero signals that we are not in a play segment
-
-  // check that there are enough buffers to accommodate the desired latency and the latency offset
-
-  int maximum_latency =
-      conn->latency + (int)(config.audio_backend_latency_offset * config.output_rate);
-  if ((maximum_latency + (352 - 1)) / 352 + 10 > BUFFER_FRAMES)
-    die("Not enough buffers available for a total latency of %d frames. A maximum of %d 352-frame "
-        "packets may be accommodated.",
-        maximum_latency, BUFFER_FRAMES);
   conn->connection_state_to_output = get_requested_connection_state_to_output();
 // this is about half a minute
 //#define trend_interval 3758
