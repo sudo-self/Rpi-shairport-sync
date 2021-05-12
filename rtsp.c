@@ -1411,6 +1411,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         }
       } else {
         player_full_flush(conn);
+        ptp_send_control_message_string("T"); // ensure an obsolete clock isn't picked up later.
       }
     }
     pthread_cleanup_pop(1); // plist_free the messagePlist;

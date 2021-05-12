@@ -1560,10 +1560,12 @@ void malloc_cleanup(void *arg) {
   free(arg);
 }
 
+#ifdef CONFIG_AIRPLAY_2
 void plist_cleanup(void *arg) {
   // debug(1, "plist cleanup called.");
   plist_free((plist_t)arg);
 }
+#endif
 
 void socket_cleanup(void *arg) {
   intptr_t fdp = (intptr_t)arg;

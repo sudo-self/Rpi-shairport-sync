@@ -1035,51 +1035,49 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           notified_buffer_empty = 0; // at least one buffer now -- diagnostic only.
           if (conn->ab_buffering) {  // if we are getting packets but not yet forwarding them to the
                                      // player
-            if (conn->first_packet_timestamp == 0) {         // if this is the very first packet
-              if (have_timestamp_timing_information(conn)) { // if we have a reference time
-                // debug(1,"First frame seen with timestamp...");
-                conn->first_packet_timestamp =
-                    curframe->given_timestamp; // we will keep buffering until we are
-                                               // supposed to start playing this
+            if (conn->first_packet_timestamp == 0) { // if this is the very first packet
+              // debug(1,"First frame seen with timestamp...");
+              conn->first_packet_timestamp =
+                  curframe->given_timestamp; // we will keep buffering until we are
+                                             // supposed to start playing this
 #ifdef CONFIG_METADATA
-                // say we have started receiving frames here
-                debug(2, "pffr");
-                send_ssnc_metadata(
-                    'pffr', NULL, 0,
-                    0); // "first frame received", but don't wait if the queue is locked
+              // say we have started receiving frames here
+              debug(2, "pffr");
+              send_ssnc_metadata(
+                  'pffr', NULL, 0,
+                  0); // "first frame received", but don't wait if the queue is locked
 #endif
-                // Here, calculate when we should start playing. We need to know when to allow the
-                // packets to be sent to the player.
+              // Here, calculate when we should start playing. We need to know when to allow the
+              // packets to be sent to the player.
 
-                // every second or so, we get a reference on when a particular packet should be
-                // played.
+              // every second or so, we get a reference on when a particular packet should be
+              // played.
 
-                // It probably won't  be the timestamp of our first packet, however, so we might
-                // have to do some calculations.
+              // It probably won't  be the timestamp of our first packet, however, so we might
+              // have to do some calculations.
 
-                // To calculate when the first packet will be played, we figure out the exact time
-                // the packet should be played according to its timestamp and the reference time.
-                // The desired latency, typically 88200 frames, will be calculated for in rtp.c,
-                // and any desired backend latency offset included in it there.
+              // To calculate when the first packet will be played, we figure out the exact time
+              // the packet should be played according to its timestamp and the reference time.
+              // The desired latency, typically 88200 frames, will be calculated for in rtp.c,
+              // and any desired backend latency offset included in it there.
 
-                uint64_t should_be_time;
+              uint64_t should_be_time;
 
-                frame_to_local_time(conn->first_packet_timestamp, // this will go modulo 2^32
-                                    &should_be_time, conn);
+              frame_to_local_time(conn->first_packet_timestamp, // this will go modulo 2^32
+                                  &should_be_time, conn);
 
-                conn->first_packet_time_to_play = should_be_time;
+              conn->first_packet_time_to_play = should_be_time;
 
-                int64_t lt = conn->first_packet_time_to_play - local_time_now;
+              int64_t lt = conn->first_packet_time_to_play - local_time_now;
 
-                debug(1, "Connection %d: Lead time for first frame %" PRId64 ": %f seconds.",
-                      conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
+              debug(1, "Connection %d: Lead time for first frame %" PRId64 ": %f seconds.",
+                    conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
 
-                int64_t lateness = local_time_now - conn->first_packet_time_to_play;
-                if (lateness > 0) {
-                  debug(1, "First packet is %" PRId64 " nanoseconds late! Flushing 0.5 seconds",
-                        lateness);
-                  do_flush(conn->first_packet_timestamp + 5 * 4410, conn);
-                }
+              int64_t lateness = local_time_now - conn->first_packet_time_to_play;
+              if (lateness > 0) {
+                debug(1, "First packet is %" PRId64 " nanoseconds late! Flushing 0.5 seconds",
+                      lateness);
+                do_flush(conn->first_packet_timestamp + 5 * 4410, conn);
               }
             }
 
@@ -1230,21 +1228,19 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           }
         }
       }
-    }
-    // Here, we work out whether to release a packet or wait
-    // We release a packet when the time is right.
 
-    // To work out when the time is right, we need to take account of (1) the actual time the packet
-    // should be released,
-    // (2) the latency requested, (3) the audio backend latency offset and (4) the desired length of
-    // the audio backend's buffer
+      // Here, we work out whether to release a packet or wait
+      // We release a packet when the time is right.
 
-    // The time is right if the current time is later or the same as
-    // The packet time + (latency + latency offset - backend_buffer_length).
-    // Note: the last three items are expressed in frames and must be converted to time.
+      // To work out when the time is right, we need to take account of (1) the actual time the
+      // packet should be released, (2) the latency requested, (3) the audio backend latency offset
+      // and (4) the desired length of the audio backend's buffer
 
-    int do_wait = 0; // don't wait unless we can really prove we must
-    if (have_timestamp_timing_information(conn)) {
+      // The time is right if the current time is later or the same as
+      // The packet time + (latency + latency offset - backend_buffer_length).
+      // Note: the last three items are expressed in frames and must be converted to time.
+
+      int do_wait = 0; // don't wait unless we can really prove we must
       if ((conn->ab_synced) && (curframe) && (curframe->ready) && (curframe->given_timestamp)) {
         do_wait = 1; // if the current frame exists and is ready, then wait unless it's time to let
                      // it go...
@@ -1305,8 +1301,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         }
       wait = (conn->ab_buffering || (do_wait != 0) || (!conn->ab_synced));
     } else {
-      wait = 1;
-      // debug(1,"don't yet have timing information");
+      wait = 1; // keep waiting until the timing information becomes available
     }
     if (wait) {
       uint64_t time_to_wait_for_wakeup_ns =
