@@ -1274,7 +1274,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   if ((clock_status_t)response != conn->clock_status) {
     switch (response) {
     case clock_ok:
-      debug(1, "Connection %d: NQPTP clock is valid and available.", conn->connection_number);
+      debug(1, "Connection %d: NQPTP clock % " PRIx64 " on line.", conn->connection_number, actual_clock_id);
       break;
     case clock_service_unavailable:
       debug(1, "Connection %d: NQPTP clock is not available.", conn->connection_number);
@@ -1310,6 +1310,14 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       break;
     }
     conn->clock_status = response;
+  }
+  
+  if ((response != clock_ok) && (conn->last_anchor_info_is_valid != 0)) {
+    if (anchorRTP != NULL)
+      *anchorRTP = conn->anchor_rtptime;
+    if (anchorLocalTime != NULL)
+      *anchorLocalTime = conn->anchor_time - conn->last_anchor_clock_offset;
+    response = clock_ok;
   }
   return response;
 }
