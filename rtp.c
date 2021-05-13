@@ -1274,7 +1274,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   if ((clock_status_t)response != conn->clock_status) {
     switch (response) {
     case clock_ok:
-      debug(1, "Connection %d: NQPTP clock % " PRIx64 " on line.", conn->connection_number, actual_clock_id);
+      debug(1, "Connection %d: NQPTP new master clock % " PRIx64 ".", conn->connection_number, actual_clock_id);
       break;
     case clock_service_unavailable:
       debug(1, "Connection %d: NQPTP clock is not available.", conn->connection_number);
