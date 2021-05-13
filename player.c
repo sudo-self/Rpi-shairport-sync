@@ -1186,7 +1186,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                           }
                         }
                       } else {
-                        debug(1, "Unexpected response to getting dac delay: %d.", resp);
+                        debug(3, "Unexpected response to getting dac delay: %d.", resp);
                       }
                     }
                   }
