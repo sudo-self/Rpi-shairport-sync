@@ -1,11 +1,11 @@
 # Pushes to tag 'unstable-BRANCH'.
 # Releases are pushed to latest and tagged - see docker-build-releases.yaml.
 
-name: Build and push docker image based on master branch.
+name: Build and push docker image based on specified branches.
 
 on:
   push:
-    branches: [ master, development ]
+    branches: [ master, development, charles-dev ]
  
 jobs:
   main:
