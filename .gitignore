@@ -42,3 +42,7 @@ shairport-sync.core
 # macOS stuff
 .DS_Store
 shairport-sync.xcodeproj
+
+# version string generation
+gitversion.h
+

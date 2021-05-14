@@ -8,6 +8,13 @@ AC_CONFIG_SRCDIR([shairport.c])
 AC_CONFIG_HEADERS([config.h])
 AC_PROG_RANLIB
 
+AC_CHECK_PROGS([GIT], [git])
+if test -n "$GIT"; then
+  AC_DEFINE([CONFIG_USE_GIT_VERSION_STRING], 1, [Use the version string produced by running 'git describe --dirty'.])
+fi
+AM_CONDITIONAL([USE_GIT_VERSION], [test -n "$GIT"])
+
+
 # Derived from the Avahi configure.ac file
 # Specifying the OS type, defaulting to linux.
 #
