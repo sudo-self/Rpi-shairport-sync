@@ -214,13 +214,13 @@ if INSTALL_SYSTEMV
 	getent group shairport-sync &>/dev/null || groupadd -r shairport-sync >/dev/null
 	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/bin/nologin -G audio shairport-sync >/dev/null
 	[ -e $(DESTDIR)$(sysconfdir)/init.d ] || mkdir -p $(DESTDIR)$(sysconfdir)/init.d
-	[ -f $(DESTDIR)$(sysconfdir)/init.d/shairport-sync ] || cp scripts/shairport-sync $(DESTDIR)$(sysconfdir)/init.d/
+	cp scripts/shairport-sync $(DESTDIR)$(sysconfdir)/init.d/
 endif
 if INSTALL_SYSTEMD
 	getent group shairport-sync &>/dev/null || groupadd -r shairport-sync >/dev/null
 	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/bin/nologin -G audio shairport-sync >/dev/null
 	[ -e $(DESTDIR)$(systemdsystemunitdir) ] || mkdir -p $(DESTDIR)$(systemdsystemunitdir)
-	[ -f $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service ] || cp scripts/shairport-sync.service $(DESTDIR)$(systemdsystemunitdir)
+	cp scripts/shairport-sync.service $(DESTDIR)$(systemdsystemunitdir)
 endif
 if INSTALL_FREEBSD_SERVICE
   # Choose a uid and gid of 801 completely arbitrarity, except that it should be below 1000. FreeBSD doesn't seem to allow you to say "an ID in the range of..."
@@ -228,7 +228,7 @@ if INSTALL_FREEBSD_SERVICE
 	pw showuser shairport-sync > /dev/null 2>&1 || pw adduser -c "shairport-sync unprivileged user" -n shairport-sync -u 801 -s /usr/sbin/nologin -d /nonexistent > /dev/null 2>&1
 	[ -e /var/run/shairport-sync ] || mkdir -p /var/run/shairport-sync
 	chown shairport-sync:shairport-sync /var/run/shairport-sync
-	[ -f /usr/local/etc/rc.d/shairport_sync ] || cp scripts/shairport-sync.freebsd /usr/local/etc/rc.d/shairport_sync
+	cp scripts/shairport-sync.freebsd /usr/local/etc/rc.d/shairport_sync
 	chmod 555 /usr/local/etc/rc.d/shairport_sync
 endif
 if INSTALL_CYGWIN_SERVICE
