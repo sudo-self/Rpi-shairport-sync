@@ -3,7 +3,7 @@
  * Copyright (c) James Laird 2013
 
  * Modifications associated with audio synchronization, mutithreading and
- * metadata handling copyright (c) Mike Brady 2014-2020
+ * metadata handling copyright (c) Mike Brady 2014-2021
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -1411,7 +1411,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         }
       } else {
         player_full_flush(conn);
-        ptp_send_control_message_string("T"); // ensure an obsolete clock isn't picked up later.
+        // ptp_send_control_message_string("T"); // ensure an obsolete clock isn't picked up later.
       }
     }
     pthread_cleanup_pop(1); // plist_free the messagePlist;
@@ -2281,8 +2281,16 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 
     if (!strncmp(cp, "volume: ", strlen("volume: "))) {
       float volume = atof(cp + strlen("volume: "));
-      // debug(2, "AirPlay request to set volume to: %f.", volume);
-      player_volume(volume, conn);
+      debug(2, "Connection %d: request to set AirPlay Volume to: %f.", conn->connection_number, volume);
+      // if we are playing, go ahead and change the volume
+      if (try_to_hold_play_lock(conn) == 0) {
+        player_volume(volume, conn);
+        release_hold_on_play_lock(conn);
+      } else {
+        // otherwise use the volume as the initial setting for when/if the player starts
+        conn->initial_airplay_volume = volume;
+        conn->initial_airplay_volume_set = 1;
+      }
     } else
 #ifdef CONFIG_METADATA
         if (!strncmp(cp, "progress: ", strlen("progress: "))) {
@@ -2294,7 +2302,7 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
     } else
 #endif
     {
-      debug(1, "unrecognised parameter: \"%s\" (%d)\n", cp, strlen(cp));
+      debug(1, "Connection %d, unrecognised parameter: \"%s\" (%d)\n", conn->connection_number, cp, strlen(cp));
     }
     cp = next;
   }
@@ -3015,7 +3023,7 @@ static void handle_get_parameter(__attribute__((unused)) rtsp_conn_info *conn, r
 
   if ((req->content) && (req->contentlength == strlen("volume\r\n")) &&
       strstr(req->content, "volume") == req->content) {
-    // debug(1,"Current volume sought");
+    debug(2,"Connection %d: Current volume (%.6f) requested", conn->connection_number, config.airplay_volume);
     char *p = malloc(128); // will be automatically deallocated with the response is deleted
     if (p) {
       resp->content = p;
@@ -3110,10 +3118,11 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
       // debug(2, "received parameters in SET_PARAMETER request.");
       handle_set_parameter_parameter(conn, req, resp); // this could be volume or progress
     } else {
-      debug(1, "received unknown Content-Type \"%s\" in SET_PARAMETER request.", ct);
+      debug(1, "Connection %d: received unknown Content-Type \"%s\" in SET_PARAMETER request.", conn->connection_number, ct);
+      debug_print_msg_headers(1,req);
     }
   } else {
-    debug(1, "missing Content-Type header in SET_PARAMETER request.");
+    debug(1, "Connection %d: missing Content-Type header in SET_PARAMETER request.", conn->connection_number);
   }
   resp->respcode = 200;
 }
