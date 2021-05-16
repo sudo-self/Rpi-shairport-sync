@@ -2128,7 +2128,7 @@ void *rtp_buffered_audio_processor(void *arg) {
              madly late int rtp_diff = pcm_buffer_read_point_rtptime - at_rtp;
           */
 
-          if (play_enabled) {
+          if ((play_enabled) && (have_ptp_timing_information(conn) != 0)) {
             uint64_t buffer_should_be_time;
             if (frame_to_local_time(pcm_buffer_read_point_rtptime, &buffer_should_be_time, conn) ==
                 0) {
@@ -2137,7 +2137,7 @@ void *rtp_buffered_audio_processor(void *arg) {
               if ((lead_time >= (int64_t)(reqested_lead_time * 1000000000)) ||
                   (streaming_has_started == 1)) {
                 if (streaming_has_started == 0)
-                  debug(2, "Connection %d: buffered audio lead time is %f seconds.",
+                  debug(2, "Connection %d: buffered audio lead time is %f seconds.", conn->connection_number,
                         0.000000001 * lead_time);
                 streaming_has_started = 1;
                 player_put_packet(0, 0, pcm_buffer_read_point_rtptime,

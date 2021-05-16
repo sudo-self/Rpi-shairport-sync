@@ -2281,7 +2281,7 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 
     if (!strncmp(cp, "volume: ", strlen("volume: "))) {
       float volume = atof(cp + strlen("volume: "));
-      debug(2, "Connection %d: request to set AirPlay Volume to: %f.", conn->connection_number, volume);
+      debug(1, "Connection %d: request to set AirPlay Volume to: %f.", conn->connection_number, volume);
       // if we are playing, go ahead and change the volume
       if (try_to_hold_play_lock(conn) == 0) {
         player_volume(volume, conn);
