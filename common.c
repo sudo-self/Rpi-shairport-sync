@@ -2,7 +2,7 @@
  * Utility routines. This file is part of Shairport.
  * Copyright (c) James Laird 2013
  * The volume to attenuation function vol2attn copyright (c) Mike Brady 2014
- * Further changes and additions (c) Mike Brady 2014 -- 2019
+ * Further changes and additions (c) Mike Brady 2014 -- 2021
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -27,6 +27,11 @@
  */
 
 #include "common.h"
+
+#ifdef CONFIG_USE_GIT_VERSION_STRING
+#include "gitversion.h"
+#endif
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -87,6 +92,8 @@
 #else
 #include <syslog.h>
 #endif
+
+
 
 #ifdef CONFIG_ALSA
 void set_alsa_out_dev(char *);
@@ -1602,9 +1609,16 @@ void pthread_cleanup_debug_mutex_unlock(void *arg) { pthread_mutex_unlock((pthre
 
 char *get_version_string() {
   char *version_string = malloc(1024);
-  if (version_string) {
+  if (version_string) {  
+#ifdef CONFIG_USE_GIT_VERSION_STRING
+  if (git_version_string[0] != '\0') 
+    strcpy(version_string, git_version_string);
+  else
+#endif
     strcpy(version_string, PACKAGE_VERSION);
-
+#ifdef CONFIG_AIRPLAY_2
+  strcat(version_string, "-AirPlay2");
+#endif
 #ifdef CONFIG_APPLE_ALAC
     strcat(version_string, "-alac");
 #endif
