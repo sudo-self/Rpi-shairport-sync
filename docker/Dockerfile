@@ -42,6 +42,11 @@ RUN make install
 # Shairport Sync Build System:
 FROM builder-base AS builder-sps
 
+# This will be modified by the Github Action Workflow and is required
+# to ensure the correct branch is being used.
+ARG SHAIRPORT_SYNC_BRANCH
+RUN test -n "$SHAIRPORT_SYNC_BRANCH"
+
 COPY --from=builder-alac /usr/local/lib/libalac.* /usr/local/lib/
 COPY --from=builder-alac /usr/local/lib/pkgconfig/alac.pc /usr/local/lib/pkgconfig/alac.pc
 COPY --from=builder-alac /usr/local/include /usr/local/include
@@ -61,6 +66,7 @@ WORKDIR /
 
 WORKDIR /shairport-sync
 COPY . .
+RUN git checkout $SHAIRPORT_SYNC_BRANCH
 RUN git submodule init
 RUN git submodule update
 RUN autoreconf -fi
