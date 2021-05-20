@@ -62,9 +62,8 @@ RUN make
 RUN make install
 WORKDIR /
 
-RUN --mount=type=ssh,id=github git clone git@github.com:aillwee/shairport-sync.git
 WORKDIR /shairport-sync
-RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
+COPY . .
 RUN git submodule init
 RUN git submodule update
 RUN autoreconf -fi
