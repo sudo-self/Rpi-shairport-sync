@@ -64,6 +64,7 @@ WORKDIR /
 
 WORKDIR /shairport-sync
 COPY . .
+RUN git status
 RUN git submodule init
 RUN git submodule update
 RUN autoreconf -fi
