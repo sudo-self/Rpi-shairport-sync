@@ -8,5 +8,5 @@ services:
     restart: unless-stopped
     devices:
       - "/dev/snd"
-    volumes:
-      - ./volumes/shairport-sync/shairport-sync.conf:/etc/shairport-sync.conf
+    # volumes:
+    #   - ./volumes/shairport-sync/shairport-sync.conf:/etc/shairport-sync.conf # Customised Shairport Sync configuration file.

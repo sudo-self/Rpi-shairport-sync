@@ -42,8 +42,10 @@ RUN make install
 # Shairport Sync Build System:
 FROM builder-base AS builder-sps
 
-# This may be modified by the Github Action Workflow.
-ARG SHAIRPORT_SYNC_BRANCH=development
+# This will be modified by the Github Action Workflow and is required
+# to ensure the correct branch is being used.
+ARG SHAIRPORT_SYNC_BRANCH
+RUN test -n "$SHAIRPORT_SYNC_BRANCH"
 
 COPY --from=builder-alac /usr/local/lib/libalac.* /usr/local/lib/
 COPY --from=builder-alac /usr/local/lib/pkgconfig/alac.pc /usr/local/lib/pkgconfig/alac.pc
@@ -62,12 +64,12 @@ RUN make
 RUN make install
 WORKDIR /
 
-RUN --mount=type=ssh,id=github git clone git@github.com:aillwee/shairport-sync.git
 WORKDIR /shairport-sync
-RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
-RUN autoreconf -fi
+COPY . .
+RUN git checkout $SHAIRPORT_SYNC_BRANCH
 RUN git submodule init
 RUN git submodule update
+RUN autoreconf -fi
 # RUN ./configure \
 #         --with-alsa \
 #         --with-dummy \
@@ -128,7 +130,6 @@ RUN adduser -D shairport-sync -G shairport-sync
 # Add the shairport-sync user to the pre-existing audio group, which has ID 29, for access to the ALSA stuff
 RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio && addgroup shairport-sync audio
 
-COPY ./docker/shairport-sync.conf /etc/shairport-sync.conf
 COPY ./docker/start.sh /
 
 RUN chmod +x ./start.sh
