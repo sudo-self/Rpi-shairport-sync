@@ -1609,9 +1609,9 @@ void pthread_cleanup_debug_mutex_unlock(void *arg) { pthread_mutex_unlock((pthre
 
 char *get_version_string() {
   char *version_string = malloc(1024);
-  if (version_string) {  
+  if (version_string) {
 #ifdef CONFIG_USE_GIT_VERSION_STRING
-  if (git_version_string[0] != '\0') 
+  if (git_version_string[0] != '\0')
     strcpy(version_string, git_version_string);
   else
 #endif
@@ -1939,29 +1939,29 @@ int32_t mod32Difference(uint32_t a, uint32_t b) {
   return result;
 }
 
-char *get_device_id() {
-  char *response = NULL;
+int get_device_id(uint8_t *id, int int_length) {
+  int response = 0;
   struct ifaddrs *ifaddr = NULL;
   struct ifaddrs *ifa = NULL;
   int i = 0;
+  uint8_t *t = id;
+  for (i = 0; i < int_length ; i++) {
+    *t++ = 0;
+  }
 
   if (getifaddrs(&ifaddr) == -1) {
     debug(1, "getifaddrs");
+    response = -1;
   } else {
+    t = id;
     int found = 0;
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
       if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
-        char obf[256] = {0};
-        char *obfp = obf;
         struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
         if ((strcmp(ifa->ifa_name, "lo") != 0) && (found == 0)) {
-          for (i = 0; i < s->sll_halen; i++) {
-            snprintf(obfp, 4, "%02x:", s->sll_addr[i]);
-            obfp += 3;
+          for (i = 0; ((i < s->sll_halen) && (i < int_length)); i++) {
+            *t++ = s->sll_addr[i];
           }
-          obfp -= 1;
-          *obfp = 0;
-          response = strdup(obf);
           found = 1;
         }
       }

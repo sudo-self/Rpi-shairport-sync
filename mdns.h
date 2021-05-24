@@ -8,7 +8,7 @@
 extern int mdns_pid;
 
 void mdns_unregister(void);
-void mdns_register(char **txt_records);
+void mdns_register(char **txt_records, char **secondary_txt_records);
 void mdns_dacp_monitor_start();
 void mdns_dacp_monitor_stop(void);
 void mdns_dacp_monitor_set_id(const char *dacp_id);
@@ -17,7 +17,7 @@ void mdns_ls_backends(void);
 
 typedef struct {
   char *name;
-  int (*mdns_register)(char *apname, int port, char **txt_records);
+  int (*mdns_register)(char *ap1name, char *ap2name, int port, char **txt_records, char **secondary_txt_records);
   void (*mdns_unregister)(void);
   void (*mdns_dacp_monitor_start)();
   void (*mdns_dacp_monitor_set_id)(const char *);

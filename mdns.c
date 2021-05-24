@@ -64,17 +64,15 @@ static mdns_backend *mdns_backends[] = {
 #endif
     NULL};
 
-void mdns_register(char **txt_records) {
-  char *mdns_service_name = alloca(strlen(config.service_name) + 14);
-  char *p = mdns_service_name;
-#ifndef CONFIG_AIRPLAY_2
+void mdns_register(char **txt_records, char **secondary_txt_records) {
+  char *ap1_service_name = alloca(strlen(config.service_name) + 14);
+  char *p = ap1_service_name;
   int i;
   for (i = 0; i < 6; i++) {
     snprintf(p, 3, "%02X", config.hw_addr[i]);
     p += 2;
   }
   *p++ = '@';
-#endif
   strcpy(p, config.service_name);
 
   mdns_backend **b = NULL;
@@ -83,7 +81,7 @@ void mdns_register(char **txt_records) {
     for (b = mdns_backends; *b; b++) {
       if (strcmp((*b)->name, config.mdns_name) != 0) // Not the one we are looking for
         continue;
-      int error = (*b)->mdns_register(mdns_service_name, config.port, txt_records);
+      int error = (*b)->mdns_register(ap1_service_name, config.service_name, config.port, txt_records, secondary_txt_records);
       if (error >= 0) {
         config.mdns = *b;
       }
@@ -93,8 +91,9 @@ void mdns_register(char **txt_records) {
     if (*b == NULL)
       warn("%s mDNS backend not found");
   } else {
+    // default -- pick the first back end
     for (b = mdns_backends; *b; b++) {
-      int error = (*b)->mdns_register(mdns_service_name, config.port, txt_records);
+      int error = (*b)->mdns_register(ap1_service_name, config.service_name, config.port, txt_records, secondary_txt_records);
       if (error >= 0) {
         config.mdns = *b;
         break;

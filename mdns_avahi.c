@@ -62,6 +62,7 @@ typedef struct {
 dacp_browser_struct private_dbs;
 
 AvahiStringList *text_record_string_list = NULL;
+AvahiStringList *ap2_text_record_string_list = NULL;
 
 // static AvahiServiceBrowser *sb = NULL;
 static AvahiClient *client = NULL;
@@ -71,6 +72,8 @@ static AvahiThreadedPoll *tpoll = NULL;
 // static AvahiThreadedPoll *service_poll = NULL;
 
 static char *service_name = NULL;
+char *ap2_service_name = NULL;
+
 static int port = 0;
 
 static void resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIndex interface,
@@ -187,7 +190,7 @@ static void egroup_callback(AvahiEntryGroup *g, AvahiEntryGroupState state,
 
     /* A service name collision with a remote service
      * happened. Let's pick a new name */
-    debug(2, "avahi name collision -- look for another");
+    debug(1, "avahi name collision -- look for another");
     n = avahi_alternative_service_name(service_name);
     if (service_name)
       avahi_free(service_name);
@@ -238,10 +241,16 @@ static void register_service(AvahiClient *c) {
       selected_interface = config.interface_index;
     else
       selected_interface = AVAHI_IF_UNSPEC;
-    if (text_record_string_list) {
+    if (ap2_text_record_string_list) {
+      ret = avahi_entry_group_add_service_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
+                                                 ap2_service_name, config.regtype2, NULL, NULL, port,
+                                                 ap2_text_record_string_list);
+    }
+    if ((ret == 0) && (text_record_string_list)) {
       ret = avahi_entry_group_add_service_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
                                                  service_name, config.regtype, NULL, NULL, port,
                                                  text_record_string_list);
+    }
       if (ret == 0) {
         ret = avahi_entry_group_commit(group);
         debug(2, "avahi: avahi_entry_group_commit %d", ret);
@@ -252,9 +261,6 @@ static void register_service(AvahiClient *c) {
       } else {
         debug(1, "avahi: unexpected positive return");
       }
-    } else {
-      debug(1, "Can't find a valid text_record_string_list");
-    }
   }
 }
 
@@ -312,11 +318,16 @@ static void client_callback(AvahiClient *c, AvahiClientState state,
   }
 }
 
-static int avahi_register(char *srvname, int srvport, char **txt_records) {
+static int avahi_register(char *ap1name, char *ap2name, int srvport, char **txt_records,char **secondary_txt_records) {
   // debug(1, "avahi_register.");
-  service_name = strdup(srvname);
+  service_name = strdup(ap1name);
+  if (ap2name != NULL)
+    ap2_service_name = strdup(ap2name);
 
   text_record_string_list = avahi_string_list_new_from_array((const char **)txt_records, -1);
+
+  if (secondary_txt_records != NULL)
+    ap2_text_record_string_list = avahi_string_list_new_from_array((const char **)secondary_txt_records, -1);
 
   port = srvport;
 
@@ -362,15 +373,29 @@ static void avahi_unregister(void) {
   if (service_name) {
     debug(2, "avahi: free the service name.");
     free(service_name);
+    service_name = NULL;
   } else
     debug(1, "avahi attempt to free NULL service name");
+
+  if (ap2_service_name) {
+    debug(2, "avahi: free the ap2 service_name.");
+    free(ap2_service_name);
+    ap2_service_name = NULL;
+  }
 
   if (text_record_string_list) {
     debug(2, "avahi free text_record_string_list");
     avahi_string_list_free(text_record_string_list);
-  }
+    text_record_string_list = NULL;
+  } else
+    debug(1, "avahi attempt to free NULL text_record_string_list");
 
-  service_name = NULL;
+
+  if (ap2_text_record_string_list) {
+    debug(2, "avahi free ap_2text_record_string_list");
+    avahi_string_list_free(ap2_text_record_string_list);
+    ap2_text_record_string_list = NULL;
+  }
 }
 
 void avahi_dacp_monitor_start(void) {

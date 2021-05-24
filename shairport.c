@@ -1246,10 +1246,10 @@ int parse_options(int argc, char **argv) {
 
   /* if the regtype hasn't been set, do it now */
   if (config.regtype == NULL)
-#ifdef CONFIG_AIRPLAY_2
-    config.regtype = strdup("_airplay._tcp");
-#else
     config.regtype = strdup("_raop._tcp");
+#ifdef CONFIG_AIRPLAY_2
+  if (config.regtype2 == NULL)
+    config.regtype2 = strdup("_airplay._tcp");
 #endif
 
   if (tdebuglev != 0)
@@ -1416,6 +1416,11 @@ void exit_function() {
 
       if (config.regtype)
         free(config.regtype);
+#ifdef CONFIG_AIRPLAY_2
+      if (config.regtype2)
+        free(config.regtype2);
+#endif
+
 
 #ifdef CONFIG_LIBDAEMON
       if (this_is_the_daemon_process) {
@@ -1515,6 +1520,9 @@ int main(int argc, char **argv) {
 
   // set defaults
 
+  // get a device id -- the first non-local MAC address
+  get_device_id((uint8_t *)&config.hw_addr, 6);
+
   // get the endianness
   union {
     uint32_t u32;
@@ -1582,15 +1590,27 @@ int main(int argc, char **argv) {
   // required (transient pairing), no Homekit access control 0x204: Audio cable attached,
   // OneTimePairingRequired 0x604: Audio cable attached, OneTimePairingRequired, allow Homekit
   // access control
+
+  // note: 0x300401F4A00 works but with weird delays and stuff
+
   config.airplay_statusflags = 0x4;
   // Set to NULL to work with transient pairing
   config.airplay_pin = NULL;
-  // get a device id -- the first non-local MAC address, not necessarily the one in use
-  config.airplay_device_id = get_device_id();
-  if (config.airplay_device_id) {
-    debug(1, "Started in Airplay 2 mode on device \"%s\"!", config.airplay_device_id);
-  } else
-    debug(1, "Started in Airplay 2 mode!");
+
+  // use the config.hw_addr to generated an airplay_device_id
+  {
+    char obf[256] = {0};
+    char *obfp = obf;
+    int i;
+    for (i = 0; i < 6; i++) {
+      snprintf(obfp, 4, "%02X:", config.hw_addr[i]);
+      obfp += 3;
+    }
+    obfp -= 1;
+    *obfp = 0;
+    config.airplay_device_id = strdup(obf);
+  }
+  debug(1, "Started in Airplay 2 mode on device \"%s\"!", config.airplay_device_id);
 
   // now generate a UUID
   // from https://stackoverflow.com/questions/51053568/generating-a-random-uuid-in-c
@@ -2014,11 +2034,12 @@ int main(int argc, char **argv) {
   debug(1, "loudness is %d.", config.loudness);
   debug(1, "loudness reference level is %f", config.loudness_reference_volume_db);
 
-  uint8_t ap_md5[16];
-
 #ifdef CONFIG_SOXR
   pthread_create(&soxr_time_check_thread, NULL, &soxr_time_check, NULL);
 #endif
+
+/*
+  uint8_t ap_md5[16];
 
 #ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
@@ -2047,7 +2068,10 @@ int main(int argc, char **argv) {
   md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
   md5_finish(&tctx, ap_md5);
 #endif
+
   memcpy(config.hw_addr, ap_md5, sizeof(config.hw_addr));
+*/
+
 #ifdef CONFIG_METADATA
   metadata_init(); // create the metadata pipe if necessary
 #endif

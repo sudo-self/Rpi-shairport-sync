@@ -209,7 +209,9 @@ typedef struct {
   // char *errfile;
   char *configfile;
   char *regtype; // The regtype is the service type followed by the protocol, separated by a dot, by
-                 // default “_raop._tcp.”.
+                 // default “_raop._tcp.” for AirPlay 1.
+  char *regtype2; // The regtype is the service type followed by the protocol, separated by a dot, by
+                 // default “_raop._tcp.” for AirPlay 2.
   char *interface;     // a string containg the interface name, or NULL if nothing specified
   int interface_index; // only valid if the interface string is non-NULL
   double audio_backend_buffer_desired_length; // this will be the length in seconds of the
@@ -489,7 +491,13 @@ void *memdup(const void *mem, size_t size);
 // negative otherwise
 
 int32_t mod32Difference(uint32_t a, uint32_t b);
-char *get_device_id();
+
+int get_device_id(uint8_t *id, int int_length);
+
+#ifdef CONFIG_USE_GIT_VERSION_STRING
+extern char git_version_string[];
+#endif
+
 
 #endif // _COMMON_H
 
