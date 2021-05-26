@@ -292,7 +292,6 @@ typedef struct {
   uint32_t last_anchor_rtptime;
   uint64_t last_anchor_local_time;
   uint64_t last_anchor_time_of_update;
-  uint64_t last_anchor_clock;
 
   ssize_t ap2_audio_buffer_size;
   int ap2_flush_requested;

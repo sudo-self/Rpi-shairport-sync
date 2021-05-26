@@ -1243,10 +1243,12 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
 
       if (actual_clock_id == conn->anchor_clock) {
         // if the master clock and the anchor clock are the same
+        // wait at least this time before using the new master clock
         if (duration_of_mastership < 700000000) {
           response = clock_not_ready;
         } else if ((duration_of_mastership > 5000000000) || (conn->last_anchor_info_is_valid == 0)) {
-          conn->last_anchor_clock = conn->anchor_clock;
+          // use the master clock if it's at least this old or we have no alternative
+          // and at least it is the minimum age.
           conn->last_anchor_rtptime = conn->anchor_rtptime;
           conn->last_anchor_local_time = conn->anchor_time - actual_offset;
           conn->last_anchor_time_of_update = get_absolute_time_in_ns();
