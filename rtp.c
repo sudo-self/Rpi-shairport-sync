@@ -1210,7 +1210,7 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
 void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
                          uint64_t networktime) {
   if (conn->anchor_clock != clock_id) {
-    debug(1, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
+    debug(2, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
     conn->anchor_clock_is_new = 1;
   }
   conn->anchor_remote_info_is_valid = 1;
@@ -1227,22 +1227,34 @@ void reset_ptp_anchor_info(rtsp_conn_info *conn) {
 
 int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
                                    uint64_t *anchorLocalTime) {
-  uint64_t actual_clock_id, actual_offset;
-  int response = ptp_get_clock_info(&actual_clock_id, &actual_offset);
+  uint64_t actual_clock_id, actual_offset, start_of_mastership;
+  int response = ptp_get_clock_info(&actual_clock_id, &actual_offset, &start_of_mastership);
 
   if (response == clock_ok) {
     if (conn->anchor_remote_info_is_valid !=
         0) { // i.e. if we have anchor clock ID and anchor time / rtptime
+      // figure out how long the clock has been master
+      uint64_t time_now = get_absolute_time_in_ns();
+      int64_t duration_of_mastership = time_now - start_of_mastership;
+      // if we have an alternative, i.e. if last anchor stuff is valid
+      // then we can wait for a long time to let the new master settle
+      // if we do not, we can wait for some different (shorter) time before
+      // using the master clock timing
+
       if (actual_clock_id == conn->anchor_clock) {
         // if the master clock and the anchor clock are the same
-        conn->last_anchor_clock = conn->anchor_clock;
-        conn->last_anchor_rtptime = conn->anchor_rtptime;
-        conn->last_anchor_local_time = conn->anchor_time - actual_offset;
-        conn->last_anchor_time_of_update = get_absolute_time_in_ns();
-        conn->last_anchor_info_is_valid = 1;
-        if (conn->anchor_clock_is_new != 0)
-          debug(1,"new anchor recognised");
-        conn->anchor_clock_is_new = 0;
+        if (duration_of_mastership < 700000000) {
+          response = clock_not_ready;
+        } else if ((duration_of_mastership > 5000000000) || (conn->last_anchor_info_is_valid == 0)) {
+          conn->last_anchor_clock = conn->anchor_clock;
+          conn->last_anchor_rtptime = conn->anchor_rtptime;
+          conn->last_anchor_local_time = conn->anchor_time - actual_offset;
+          conn->last_anchor_time_of_update = get_absolute_time_in_ns();
+          conn->last_anchor_info_is_valid = 1;
+          if (conn->anchor_clock_is_new != 0)
+            debug(1,"Connection %d: New anchor clock %" PRIx64 " recognised.", conn->connection_number, conn->anchor_clock);
+          conn->anchor_clock_is_new = 0;
+        }
       } else {
         // the anchor clock and the actual clock are different
         // this could happen because
@@ -1251,13 +1263,13 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
 
         // so, if the anchor has not changed, it must be that the master clock has changed
         if (conn->anchor_clock_is_new != 0)
-          debug(1,"anchor has changed");
+          debug(1,"Connection %d: Anchor clock has changed to %" PRIx64 ", master clock is: %" PRIx64 ".", conn->connection_number, conn->anchor_clock, actual_clock_id);
 
         if ((conn->last_anchor_info_is_valid != 0) && (conn->anchor_clock_is_new == 0)) {
           int64_t time_since_last_update =
               get_absolute_time_in_ns() - conn->last_anchor_time_of_update;
           if (time_since_last_update > 5000000000) {
-            debug(1, "change master clock to %" PRIx64 ".", actual_clock_id);
+            debug(1, "Connection %d: Master clock has changed to %" PRIx64 ".", conn->connection_number, actual_clock_id);
             // here we adjust the time of the anchor rtptime
             // we know its local time, so we use the new clocks's offset to
             // calculate what time that must be on the new clock
@@ -1277,8 +1289,11 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   if ((clock_status_t)response != conn->clock_status) {
     switch (response) {
     case clock_ok:
-      debug(1, "Connection %d: NQPTP new master clock % " PRIx64 ".", conn->connection_number,
+      debug(2, "Connection %d: NQPTP new master clock %" PRIx64 ".", conn->connection_number,
             actual_clock_id);
+      break;
+    case clock_not_ready:
+      debug(2, "Connection %d: NQPTP master clock %" PRIx64 " is available but not ready.", conn->connection_number, actual_clock_id);
       break;
     case clock_service_unavailable:
       debug(1, "Connection %d: NQPTP clock is not available.", conn->connection_number);

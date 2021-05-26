@@ -51,7 +51,8 @@ typedef enum {
   clock_no_master,
   clock_version_mismatch,
   clock_not_synchronised,
-  clock_not_valid
+  clock_not_valid,
+  clock_not_ready,
 } clock_status_t;
 
 typedef uint16_t seq_t;
