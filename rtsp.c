@@ -1298,7 +1298,7 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
 void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: FLUSHBUFFERED %s :: Content-Length %d", conn->connection_number,
         req->path, req->contentlength);
-  debug_log_rtsp_message(2, "FLUSHBUFFERED request", req);
+  debug_log_rtsp_message(1, "FLUSHBUFFERED request", req);
 
   uint64_t flushUntilSeq = 0;
   uint64_t flushUntilTS = 0;

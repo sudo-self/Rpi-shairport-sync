@@ -74,10 +74,19 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *raw_offset) {
       if (nqptp_data.version == NQPTP_SHM_STRUCTURES_VERSION) {
         // assuming a clock id can not be zero
         if (nqptp_data.master_clock_id != 0) {
-          if (actual_clock_id != NULL)
-            *actual_clock_id = nqptp_data.master_clock_id;
-          if (raw_offset != NULL)
-            *raw_offset = nqptp_data.local_to_master_time_offset;
+          // find out how long it's been since it became master
+          uint64_t time_now = get_absolute_time_in_ns();
+          int64_t time_of_mastership = time_now - nqptp_data.master_clock_start_time;
+           // if (0) {
+           if (time_of_mastership < 700000000) {
+            // should get between 3 and 4 pings in this time -- less likely to get a bad start
+            response = clock_no_master; // not ready yet
+          } else {
+            if (actual_clock_id != NULL)
+              *actual_clock_id = nqptp_data.master_clock_id;
+            if (raw_offset != NULL)
+              *raw_offset = nqptp_data.local_to_master_time_offset;
+          }
         } else {
           response = clock_no_master;
         }

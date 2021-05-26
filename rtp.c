@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-                                             
-                                             
+
+
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-                                             
+
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-                                             
+
                                                               // Best guess is that this delay is 11,025 frames.
-                                             
+
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-                                             
+
                                                               uint32_t fl = nctohs(&packet[2]); //
-                                             
+
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -1209,8 +1209,10 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
 
 void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
                          uint64_t networktime) {
-  if (conn->anchor_clock != clock_id)
+  if (conn->anchor_clock != clock_id) {
     debug(1, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
+    conn->anchor_clock_is_new = 1;
+  }
   conn->anchor_remote_info_is_valid = 1;
   conn->anchor_rtptime = rtptime;
   conn->anchor_time = networktime;
@@ -1225,7 +1227,6 @@ void reset_ptp_anchor_info(rtsp_conn_info *conn) {
 
 int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
                                    uint64_t *anchorLocalTime) {
-
   uint64_t actual_clock_id, actual_offset;
   int response = ptp_get_clock_info(&actual_clock_id, &actual_offset);
 
@@ -1233,36 +1234,38 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
     if (conn->anchor_remote_info_is_valid !=
         0) { // i.e. if we have anchor clock ID and anchor time / rtptime
       if (actual_clock_id == conn->anchor_clock) {
-        conn->last_anchor_clock_offset = actual_offset;
+        // if the master clock and the anchor clock are the same
+        conn->last_anchor_clock = conn->anchor_clock;
+        conn->last_anchor_rtptime = conn->anchor_rtptime;
+        conn->last_anchor_local_time = conn->anchor_time - actual_offset;
         conn->last_anchor_time_of_update = get_absolute_time_in_ns();
         conn->last_anchor_info_is_valid = 1;
-        if (anchorRTP != NULL)
-          *anchorRTP = conn->anchor_rtptime;
-        if (anchorLocalTime != NULL)
-          *anchorLocalTime = conn->anchor_time - conn->last_anchor_clock_offset;
+        if (conn->anchor_clock_is_new != 0)
+          debug(1,"new anchor recognised");
+        conn->anchor_clock_is_new = 0;
       } else {
-        if (conn->last_anchor_info_is_valid != 0) {
+        // the anchor clock and the actual clock are different
+        // this could happen because
+        // the master clock has changed or
+        // because the anchor clock has changed
+
+        // so, if the anchor has not changed, it must be that the master clock has changed
+        if (conn->anchor_clock_is_new != 0)
+          debug(1,"anchor has changed");
+
+        if ((conn->last_anchor_info_is_valid != 0) && (conn->anchor_clock_is_new == 0)) {
           int64_t time_since_last_update =
               get_absolute_time_in_ns() - conn->last_anchor_time_of_update;
           if (time_since_last_update > 5000000000) {
             debug(1, "change master clock to %" PRIx64 ".", actual_clock_id);
-            uint64_t new_anchor_time = conn->anchor_time;
-            new_anchor_time = new_anchor_time - conn->last_anchor_clock_offset; // to local
-            new_anchor_time = new_anchor_time + actual_offset;                  // to the next clock
-            conn->anchor_time = new_anchor_time;
+            // here we adjust the time of the anchor rtptime
+            // we know its local time, so we use the new clocks's offset to
+            // calculate what time that must be on the new clock
+            conn->anchor_time = conn->last_anchor_local_time + actual_offset;
             conn->anchor_clock = actual_clock_id;
-            if (anchorRTP != NULL)
-              *anchorRTP = conn->anchor_rtptime;
-            if (anchorLocalTime != NULL)
-              *anchorLocalTime = conn->anchor_time - actual_offset;
-          } else {
-            if (anchorRTP != NULL)
-              *anchorRTP = conn->anchor_rtptime;
-            if (anchorLocalTime != NULL)
-              *anchorLocalTime = conn->anchor_time - conn->last_anchor_clock_offset;
           }
         } else {
-          response = clock_not_valid; // no current clock information and no previous clock info
+        response = clock_not_valid; // no current clock information and no previous clock info
         }
       }
     } else {
@@ -1313,11 +1316,12 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
     conn->clock_status = response;
   }
 
-  if ((response != clock_ok) && (conn->last_anchor_info_is_valid != 0)) {
+  if (conn->last_anchor_info_is_valid != 0) {
     if (anchorRTP != NULL)
-      *anchorRTP = conn->anchor_rtptime;
+      *anchorRTP = conn->last_anchor_rtptime;
     if (anchorLocalTime != NULL)
-      *anchorLocalTime = conn->anchor_time - conn->last_anchor_clock_offset;
+      *anchorLocalTime = conn->last_anchor_local_time;
+
     response = clock_ok;
   }
   return response;
@@ -2137,8 +2141,12 @@ void *rtp_buffered_audio_processor(void *arg) {
               if ((lead_time >= (int64_t)(reqested_lead_time * 1000000000)) ||
                   (streaming_has_started == 1)) {
                 if (streaming_has_started == 0)
-                  debug(2, "Connection %d: buffered audio lead time is %f seconds.", conn->connection_number,
+                  debug(1, "Connection %d: buffered audio starting lead time is %f seconds.", conn->connection_number,
                         0.000000001 * lead_time);
+                //else
+                //  debug(1, "Connection %d: buffered audio lead time is %f seconds.", conn->connection_number,
+                //        0.000000001 * lead_time);
+
                 streaming_has_started = 1;
                 player_put_packet(0, 0, pcm_buffer_read_point_rtptime,
                                   pcm_buffer + pcm_buffer_read_point, 352, conn);

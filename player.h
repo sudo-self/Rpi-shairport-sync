@@ -209,7 +209,7 @@ typedef struct {
   int fix_volume;
   double initial_airplay_volume;
   int initial_airplay_volume_set;
-  
+
   uint32_t timestamp_epoch, last_timestamp,
       maximum_timestamp_interval; // timestamp_epoch of zero means not initialised, could start at 2
                                   // or 1.
@@ -270,6 +270,7 @@ typedef struct {
   // this is what connects an rtp timestamp to the remote time
 
   int anchor_remote_info_is_valid;
+  int anchor_clock_is_new;
   uint64_t anchor_clock;
   uint64_t anchor_time; // this is the time according to the clock
   uint32_t anchor_rtptime;
@@ -287,7 +288,8 @@ typedef struct {
   pthread_t rtp_buffered_audio_thread;
 
   int last_anchor_info_is_valid;
-  uint64_t last_anchor_clock_offset;
+  uint32_t last_anchor_rtptime;
+  uint64_t last_anchor_local_time;
   uint64_t last_anchor_time_of_update;
   uint64_t last_anchor_clock;
 
