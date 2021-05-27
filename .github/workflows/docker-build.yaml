@@ -13,8 +13,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Set branch env.
-        run: echo "BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+      - name: Set SHAIRPORT_SYNC_BRANCH env.
+        run: echo "SHAIRPORT_SYNC_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: Set up ssh agent
         uses: webfactory/ssh-agent@v0.5.2 # Can be removed when no longer pulling from private repos.
         with:
@@ -36,7 +36,7 @@ jobs:
           file: ./docker/Dockerfile
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
           push: true
-          tags: registry.nova.do/shairport-sync:unstable-${{ env.BRANCH }}
+          tags: registry.nova.do/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}
           build-args: |
-            BRANCH=${{ env.BRANCH }}
+            SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
           ssh: github=${{ env.SSH_AUTH_SOCK }} # Can be removed when no longer pulling from private repos.
