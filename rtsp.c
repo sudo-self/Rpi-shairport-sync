@@ -1300,11 +1300,35 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
         req->path, req->contentlength);
   debug_log_rtsp_message(1, "FLUSHBUFFERED request", req);
 
+  uint64_t flushFromSeq = 0;
+  uint64_t flushFromTS = 0;
   uint64_t flushUntilSeq = 0;
   uint64_t flushUntilTS = 0;
+  int flushFromValid = 0;
   plist_t messagePlist = plist_from_rtsp_content(req);
+  plist_t item = plist_dict_get_item(messagePlist, "flushFromSeq");
+  if (item == NULL) {
+    debug(2, "Can't find a flushFromSeq");
+  } else {
+    flushFromValid = 1;
+    plist_get_uint_val(item, &flushFromSeq);
+    debug(2, "flushFromSeq is %" PRId64 ".", flushFromSeq);
+  }
 
-  plist_t item = plist_dict_get_item(messagePlist, "flushUntilSeq");
+  item = plist_dict_get_item(messagePlist, "flushFromTS");
+  if (item == NULL) {
+    if (conn->ap2_flush_from_valid != 0)
+      debug(1, "flushFromSeq without flushFromTS!");
+    else
+      debug(2, "Can't find a flushFromTS");
+  } else {
+    plist_get_uint_val(item, &flushFromTS);
+    if (flushFromValid == 0)
+      debug(1,"flushFromTS without flushFromSeq!");
+    debug(2, "flushFromTS is %" PRId64 ".", flushFromTS);
+  }
+
+  item = plist_dict_get_item(messagePlist, "flushUntilSeq");
   if (item == NULL) {
     debug(1, "Can't find the flushUntilSeq");
   } else {
@@ -1321,8 +1345,15 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
   }
 
   debug_mutex_lock(&conn->flush_mutex, 1000, 1);
-  conn->ap2_flush_sequence_number = flushUntilSeq;
-  conn->ap2_flush_rtp_timestamp = flushUntilTS;
+  conn->ap2_flush_from_valid = flushFromValid;
+  // a flush with from... components will not be followed by a setanchoe (i.e. a play)
+  // if it's a flush that will be followed by a setanchor (i.e. a play) then stop play now.
+  if (flushFromValid == 0)
+    conn->ap2_play_enabled = 0;
+  conn->ap2_flush_from_sequence_number = flushFromSeq;
+  conn->ap2_flush_from_rtp_timestamp = flushFromTS;
+  conn->ap2_flush_until_sequence_number = flushUntilSeq;
+  conn->ap2_flush_until_rtp_timestamp = flushUntilTS;
   conn->ap2_flush_requested = 1;
   debug_mutex_unlock(&conn->flush_mutex, 3);
 
@@ -3788,7 +3819,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_message *req, *resp;
 
 #ifdef CONFIG_AIRPLAY_2
-  conn->ap2_audio_buffer_size = 1024 * 1024 * 8;
+  conn->ap2_audio_buffer_size = 1024 * 1024 * 128;
 #endif
 
   while (conn->stop == 0) {

@@ -295,8 +295,11 @@ typedef struct {
 
   ssize_t ap2_audio_buffer_size;
   int ap2_flush_requested;
-  uint32_t ap2_flush_rtp_timestamp;
-  uint32_t ap2_flush_sequence_number;
+  int ap2_flush_from_valid;
+  uint32_t ap2_flush_from_rtp_timestamp;
+  uint32_t ap2_flush_from_sequence_number;
+  uint32_t ap2_flush_until_rtp_timestamp;
+  uint32_t ap2_flush_until_sequence_number;
   int ap2_rate;         // protect with flush mutex, 0 means don't play, 1 means play
   int ap2_play_enabled; // protect with flush mutex
 

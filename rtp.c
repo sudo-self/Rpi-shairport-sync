@@ -1213,6 +1213,7 @@ void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtpti
     debug(2, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
     conn->anchor_clock_is_new = 1;
   }
+  debug(1,"set anchor info clock: %" PRIx64", rtptime: %u, networktime: %" PRIx64 ".", clock_id, rtptime, networktime);
   conn->anchor_remote_info_is_valid = 1;
   conn->anchor_rtptime = rtptime;
   conn->anchor_time = networktime;
@@ -2056,18 +2057,41 @@ void *rtp_buffered_audio_processor(void *arg) {
     int flush_newly_requested = 0;
     // are we in in flush mode, or just about to leave it?
     debug_mutex_lock(&conn->flush_mutex, 10000, 1); // 10ms is a long time to wait!
-    uint32_t flushUntilSeq = conn->ap2_flush_sequence_number;
-    uint32_t flushUntilTS = conn->ap2_flush_rtp_timestamp;
-    // if we are in flush mode
+    uint32_t flushUntilSeq = conn->ap2_flush_until_sequence_number;
+    uint32_t flushUntilTS = conn->ap2_flush_until_rtp_timestamp;
+
+    int flush_request_active = 0;
     if (conn->ap2_flush_requested) {
+      if (conn->ap2_flush_from_valid == 0) {// i.e. a flush from right now
+        flush_request_active = 1;
+      } else {
+        int32_t blocks_to_start_of_flush = conn->ap2_flush_from_sequence_number - seq_no;
+        if (blocks_to_start_of_flush <= 0) {
+          flush_request_active = 1;
+          // debug(1, "delayed flush request going active");
+        }
+      }
+    }
+    // if we are in flush mode
+    if (flush_request_active) {
       if (flush_requested == 0) {
         // here, a flush has been newly requested
-        debug(1,
-              "flush requested. flushUntilSeq = %u, flushUntilTS = %u, seq_no: %u, "
-              "pcm_buffer_read_point_rtptime = "
-              "%u, buffer_size: %u.",
-              flushUntilSeq, flushUntilTS, seq_no, pcm_buffer_read_point_rtptime,
-              buffered_audio->buffer_occupancy);
+        debug(1,"Flush requested:");
+        if (conn->ap2_flush_from_valid) {
+          debug(1,"  fromTS:          %u", conn->ap2_flush_from_rtp_timestamp);
+          debug(1,"  fromSeq:         %u", conn->ap2_flush_from_sequence_number);
+          debug(1,"--");
+        }
+          debug(1,"  untilTS:         %u", conn->ap2_flush_until_rtp_timestamp);
+          debug(1,"  untilSeq:        %u", conn->ap2_flush_until_sequence_number);
+          debug(1,"--");
+          debug(1,"  currentTS_Start: %u", pcm_buffer_read_point_rtptime);
+          uint32_t fib = (pcm_buffer_occupancy - pcm_buffer_read_point) / 4;
+          debug(1,"  framesInBuffer:  %u", fib);
+          uint32_t endTS = fib + pcm_buffer_read_point_rtptime;
+          debug(1,"  currentTS_End:   %u", endTS); // a frame occupies 4 bytes
+          debug(1,"  currentSeq:      %u", seq_no);
+
         last_block_flushed_rtp_time = pcm_buffer_read_point_rtptime;
         last_block_flushed_seq_no = seq_no;
         flush_newly_requested = 1;
@@ -2096,22 +2120,19 @@ void *rtp_buffered_audio_processor(void *arg) {
           pcm_buffer_read_point_rtptime = flushUntilTS;
         }
         conn->ap2_flush_requested = 0;
+        flush_request_active = 0;
       } else {
         if (seq_no > flushUntilSeq) {
           debug(1,
                 "we have overshot the flush ending block. flushUntilSeq is %u, this block is: %u.",
                 flushUntilSeq, seq_no);
           conn->ap2_flush_requested = 0; // but conn->ap2_play_enabled will remain at zero
+          flush_request_active = 0;
         }
       }
     }
-    flush_requested = conn->ap2_flush_requested;
-
-    // this isn't always the case, i.e. that play is re-enabled after a flush
-    // if (flush_requested)
-    //  conn->ap2_play_enabled = 0;
-    // play is disabled until an anchor time is sent and play is restarted
-
+    flush_requested = flush_request_active;
+    // flush_requested = conn->ap2_flush_requested;
     int play_enabled = conn->ap2_play_enabled;
     debug_mutex_unlock(&conn->flush_mutex, 3);
 
@@ -2237,6 +2258,7 @@ void *rtp_buffered_audio_processor(void *arg) {
         */
         seq_no = packet[1] * (1 << 16) + packet[2] * (1 << 8) + packet[3];
         uint32_t timestamp = nctohl(&packet[4]);
+        // debug(1, "immediately: block %u, rtptime %u", seq_no, timestamp);
         // uint32_t ssrc = nctohl(&packet[8]);
         // uint8_t marker = 0;
         // uint8_t payload_type = 0;
@@ -2266,13 +2288,14 @@ void *rtp_buffered_audio_processor(void *arg) {
         if ((flush_requested) && (seq_no < flushUntilSeq)) {
           last_block_flushed_seq_no = seq_no;
           last_block_flushed_rtp_time = timestamp;
-          // debug(1, "flushing block %u, rtptime %u up to block %u, rtptime %u.", seq_no,
-          // timestamp, flushUntilSeq, flushUntilTS);
+          debug(1, "flush block %u, rtptime %u", seq_no, timestamp);
         }
 
         if (((flush_requested) && (seq_no == flushUntilSeq)) || (new_buffer_needed)) {
 
           if ((flush_requested) && (seq_no == flushUntilSeq)) {
+         if (conn->ap2_flush_from_valid != 0)
+            debug(1, "also flush block %u, rtptime %u", seq_no, timestamp);
             int32_t timestamp_difference = timestamp - flushUntilTS;
             debug(1,
                   "end of flush reached. flushUntilSeq = %u, flushUntilTS = %u, last block flushed "
