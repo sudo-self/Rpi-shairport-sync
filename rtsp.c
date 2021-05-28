@@ -1298,7 +1298,7 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
 void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: FLUSHBUFFERED %s :: Content-Length %d", conn->connection_number,
         req->path, req->contentlength);
-  debug_log_rtsp_message(1, "FLUSHBUFFERED request", req);
+  debug_log_rtsp_message(2, "FLUSHBUFFERED request", req);
 
   uint64_t flushFromSeq = 0;
   uint64_t flushFromTS = 0;
@@ -1317,7 +1317,7 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
 
   item = plist_dict_get_item(messagePlist, "flushFromTS");
   if (item == NULL) {
-    if (conn->ap2_flush_from_valid != 0)
+    if (flushFromValid != 0)
       debug(1, "flushFromSeq without flushFromTS!");
     else
       debug(2, "Can't find a flushFromTS");

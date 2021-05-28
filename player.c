@@ -924,11 +924,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       // if the first_packet_timestamp is zero, don't check
       int flush_needed = 0;
       int drop_request = 0;
-      if ((conn->flush_requested == 1) && (conn->flush_rtp_timestamp == 0)) {
+      if (conn->flush_requested == 1) {
+      if (conn->flush_rtp_timestamp == 0) {
         debug(1, "flush request: flush frame 0 -- flush assumed to be needed.");
         flush_needed = 1;
         drop_request = 1;
-      } else if (conn->flush_rtp_timestamp != 0) {
+      } else {
         if ((conn->ab_synced) && ((conn->ab_write - conn->ab_read) > 0)) {
           abuf_t *firstPacket = conn->audio_buffer + BUFIDX(conn->ab_read);
           abuf_t *lastPacket = conn->audio_buffer + BUFIDX(conn->ab_write - 1);
@@ -992,9 +993,11 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               "flush request: flush frame %u  -- buffer not synced or empty: synced: %d, ab_read: "
               "%u, ab_write: %u",
               conn->flush_rtp_timestamp, conn->ab_synced, conn->ab_read, conn->ab_write);
+          conn->flush_requested = 0; // remove the request
           // leave flush request pending and don't do a buffer flush, because there isn't one
         }
       }
+    }
       if (flush_needed) {
         debug(2, "flush request: flush done.");
         ab_resync(conn); // no cancellation points
@@ -1974,7 +1977,7 @@ void *player_thread_func(void *arg) {
 #endif
 
   pthread_setcancelstate(oldState, NULL);
-  
+
   double initial_volume = config.airplay_volume; // default
   if (conn->initial_airplay_volume_set) // if we have been given an initial volume
     initial_volume = conn->initial_airplay_volume;
@@ -3046,8 +3049,8 @@ void player_full_flush(rtsp_conn_info *conn) {
       abuf = conn->audio_buffer + BUFIDX(last_seqno_written);
     } while ((abuf->ready == 0) && (last_seqno_written != conn->ab_read));
     if ((abuf != NULL) && (abuf->ready != 0)) {
-      debug(2, "full flush needed");
       rtpTimestamp = abuf->given_timestamp + abuf->length + 1;
+      debug(2, "full flush needed to %u", rtpTimestamp);
       flush_needed = 1;
     } else {
       debug(2, "full flush not needed");
