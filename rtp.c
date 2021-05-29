@@ -2053,6 +2053,8 @@ void *rtp_buffered_audio_processor(void *arg) {
 
   int streaming_has_started = 0;
   int flush_is_delayed;
+  uint32_t flush_from_timestamp;
+  int dump_block_info = 0;
   do {
 
     int flush_newly_requested = 0;
@@ -2067,12 +2069,13 @@ void *rtp_buffered_audio_processor(void *arg) {
       if (conn->ap2_flush_from_valid == 0) {// i.e. a flush from right now
         flush_request_active = 1;
         flush_is_delayed = 0;
-
       } else {
+        flush_is_delayed = 1;
+        dump_block_info = 1;
+        flush_from_timestamp = conn->ap2_flush_from_rtp_timestamp;
         int32_t blocks_to_start_of_flush = conn->ap2_flush_from_sequence_number - seq_no;
         if (blocks_to_start_of_flush <= 0) {
           flush_request_active = 1;
-          flush_is_delayed = 1;
         }
       }
     }
@@ -2080,7 +2083,7 @@ void *rtp_buffered_audio_processor(void *arg) {
     if (flush_request_active) {
       if (flush_requested == 0) {
         // here, a flush has been newly requested
-        /*
+
         debug(1,"Flush requested:");
         if (conn->ap2_flush_from_valid) {
           debug(1,"  fromTS:          %u", conn->ap2_flush_from_rtp_timestamp);
@@ -2096,7 +2099,7 @@ void *rtp_buffered_audio_processor(void *arg) {
           uint32_t endTS = fib + pcm_buffer_read_point_rtptime;
           debug(1,"  currentTS_End:   %u", endTS); // a frame occupies 4 bytes
           debug(1,"  currentSeq:      %u", seq_no);
-        */
+
       flush_newly_requested = 1;
       }
       // blocks_read to ensure seq_no is valid
@@ -2119,18 +2122,19 @@ void *rtp_buffered_audio_processor(void *arg) {
     // do this outside the flush mutex
     if (flush_newly_complete) {
       debug(1,"Flush Complete.");
-      if (flush_is_delayed == 0)
-        player_full_flush(conn);
     }
     if (flush_newly_requested) {
       if (flush_is_delayed == 0) {
         debug(1,"Immediate Buffered Audio Flush Started.");
-//        player_full_flush(conn);
-//        streaming_has_started = 0;
+        player_full_flush(conn);
+        streaming_has_started = 0;
         pcm_buffer_occupancy = 0;
         pcm_buffer_read_point = 0;
+        dump_block_info = 0;
       } else {
         debug(1,"Delayed Buffered Audio Flush Started.");
+        pcm_buffer_occupancy = 0;
+        pcm_buffer_read_point = 0;
       }
     }
 
@@ -2143,7 +2147,7 @@ void *rtp_buffered_audio_processor(void *arg) {
       // player_buffer_occupancy);
       double requested_lead_time = 0.10; //
       if (player_buffer_occupancy >
-          ((requested_lead_time + 0.10) * 44100.0 / 352)) { // must be greater than the lead time.
+          ((requested_lead_time + 0.20) * 44100.0 / 352)) { // must be greater than the lead time.
         // if there is enough stuff in the player's buffer, sleep for a while and try again
         // debug(1,"sleep for 20 ms");
         usleep(20000); // wait for a while
@@ -2256,6 +2260,18 @@ void *rtp_buffered_audio_processor(void *arg) {
         // uint8_t marker = 0;
         // uint8_t payload_type = 0;
 
+/*
+        if (dump_block_info != 0) {
+          if ((flush_requested) && (seq_no < flushUntilSeq))
+            debug(1, "block %u, rtptime %u, should be skipped.", seq_no, timestamp);
+          else
+            debug(1, "block %u, rtptime %u, should be decoded and used.", seq_no, timestamp);
+
+          if (((flush_requested != 0) && (seq_no == flushUntilSeq)) || ((flush_requested == 0) && (new_buffer_needed))) {
+            debug(1, "block %u, rtptime %u, will be decoded and used.", seq_no, timestamp);
+          }
+        }
+*/
 
 /*
         if ((blocks_read != 0) && (seq_no != previous_seq_no + 1)) {
@@ -2282,7 +2298,13 @@ void *rtp_buffered_audio_processor(void *arg) {
         // to decipher it first
         // debug(1,"seq_no %u, timestamp %u", seq_no, timestamp);
 
-        if (((flush_requested) && (seq_no == flushUntilSeq)) || (new_buffer_needed)) {
+        if ((flush_requested) && (seq_no >= flushUntilSeq)) {
+            debug(1,"flush completed to seq: %u with rtptime: %u.", seq_no, timestamp);
+        }
+
+
+        if (((flush_requested != 0) && (seq_no == flushUntilSeq)) || ((flush_requested == 0) && (new_buffer_needed))) {
+
 
           // if we are here because of a flush request, it must be the case that
           // flushing the pcm buffer wasn't enough, as the request would have been turned off by now
@@ -2382,6 +2404,16 @@ void *rtp_buffered_audio_processor(void *arg) {
                           // debug(1,"generated %d bytes of PCM", dst_bufsize);
                           // copy the PCM audio into the PCM buffer.
                           // make sure it's big enough first
+
+                          // also, check it if needs to be truncated but to an impending delayed flush_is_delayed
+                          if (flush_is_delayed) {
+                            // see if the flush_from_timestamp is in the buffer
+                            int32_t samples_remaining = (flush_from_timestamp - pcm_buffer_read_point_rtptime);
+                            if ((samples_remaining > 0) && ((samples_remaining * 4) < dst_bufsize)) {
+                              debug(1,"samples remaining before flush: %d, number of samples %d. flushFromTS: %u, pcm_buffer_read_point_rtptime: %u.", samples_remaining, dst_bufsize/4, flush_from_timestamp, pcm_buffer_read_point_rtptime);
+                              dst_bufsize = samples_remaining * 4;
+                            }
+                          }
                           if ((pcm_buffer_size - pcm_buffer_occupancy) < dst_bufsize) {
                             debug(1,
                                   "pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy "

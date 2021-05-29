@@ -930,6 +930,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         flush_needed = 1;
         drop_request = 1;
       } else {
+        debug(1,"flush");
         if ((conn->ab_synced) && ((conn->ab_write - conn->ab_read) > 0)) {
           abuf_t *firstPacket = conn->audio_buffer + BUFIDX(conn->ab_read);
           abuf_t *lastPacket = conn->audio_buffer + BUFIDX(conn->ab_write - 1);
@@ -2308,18 +2309,16 @@ void *player_thread_func(void *arg) {
               int64_t filler_length =
                   (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
-                debug(1, "Large positive sync error of: %" PRId64 " frames (%f seconds).",
-                      sync_error, (sync_error * 1.0) / config.output_rate);
+                debug(1, "Large positive sync error of: %" PRId64 " frames (%f seconds), with frame: %u.",
+                      sync_error, (sync_error * 1.0) / config.output_rate, inframe->given_timestamp);
                 int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
                 uint32_t frames_to_drop_sized = local_frames_to_drop;
                 do_flush(inframe->given_timestamp + frames_to_drop_sized, conn);
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
                 debug(1,
                       "Large negative sync error of: %" PRId64
-                      " frames (%f seconds), with should_be_frame_32 of %" PRIu32 ", nt of %" PRId64
-                      " and current_delay of %" PRId64 ".",
-                      sync_error, (sync_error * 1.0) / config.output_rate, should_be_frame_32,
-                      inframe->given_timestamp * conn->output_sample_ratio, current_delay);
+                      " frames (%f seconds), with frame: %" PRIu32 ".",
+                      sync_error, (sync_error * 1.0) / config.output_rate,inframe->given_timestamp);
                 int64_t silence_length = -sync_error;
                 if (silence_length > (filler_length * 5))
                   silence_length = filler_length * 5;

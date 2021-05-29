@@ -3822,7 +3822,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_message *req, *resp;
 
 #ifdef CONFIG_AIRPLAY_2
-  conn->ap2_audio_buffer_size = 1024 * 1024 * 128;
+  conn->ap2_audio_buffer_size = 1024 * 1024 * 8;
 #endif
 
   while (conn->stop == 0) {
