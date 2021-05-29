@@ -385,6 +385,8 @@ typedef struct {
 
 extern pthread_mutex_t playing_conn_lock;
 
+void reset_buffer(rtsp_conn_info *conn);
+
 void get_audio_buffer_size_and_occupancy(unsigned int *size, unsigned int *occupancy,
                                          rtsp_conn_info *conn);
 

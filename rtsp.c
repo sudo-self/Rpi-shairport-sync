@@ -1350,6 +1350,7 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
   // if it's a flush that will be followed by a setanchor (i.e. a play) then stop play now.
   if (flushFromValid == 0)
     conn->ap2_play_enabled = 0;
+
   conn->ap2_flush_from_sequence_number = flushFromSeq;
   conn->ap2_flush_from_rtp_timestamp = flushFromTS;
   conn->ap2_flush_until_sequence_number = flushUntilSeq;
@@ -1444,7 +1445,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
           debug(1, "Connection %d: No timing peer list!", conn->connection_number);
         }
       } else {
-        player_full_flush(conn);
+        // player_full_flush(conn);
         // ptp_send_control_message_string("T"); // ensure an obsolete clock isn't picked up later.
       }
     }
