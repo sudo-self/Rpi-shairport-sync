@@ -1357,7 +1357,10 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
   conn->ap2_flush_requested = 1;
   debug_mutex_unlock(&conn->flush_mutex, 3);
 
-  // player_full_flush(conn);
+  if (flushFromValid)
+    debug(1,"Deferred Flush Requested");
+  else
+    debug(1,"Immediate Flush Requested");
 
   resp->respcode = 200;
 }
