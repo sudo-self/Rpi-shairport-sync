@@ -1257,7 +1257,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
           conn->last_anchor_time_of_update = get_absolute_time_in_ns();
           conn->last_anchor_info_is_valid = 1;
           if (conn->anchor_clock_is_new != 0)
-            debug(1, "Connection %d: New anchor clock %" PRIx64 " recognised.",
+            debug(1, "Connection %d: Clock %" PRIx64 " is now the new anchor clock and master clock.",
                   conn->connection_number, conn->anchor_clock);
           conn->anchor_clock_is_new = 0;
         }
