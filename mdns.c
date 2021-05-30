@@ -81,7 +81,8 @@ void mdns_register(char **txt_records, char **secondary_txt_records) {
     for (b = mdns_backends; *b; b++) {
       if (strcmp((*b)->name, config.mdns_name) != 0) // Not the one we are looking for
         continue;
-      int error = (*b)->mdns_register(ap1_service_name, config.service_name, config.port, txt_records, secondary_txt_records);
+      int error = (*b)->mdns_register(ap1_service_name, config.service_name, config.port,
+                                      txt_records, secondary_txt_records);
       if (error >= 0) {
         config.mdns = *b;
       }
@@ -93,7 +94,8 @@ void mdns_register(char **txt_records, char **secondary_txt_records) {
   } else {
     // default -- pick the first back end
     for (b = mdns_backends; *b; b++) {
-      int error = (*b)->mdns_register(ap1_service_name, config.service_name, config.port, txt_records, secondary_txt_records);
+      int error = (*b)->mdns_register(ap1_service_name, config.service_name, config.port,
+                                      txt_records, secondary_txt_records);
       if (error >= 0) {
         config.mdns = *b;
         break;

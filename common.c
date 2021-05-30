@@ -93,8 +93,6 @@
 #include <syslog.h>
 #endif
 
-
-
 #ifdef CONFIG_ALSA
 void set_alsa_out_dev(char *);
 #endif
@@ -1611,13 +1609,13 @@ char *get_version_string() {
   char *version_string = malloc(1024);
   if (version_string) {
 #ifdef CONFIG_USE_GIT_VERSION_STRING
-  if (git_version_string[0] != '\0')
-    strcpy(version_string, git_version_string);
-  else
+    if (git_version_string[0] != '\0')
+      strcpy(version_string, git_version_string);
+    else
 #endif
-    strcpy(version_string, PACKAGE_VERSION);
+      strcpy(version_string, PACKAGE_VERSION);
 #ifdef CONFIG_AIRPLAY_2
-  strcat(version_string, "-AirPlay2");
+    strcat(version_string, "-AirPlay2");
 #endif
 #ifdef CONFIG_APPLE_ALAC
     strcat(version_string, "-alac");
@@ -1945,7 +1943,7 @@ int get_device_id(uint8_t *id, int int_length) {
   struct ifaddrs *ifa = NULL;
   int i = 0;
   uint8_t *t = id;
-  for (i = 0; i < int_length ; i++) {
+  for (i = 0; i < int_length; i++) {
     *t++ = 0;
   }
 

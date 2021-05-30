@@ -60,7 +60,8 @@ int get_nqptp_data(struct shm_structure *nqptp_data) {
   return response;
 }
 
-int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *raw_offset, uint64_t *mastership_start_time) {
+int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *raw_offset,
+                       uint64_t *mastership_start_time) {
   int response = clock_ok;
   pthread_cleanup_debug_mutex_lock(&ptp_access_mutex, 10000, 1);
   if (actual_clock_id != NULL)

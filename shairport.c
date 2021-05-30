@@ -1421,7 +1421,6 @@ void exit_function() {
         free(config.regtype2);
 #endif
 
-
 #ifdef CONFIG_LIBDAEMON
       if (this_is_the_daemon_process) {
         daemon_retval_send(0);
@@ -2038,39 +2037,34 @@ int main(int argc, char **argv) {
   pthread_create(&soxr_time_check_thread, NULL, &soxr_time_check, NULL);
 #endif
 
-/*
-  uint8_t ap_md5[16];
+  /*
+    uint8_t ap_md5[16];
 
-#ifdef CONFIG_OPENSSL
-  MD5_CTX ctx;
-  MD5_Init(&ctx);
-  MD5_Update(&ctx, config.service_name, strlen(config.service_name));
-  MD5_Final(ap_md5, &ctx);
-#endif
+  #ifdef CONFIG_OPENSSL
+    MD5_CTX ctx;
+    MD5_Init(&ctx);
+    MD5_Update(&ctx, config.service_name, strlen(config.service_name));
+    MD5_Final(ap_md5, &ctx);
+  #endif
 
-#ifdef CONFIG_MBEDTLS
-#if MBEDTLS_VERSION_MINOR >= 7
-  mbedtls_md5_context tctx;
-  mbedtls_md5_starts_ret(&tctx);
-  mbedtls_md5_update_ret(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
-  mbedtls_md5_finish_ret(&tctx, ap_md5);
-#else
-  mbedtls_md5_context tctx;
-  mbedtls_md5_starts(&tctx);
-  mbedtls_md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
-  mbedtls_md5_finish(&tctx, ap_md5);
-#endif
-#endif
+  #ifdef CONFIG_MBEDTLS
+  #if MBEDTLS_VERSION_MINOR >= 7
+    mbedtls_md5_context tctx;
+    mbedtls_md5_starts_ret(&tctx);
+    mbedtls_md5_update_ret(&tctx, (unsigned char *)config.service_name,
+  strlen(config.service_name)); mbedtls_md5_finish_ret(&tctx, ap_md5); #else mbedtls_md5_context
+  tctx; mbedtls_md5_starts(&tctx); mbedtls_md5_update(&tctx, (unsigned char *)config.service_name,
+  strlen(config.service_name)); mbedtls_md5_finish(&tctx, ap_md5); #endif #endif
 
-#ifdef CONFIG_POLARSSL
-  md5_context tctx;
-  md5_starts(&tctx);
-  md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
-  md5_finish(&tctx, ap_md5);
-#endif
+  #ifdef CONFIG_POLARSSL
+    md5_context tctx;
+    md5_starts(&tctx);
+    md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
+    md5_finish(&tctx, ap_md5);
+  #endif
 
-  memcpy(config.hw_addr, ap_md5, sizeof(config.hw_addr));
-*/
+    memcpy(config.hw_addr, ap_md5, sizeof(config.hw_addr));
+  */
 
 #ifdef CONFIG_METADATA
   metadata_init(); // create the metadata pipe if necessary

@@ -210,10 +210,10 @@ typedef struct {
   char *configfile;
   char *regtype; // The regtype is the service type followed by the protocol, separated by a dot, by
                  // default “_raop._tcp.” for AirPlay 1.
-  char *regtype2; // The regtype is the service type followed by the protocol, separated by a dot, by
-                 // default “_raop._tcp.” for AirPlay 2.
-  char *interface;     // a string containg the interface name, or NULL if nothing specified
-  int interface_index; // only valid if the interface string is non-NULL
+  char *regtype2;  // The regtype is the service type followed by the protocol, separated by a dot,
+                   // by default “_raop._tcp.” for AirPlay 2.
+  char *interface; // a string containg the interface name, or NULL if nothing specified
+  int interface_index;                        // only valid if the interface string is non-NULL
   double audio_backend_buffer_desired_length; // this will be the length in seconds of the
                                               // audio backend buffer -- the DAC buffer for ALSA
   double audio_backend_buffer_interpolation_threshold_in_seconds; // below this, soxr interpolation
@@ -497,7 +497,6 @@ int get_device_id(uint8_t *id, int int_length);
 #ifdef CONFIG_USE_GIT_VERSION_STRING
 extern char git_version_string[];
 #endif
-
 
 #endif // _COMMON_H
 

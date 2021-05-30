@@ -122,16 +122,17 @@ typedef struct {
   ap2_buffer plain_buf;
 } ap2_pairing;
 
-/*
-typedef struct file_cipher_context {
-  struct pair_cipher_context *cipher_context;
-  int active; // can be created during a pair setup but not activated until next read
-  int fd;
-  void *input_plaintext_buffer;
-  void *input_plaintext_buffer_toq;
-  size_t input_plaintext_buffer_bytes_occupied;
-} file_cipher_context;
-*/
+// flush requests are stored in order of flushFromSeq
+// on the basis that block numbers are monotonic modulo 2^24
+typedef struct flush_request_t {
+  int flushNow; // if true, the flushFrom stuff is invalid
+  uint32_t flushFromSeq;
+  uint32_t flushFromTS;
+  uint32_t flushUntilSeq;
+  uint32_t flushUntilTS;
+  struct flush_request_t *next;
+} flush_request_t;
+
 #endif
 
 typedef struct {
@@ -294,6 +295,7 @@ typedef struct {
   uint64_t last_anchor_time_of_update;
 
   ssize_t ap2_audio_buffer_size;
+  flush_request_t *flush_requests; // if non-null, there are flush requests, mutex protected
   int ap2_flush_requested;
   int ap2_flush_from_valid;
   uint32_t ap2_flush_from_rtp_timestamp;

@@ -513,6 +513,49 @@ void cleanup_threads(void) {
   }
 }
 
+void add_flush_request(int flushNow, uint32_t flushFromSeq, uint32_t flushFromTS,
+                       uint32_t flushUntilSeq, uint32_t flushUntilTS, rtsp_conn_info *conn) {
+  // immediate flush requests are added sequentially. Don't know how more than one could arise, TBH
+  flush_request_t **t = &conn->flush_requests;
+  int done = 0;
+  do {
+    flush_request_t *u = *t;
+    if ((u == NULL) || ((u->flushNow == 0) && (flushNow != 0)) ||
+        (flushFromSeq < u->flushFromSeq) ||
+        ((flushFromSeq == u->flushFromSeq) && (flushFromTS < u->flushFromTS))) {
+      flush_request_t *n = (flush_request_t *)calloc(sizeof(flush_request_t), 1);
+      n->flushNow = flushNow;
+      n->flushFromSeq = flushFromSeq;
+      n->flushFromTS = flushFromTS;
+      n->flushUntilSeq = flushUntilSeq;
+      n->flushUntilTS = flushUntilTS;
+      n->next = u;
+      *t = n;
+      done = 1;
+    } else {
+      t = &u->next;
+    }
+  } while (done == 0);
+}
+
+void display_all_flush_requests(rtsp_conn_info *conn) {
+  if (conn->flush_requests == NULL) {
+    debug(1, "No flush requests.");
+  } else {
+    flush_request_t *t = conn->flush_requests;
+    do {
+      if (t->flushNow) {
+        debug(1, "immediate flush          to untilSeq: %u, untilTS: %u.", t->flushUntilSeq,
+              t->flushUntilTS);
+      } else {
+        debug(1, "fromSeq: %u, fromTS: %u, to untilSeq: %u, untilTS: %u.", t->flushFromSeq,
+              t->flushFromTS, t->flushUntilSeq, t->flushUntilTS);
+      }
+      t = t->next;
+    } while (t != NULL);
+  }
+}
+
 // park a null at the line ending, and return the next line pointer
 // accept \r, \n, or \r\n
 static char *nextline(char *in, int inbuf) {
@@ -1324,7 +1367,7 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
   } else {
     plist_get_uint_val(item, &flushFromTS);
     if (flushFromValid == 0)
-      debug(1,"flushFromTS without flushFromSeq!");
+      debug(1, "flushFromTS without flushFromSeq!");
     debug(2, "flushFromTS is %" PRId64 ".", flushFromTS);
   }
 
@@ -1345,23 +1388,52 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
   }
 
   debug_mutex_lock(&conn->flush_mutex, 1000, 1);
-  conn->ap2_flush_from_valid = flushFromValid;
-  // a flush with from... components will not be followed by a setanchoe (i.e. a play)
+  // a flush with from... components will not be followed by a setanchor (i.e. a play)
   // if it's a flush that will be followed by a setanchor (i.e. a play) then stop play now.
   if (flushFromValid == 0)
     conn->ap2_play_enabled = 0;
 
-  conn->ap2_flush_from_sequence_number = flushFromSeq;
-  conn->ap2_flush_from_rtp_timestamp = flushFromTS;
+  // add the exact request as made to the linked list (not used for anything but diagnostics now)
+  // int flushNow = 0;
+  // if (flushFromValid == 0)
+  //  flushNow = 1;
+  // add_flush_request(flushNow, flushFromSeq, flushFromTS, flushUntilSeq, flushUntilTS, conn);
+
+  // now, if it's an immediate flush, replace the existing request, if any
+  // but it if's a deferred flush and there is an existing deferred request,
+  // only update the flushUntil stuff -- that seems to preserve
+  // the intended semantics
+
+  // so, always replace these
   conn->ap2_flush_until_sequence_number = flushUntilSeq;
   conn->ap2_flush_until_rtp_timestamp = flushUntilTS;
+
+  if ((conn->ap2_flush_requested != 0) && (conn->ap2_flush_from_valid != 0) &&
+      (flushFromValid != 0)) {
+    // if there is a request already, and it's a deferred request, and the current request is also
+    // deferred... do nothing! -- leave the starting point in place. Yeah, yeah, we know de Morgan's
+    // Law, but this seems clearer
+  } else {
+    conn->ap2_flush_from_sequence_number = flushFromSeq;
+    conn->ap2_flush_from_rtp_timestamp = flushFromTS;
+  }
+
+  conn->ap2_flush_from_valid = flushFromValid;
   conn->ap2_flush_requested = 1;
+
+  // reflect the possibly updated flush request
+  // add_flush_request(flushNow, conn->ap2_flush_from_sequence_number,
+  // conn->ap2_flush_from_rtp_timestamp, conn->ap2_flush_until_sequence_number,
+  // conn->ap2_flush_until_rtp_timestamp, conn);
+
   debug_mutex_unlock(&conn->flush_mutex, 3);
 
   if (flushFromValid)
-    debug(1,"Deferred Flush Requested");
+    debug(2, "Deferred Flush Requested");
   else
-    debug(1,"Immediate Flush Requested");
+    debug(2, "Immediate Flush Requested");
+
+  // display_all_flush_requests(conn);
 
   resp->respcode = 200;
 }
@@ -2316,7 +2388,8 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 
     if (!strncmp(cp, "volume: ", strlen("volume: "))) {
       float volume = atof(cp + strlen("volume: "));
-      debug(1, "Connection %d: request to set AirPlay Volume to: %f.", conn->connection_number, volume);
+      debug(2, "Connection %d: request to set AirPlay Volume to: %f.", conn->connection_number,
+            volume);
       // if we are playing, go ahead and change the volume
       if (try_to_hold_play_lock(conn) == 0) {
         player_volume(volume, conn);
@@ -2337,7 +2410,8 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
     } else
 #endif
     {
-      debug(1, "Connection %d, unrecognised parameter: \"%s\" (%d)\n", conn->connection_number, cp, strlen(cp));
+      debug(1, "Connection %d, unrecognised parameter: \"%s\" (%d)\n", conn->connection_number, cp,
+            strlen(cp));
     }
     cp = next;
   }
@@ -3058,7 +3132,8 @@ static void handle_get_parameter(__attribute__((unused)) rtsp_conn_info *conn, r
 
   if ((req->content) && (req->contentlength == strlen("volume\r\n")) &&
       strstr(req->content, "volume") == req->content) {
-    debug(2,"Connection %d: Current volume (%.6f) requested", conn->connection_number, config.airplay_volume);
+    debug(2, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
+          config.airplay_volume);
     char *p = malloc(128); // will be automatically deallocated with the response is deleted
     if (p) {
       resp->content = p;
@@ -3153,11 +3228,13 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
       // debug(2, "received parameters in SET_PARAMETER request.");
       handle_set_parameter_parameter(conn, req, resp); // this could be volume or progress
     } else {
-      debug(1, "Connection %d: received unknown Content-Type \"%s\" in SET_PARAMETER request.", conn->connection_number, ct);
-      debug_print_msg_headers(1,req);
+      debug(1, "Connection %d: received unknown Content-Type \"%s\" in SET_PARAMETER request.",
+            conn->connection_number, ct);
+      debug_print_msg_headers(1, req);
     }
   } else {
-    debug(1, "Connection %d: missing Content-Type header in SET_PARAMETER request.", conn->connection_number);
+    debug(1, "Connection %d: missing Content-Type header in SET_PARAMETER request.",
+          conn->connection_number);
   }
   resp->respcode = 200;
 }
@@ -3449,7 +3526,7 @@ static void apple_challenge(int fd, rtsp_message *req, rtsp_message *resp) {
   char *hdr = msg_get_header(req, "Apple-Challenge");
   if (!hdr)
     return;
-  debug(1,"Apple Challenge");
+  debug(1, "Apple Challenge");
   SOCKADDR fdsa;
   socklen_t sa_len = sizeof(fdsa);
   getsockname(fd, (struct sockaddr *)&fdsa, &sa_len);
@@ -4119,8 +4196,8 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
         maxfd = sockfd[i];
     }
 
-    char **t1;   // ap1 test records
-    char **t2;   // two text records
+    char **t1; // ap1 test records
+    char **t2; // two text records
 
     t1 = NULL;
     t2 = NULL;
@@ -4130,14 +4207,14 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     char **p = txt_records;
     t1 = p; // first set of text records
 
-// make up a firmware version
+    // make up a firmware version
     char firmware_version[64];
 #ifdef CONFIG_USE_GIT_VERSION_STRING
-  if (git_version_string[0] != '\0')
-    snprintf(firmware_version, sizeof(firmware_version), "fv=%s",git_version_string);
-  else
+    if (git_version_string[0] != '\0')
+      snprintf(firmware_version, sizeof(firmware_version), "fv=%s", git_version_string);
+    else
 #endif
-    snprintf(firmware_version, sizeof(firmware_version), "fv=%s",PACKAGE_VERSION);
+      snprintf(firmware_version, sizeof(firmware_version), "fv=%s", PACKAGE_VERSION);
 
 #ifdef CONFIG_AIRPLAY_2
     char ap1_featuresString[64];
@@ -4152,7 +4229,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     pkString_make(pkString + strlen("pk="), sizeof(pkString) - strlen("pk="),
                   config.airplay_device_id);
 
-// the ap1 text record is different if it is set up for ap2
+    // the ap1 text record is different if it is set up for ap2
     *p++ = "cn=0,1";
     *p++ = "da=true";
     *p++ = "et=0,4";
@@ -4198,7 +4275,6 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     *p++ = NULL;
 #endif
 
-
 #ifdef CONFIG_AIRPLAY_2
     // make up a secondary set of text records
     char *secondary_txt_records[64];
@@ -4233,8 +4309,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     *p++ = NULL;
 #endif
 
-
-    mdns_register(t1,t2);
+    mdns_register(t1, t2);
 
     pthread_setcancelstate(oldState, NULL);
     int acceptfd;

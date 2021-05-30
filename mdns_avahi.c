@@ -243,24 +243,24 @@ static void register_service(AvahiClient *c) {
       selected_interface = AVAHI_IF_UNSPEC;
     if (ap2_text_record_string_list) {
       ret = avahi_entry_group_add_service_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
-                                                 ap2_service_name, config.regtype2, NULL, NULL, port,
-                                                 ap2_text_record_string_list);
+                                                 ap2_service_name, config.regtype2, NULL, NULL,
+                                                 port, ap2_text_record_string_list);
     }
     if ((ret == 0) && (text_record_string_list)) {
       ret = avahi_entry_group_add_service_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
                                                  service_name, config.regtype, NULL, NULL, port,
                                                  text_record_string_list);
     }
-      if (ret == 0) {
-        ret = avahi_entry_group_commit(group);
-        debug(2, "avahi: avahi_entry_group_commit %d", ret);
-        if (ret < 0)
-          debug(1, "avahi: avahi_entry_group_commit failed");
-      } else if (ret < 0) {
-        debug(1, "avahi: avahi_entry_group_add_service failed");
-      } else {
-        debug(1, "avahi: unexpected positive return");
-      }
+    if (ret == 0) {
+      ret = avahi_entry_group_commit(group);
+      debug(2, "avahi: avahi_entry_group_commit %d", ret);
+      if (ret < 0)
+        debug(1, "avahi: avahi_entry_group_commit failed");
+    } else if (ret < 0) {
+      debug(1, "avahi: avahi_entry_group_add_service failed");
+    } else {
+      debug(1, "avahi: unexpected positive return");
+    }
   }
 }
 
@@ -318,7 +318,8 @@ static void client_callback(AvahiClient *c, AvahiClientState state,
   }
 }
 
-static int avahi_register(char *ap1name, char *ap2name, int srvport, char **txt_records,char **secondary_txt_records) {
+static int avahi_register(char *ap1name, char *ap2name, int srvport, char **txt_records,
+                          char **secondary_txt_records) {
   // debug(1, "avahi_register.");
   service_name = strdup(ap1name);
   if (ap2name != NULL)
@@ -327,7 +328,8 @@ static int avahi_register(char *ap1name, char *ap2name, int srvport, char **txt_
   text_record_string_list = avahi_string_list_new_from_array((const char **)txt_records, -1);
 
   if (secondary_txt_records != NULL)
-    ap2_text_record_string_list = avahi_string_list_new_from_array((const char **)secondary_txt_records, -1);
+    ap2_text_record_string_list =
+        avahi_string_list_new_from_array((const char **)secondary_txt_records, -1);
 
   port = srvport;
 
@@ -389,7 +391,6 @@ static void avahi_unregister(void) {
     text_record_string_list = NULL;
   } else
     debug(1, "avahi attempt to free NULL text_record_string_list");
-
 
   if (ap2_text_record_string_list) {
     debug(2, "avahi free ap_2text_record_string_list");
