@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-
-
+                                             
+                                             
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-
+                                             
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-
+                                             
                                                               // Best guess is that this delay is 11,025 frames.
-
+                                             
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-
+                                             
                                                               uint32_t fl = nctohs(&packet[2]); //
-
+                                             
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -1215,6 +1215,23 @@ void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtpti
   }
   // debug(1,"set anchor info clock: %" PRIx64", rtptime: %u, networktime: %" PRIx64 ".", clock_id,
   // rtptime, networktime);
+
+  // if the clock is the same but any details change, and if the last_anchor_info has not been
+  // valid for some minimum time (and thus may not be reliable), we need to invalidate
+  // last_anchor_info
+
+  if ((clock_id == conn->anchor_clock) &&
+      ((conn->anchor_rtptime != rtptime) || (conn->anchor_time != networktime))) {
+    uint64_t time_now = get_absolute_time_in_ns();
+    int64_t last_anchor_validity_duration = time_now - conn->last_anchor_validity_start_time;
+    if (last_anchor_validity_duration < 5000000000) {
+      debug(1,
+            "Connection %d: Note: anchor parameters have changed before clock %" PRIx64
+            " has stabilised.",
+            conn->connection_number, clock_id);
+      conn->last_anchor_info_is_valid = 0;
+    }
+  }
   conn->anchor_remote_info_is_valid = 1;
   conn->anchor_rtptime = rtptime;
   conn->anchor_time = networktime;
@@ -1250,14 +1267,17 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
           response = clock_not_ready;
         } else if ((duration_of_mastership > 5000000000) ||
                    (conn->last_anchor_info_is_valid == 0)) {
-          // use the master clock if it's at least this old or we have no alternative
-          // and at least it is the minimum age.
+          // use the master clock if it's at least this old or if we have no alternative
+          // and it at least is the minimum age.
           conn->last_anchor_rtptime = conn->anchor_rtptime;
           conn->last_anchor_local_time = conn->anchor_time - actual_offset;
           conn->last_anchor_time_of_update = get_absolute_time_in_ns();
+          if (conn->last_anchor_info_is_valid == 0)
+            conn->last_anchor_validity_start_time = start_of_mastership;
           conn->last_anchor_info_is_valid = 1;
           if (conn->anchor_clock_is_new != 0)
-            debug(1, "Connection %d: Clock %" PRIx64 " is now the new anchor clock and master clock.",
+            debug(1,
+                  "Connection %d: Clock %" PRIx64 " is now the new anchor clock and master clock.",
                   conn->connection_number, conn->anchor_clock);
           conn->anchor_clock_is_new = 0;
         }

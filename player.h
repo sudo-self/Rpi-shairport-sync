@@ -293,6 +293,7 @@ typedef struct {
   uint32_t last_anchor_rtptime;
   uint64_t last_anchor_local_time;
   uint64_t last_anchor_time_of_update;
+  uint64_t last_anchor_validity_start_time;
 
   ssize_t ap2_audio_buffer_size;
   flush_request_t *flush_requests; // if non-null, there are flush requests, mutex protected
