@@ -513,49 +513,6 @@ void cleanup_threads(void) {
   }
 }
 
-void add_flush_request(int flushNow, uint32_t flushFromSeq, uint32_t flushFromTS,
-                       uint32_t flushUntilSeq, uint32_t flushUntilTS, rtsp_conn_info *conn) {
-  // immediate flush requests are added sequentially. Don't know how more than one could arise, TBH
-  flush_request_t **t = &conn->flush_requests;
-  int done = 0;
-  do {
-    flush_request_t *u = *t;
-    if ((u == NULL) || ((u->flushNow == 0) && (flushNow != 0)) ||
-        (flushFromSeq < u->flushFromSeq) ||
-        ((flushFromSeq == u->flushFromSeq) && (flushFromTS < u->flushFromTS))) {
-      flush_request_t *n = (flush_request_t *)calloc(sizeof(flush_request_t), 1);
-      n->flushNow = flushNow;
-      n->flushFromSeq = flushFromSeq;
-      n->flushFromTS = flushFromTS;
-      n->flushUntilSeq = flushUntilSeq;
-      n->flushUntilTS = flushUntilTS;
-      n->next = u;
-      *t = n;
-      done = 1;
-    } else {
-      t = &u->next;
-    }
-  } while (done == 0);
-}
-
-void display_all_flush_requests(rtsp_conn_info *conn) {
-  if (conn->flush_requests == NULL) {
-    debug(1, "No flush requests.");
-  } else {
-    flush_request_t *t = conn->flush_requests;
-    do {
-      if (t->flushNow) {
-        debug(1, "immediate flush          to untilSeq: %u, untilTS: %u.", t->flushUntilSeq,
-              t->flushUntilTS);
-      } else {
-        debug(1, "fromSeq: %u, fromTS: %u, to untilSeq: %u, untilTS: %u.", t->flushFromSeq,
-              t->flushFromTS, t->flushUntilSeq, t->flushUntilTS);
-      }
-      t = t->next;
-    } while (t != NULL);
-  }
-}
-
 // park a null at the line ending, and return the next line pointer
 // accept \r, \n, or \r\n
 static char *nextline(char *in, int inbuf) {
@@ -757,6 +714,49 @@ fail:
 }
 
 #ifdef CONFIG_AIRPLAY_2
+
+void add_flush_request(int flushNow, uint32_t flushFromSeq, uint32_t flushFromTS,
+                       uint32_t flushUntilSeq, uint32_t flushUntilTS, rtsp_conn_info *conn) {
+  // immediate flush requests are added sequentially. Don't know how more than one could arise, TBH
+  flush_request_t **t = &conn->flush_requests;
+  int done = 0;
+  do {
+    flush_request_t *u = *t;
+    if ((u == NULL) || ((u->flushNow == 0) && (flushNow != 0)) ||
+        (flushFromSeq < u->flushFromSeq) ||
+        ((flushFromSeq == u->flushFromSeq) && (flushFromTS < u->flushFromTS))) {
+      flush_request_t *n = (flush_request_t *)calloc(sizeof(flush_request_t), 1);
+      n->flushNow = flushNow;
+      n->flushFromSeq = flushFromSeq;
+      n->flushFromTS = flushFromTS;
+      n->flushUntilSeq = flushUntilSeq;
+      n->flushUntilTS = flushUntilTS;
+      n->next = u;
+      *t = n;
+      done = 1;
+    } else {
+      t = &u->next;
+    }
+  } while (done == 0);
+}
+
+void display_all_flush_requests(rtsp_conn_info *conn) {
+  if (conn->flush_requests == NULL) {
+    debug(1, "No flush requests.");
+  } else {
+    flush_request_t *t = conn->flush_requests;
+    do {
+      if (t->flushNow) {
+        debug(1, "immediate flush          to untilSeq: %u, untilTS: %u.", t->flushUntilSeq,
+              t->flushUntilTS);
+      } else {
+        debug(1, "fromSeq: %u, fromTS: %u, to untilSeq: %u, untilTS: %u.", t->flushFromSeq,
+              t->flushFromTS, t->flushUntilSeq, t->flushUntilTS);
+      }
+      t = t->next;
+    } while (t != NULL);
+  }
+}
 
 int rtsp_message_contains_plist(rtsp_message *message) {
   int reply = 0; // assume there is no plist in the message
@@ -1213,8 +1213,10 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
   if (have_play_lock(conn)) {
     if (conn->player_thread)
       warn("Connection %d: RECORD: Duplicate RECORD message -- ignored", conn->connection_number);
-    else
+    else {
+      player_prepare_to_play(conn);
       player_play(conn); // the thread better be 0
+    }
 
     resp->respcode = 200;
     // I think this is for telling the client what the absolute minimum latency
@@ -2047,6 +2049,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       else
         debug(1, "No timing peer list!");
 
+      player_prepare_to_play(conn);
       player_play(conn);
 
       conn->rtp_running = 1; // hack!
@@ -2082,6 +2085,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       conn->input_bit_depth = 16;
       conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
 
+      player_prepare_to_play(conn);
       player_play(conn);
 
       conn->rtp_running = 1; // hack!

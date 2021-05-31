@@ -3039,6 +3039,7 @@ void player_flush(uint32_t timestamp, rtsp_conn_info *conn) {
 #endif
 }
 
+/*
 void player_full_flush(rtsp_conn_info *conn) {
   debug(3, "player_full_flush");
   // this basically flushes everything from the player
@@ -3068,8 +3069,13 @@ void player_full_flush(rtsp_conn_info *conn) {
   if (flush_needed)
     player_flush(rtpTimestamp, conn);
 }
+*/
 
-int player_play(rtsp_conn_info *conn) {
+// perpare_to_play and play are split so that we can get the capabilities of the
+// dac etc. before initialising any decoders etc.
+// for example, if we have 32-bit DACs, we can ask for 32 bit decodes
+
+int player_prepare_to_play(rtsp_conn_info *conn) {
   // need to use conn in place of stream below. Need to put the stream as a parameter to he
   if (conn->player_thread != NULL)
     die("Trying to create a second player thread for this RTSP session");
@@ -3082,7 +3088,10 @@ int player_play(rtsp_conn_info *conn) {
   // call on the output device to prepare itself
   if ((config.output) && (config.output->prepare))
     config.output->prepare();
+  return 0;
+}
 
+int player_play(rtsp_conn_info *conn) {
   pthread_t *pt = malloc(sizeof(pthread_t));
   if (pt == NULL)
     die("Couldn't allocate space for pthread_t");

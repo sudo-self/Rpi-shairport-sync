@@ -395,13 +395,14 @@ void get_audio_buffer_size_and_occupancy(unsigned int *size, unsigned int *occup
 
 int32_t modulo_32_offset(uint32_t from, uint32_t to);
 
+int player_prepare_to_play(rtsp_conn_info *conn);
 int player_play(rtsp_conn_info *conn);
 int player_stop(rtsp_conn_info *conn);
 
 void player_volume(double f, rtsp_conn_info *conn);
 void player_volume_without_notification(double f, rtsp_conn_info *conn);
 void player_flush(uint32_t timestamp, rtsp_conn_info *conn);
-void player_full_flush(rtsp_conn_info *conn);
+// void player_full_flush(rtsp_conn_info *conn);
 void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timestamp, uint8_t *data,
                        int len, rtsp_conn_info *conn);
 int64_t monotonic_timestamp(uint32_t timestamp,
