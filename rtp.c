@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-                                             
-                                             
+
+
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-                                             
+
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-                                             
+
                                                               // Best guess is that this delay is 11,025 frames.
-                                             
+
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-                                             
+
                                                               uint32_t fl = nctohs(&packet[2]); //
-                                             
+
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -2082,9 +2082,45 @@ void *rtp_buffered_audio_processor(void *arg) {
   av_opt_set_int(swr, "in_channel_layout", AV_CH_LAYOUT_STEREO, 0);
   av_opt_set_int(swr, "out_channel_layout", AV_CH_LAYOUT_STEREO, 0);
   av_opt_set_int(swr, "in_sample_rate", 44100, 0);
-  av_opt_set_int(swr, "out_sample_rate", 44100, 0);
+  av_opt_set_int(swr, "out_sample_rate", config.output_rate, 0);
   av_opt_set_sample_fmt(swr, "in_sample_fmt", AV_SAMPLE_FMT_FLTP, 0);
-  av_opt_set_sample_fmt(swr, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
+
+  enum AVSampleFormat av_format;
+  switch (config.output_format) {
+    case SPS_FORMAT_S32:
+    case SPS_FORMAT_S32_LE:
+    case SPS_FORMAT_S32_BE:
+    case SPS_FORMAT_S24:
+    case SPS_FORMAT_S24_LE:
+    case SPS_FORMAT_S24_BE:
+    case SPS_FORMAT_S24_3LE:
+    case SPS_FORMAT_S24_3BE:
+     av_format = AV_SAMPLE_FMT_S32;
+      conn->input_bytes_per_frame = 8; // the output from the decoder will be input to the player
+      conn->input_bit_depth = 32;
+       debug(1,"32-bit output format chosen");
+      break;
+    case SPS_FORMAT_S16:
+    case SPS_FORMAT_S16_LE:
+    case SPS_FORMAT_S16_BE:
+      av_format = AV_SAMPLE_FMT_S16;
+      conn->input_bytes_per_frame = 4;
+      conn->input_bit_depth = 16;
+      break;
+    case SPS_FORMAT_U8:
+      av_format = AV_SAMPLE_FMT_U8;
+      conn->input_bytes_per_frame = 2;
+      conn->input_bit_depth = 8;
+      break;
+    default:
+      debug(1,"Unsupported DAC output format %u. AV_SAMPLE_FMT_S16 decoding chosen. Good luck!", config.output_format);
+      av_format = AV_SAMPLE_FMT_S16;
+      conn->input_bytes_per_frame = 4; // the output from the decoder will be input to the player
+      conn->input_bit_depth = 16;
+      break;
+  };
+
+  av_opt_set_sample_fmt(swr, "out_sample_fmt", av_format, 0);
   swr_init(swr);
 
   uint8_t packet[16 * 1024];
@@ -2099,7 +2135,7 @@ void *rtp_buffered_audio_processor(void *arg) {
 
   int finished = 0;
   int pcm_buffer_size =
-      (1024 + 352) * 8; // This seems to be right. 8 is for 2 * 32-bit samples per frame
+      (1024 + 352) * conn->input_bytes_per_frame;
   uint8_t pcm_buffer[pcm_buffer_size];
 
   int pcm_buffer_occupancy = 0;
@@ -2220,7 +2256,7 @@ void *rtp_buffered_audio_processor(void *arg) {
         // debug(1,"sleep for 20 ms");
         usleep(20000); // wait for a while
       } else {
-        if ((pcm_buffer_occupancy - pcm_buffer_read_point) >= (352 * 4)) {
+        if ((pcm_buffer_occupancy - pcm_buffer_read_point) >= (352 * conn->input_bytes_per_frame)) {
           new_buffer_needed = 0;
           // send a frame to the player if allowed
           // it it's way too late, it means that a new anchor time is needed
@@ -2238,7 +2274,7 @@ void *rtp_buffered_audio_processor(void *arg) {
                 0) {
               int64_t lead_time = buffer_should_be_time - get_absolute_time_in_ns();
               // debug(1,"lead time in buffered_audio is %f milliseconds.", lead_time * 0.000001);
-              if (blocks_read > 2) {
+              if (blocks_read > 3) {
                 if ((lead_time >= (int64_t)(requested_lead_time * 1000000000)) ||
                     (streaming_has_started != 0)) {
                   if (streaming_has_started == 0)
@@ -2261,7 +2297,7 @@ void *rtp_buffered_audio_processor(void *arg) {
               }
 
               pcm_buffer_read_point_rtptime += 352;
-              pcm_buffer_read_point += 352 * 4;
+              pcm_buffer_read_point += 352 * conn->input_bytes_per_frame;
             }
             // usleep(2000); // let other stuff happens
           } else {
@@ -2271,7 +2307,7 @@ void *rtp_buffered_audio_processor(void *arg) {
           new_buffer_needed = 1;
           if (pcm_buffer_read_point != 0) {
             // debug(1,"pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy (frames): %u",
-            // pcm_buffer_read_point/4, pcm_buffer_occupancy/4);
+            // pcm_buffer_read_point/conn->input_bytes_per_frame, pcm_buffer_occupancy/conn->input_bytes_per_frame);
             // if there is anything to move down to the front of the buffer, do it now;
             if ((pcm_buffer_occupancy - pcm_buffer_read_point) > 0) {
               // move the remaining frames down to the start of the buffer
@@ -2314,8 +2350,6 @@ void *rtp_buffered_audio_processor(void *arg) {
         strerror_r(errno, (char *)errorstring, sizeof(errorstring));
         debug(1, "error in rtp_buffered_audio_processor %d: \"%s\". Could not recv a data packet.",
               errno, errorstring);
-        // if ((config.diagnostic_drop_packet_fraction == 0.0) ||
-        //     (drand48() > config.diagnostic_drop_packet_fraction)) {
       } else if (nread > 0) {
         blocks_read++; // note, this doesn't mean they are valid audio blocks
         // debug(1, "Realtime Audio Receiver Packet of length %d received.", nread);
@@ -2445,13 +2479,13 @@ void *rtp_buffered_audio_processor(void *arg) {
                           debug(1, "error %d during decoding", ret);
                         } else {
                           av_samples_alloc(&pcm_audio, &dst_linesize, codec_context->channels,
-                                           decoded_frame->nb_samples, AV_SAMPLE_FMT_S16, 1);
+                                           decoded_frame->nb_samples, av_format, 1);
                           // remember to free pcm_audio
                           ret = swr_convert(swr, &pcm_audio, decoded_frame->nb_samples,
                                             (const uint8_t **)decoded_frame->extended_data,
                                             decoded_frame->nb_samples);
                           dst_bufsize = av_samples_get_buffer_size(
-                              &dst_linesize, codec_context->channels, ret, AV_SAMPLE_FMT_S16, 1);
+                              &dst_linesize, codec_context->channels, ret, av_format, 1);
                           // debug(1,"generated %d bytes of PCM", dst_bufsize);
                           // copy the PCM audio into the PCM buffer.
                           // make sure it's big enough first
@@ -2463,20 +2497,20 @@ void *rtp_buffered_audio_processor(void *arg) {
                             int32_t samples_remaining =
                                 (flush_from_timestamp - pcm_buffer_read_point_rtptime);
                             if ((samples_remaining > 0) &&
-                                ((samples_remaining * 4) < dst_bufsize)) {
+                                ((samples_remaining * conn->input_bytes_per_frame) < dst_bufsize)) {
                               debug(2,
                                     "samples remaining before flush: %d, number of samples %d. "
                                     "flushFromTS: %u, pcm_buffer_read_point_rtptime: %u.",
-                                    samples_remaining, dst_bufsize / 4, flush_from_timestamp,
+                                    samples_remaining, dst_bufsize / conn->input_bytes_per_frame, flush_from_timestamp,
                                     pcm_buffer_read_point_rtptime);
-                              dst_bufsize = samples_remaining * 4;
+                              dst_bufsize = samples_remaining * conn->input_bytes_per_frame;
                             }
                           }
                           if ((pcm_buffer_size - pcm_buffer_occupancy) < dst_bufsize) {
                             debug(1,
                                   "pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy "
                                   "(frames): %u",
-                                  pcm_buffer_read_point / 4, pcm_buffer_occupancy / 4);
+                                  pcm_buffer_read_point / conn->input_bytes_per_frame, pcm_buffer_occupancy / conn->input_bytes_per_frame);
                             pcm_buffer_size = dst_bufsize + pcm_buffer_occupancy;
                             debug(1, "fatal error! pcm buffer too small at %d bytes.",
                                   pcm_buffer_size);

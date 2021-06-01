@@ -2070,6 +2070,15 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         die("Error %d: could not find a TCP port to use as a buffered_audio port", err);
       }
 
+      // hack.
+      conn->max_frames_per_packet = 352; // number of audio frames per packet.
+      conn->input_rate = 44100;
+      conn->input_num_channels = 2;
+      conn->input_bit_depth = 16;
+      conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
+
+      player_prepare_to_play(conn); // get capabilities of DAC before creating the buffered audio thread
+
       pthread_create(&conn->rtp_buffered_audio_thread, NULL, &rtp_buffered_audio_processor,
                      (void *)conn);
 
@@ -2078,14 +2087,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_dict_set_item(stream0dict, "audioBufferSize",
                           plist_new_uint(conn->ap2_audio_buffer_size));
 
-      // hack.
-      conn->max_frames_per_packet = 352; // number of audio frames per packet.
-      conn->input_rate = 44100;
-      conn->input_num_channels = 2;
-      conn->input_bit_depth = 16;
-      conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
-
-      player_prepare_to_play(conn);
       player_play(conn);
 
       conn->rtp_running = 1; // hack!

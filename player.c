@@ -384,10 +384,12 @@ static void terminate_decoders(rtsp_conn_info *conn) {
 }
 
 static void init_buffer(rtsp_conn_info *conn) {
+  debug(1,"input_bytes_per_frame: %d.", conn->input_bytes_per_frame);
+  debug(1,"input_bit_depth: %d.", conn->input_bit_depth);
   int i;
   for (i = 0; i < BUFFER_FRAMES; i++)
-    conn->audio_buffer[i].data = malloc(conn->input_bytes_per_frame * conn->max_frames_per_packet);
-  ab_resync(conn);
+//    conn->audio_buffer[i].data = malloc(conn->input_bytes_per_frame * conn->max_frames_per_packet);
+    conn->audio_buffer[i].data = malloc(8 * conn->max_frames_per_packet); // todo
 }
 
 static void free_audio_buffers(rtsp_conn_info *conn) {
@@ -1692,7 +1694,6 @@ void *player_thread_func(void *arg) {
   conn->packet_count = 0;
   conn->packet_count_since_flush = 0;
   conn->previous_random_number = 0;
-  conn->input_bytes_per_frame = 4;
   conn->decoder_in_use = 0;
   conn->ab_buffering = 1;
   conn->ab_synced = 0;
@@ -1711,6 +1712,7 @@ void *player_thread_func(void *arg) {
                              // No pthread cancellation point in here
   // This must be after init_alac_decoder
   init_buffer(conn); // will need a corresponding deallocation. No cancellation points in here
+  ab_resync(conn);
 
   if (conn->stream.encrypted) {
 #ifdef CONFIG_MBEDTLS
@@ -2114,10 +2116,56 @@ void *player_thread_func(void *arg) {
                 *outpl++ = rl;
               }
             }
-
           } break;
+          case 32: {
+            int i, j;
+            int32_t ls, rs;
+            int32_t ll = 0, rl = 0;
+            int32_t *inps = (int32_t*) inbuf;
+            int32_t *outpl = (int32_t *)conn->tbuf;
+            for (i = 0; i < inbuflength; i++) {
+              ls = *inps++;
+              rs = *inps++;
+
+              // here, do the mode stuff -- mono / reverse stereo / leftonly / rightonly
+
+              switch (config.playback_mode) {
+              case ST_mono: {
+                int64_t both = ls + rs;
+                both = both >> 1;
+                uint32_t both32 = both;
+                ll = both32;
+                rl = both32;
+              } break;
+              case ST_reverse_stereo: {
+                ll = rs;
+                rl = ls;
+              } break;
+              case ST_left_only:
+                rl = ls;
+                ll = ls;
+                break;
+              case ST_right_only:
+                ll = rs;
+                rl = rs;
+                break;
+              case ST_stereo:
+                ll = ls;
+                rl = rs;
+                break; // nothing extra to do
+              }
+
+              // here, replicate the samples if you're upsampling
+
+              for (j = 0; j < conn->output_sample_ratio; j++) {
+                *outpl++ = ll;
+                *outpl++ = rl;
+              }
+            }
+          } break;
+
           default:
-            die("Shairport Sync only supports 16 bit input");
+            die("Shairport Sync only supports 16 or 32 bit input");
           }
 
           inbuflength *= conn->output_sample_ratio;
@@ -3085,6 +3133,7 @@ int player_prepare_to_play(rtsp_conn_info *conn) {
   activity_monitor_signify_activity(
       1); // active, and should be before play's command hook, command_start()
   command_start();
+  conn->input_bytes_per_frame = 4; // default -- may be changed later
   // call on the output device to prepare itself
   if ((config.output) && (config.output->prepare))
     config.output->prepare();
