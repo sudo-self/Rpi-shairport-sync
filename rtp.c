@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-                                             
-                                             
+
+
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-                                             
+
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-                                             
+
                                                               // Best guess is that this delay is 11,025 frames.
-                                             
+
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-                                             
+
                                                               uint32_t fl = nctohs(&packet[2]); //
-                                             
+
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -1220,7 +1220,7 @@ void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtpti
   // valid for some minimum time (and thus may not be reliable), we need to invalidate
   // last_anchor_info
 
-  if ((conn->airplay_stream_type == buffered_stream) &&
+  if ((conn->airplay_stream_type == buffered_stream) && (conn->ap2_play_enabled != 0) &&
       ((clock_id != conn->anchor_clock) || (conn->anchor_rtptime != rtptime) ||
        (conn->anchor_time != networktime))) {
     uint64_t master_clock_id = 0;
