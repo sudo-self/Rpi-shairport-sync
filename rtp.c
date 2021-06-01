@@ -1329,13 +1329,19 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
 
             // but if the master clock has become equal to the actual anchor clock
             // then we can reinstate it all
+            // first, calculate the cumulative offset after swapping all the clocks...
+            conn->anchor_time = conn->last_anchor_local_time + actual_offset;
+            // we can check how much of a deviation there was going from clock to clock and bakc around to the master clock
+
+
             if (actual_clock_id == conn->actual_anchor_clock) {
-              debug(1, "Master clock has become equal to the anchor clock");
+              int64_t cumulative_deviation = conn->actual_anchor_time - conn->anchor_time;
+              debug(1, "Master clock has become equal to the anchor clock. The actual clock is %f ms ahead/behind (+/-) the calculated clock.", 0.000001 * cumulative_deviation);
               conn->anchor_clock = conn->actual_anchor_clock;
               conn->anchor_time = conn->actual_anchor_time;
               conn->anchor_rtptime = conn->actual_anchor_rtptime;
             } else {
-              conn->anchor_time = conn->last_anchor_local_time + actual_offset;
+              // conn->anchor_time = conn->last_anchor_local_time + actual_offset; // already done
               conn->anchor_clock = actual_clock_id;
             }
           }
