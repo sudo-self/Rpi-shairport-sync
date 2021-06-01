@@ -273,9 +273,17 @@ typedef struct {
 
   int anchor_remote_info_is_valid;
   int anchor_clock_is_new;
+
+  // these can be modified if the master clock changes over time
   uint64_t anchor_clock;
   uint64_t anchor_time; // this is the time according to the clock
   uint32_t anchor_rtptime;
+
+  // these are used to identify when the master clock becomes equal to the
+  // actual anchor clock information, so it can be used to avoid accumulating errors
+  uint64_t actual_anchor_clock;
+  uint64_t actual_anchor_time;
+  uint32_t actual_anchor_rtptime;
 
   clock_status_t clock_status;
 

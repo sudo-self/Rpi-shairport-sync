@@ -2077,7 +2077,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       conn->input_bit_depth = 16;
       conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
 
-      player_prepare_to_play(conn); // get capabilities of DAC before creating the buffered audio thread
+      player_prepare_to_play(
+          conn); // get capabilities of DAC before creating the buffered audio thread
 
       pthread_create(&conn->rtp_buffered_audio_thread, NULL, &rtp_buffered_audio_processor,
                      (void *)conn);

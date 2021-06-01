@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-
-
+                                             
+                                             
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-
+                                             
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-
+                                             
                                                               // Best guess is that this delay is 11,025 frames.
-
+                                             
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-
+                                             
                                                               uint32_t fl = nctohs(&packet[2]); //
-
+                                             
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -1220,22 +1220,45 @@ void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtpti
   // valid for some minimum time (and thus may not be reliable), we need to invalidate
   // last_anchor_info
 
+  if ((conn->airplay_stream_type == buffered_stream) &&
+      ((clock_id != conn->anchor_clock) || (conn->anchor_rtptime != rtptime) ||
+       (conn->anchor_time != networktime))) {
+    uint64_t master_clock_id = 0;
+    ptp_get_clock_info(&master_clock_id, NULL, NULL);
+    debug(1,
+          "Connection %d: Note: anchor parameters have changed. Old clock: %" PRIx64
+          ", rtptime: %u, networktime: %" PRIu64 ". New clock: %" PRIx64
+          ", rtptime: %u, networktime: %" PRIu64 ". Current master clock: %" PRIx64 ".",
+          conn->connection_number, conn->anchor_clock, conn->anchor_rtptime, conn->anchor_time,
+          clock_id, rtptime, networktime, master_clock_id);
+  }
+
   if ((clock_id == conn->anchor_clock) &&
       ((conn->anchor_rtptime != rtptime) || (conn->anchor_time != networktime))) {
     uint64_t time_now = get_absolute_time_in_ns();
     int64_t last_anchor_validity_duration = time_now - conn->last_anchor_validity_start_time;
     if (last_anchor_validity_duration < 5000000000) {
-      debug(1,
-            "Connection %d: Note: anchor parameters have changed before clock %" PRIx64
-            " has stabilised.",
-            conn->connection_number, clock_id);
+      if (conn->airplay_stream_type == buffered_stream)
+        debug(1,
+              "Connection %d: Note: anchor parameters have changed before clock %" PRIx64
+              " has stabilised.",
+              conn->connection_number, clock_id);
       conn->last_anchor_info_is_valid = 0;
     }
   }
+
   conn->anchor_remote_info_is_valid = 1;
+
+  // these can be modified if the master clock changes over time
   conn->anchor_rtptime = rtptime;
   conn->anchor_time = networktime;
   conn->anchor_clock = clock_id;
+
+  // these are used to identify when the master clock becomes equal to the
+  // actual anchor clock information, so it can be used to avoid accumulating errors
+  conn->actual_anchor_rtptime = rtptime;
+  conn->actual_anchor_time = networktime;
+  conn->actual_anchor_clock = clock_id;
 }
 
 void reset_ptp_anchor_info(rtsp_conn_info *conn) {
@@ -1303,8 +1326,18 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
             // here we adjust the time of the anchor rtptime
             // we know its local time, so we use the new clocks's offset to
             // calculate what time that must be on the new clock
-            conn->anchor_time = conn->last_anchor_local_time + actual_offset;
-            conn->anchor_clock = actual_clock_id;
+
+            // but if the master clock has become equal to the actual anchor clock
+            // then we can reinstate it all
+            if (actual_clock_id == conn->actual_anchor_clock) {
+              debug(1, "Master clock has become equal to the anchor clock");
+              conn->anchor_clock = conn->actual_anchor_clock;
+              conn->anchor_time = conn->actual_anchor_time;
+              conn->anchor_rtptime = conn->actual_anchor_rtptime;
+            } else {
+              conn->anchor_time = conn->last_anchor_local_time + actual_offset;
+              conn->anchor_clock = actual_clock_id;
+            }
           }
         } else {
           response = clock_not_valid; // no current clock information and no previous clock info
@@ -2087,37 +2120,38 @@ void *rtp_buffered_audio_processor(void *arg) {
 
   enum AVSampleFormat av_format;
   switch (config.output_format) {
-    case SPS_FORMAT_S32:
-    case SPS_FORMAT_S32_LE:
-    case SPS_FORMAT_S32_BE:
-    case SPS_FORMAT_S24:
-    case SPS_FORMAT_S24_LE:
-    case SPS_FORMAT_S24_BE:
-    case SPS_FORMAT_S24_3LE:
-    case SPS_FORMAT_S24_3BE:
-     av_format = AV_SAMPLE_FMT_S32;
-      conn->input_bytes_per_frame = 8; // the output from the decoder will be input to the player
-      conn->input_bit_depth = 32;
-       debug(1,"32-bit output format chosen");
-      break;
-    case SPS_FORMAT_S16:
-    case SPS_FORMAT_S16_LE:
-    case SPS_FORMAT_S16_BE:
-      av_format = AV_SAMPLE_FMT_S16;
-      conn->input_bytes_per_frame = 4;
-      conn->input_bit_depth = 16;
-      break;
-    case SPS_FORMAT_U8:
-      av_format = AV_SAMPLE_FMT_U8;
-      conn->input_bytes_per_frame = 2;
-      conn->input_bit_depth = 8;
-      break;
-    default:
-      debug(1,"Unsupported DAC output format %u. AV_SAMPLE_FMT_S16 decoding chosen. Good luck!", config.output_format);
-      av_format = AV_SAMPLE_FMT_S16;
-      conn->input_bytes_per_frame = 4; // the output from the decoder will be input to the player
-      conn->input_bit_depth = 16;
-      break;
+  case SPS_FORMAT_S32:
+  case SPS_FORMAT_S32_LE:
+  case SPS_FORMAT_S32_BE:
+  case SPS_FORMAT_S24:
+  case SPS_FORMAT_S24_LE:
+  case SPS_FORMAT_S24_BE:
+  case SPS_FORMAT_S24_3LE:
+  case SPS_FORMAT_S24_3BE:
+    av_format = AV_SAMPLE_FMT_S32;
+    conn->input_bytes_per_frame = 8; // the output from the decoder will be input to the player
+    conn->input_bit_depth = 32;
+    debug(1, "32-bit output format chosen");
+    break;
+  case SPS_FORMAT_S16:
+  case SPS_FORMAT_S16_LE:
+  case SPS_FORMAT_S16_BE:
+    av_format = AV_SAMPLE_FMT_S16;
+    conn->input_bytes_per_frame = 4;
+    conn->input_bit_depth = 16;
+    break;
+  case SPS_FORMAT_U8:
+    av_format = AV_SAMPLE_FMT_U8;
+    conn->input_bytes_per_frame = 2;
+    conn->input_bit_depth = 8;
+    break;
+  default:
+    debug(1, "Unsupported DAC output format %u. AV_SAMPLE_FMT_S16 decoding chosen. Good luck!",
+          config.output_format);
+    av_format = AV_SAMPLE_FMT_S16;
+    conn->input_bytes_per_frame = 4; // the output from the decoder will be input to the player
+    conn->input_bit_depth = 16;
+    break;
   };
 
   av_opt_set_sample_fmt(swr, "out_sample_fmt", av_format, 0);
@@ -2134,8 +2168,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   ssize_t nread;
 
   int finished = 0;
-  int pcm_buffer_size =
-      (1024 + 352) * conn->input_bytes_per_frame;
+  int pcm_buffer_size = (1024 + 352) * conn->input_bytes_per_frame;
   uint8_t pcm_buffer[pcm_buffer_size];
 
   int pcm_buffer_occupancy = 0;
@@ -2307,8 +2340,9 @@ void *rtp_buffered_audio_processor(void *arg) {
           new_buffer_needed = 1;
           if (pcm_buffer_read_point != 0) {
             // debug(1,"pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy (frames): %u",
-            // pcm_buffer_read_point/conn->input_bytes_per_frame, pcm_buffer_occupancy/conn->input_bytes_per_frame);
-            // if there is anything to move down to the front of the buffer, do it now;
+            // pcm_buffer_read_point/conn->input_bytes_per_frame,
+            // pcm_buffer_occupancy/conn->input_bytes_per_frame); if there is anything to move down
+            // to the front of the buffer, do it now;
             if ((pcm_buffer_occupancy - pcm_buffer_read_point) > 0) {
               // move the remaining frames down to the start of the buffer
               // debug(1,"move the remaining frames down to the start of the pcm_buffer");
@@ -2501,8 +2535,8 @@ void *rtp_buffered_audio_processor(void *arg) {
                               debug(2,
                                     "samples remaining before flush: %d, number of samples %d. "
                                     "flushFromTS: %u, pcm_buffer_read_point_rtptime: %u.",
-                                    samples_remaining, dst_bufsize / conn->input_bytes_per_frame, flush_from_timestamp,
-                                    pcm_buffer_read_point_rtptime);
+                                    samples_remaining, dst_bufsize / conn->input_bytes_per_frame,
+                                    flush_from_timestamp, pcm_buffer_read_point_rtptime);
                               dst_bufsize = samples_remaining * conn->input_bytes_per_frame;
                             }
                           }
@@ -2510,7 +2544,8 @@ void *rtp_buffered_audio_processor(void *arg) {
                             debug(1,
                                   "pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy "
                                   "(frames): %u",
-                                  pcm_buffer_read_point / conn->input_bytes_per_frame, pcm_buffer_occupancy / conn->input_bytes_per_frame);
+                                  pcm_buffer_read_point / conn->input_bytes_per_frame,
+                                  pcm_buffer_occupancy / conn->input_bytes_per_frame);
                             pcm_buffer_size = dst_bufsize + pcm_buffer_occupancy;
                             debug(1, "fatal error! pcm buffer too small at %d bytes.",
                                   pcm_buffer_size);

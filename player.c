@@ -384,11 +384,12 @@ static void terminate_decoders(rtsp_conn_info *conn) {
 }
 
 static void init_buffer(rtsp_conn_info *conn) {
-  debug(1,"input_bytes_per_frame: %d.", conn->input_bytes_per_frame);
-  debug(1,"input_bit_depth: %d.", conn->input_bit_depth);
+  // debug(1,"input_bytes_per_frame: %d.", conn->input_bytes_per_frame);
+  // debug(1,"input_bit_depth: %d.", conn->input_bit_depth);
   int i;
   for (i = 0; i < BUFFER_FRAMES; i++)
-//    conn->audio_buffer[i].data = malloc(conn->input_bytes_per_frame * conn->max_frames_per_packet);
+    //    conn->audio_buffer[i].data = malloc(conn->input_bytes_per_frame *
+    //    conn->max_frames_per_packet);
     conn->audio_buffer[i].data = malloc(8 * conn->max_frames_per_packet); // todo
 }
 
@@ -2121,7 +2122,7 @@ void *player_thread_func(void *arg) {
             int i, j;
             int32_t ls, rs;
             int32_t ll = 0, rl = 0;
-            int32_t *inps = (int32_t*) inbuf;
+            int32_t *inps = (int32_t *)inbuf;
             int32_t *outpl = (int32_t *)conn->tbuf;
             for (i = 0; i < inbuflength; i++) {
               ls = *inps++;

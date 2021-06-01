@@ -501,8 +501,8 @@ int actual_open_alsa_device(int do_auto_setup) {
     }
     ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
     if (ret < 0) {
-      die("audio_alsa: Alsa sample format %d not available for device \"%s\": %s", sf,
-           alsa_out_dev, snd_strerror(ret));
+      die("audio_alsa: Alsa sample format %d not available for device \"%s\": %s", sf, alsa_out_dev,
+          snd_strerror(ret));
       return ret;
     }
   } else { // auto format
