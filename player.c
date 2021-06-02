@@ -35,6 +35,7 @@
 #include <limits.h>
 #include <math.h>
 #include <pthread.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1560,6 +1561,54 @@ void player_thread_initial_cleanup_handler(__attribute__((unused)) void *arg) {
         conn->connection_number);
 }
 
+char line_of_stats[1024];
+int statistics_row; // statistics_line 0 means print the headings; anything else 1 means print the
+                    // values. Set to 0 the first time out.
+int statistics_column; // used to index through the statistics_print_profile array to check if it
+                       // should be printed
+int was_a_previous_column;
+int *statistics_print_profile;
+
+// these arrays specify which of the statistics specified by the statistics_item calls will actually
+// be printed -- 1 means print, 0 means skip
+int ap1_synced_statistics_print_profile[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+int ap1_nosync_statistics_print_profile[] = {1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0};
+int ap1_nodelay_statistics_print_profile[] = {0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0};
+
+int ap2_realtime_synced_stream_statistics_print_profile[] = {1, 1, 1, 1, 1, 1, 1, 1, 1,
+                                                             1, 1, 0, 0, 1, 0, 0, 0};
+int ap2_realtime_nosync_stream_statistics_print_profile[] = {1, 0, 0, 1, 1, 1, 1, 1, 1,
+                                                             1, 1, 0, 0, 0, 0, 0, 0};
+int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 1, 1, 1, 1, 0,
+                                                              1, 1, 0, 0, 0, 0, 0, 0};
+
+int ap2_buffered_synced_stream_statistics_print_profile[] = {1, 1, 1, 1, 0, 0, 0, 0, 1,
+                                                             1, 1, 0, 0, 1, 0, 0, 0};
+int ap2_buffered_nosync_stream_statistics_print_profile[] = {1, 0, 0, 1, 0, 0, 0, 0, 1,
+                                                             1, 1, 0, 0, 0, 0, 0, 0};
+int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 0, 0, 0, 0, 0,
+                                                              1, 1, 0, 0, 0, 0, 0, 0};
+
+void statistics_item(const char *heading, const char *format, ...) {
+  if (statistics_print_profile[statistics_column] == 1) { // include this column?
+    if (was_a_previous_column != 0)
+      strcat(line_of_stats, ", ");
+    if (statistics_row == 0) {
+      strcat(line_of_stats, heading);
+    } else {
+      char b[1024];
+      b[0] = 0;
+      va_list args;
+      va_start(args, format);
+      vsnprintf(b, sizeof(b), format, args);
+      va_end(args);
+      strcat(line_of_stats, b);
+    }
+    was_a_previous_column = 1;
+  }
+  statistics_column++;
+}
+
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   if (pthread_mutex_trylock(&playing_conn_lock) == 0) {
@@ -1907,55 +1956,45 @@ void *player_thread_func(void *arg) {
   conn->framesProcessedInThisEpoch = 0;
   conn->framesGeneratedInThisEpoch = 0;
   conn->correctionsRequestedInThisEpoch = 0;
-
+  statistics_row = 0; // statistics_line 0 means print the headings; anything else 1 means print the
+                      // values. Set to 0 the first time out.
   if (config.statistics_requested) {
-    if ((config.output->delay)) {
-      if (config.no_sync == 0) {
-        inform("sync error in milliseconds, "
-               "net correction in ppm, "
-               "corrections in ppm, "
-               "total packets, "
-               "missing packets, "
-               "late packets, "
-               "too late packets, "
-               "resend requests, "
-               "min DAC queue size, "
-               "min buffer occupancy, "
-               "max buffer occupancy, "
-               "source nominal frames per second, "
-               "source actual frames per second, "
-               "output frames per second, "
-               "source clock drift in ppm, "
-               "source clock drift sample count, "
-               "rough calculated correction in ppm");
+    // decide on what statistics profile to use
+#ifdef CONFIG_AIRPLAY_2
+    if (conn->airplay_type == ap_2) {
+      if (conn->airplay_stream_type == realtime_stream) {
+        if (config.output->delay) {
+          if (config.no_sync == 0)
+            statistics_print_profile = ap2_realtime_synced_stream_statistics_print_profile;
+          else
+            statistics_print_profile = ap2_realtime_nosync_stream_statistics_print_profile;
+        } else {
+          statistics_print_profile = ap2_realtime_nodelay_stream_statistics_print_profile;
+        }
       } else {
-        inform("sync error in milliseconds, "
-               "total packets, "
-               "missing packets, "
-               "late packets, "
-               "too late packets, "
-               "resend requests, "
-               "min DAC queue size, "
-               "min buffer occupancy, "
-               "max buffer occupancy, "
-               "source nominal frames per second, "
-               "source actual frames per second, "
-               "source clock drift in ppm, "
-               "source clock drift sample count");
+        if (config.output->delay) {
+          if (config.no_sync == 0)
+            statistics_print_profile = ap2_buffered_synced_stream_statistics_print_profile;
+          else
+            statistics_print_profile = ap2_buffered_nosync_stream_statistics_print_profile;
+        } else {
+          statistics_print_profile = ap2_buffered_nodelay_stream_statistics_print_profile;
+        }
       }
     } else {
-      inform("total packets, "
-             "missing packets, "
-             "late packets, "
-             "too late packets, "
-             "resend requests, "
-             "min buffer occupancy, "
-             "max buffer occupancy, "
-             "source nominal frames per second, "
-             "source actual frames per second, "
-             "source clock drift in ppm, "
-             "source clock drift sample count");
+#endif
+      if (config.output->delay) {
+        if (config.no_sync == 0)
+          statistics_print_profile = ap1_synced_statistics_print_profile;
+        else
+          statistics_print_profile = ap1_nosync_statistics_print_profile;
+      } else {
+        statistics_print_profile = ap1_nodelay_statistics_print_profile;
+      }
+// airplay 1 stuff here
+#ifdef CONFIG_AIRPLAY_2
     }
+#endif
   }
 
 #ifdef CONFIG_AIRPLAY_2
@@ -2726,87 +2765,51 @@ void *player_thread_func(void *arg) {
               (1.0 * tsum_of_insertions_and_deletions) / number_of_statistics;
           // double moving_average_drift = (1.0 * tsum_of_drifts) / number_of_statistics;
           // if ((play_number/print_interval)%20==0)
-          if (config.statistics_requested) {
-            if (at_least_one_frame_seen) {
+          // figure out which statistics profile to use, depending on the kind of stream
 
-              if ((config.output->delay)) {
-                if (config.no_sync == 0) {
-                  inform(
-                      "%*.2f,"        /* Sync error in milliseconds */
-                      "%*.1f,"        /* net correction in ppm */
-                      "%*.1f,"        /* corrections in ppm */
-                      "%*d,"          /* total packets */
-                      "%*" PRIu64 "," /* missing packets */
-                      "%*" PRIu64 "," /* late packets */
-                      "%*" PRIu64 "," /* too late packets */
-                      "%*" PRIu64 "," /* resend requests */
-                      "%*" PRIu64 "," /* min DAC queue size */
-                      "%*" PRId32 "," /* min buffer occupancy */
-                      "%*" PRId32 "," /* max buffer occupancy */
-                      "%*.2f,"        /* source nominal frame rate */
-                      "%*.2f,"        /* source actual (average) frame rate */
-                      "%*.2f,"        /* output frame rate */
-                      "%*.2f,"        /* source clock drift */
-                      "%*d,"          /* source clock drift sample count */
-                      "%*.2f",        /* rough calculated correction in ppm */
-                      10, 1000 * moving_average_sync_error / config.output_rate, 10,
-                      moving_average_correction * 1000000 / (352 * conn->output_sample_ratio), 10,
-                      moving_average_insertions_plus_deletions * 1000000 /
-                          (352 * conn->output_sample_ratio),
-                      12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
-                      conn->too_late_packets, 7, conn->resend_requests, 7, minimum_dac_queue_size,
-                      5, minimum_buffer_occupancy, 5, maximum_buffer_occupancy, 11,
-                      conn->remote_frame_rate, 11, conn->input_frame_rate, 11, conn->frame_rate, 10,
-                      (conn->local_to_remote_time_gradient - 1.0) * 1000000, 6,
-                      conn->local_to_remote_time_gradient_sample_count, 10,
-                      (conn->frame_rate > 0.0)
-                          ? ((conn->frame_rate - conn->remote_frame_rate *
-                                                     conn->output_sample_ratio *
-                                                     conn->local_to_remote_time_gradient) *
-                             1000000) /
-                                conn->frame_rate
-                          : 0.0);
-                } else {
-                  inform("%*.2f,"        /* Sync error in milliseconds */
-                         "%*d,"          /* total packets */
-                         "%*" PRIu64 "," /* missing packets */
-                         "%*" PRIu64 "," /* late packets */
-                         "%*" PRIu64 "," /* too late packets */
-                         "%*" PRIu64 "," /* resend requests */
-                         "%*" PRIu64 "," /* min DAC queue size */
-                         "%*" PRId32 "," /* min buffer occupancy */
-                         "%*" PRId32 "," /* max buffer occupancy */
-                         "%*.2f,"        /* source nominal frame rate */
-                         "%*.2f,"        /* source actual (average) frame rate */
-                         "%*.2f,"        /* source clock drift */
-                         "%*d",          /* source clock drift sample count */
-                         10, 1000 * moving_average_sync_error / config.output_rate, 12, play_number,
-                         7, conn->missing_packets, 7, conn->late_packets, 7, conn->too_late_packets,
-                         7, conn->resend_requests, 7, minimum_dac_queue_size, 5,
-                         minimum_buffer_occupancy, 5, maximum_buffer_occupancy, 11,
-                         conn->remote_frame_rate, 11, conn->input_frame_rate, 10,
-                         (conn->local_to_remote_time_gradient - 1.0) * 1000000, 6,
-                         conn->local_to_remote_time_gradient_sample_count);
-                }
-              } else {
-                inform("%*d,"          /* total packets */
-                       "%*" PRIu64 "," /* missing packets */
-                       "%*" PRIu64 "," /* late packets */
-                       "%*" PRIu64 "," /* too late packets */
-                       "%*" PRIu64 "," /* resend requests */
-                       "%*" PRId32 "," /* min buffer occupancy */
-                       "%*" PRId32 "," /* max buffer occupancy */
-                       "%*.2f,"        /* source nominal frame rate */
-                       "%*.2f,"        /* source actual (average) frame rate */
-                       "%*.2f,"        /* source clock drift */
-                       "%*d",          /* source clock drift sample count */
-                       12, play_number, 7, conn->missing_packets, 7, conn->late_packets, 7,
-                       conn->too_late_packets, 7, conn->resend_requests, 5,
-                       minimum_buffer_occupancy, 5, maximum_buffer_occupancy, 11,
-                       conn->remote_frame_rate, 11, conn->input_frame_rate, 10,
-                       (conn->local_to_remote_time_gradient - 1.0) * 1000000, 6,
-                       conn->local_to_remote_time_gradient_sample_count);
-              }
+          if (config.statistics_requested) {
+
+            if (at_least_one_frame_seen) {
+              do {
+                line_of_stats[0] = '\0';
+                statistics_column = 0;
+                was_a_previous_column = 0;
+                statistics_item("sync error ms", "%*.2f", 13,
+                                1000 * moving_average_sync_error / config.output_rate);
+                statistics_item("net sync ppm", "%*.1f", 12,
+                                moving_average_correction * 1000000 /
+                                    (352 * conn->output_sample_ratio));
+                statistics_item("all sync ppm", "%*.1f", 12,
+                                moving_average_insertions_plus_deletions * 1000000 /
+                                    (352 * conn->output_sample_ratio));
+                statistics_item("    packets", "%*d", 11, play_number);
+                statistics_item("missing", "%*" PRIu64 "", 7, conn->missing_packets);
+                statistics_item("  late", "%*" PRIu64 "", 6, conn->late_packets);
+                statistics_item("too late", "%*" PRIu64 "", 8, conn->too_late_packets);
+                statistics_item("resend reqs", "%*" PRIu64 "", 11, conn->resend_requests);
+                statistics_item("min DAC queue", "%*" PRIu64 "", 13, minimum_dac_queue_size);
+                statistics_item("min buffers", "%*" PRIu32 "", 11, minimum_buffer_occupancy);
+                statistics_item("max buffers", "%*" PRIu32 "", 11, maximum_buffer_occupancy);
+                statistics_item("source nominal frames per second", "%*.2f", 10,
+                                conn->remote_frame_rate);
+                statistics_item("source actual frames per second", "%*.2f", 10,
+                                conn->input_frame_rate);
+                statistics_item("output fps", "%*.2f", 10, conn->frame_rate);
+                statistics_item("source clock drift ppm", "%*.2f", 9,
+                                (conn->local_to_remote_time_gradient - 1.0) * 1000000);
+                statistics_item("source clock drift samples", "%*d", 5,
+                                conn->local_to_remote_time_gradient_sample_count);
+                statistics_item(
+                    "rough calculated correction in ppm", "%*.2f", 9,
+                    (conn->frame_rate > 0.0)
+                        ? ((conn->frame_rate - conn->remote_frame_rate * conn->output_sample_ratio *
+                                                   conn->local_to_remote_time_gradient) *
+                           1000000) /
+                              conn->frame_rate
+                        : 0.0);
+                statistics_row++;
+                inform(line_of_stats);
+              } while (statistics_row < 2);
             } else {
               inform("No frames received in the last sampling interval.");
             }

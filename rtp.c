@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-
-
+                                             
+                                             
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-
+                                             
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-
+                                             
                                                               // Best guess is that this delay is 11,025 frames.
-
+                                             
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-
+                                             
                                                               uint32_t fl = nctohs(&packet[2]); //
-
+                                             
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -1327,16 +1327,36 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
             // we know its local time, so we use the new clocks's offset to
             // calculate what time that must be on the new clock
 
-            // but if the master clock has become equal to the actual anchor clock
-            // then we can reinstate it all
-            // first, calculate the cumulative offset after swapping all the clocks...
-            conn->anchor_time = conn->last_anchor_local_time + actual_offset;
-            // we can check how much of a deviation there was going from clock to clock and bakc around to the master clock
+            // Now, the thing is that while the anchor clock and master clock for a
+            // buffered session starts off the same,
+            // the master clock can change without the anchor clock changing.
+            // SPS allows the new master clock time to settle down and then
+            // calculates the appropriate offset to it by
+            // calculating back from the local anchor information and the new clock's
+            // advertised offset. Of course, small errors will occur.
+            // More importantly, the new master clock(s) and the original one will
+            // drift at different rates. So, after all this, if the original master
+            // clock becomes the master again, then there could be quite a difference
+            // in the time information that was calculated through all the clock
+            // changes and the actual master clock's time information.
+            // What do we do? We can hardly ignore this new and reliable information
+            // so we'll take it. Maybe we should add code to slowly correct towards it
+            // but at present, we just take it.
 
+            // So, if the master clock has again become equal to the actual anchor clock
+            // then we can reinstate it all.
+            // first, let us calculate the cumulative offset after swapping all the clocks...
+            conn->anchor_time = conn->last_anchor_local_time + actual_offset;
+
+            // we can check how much of a deviation there was going from clock to clock and back
+            // around to the master clock
 
             if (actual_clock_id == conn->actual_anchor_clock) {
-              int64_t cumulative_deviation = conn->actual_anchor_time - conn->anchor_time;
-              debug(1, "Master clock has become equal to the anchor clock. The actual clock is %f ms ahead/behind (+/-) the calculated clock.", 0.000001 * cumulative_deviation);
+              int64_t cumulative_deviation = conn->anchor_time - conn->actual_anchor_time;
+              debug(1,
+                    "Master clock has become equal to the anchor clock. The estimated clock time "
+                    "was %f ms ahead(+) or behind (-) the real clock time.",
+                    0.000001 * cumulative_deviation);
               conn->anchor_clock = conn->actual_anchor_clock;
               conn->anchor_time = conn->actual_anchor_time;
               conn->anchor_rtptime = conn->actual_anchor_rtptime;
