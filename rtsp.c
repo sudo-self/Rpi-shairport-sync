@@ -3532,7 +3532,6 @@ static void apple_challenge(int fd, rtsp_message *req, rtsp_message *resp) {
   char *hdr = msg_get_header(req, "Apple-Challenge");
   if (!hdr)
     return;
-  debug(1, "Apple Challenge");
   SOCKADDR fdsa;
   socklen_t sa_len = sizeof(fdsa);
   getsockname(fd, (struct sockaddr *)&fdsa, &sa_len);
