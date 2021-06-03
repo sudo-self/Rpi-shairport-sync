@@ -2406,8 +2406,13 @@ void *player_thread_func(void *arg) {
                       sync_error, (sync_error * 1.0) / config.output_rate,
                       inframe->given_timestamp);
                 int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
+
+                // add 100 ms to give the pipeline a chance to recover -- a bit hacky
+                local_frames_to_drop += (conn->input_rate) * 100 / 1000;
+
                 uint32_t frames_to_drop_sized = local_frames_to_drop;
                 do_flush(inframe->given_timestamp + frames_to_drop_sized, conn);
+
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
                 debug(1,
                       "Large negative sync error of: %" PRId64
