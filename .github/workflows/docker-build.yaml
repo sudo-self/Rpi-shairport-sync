@@ -39,4 +39,4 @@ jobs:
           tags: registry.nova.do/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
-          ssh: github=${{ env.SSH_AUTH_SOCK }} # Can be removed when no longer pulling from private repos.
+          ssh: default=${{ env.SSH_AUTH_SOCK }} # Can be removed when no longer pulling from private repos.
