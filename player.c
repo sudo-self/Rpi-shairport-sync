@@ -2795,17 +2795,17 @@ void *player_thread_func(void *arg) {
                 statistics_item("min DAC queue", "%*" PRIu64 "", 13, minimum_dac_queue_size);
                 statistics_item("min buffers", "%*" PRIu32 "", 11, minimum_buffer_occupancy);
                 statistics_item("max buffers", "%*" PRIu32 "", 11, maximum_buffer_occupancy);
-                statistics_item("source nominal frames per second", "%*.2f", 10,
+                statistics_item("nominal fps", "%*.2f", 11,
                                 conn->remote_frame_rate);
-                statistics_item("source actual frames per second", "%*.2f", 10,
+                statistics_item(" actual fps", "%*.2f", 11,
                                 conn->input_frame_rate);
-                statistics_item("output fps", "%*.2f", 10, conn->frame_rate);
-                statistics_item("source clock drift ppm", "%*.2f", 9,
+                statistics_item(" output fps", "%*.2f", 11, conn->frame_rate);
+                statistics_item("source drift ppm", "%*.2f", 16,
                                 (conn->local_to_remote_time_gradient - 1.0) * 1000000);
-                statistics_item("source clock drift samples", "%*d", 5,
+                statistics_item("drift samples", "%*d", 13,
                                 conn->local_to_remote_time_gradient_sample_count);
                 statistics_item(
-                    "rough calculated correction in ppm", "%*.2f", 9,
+                    "estimated (unused) correction ppm", "%*.2f", strlen("estimated (unused) correction ppm"),
                     (conn->frame_rate > 0.0)
                         ? ((conn->frame_rate - conn->remote_frame_rate * conn->output_sample_ratio *
                                                    conn->local_to_remote_time_gradient) *
