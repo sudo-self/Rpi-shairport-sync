@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-                                             
-                                             
+
+
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-                                             
+
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-                                             
+
                                                               // Best guess is that this delay is 11,025 frames.
-                                             
+
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-                                             
+
                                                               uint32_t fl = nctohs(&packet[2]); //
-                                             
+
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -1790,7 +1790,6 @@ void *rtp_realtime_audio_receiver(void *arg) {
 
 ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count) {
   ssize_t response;
-  // usleep(1500000);
   if (pthread_mutex_lock(&descriptor->mutex) != 0)
     debug(1, "problem with mutex");
   pthread_cleanup_push(mutex_unlock, (void *)&descriptor->mutex);
@@ -2157,7 +2156,7 @@ void *rtp_buffered_audio_processor(void *arg) {
     av_format = AV_SAMPLE_FMT_S32;
     conn->input_bytes_per_frame = 8; // the output from the decoder will be input to the player
     conn->input_bit_depth = 32;
-    debug(1, "32-bit output format chosen");
+    debug(2, "32-bit output format chosen");
     break;
   case SPS_FORMAT_S16:
   case SPS_FORMAT_S16_LE:
@@ -2208,8 +2207,9 @@ void *rtp_buffered_audio_processor(void *arg) {
   int streaming_has_started = 0;
   int play_enabled = 0;
   uint32_t flush_from_timestamp;
-  double requested_lead_time = 0.100; // normal lead time minimum
-  reset_buffer(conn);                 // in case there is any garbage in the player
+  double requested_lead_time = 0.10; // normal lead time minimum
+  reset_buffer(conn);                // in case there is any garbage in the player
+  // int not_first_time_out = 0;
   do {
     int flush_is_delayed = 0;
     int flush_newly_requested = 0;
@@ -2261,7 +2261,7 @@ void *rtp_buffered_audio_processor(void *arg) {
       if ((blocks_read != 0) && (seq_no >= flushUntilSeq)) {
         // we have reached or overshot the flushUntilSeq block
         if (flushUntilSeq != seq_no)
-          debug(1, "flushUntilSeq %u reached or overshot at %u.", flushUntilSeq, seq_no);
+          debug(1, "flushUntilSeq %u overshot at %u.", flushUntilSeq, seq_no);
         conn->ap2_flush_requested = 0;
         flush_request_active = 0;
         flush_newly_requested = 0;
@@ -2310,15 +2310,14 @@ void *rtp_buffered_audio_processor(void *arg) {
       // debug(1,"player buffer size and occupancy: %u and %u", player_buffer_size,
       // player_buffer_occupancy);
       if (player_buffer_occupancy >
-          ((requested_lead_time + 0.10) * 44100.0 / 352)) { // must be greater than the lead time.
+          ((requested_lead_time + 0.4) * 44100.0 / 352)) { // must be greater than the lead time.
         // if there is enough stuff in the player's buffer, sleep for a while and try again
-        // debug(1,"sleep for 20 ms");
-        usleep(20000); // wait for a while
+        usleep(1000); // wait for a while
       } else {
         if ((pcm_buffer_occupancy - pcm_buffer_read_point) >= (352 * conn->input_bytes_per_frame)) {
           new_buffer_needed = 0;
           // send a frame to the player if allowed
-          // it it's way too late, it means that a new anchor time is needed
+          // it it's way too late, it probably means that a new anchor time is needed
 
           /*
                     uint32_t at_rtp = conn->reference_timestamp;
@@ -2348,19 +2347,35 @@ void *rtp_buffered_audio_processor(void *arg) {
                   //  pcm_buffer_read_point_rtptime, expected_rtptime);
                   //}
                   // expected_rtptime = pcm_buffer_read_point_rtptime + 352;
+
+                  // this is a diagnostic for introducing a timing error that will force the
+                  // processing chain to resync
+                  // clang-format off
+                  /*
+                  if ((not_first_time_out == 0) && (blocks_read >= 20)) {
+                    int timing_error = 150;
+                    debug(1, "Connection %d: Introduce a timing error of %d milliseconds.",
+                          conn->connection_number, timing_error);
+                    if (timing_error >= 0)
+                      pcm_buffer_read_point_rtptime += (conn->input_rate * timing_error) / 1000;
+                    else
+                      pcm_buffer_read_point_rtptime -= (conn->input_rate * (-timing_error)) / 1000;
+                    not_first_time_out = 1;
+                  }
+                  */
+                  // clang-format on
+
                   player_put_packet(0, 0, pcm_buffer_read_point_rtptime,
                                     pcm_buffer + pcm_buffer_read_point, 352, conn);
                   streaming_has_started++;
-                  usleep(2000);
                 }
               }
 
               pcm_buffer_read_point_rtptime += 352;
               pcm_buffer_read_point += 352 * conn->input_bytes_per_frame;
             }
-            // usleep(2000); // let other stuff happens
           } else {
-            usleep(20000); // wait before asking if play is enabled again
+            usleep(1000); // wait before asking if play is enabled again
           }
         } else {
           new_buffer_needed = 1;
@@ -2599,7 +2614,6 @@ void *rtp_buffered_audio_processor(void *arg) {
         }
       } else {
         // nread is 0 -- the port has been closed
-        // finished = 1;
         debug(1, "buffered audio port closed!");
         finished = 1;
       }
