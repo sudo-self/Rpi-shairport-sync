@@ -169,11 +169,11 @@ void *activity_monitor_thread_code(void *arg) {
   do {
     switch (state) {
     case am_inactive:
-      // debug(1,"am_state: am_inactive");
+      debug(2,"am_state: am_inactive");
       while (player_state != ps_active)
         pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);
       state = am_active;
-      // going_active(); // this is done in activity_monitor_signify_activity
+      debug(2,"am_state: going active");
       break;
     case am_active:
       // debug(1,"am_state: am_active");
@@ -181,7 +181,6 @@ void *activity_monitor_thread_code(void *arg) {
         pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);
       if (config.active_state_timeout == 0.0) {
         state = am_inactive;
-        // going_inactive(); // this is done in activity_monitor_signify_activity
       } else {
         state = am_timing_out;
 
@@ -204,7 +203,6 @@ void *activity_monitor_thread_code(void *arg) {
       }
       break;
     case am_timing_out:
-      // debug(1,"am_state: am_timing_out");
       rc = 0;
       while ((player_state != ps_active) && (rc != ETIMEDOUT)) {
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
