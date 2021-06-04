@@ -3139,8 +3139,7 @@ int player_prepare_to_play(rtsp_conn_info *conn) {
   if (config.buffer_start_fill > BUFFER_FRAMES)
     die("specified buffer starting fill %d > buffer size %d", config.buffer_start_fill,
         BUFFER_FRAMES);
-  activity_monitor_signify_activity(
-      1); // active, and should be before play's command hook, command_start()
+   // active, and should be before play's command hook, command_start()
   command_start();
   conn->input_bytes_per_frame = 4; // default -- may be changed later
   // call on the output device to prepare itself
@@ -3190,7 +3189,6 @@ int player_stop(rtsp_conn_info *conn) {
 #endif
     // debuglev = dl;
     command_stop();
-    activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
     return 0;
   } else {
     debug(3, "Connection %d: player thread already deleted.", conn->connection_number);
