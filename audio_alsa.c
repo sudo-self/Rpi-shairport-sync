@@ -1659,14 +1659,15 @@ int do_play(void *buf, int samples) {
 
     if ((samples != 0) && (buf != NULL)) {
 
-      // jut check the state of the DAC
+      // just check the state of the DAC
 
       if ((state != SND_PCM_STATE_PREPARED) && (state != SND_PCM_STATE_RUNNING) &&
           (state != SND_PCM_STATE_XRUN)) {
         debug(1, "alsa: DAC in odd SND_PCM_STATE_* %d prior to writing.", state);
       }
 
-      // debug(3, "write %d frames.", samples);
+      snd_pcm_state_t prior_state = state; // keep this for afterwards....
+      debug(3, "alsa: write %d frames.", samples);
       ret = alsa_pcm_write(alsa_handle, buf, samples);
       if (ret == samples) {
         stall_monitor_frame_count += samples;
@@ -1699,7 +1700,25 @@ int do_play(void *buf, int samples) {
         frame_index = 0;
         measurement_data_is_valid = 0;
         if (ret == -EPIPE) { /* underrun */
-          debug(1, "alsa: underrun while writing %d samples to alsa device.", samples);
+
+          // It could be that the DAC was in the SND_PCM_STATE_XRUN state before
+          // sending the samples to be output. If so, it will still be in
+          // the SND_PCM_STATE_XRUN state after the call and it needs to be recovered.
+
+          // The underrun occurred in the past, so flagging an
+          // error at this point is misleading.
+
+          // In fact, having put samples in the buffer, we are about to fix it by now
+          // issuing a snd_pcm_recover().
+
+          // So, if state is SND_PCM_STATE_XRUN now, only report it if the state was
+          // not SND_PCM_STATE_XRUN prior to the call, i.e. report it only
+          // if we are not trying to recover from a previous underrun.
+
+          if (prior_state == SND_PCM_STATE_XRUN)
+            debug(2, "alsa: recovering from a previous underrun.");
+          else
+            debug(1, "alsa: underrun while writing %d samples to alsa device.", samples);
           int tret = snd_pcm_recover(alsa_handle, ret, 1);
           if (tret < 0) {
             warn("alsa: can't recover from SND_PCM_STATE_XRUN: %s.", snd_strerror(tret));
