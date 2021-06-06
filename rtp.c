@@ -1284,9 +1284,10 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       // using the master clock timing
 
       if (actual_clock_id == conn->anchor_clock) {
-        // if the master clock and the anchor clock are the same
-        // wait at least this time before using the new master clock
-        if (duration_of_mastership < 700000000) {
+         //if the master clock and the anchor clock are the same
+         //wait at least this time before using the new master clock
+        if (duration_of_mastership < 0000000) {
+          debug(1,"master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
           response = clock_not_ready;
         } else if ((duration_of_mastership > 5000000000) ||
                    (conn->last_anchor_info_is_valid == 0)) {
@@ -1414,7 +1415,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       debug(1, "Connection %d: NQPTP clock information is not valid.", conn->connection_number);
       break;
     default:
-      debug(3, "Connection %d: NQPTP clock reports an unrecognised status: %u.",
+      debug(1, "Connection %d: NQPTP clock reports an unrecognised status: %u.",
             conn->connection_number, response);
       break;
     }
@@ -2139,8 +2140,8 @@ void *rtp_buffered_audio_processor(void *arg) {
 
   av_opt_set_int(swr, "in_channel_layout", AV_CH_LAYOUT_STEREO, 0);
   av_opt_set_int(swr, "out_channel_layout", AV_CH_LAYOUT_STEREO, 0);
-  av_opt_set_int(swr, "in_sample_rate", 44100, 0);
-  av_opt_set_int(swr, "out_sample_rate", config.output_rate, 0);
+  av_opt_set_int(swr, "in_sample_rate", conn->input_rate, 0);
+  av_opt_set_int(swr, "out_sample_rate", conn->input_rate, 0); // must match or the timing will be wrong`
   av_opt_set_sample_fmt(swr, "in_sample_fmt", AV_SAMPLE_FMT_FLTP, 0);
 
   enum AVSampleFormat av_format;
@@ -2202,12 +2203,13 @@ void *rtp_buffered_audio_processor(void *arg) {
   // uint32_t expected_rtptime;
 
   uint64_t blocks_read = 0;
+  uint64_t blocks_read_since_flush = 0;
   int flush_requested = 0;
 
   int streaming_has_started = 0;
   int play_enabled = 0;
   uint32_t flush_from_timestamp;
-  double requested_lead_time = 0.10; // normal lead time minimum
+  double requested_lead_time = 0.3; // normal lead time minimum
   reset_buffer(conn);                // in case there is any garbage in the player
   // int not_first_time_out = 0;
   do {
@@ -2279,7 +2281,8 @@ void *rtp_buffered_audio_processor(void *arg) {
     // do this outside the flush mutex
     if (flush_newly_complete) {
       debug(2, "Flush Complete.");
-      blocks_read = 0;
+      blocks_read_since_flush = 0;
+
     }
 
     if (play_newly_stopped != 0)
@@ -2307,10 +2310,9 @@ void *rtp_buffered_audio_processor(void *arg) {
       // is there space in the player thread's buffer system?
       unsigned int player_buffer_size, player_buffer_occupancy;
       get_audio_buffer_size_and_occupancy(&player_buffer_size, &player_buffer_occupancy, conn);
-      // debug(1,"player buffer size and occupancy: %u and %u", player_buffer_size,
-      // player_buffer_occupancy);
+      //debug(1,"player buffer size and occupancy: %u and %u", player_buffer_size, player_buffer_occupancy);
       if (player_buffer_occupancy >
-          ((requested_lead_time + 0.4) * 44100.0 / 352)) { // must be greater than the lead time.
+          ((requested_lead_time + 0.4) * conn->input_rate / 352)) { // must be greater than the lead time.
         // if there is enough stuff in the player's buffer, sleep for a while and try again
         usleep(1000); // wait for a while
       } else {
@@ -2331,8 +2333,10 @@ void *rtp_buffered_audio_processor(void *arg) {
             if (frame_to_local_time(pcm_buffer_read_point_rtptime, &buffer_should_be_time, conn) ==
                 0) {
               int64_t lead_time = buffer_should_be_time - get_absolute_time_in_ns();
-              // debug(1,"lead time in buffered_audio is %f milliseconds.", lead_time * 0.000001);
-              if (blocks_read > 3) {
+              // debug(3,"lead time in buffered_audio is %f milliseconds.", lead_time * 0.000001);
+              // if it's the very first block (thus no priming needed)
+              if ((blocks_read == 1) || (blocks_read_since_flush > 3)) {
+              //if (1) {
                 if ((lead_time >= (int64_t)(requested_lead_time * 1000000000)) ||
                     (streaming_has_started != 0)) {
                   if (streaming_has_started == 0)
@@ -2373,6 +2377,8 @@ void *rtp_buffered_audio_processor(void *arg) {
 
               pcm_buffer_read_point_rtptime += 352;
               pcm_buffer_read_point += 352 * conn->input_bytes_per_frame;
+            } else {
+              debug(1,"frame to local time error");
             }
           } else {
             usleep(1000); // wait before asking if play is enabled again
@@ -2427,6 +2433,7 @@ void *rtp_buffered_audio_processor(void *arg) {
               errno, errorstring);
       } else if (nread > 0) {
         blocks_read++; // note, this doesn't mean they are valid audio blocks
+        blocks_read_since_flush++;
         // debug(1, "Realtime Audio Receiver Packet of length %d received.", nread);
         // now get hold of its various bits and pieces
         /*
