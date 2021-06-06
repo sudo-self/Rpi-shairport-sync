@@ -51,6 +51,7 @@
 #include <sys/ioctl.h>
 
 #include "config.h"
+#include "activity_monitor.h"
 
 #ifdef CONFIG_OPENSSL
 #include <openssl/md5.h>
@@ -1214,6 +1215,7 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
     if (conn->player_thread)
       warn("Connection %d: RECORD: Duplicate RECORD message -- ignored", conn->connection_number);
     else {
+      activity_monitor_signify_activity(1);
       player_prepare_to_play(conn);
       player_play(conn); // the thread better be 0
     }
@@ -1502,9 +1504,11 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       conn->ap2_rate = rate;
       if ((rate & 1) != 0) {
         debug(2, "Connection %d: Start playing.", conn->connection_number);
+        activity_monitor_signify_activity(1);
         conn->ap2_play_enabled = 1;
       } else {
         debug(2, "Connection %d: Stop playing.", conn->connection_number);
+        activity_monitor_signify_activity(0);
         conn->ap2_play_enabled = 0;
         // not sure this is needed yet
         // reset_anchor_info(conn); // needed if the player resumes
@@ -1844,6 +1848,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     if (streams) {
       // we are being asked to close a stream
       player_stop(conn);
+      activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
       if (conn->session_key) {
         free(conn->session_key);
         conn->session_key = NULL;
@@ -1893,6 +1898,7 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
         "TEARDOWN: synchronously terminating the player thread of RTSP conversation thread %d (2).",
         conn->connection_number);
     player_stop(conn);
+    activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
     debug(3, "TEARDOWN: successful termination of playing thread of RTSP conversation thread %d.",
           conn->connection_number);
   } else {
@@ -2048,7 +2054,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
       else
         debug(1, "No timing peer list!");
-
+      activity_monitor_signify_activity(1);
       player_prepare_to_play(conn);
       player_play(conn);
 
@@ -2072,11 +2078,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       // hack.
       conn->max_frames_per_packet = 352; // number of audio frames per packet.
-      conn->input_rate = 44100;
+      conn->input_rate = 44100; // we are stuck with this for the moment.
       conn->input_num_channels = 2;
       conn->input_bit_depth = 16;
       conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
-
+      activity_monitor_signify_activity(1);
       player_prepare_to_play(
           conn); // get capabilities of DAC before creating the buffered audio thread
 
@@ -2087,6 +2093,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_dict_set_item(stream0dict, "dataPort", plist_new_uint(conn->local_buffered_audio_port));
       plist_dict_set_item(stream0dict, "audioBufferSize",
                           plist_new_uint(conn->ap2_audio_buffer_size));
+
+
+      // this should be cancelled by an activity_monitor_signify_activity(1)
+      // call in the SETRATEANCHORI handler, which should come up right away
+      activity_monitor_signify_activity(0);
 
       player_play(conn);
 
@@ -3788,8 +3799,10 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
 
   debug(3, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
         conn->connection_number);
-  if (conn->player_thread)
+  if (conn->player_thread) {
     player_stop(conn);
+    activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
+  }
 
   debug(3, "Connection %d terminating:Closing timing, control and audio sockets...",
         conn->connection_number);
