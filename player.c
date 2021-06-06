@@ -96,6 +96,29 @@
 
 #include "activity_monitor.h"
 
+// sign extending rtptime calculations to 64 bit is needed from time to time.
+
+// the standard rtptime is unsigned 32 bits,
+// so you can do modulo 2^32 difference calculations
+// and get a signed result simply by typing the result as a signed 32-bit number
+
+// So long as you can be sure the numbers are within 2^31 of each other,
+// the sign of the result calculated in this way indicates which comes after which
+// so if you subtract a from b and the result is positive,
+// b is the same as or comes after a in module 2^32 order.
+
+// We want to do the same with the rtptime calculations for multiples of
+// the rtptimes (1, 2, 4 or 8 times), and we want to do this in signed 64-bit
+// so we need to sign extend these modulo 2^32, 2^33, 2^34, or 2^35 but unsigned
+// numbers on the same basis
+
+// See http://graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
+// and https://stackoverflow.com/a/31655073/2942008
+// of which this is a slight variation
+
+#define SIGNEX(v, sb) (((v) & ((1 << (sb + 1)) - 1)) | (((v) & (1 << (sb))) ? ~((1 << (sb))-1) : 0))
+
+
 // make the first audio packet deliberately early to bias the sync error of
 // the very first packet, making the error more likely to be too early
 // rather than too late. It it's too early,
@@ -1082,7 +1105,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               int64_t lt = conn->first_packet_time_to_play - local_time_now;
 
-              debug(2, "Connection %d: Lead time for first frame %" PRId64 ": %f seconds.",
+              debug(1, "Connection %d: Lead time for first frame %" PRId64 ": %f seconds.",
                     conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
 
               int64_t lateness = local_time_now - conn->first_packet_time_to_play;
@@ -1787,7 +1810,28 @@ void *player_thread_func(void *arg) {
 
   conn->output_sample_ratio = config.output_rate / conn->input_rate;
 
-  //  debug(1, "Output sample ratio is %d.", conn->output_sample_ratio);
+  int output_rtptime_sign_bit;
+  switch (conn->output_sample_ratio) {
+    case 1:
+      output_rtptime_sign_bit = 31;
+      break;
+    case 2:
+      output_rtptime_sign_bit = 32;
+      break;
+    case 4:
+      output_rtptime_sign_bit = 33;
+      break;
+    case 8:
+      output_rtptime_sign_bit = 34;
+      break;
+    default:
+      debug(1, "error with output ratio -- can't calculate sign bit number");
+      output_rtptime_sign_bit = 31;
+      break;
+  }
+
+  debug(1, "Output sample ratio is %d.", conn->output_sample_ratio);
+  debug(1, "Output output_rtptime_sign_bit: %d.", output_rtptime_sign_bit);
 
   conn->max_frame_size_change =
       1 * conn->output_sample_ratio; // we add or subtract one frame at the nominal
@@ -2304,17 +2348,19 @@ void *player_thread_func(void *arg) {
           if (resp == 0) {
 
             uint32_t should_be_frame_32;
+            // this is denominated in the frame rate of the incoming stream
             local_time_to_frame(local_time_now, &should_be_frame_32, conn);
-            int64_t should_be_frame = ((int64_t)should_be_frame_32) * conn->output_sample_ratio;
 
-            int64_t delay =
-                should_be_frame - (inframe->given_timestamp * conn->output_sample_ratio -
-                                   current_delay); // all int64_t
+            int64_t should_be_frame = should_be_frame_32;
+            should_be_frame = should_be_frame * conn->output_sample_ratio;
 
-            sync_error = delay; // int64_t from int64_t - int32_t, so okay
+            // current_delay is denominated in the frame rate of the outgoing stream
+            int64_t will_be_frame = inframe->given_timestamp;
+            will_be_frame = will_be_frame * conn->output_sample_ratio;
+            will_be_frame = (will_be_frame - current_delay) & ((1 << (output_rtptime_sign_bit + 1)) - 1);
 
-            // debug(1, "Sync error on frame %u is %" PRId64 " frames.", inframe->given_timestamp,
-            // sync_error);
+            sync_error =
+                SIGNEX(should_be_frame - will_be_frame, output_rtptime_sign_bit) ; // all int64_t
 
             if (at_least_one_frame_seen_this_session == 0) {
               at_least_one_frame_seen_this_session = 1;
@@ -2376,16 +2422,6 @@ void *player_thread_func(void *arg) {
             if ((config.no_sync == 0) && (inframe->given_timestamp != 0) &&
                 (config.resyncthreshold > 0.0) &&
                 (abs_sync_error > config.resyncthreshold * config.output_rate)) {
-              /*
-              if (abs_sync_error > 3 * config.output_rate) {
-
-                warn("Very large sync error: %" PRId64 " frames, with should_be_frame: %" PRId64
-                     ",  nt: %" PRId64 ", current_delay: %" PRId64 ", given timestamp %" PRIX32
-                     ", reference timestamp %" PRIX32 ", should_be_frame %" PRIX32 ".",
-                     sync_error, should_be_frame, nt, current_delay, inframe->given_timestamp,
-                     reference_timestamp, should_be_frame_32);
-              }
-              */
               sync_error_out_of_bounds++;
             } else {
               sync_error_out_of_bounds = 0;
