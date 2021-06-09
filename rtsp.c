@@ -1445,7 +1445,6 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
 void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: SETRATEANCHORI %s :: Content-Length %d", conn->connection_number,
         req->path, req->contentlength);
-  debug_log_rtsp_message(2, "SETRATEANCHORI request", req);
 
   plist_t messagePlist = plist_from_rtsp_content(req);
 
@@ -1953,7 +1952,7 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int err;
   debug(2, "Connection %d: SETUP (AirPlay 2)", conn->connection_number);
-
+  // debug_log_rtsp_message(1, "Connection %d: SETUP (AirPlay 2) SETUP incoming message", req);
   // we need to get the timing peer interfaces.
   // I'm guessing they are all this device's adresses that are on the same subnets as
   // the timing peer info in the accompanying plist

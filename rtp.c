@@ -2206,6 +2206,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   uint64_t blocks_read_since_flush = 0;
   int flush_requested = 0;
 
+  uint32_t timestamp;
   int streaming_has_started = 0;
   int play_enabled = 0;
   uint32_t flush_from_timestamp;
@@ -2220,7 +2221,7 @@ void *rtp_buffered_audio_processor(void *arg) {
     // are we in in flush mode, or just about to leave it?
     debug_mutex_lock(&conn->flush_mutex, 10000, 1); // 10ms is a long time to wait!
     uint32_t flushUntilSeq = conn->ap2_flush_until_sequence_number;
-    // uint32_t flushUntilTS = conn->ap2_flush_until_rtp_timestamp;
+    uint32_t flushUntilTS = conn->ap2_flush_until_rtp_timestamp;
 
     int flush_request_active = 0;
     if (conn->ap2_flush_requested) {
@@ -2263,7 +2264,9 @@ void *rtp_buffered_audio_processor(void *arg) {
       if ((blocks_read != 0) && (seq_no >= flushUntilSeq)) {
         // we have reached or overshot the flushUntilSeq block
         if (flushUntilSeq != seq_no)
-          debug(1, "flushUntilSeq %u overshot at %u.", flushUntilSeq, seq_no);
+          debug(2, "flush request ended with flushUntilSeq %u overshot at %u, flushUntilTS: %u, incoming timestamp: %u.", flushUntilSeq, seq_no, flushUntilTS, timestamp);
+        else
+          debug(2, "flush request ended with flushUntilSeq, flushUntilTS: %u, incoming timestamp: %u", flushUntilSeq, flushUntilTS, timestamp);
         conn->ap2_flush_requested = 0;
         flush_request_active = 0;
         flush_newly_requested = 0;
@@ -2333,7 +2336,12 @@ void *rtp_buffered_audio_processor(void *arg) {
             if (frame_to_local_time(pcm_buffer_read_point_rtptime, &buffer_should_be_time, conn) ==
                 0) {
               int64_t lead_time = buffer_should_be_time - get_absolute_time_in_ns();
-              // debug(3,"lead time in buffered_audio is %f milliseconds.", lead_time * 0.000001);
+              double lead_time_ms = lead_time * 0.000001;
+              // debug(1,"lead time in buffered_audio is %f milliseconds.", lead_time_ms);
+              
+              // it seems that some garbage blocks can be left after the flush, so if they
+              // don't have sensible lead times, drop them
+              if ((lead_time_ms < 5000.0) && (lead_time > -1000.0)) {
               // if it's the very first block (thus no priming needed)
               if ((blocks_read == 1) || (blocks_read_since_flush > 3)) {
               //if (1) {
@@ -2373,6 +2381,9 @@ void *rtp_buffered_audio_processor(void *arg) {
                                     pcm_buffer + pcm_buffer_read_point, 352, conn);
                   streaming_has_started++;
                 }
+              }
+              } else {
+                debug(2,"Dropping packet %u from block %u with out-of-range lead_time: %.3f seconds.", pcm_buffer_read_point_rtptime, seq_no, 0.001 * lead_time_ms);
               }
 
               pcm_buffer_read_point_rtptime += 352;
@@ -2443,7 +2454,7 @@ void *rtp_buffered_audio_processor(void *arg) {
         uint8_t csrc_count = packet[0] & 0b00001111;
         */
         seq_no = packet[1] * (1 << 16) + packet[2] * (1 << 8) + packet[3];
-        uint32_t timestamp = nctohl(&packet[4]);
+        timestamp = nctohl(&packet[4]);
         // debug(1, "immediately: block %u, rtptime %u", seq_no, timestamp);
         // uint32_t ssrc = nctohl(&packet[8]);
         // uint8_t marker = 0;
@@ -2461,10 +2472,10 @@ void *rtp_buffered_audio_processor(void *arg) {
             // play enabled will be off when this is a full flush and the anchor information is not
             // valid
             int64_t lead_time = should_be_time - get_absolute_time_in_ns();
-            debug(2,
-                  "flush completed to seq: %u with rtptime: %u, lead time: 0x%" PRIx64
+            debug(1,
+                  "flush completed to seq: %u, flushUntilTS; %u with rtptime: %u, lead time: 0x%" PRIx64
                   " nanoseconds, i.e. %f sec.",
-                  seq_no, timestamp, lead_time, lead_time * 0.000000001);
+                  seq_no, flushUntilTS, timestamp, lead_time, lead_time * 0.000000001);
           } else {
             debug(2, "flush completed to seq: %u with rtptime: %u.", seq_no, timestamp);
           }

@@ -1830,8 +1830,8 @@ void *player_thread_func(void *arg) {
       break;
   }
 
-  debug(1, "Output sample ratio is %d.", conn->output_sample_ratio);
-  debug(1, "Output output_rtptime_sign_bit: %d.", output_rtptime_sign_bit);
+//  debug(1, "Output sample ratio is %d.", conn->output_sample_ratio);
+//  debug(1, "Output output_rtptime_sign_bit: %d.", output_rtptime_sign_bit);
 
   conn->max_frame_size_change =
       1 * conn->output_sample_ratio; // we add or subtract one frame at the nominal
