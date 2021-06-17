@@ -159,38 +159,12 @@ static void ab_resync(rtsp_conn_info *conn) {
   conn->ab_buffering = 1;
 }
 
-// given starting and ending points as unsigned 16-bit integers running modulo 2^16, returns the
-// position of x in the interval in *pos
-// returns true if x is actually within the buffer
-
-int position_in_modulo_uint16_t_buffer(uint16_t x, uint16_t start, uint16_t end, uint16_t *pos) {
-  int response = 0;
-
-  int16_t x_disp = x - start;
-  int16_t b_size =
-      end - start; // this will be positive as long as (a) start and end are within 2^15 of each
-                   // other and (b) end is at or after start on the modulo wheel
-  if ((x_disp >= 0) && (x_disp < b_size))
-    response = 1;
-  return response;
-}
-// wrapped number between two seq_t.
-// as long as the two seq_t numbers are supposed to be within 2^15 of one another,
-// that is, you go the shorter way around the 2^16 modulo wheel,
-// this will return positive if b is equal to or after a and negative otherwise
-int32_t seq_diff(seq_t a, seq_t b, seq_t base) {
-  int16_t d = b - a;
-  return d;
-}
-
 // the sequence numbers will wrap pretty often.
 // this returns true if the second arg is strictly after the first
-static inline int seq_order(seq_t a, seq_t b, seq_t base) {
+static inline int is_after(seq_t a, seq_t b) {
   int16_t d = b - a;
   return d > 0;
 }
-
-static inline seq_t seq_sum(seq_t a, seq_t b) { return a + b; }
 
 void reset_input_flow_metrics(rtsp_conn_info *conn) {
   conn->play_number_after_flush = 0;
@@ -491,13 +465,13 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
       conn->frames_inward_frames_received_at_measurement_time = actual_timestamp;
       abuf = conn->audio_buffer + BUFIDX(seqno);
       conn->ab_write = seqno + 1; // move the write pointer to the next free space
-    } else if (seq_order(conn->ab_write, seqno, conn->ab_read)) { // newer than expected
-      int32_t gap = seq_diff(conn->ab_write, seqno, conn->ab_read);
+    } else if (is_after(conn->ab_write, seqno)) { // newer than expected
+      int32_t gap = seqno - conn->ab_write;
       if (gap <= 0)
         debug(1, "Unexpected gap size: %d.", gap);
       int i;
       for (i = 0; i < gap; i++) {
-        abuf = conn->audio_buffer + BUFIDX(seq_sum(conn->ab_write, i));
+        abuf = conn->audio_buffer + BUFIDX(conn->ab_write + i);
         abuf->ready = 0; // to be sure, to be sure
         abuf->resend_request_number = 0;
         abuf->initialisation_time =
@@ -507,13 +481,11 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
         abuf->given_timestamp = 0;
         abuf->sequence_number = 0;
       }
-      // debug(1,"N %d s %u.",seq_diff(ab_write,PREDECESSOR(seqno))+1,ab_write);
       abuf = conn->audio_buffer + BUFIDX(seqno);
       //        rtp_request_resend(ab_write, gap);
       //        resend_requests++;
       conn->ab_write = seqno + 1;
-    } else if (seq_order(conn->ab_read, seqno,
-                         conn->ab_read)) { // older than expected but not too late
+    } else if (is_after(conn->ab_read, seqno)) { // older than expected but not too late
       conn->late_packets++;
       abuf = conn->audio_buffer + BUFIDX(seqno);
     } else { // too late.
@@ -563,17 +535,19 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
           (uint64_t)1000000000);
       uint64_t latency_time = (uint64_t)(conn->latency * (uint64_t)1000000000);
       latency_time = latency_time / (uint64_t)conn->input_rate;
-
-      int x; // this is the first frame to be checked
-      // if we detected a first empty frame before and if it's still in the buffer!
-      if ((first_possibly_missing_frame >= 0) &&
-          (position_in_modulo_uint16_t_buffer(first_possibly_missing_frame, conn->ab_read,
-                                              conn->ab_write, NULL))) {
-        x = first_possibly_missing_frame;
-      } else {
-        x = conn->ab_read;
+      
+      // find the first frame that is missing, if known
+      int x = conn->ab_read;
+      if (first_possibly_missing_frame >= 0) {
+        // if it's within the range
+        int16_t buffer_size = conn->ab_write - conn->ab_read; // must be positive
+        if (buffer_size >= 0) {
+          int16_t position_in_buffer = first_possibly_missing_frame - conn->ab_read;
+          if ((position_in_buffer >=0) && (position_in_buffer < buffer_size))
+            x = first_possibly_missing_frame;
+        }
       }
-
+   
       first_possibly_missing_frame = -1; // has not been set
 
       int missing_frame_run_count = 0;
@@ -1389,7 +1363,7 @@ static inline int32_t mean_32(int32_t a, int32_t b) {
   int64_t mean = (al + bl) / 2;
   int32_t r = (int32_t)mean;
   if (r != mean)
-    debug(1, "Error calculating average of two int32_ts");
+    debug(1, "Error calculating average of two int32_t values: %d, %d.", a, b);
   return r;
 }
 
@@ -2290,8 +2264,8 @@ void *player_thread_func(void *arg) {
             }
           }
 
-          conn->buffer_occupancy =
-              seq_diff(conn->ab_read, conn->ab_write, conn->ab_read); // int32_t from int32
+          int16_t bo = conn->ab_write - conn->ab_read; // do this in 16 bits
+          conn->buffer_occupancy = bo; // 32 bits
 
           if (conn->buffer_occupancy < minimum_buffer_occupancy)
             minimum_buffer_occupancy = conn->buffer_occupancy;
