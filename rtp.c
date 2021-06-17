@@ -1284,10 +1284,11 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       // using the master clock timing
 
       if (actual_clock_id == conn->anchor_clock) {
-         //if the master clock and the anchor clock are the same
-         //wait at least this time before using the new master clock
-        if (duration_of_mastership < 0000000) {
-          debug(1,"master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
+         // if the master clock and the anchor clock are the same
+         // wait at least this time before using the new master clock
+         // note that mastershipo may be backdated
+        if (duration_of_mastership < 1100000000) {
+          debug(3,"master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
           response = clock_not_ready;
         } else if ((duration_of_mastership > 5000000000) ||
                    (conn->last_anchor_info_is_valid == 0)) {
@@ -1365,6 +1366,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
               // conn->anchor_time = conn->last_anchor_local_time + actual_offset; // already done
               conn->anchor_clock = actual_clock_id;
             }
+            conn->anchor_clock_is_new = 0;
           }
         } else {
           response = clock_not_valid; // no current clock information and no previous clock info
@@ -1442,8 +1444,8 @@ int have_ptp_timing_information(rtsp_conn_info *conn) {
 
 int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *conn) {
   int result = -1;
-  uint32_t anchor_rtptime;
-  uint64_t anchor_local_time;
+  uint32_t anchor_rtptime = 0;
+  uint64_t anchor_local_time = 0;
   if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == clock_ok) {
     int32_t frame_difference = timestamp - anchor_rtptime;
     int64_t time_difference = frame_difference;
@@ -1460,8 +1462,8 @@ int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *
 
 int local_ptp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn) {
   int result = -1;
-  uint32_t anchor_rtptime;
-  uint64_t anchor_local_time;
+  uint32_t anchor_rtptime = 0;
+  uint64_t anchor_local_time = 0;
   if (get_ptp_anchor_local_time_info(conn, &anchor_rtptime, &anchor_local_time) == clock_ok) {
     int64_t time_difference = time - anchor_local_time;
     int64_t frame_difference = time_difference;
@@ -2130,7 +2132,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   int dst_linesize;
   int dst_bufsize;
 
-  // Prepare software resampler to convert floating point (?) to S16
+  // Prepare software resampler to convert floating point (?)
   SwrContext *swr = swr_alloc();
   if (swr == NULL) {
     debug(1, "can not allocate a swr context");
@@ -2211,7 +2213,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   int play_enabled = 0;
   uint32_t flush_from_timestamp;
   double requested_lead_time = 0.3; // normal lead time minimum
-  reset_buffer(conn);                // in case there is any garbage in the player
+  reset_buffer(conn);               // in case there is any garbage in the player
   // int not_first_time_out = 0;
   do {
     int flush_is_delayed = 0;
@@ -2338,13 +2340,12 @@ void *rtp_buffered_audio_processor(void *arg) {
               int64_t lead_time = buffer_should_be_time - get_absolute_time_in_ns();
               double lead_time_ms = lead_time * 0.000001;
               // debug(1,"lead time in buffered_audio is %f milliseconds.", lead_time_ms);
-              
-              // it seems that some garbage blocks can be left after the flush, so if they
-              // don't have sensible lead times, drop them
+
+              // it seems that some garbage blocks can be left after the flush, so
+              // only accept them if they have sensible lead times
               if ((lead_time_ms < 5000.0) && (lead_time > -1000.0)) {
               // if it's the very first block (thus no priming needed)
               if ((blocks_read == 1) || (blocks_read_since_flush > 3)) {
-              //if (1) {
                 if ((lead_time >= (int64_t)(requested_lead_time * 1000000000)) ||
                     (streaming_has_started != 0)) {
                   if (streaming_has_started == 0)
