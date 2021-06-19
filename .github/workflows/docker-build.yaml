@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: Set SHAIRPORT_SYNC_BRANCH env.
         run: echo "SHAIRPORT_SYNC_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
       - name: Set up ssh agent
@@ -39,4 +41,4 @@ jobs:
           tags: registry.nova.do/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
-          ssh: github=${{ env.SSH_AUTH_SOCK }} # Can be removed when no longer pulling from private repos.
+          ssh: default=${{ env.SSH_AUTH_SOCK }} # Can be removed when no longer pulling from private repos.
