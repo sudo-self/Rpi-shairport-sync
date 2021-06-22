@@ -11,7 +11,7 @@ Shairport Sync
 
 AirPlay 2 Matters
 ====
-Did we mention AirPlay 2 support is experimental? You should also note that it is possible that changes could be made that would stop AirPlay 2 support from working. Let's hope that doesn't happen -- due to its limitations, there is little prospect of it having any kind of commercial significance.
+Did we mention AirPlay 2 support is experimental? You should also note that it is possible that changes could be made that would stop AirPlay 2 support from working. Let's hope that doesn't happen -- due to its limitations, there seems little prospect of it having any kind of commercial significance.
 
 What Works
 ---
