@@ -115,6 +115,10 @@ pid_t pid;
 int this_is_the_daemon_process = 0;
 #endif
 
+#ifndef UUID_STR_LEN
+#define UUID_STR_LEN 36
+#endif
+
 pthread_t rtsp_listener_thread;
 
 int killOption = 0;
@@ -1616,6 +1620,7 @@ int main(int argc, char **argv) {
   // with thanks
   uuid_t binuuid;
   uuid_generate_random(binuuid);
+  
   char *uuid = malloc(UUID_STR_LEN);
   /* Produces a UUID string at uuid consisting of lower-case letters. */
   uuid_unparse_lower(binuuid, uuid);

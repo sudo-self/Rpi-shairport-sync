@@ -465,7 +465,7 @@ void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
         "dacp_monitor_port_update_callback with Remote ID \"%s\", target ID \"%s\" and port "
         "number %d.",
         dacp_id, dacp_server.dacp_id, port);
-  if ((dacp_id == NULL) || (dacp_server.dacp_id == NULL)) {
+  if ((dacp_id == NULL) || (dacp_server.dacp_id[0] == '\0')) {
     warn("dacp_id or dacp_server.dacp_id NULL detected");
   } else {
     if (strcmp(dacp_id, dacp_server.dacp_id) == 0) {

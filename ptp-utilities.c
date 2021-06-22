@@ -24,6 +24,7 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  */
 
+#include "definitions.h"
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -31,6 +32,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#ifdef COMPILE_FOR_FREEBSD
+#include <sys/socket.h>
+#include <netinet/in.h>
+#endif
 #define __STDC_FORMAT_MACROS
 #include "common.h"
 #include <inttypes.h>

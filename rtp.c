@@ -1498,7 +1498,8 @@ void *rtp_event_receiver(void *arg) {
   socklen_t addr_size = sizeof(remote_addr);
 
   int fd = accept(conn->event_socket, (struct sockaddr *)&remote_addr, &addr_size);
-  pthread_cleanup_push(socket_cleanup, (void *)fd);
+  intptr_t pfd = fd;
+  pthread_cleanup_push(socket_cleanup, (void *)pfd);
   int finished = 0;
   do {
     nread = recv(fd, packet, sizeof(packet), 0);
@@ -1792,11 +1793,11 @@ void *rtp_realtime_audio_receiver(void *arg) {
 }
 
 ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count) {
-  ssize_t response;
+  ssize_t response = -1;
   if (pthread_mutex_lock(&descriptor->mutex) != 0)
     debug(1, "problem with mutex");
   pthread_cleanup_push(mutex_unlock, (void *)&descriptor->mutex);
-  if ((descriptor->closed == 0)) {
+  if (descriptor->closed == 0) {
     while ((descriptor->buffer_occupancy == 0) && (descriptor->error_code == 0)) {
       if (pthread_cond_wait(&descriptor->not_empty_cv, &descriptor->mutex))
         debug(1, "Error waiting for buffered read");
@@ -1848,7 +1849,8 @@ void *buffered_tcp_reader(void *arg) {
   socklen_t addr_size = sizeof(remote_addr);
   int finished = 0;
   int fd = accept(descriptor->sock_fd, (struct sockaddr *)&remote_addr, &addr_size);
-  pthread_cleanup_push(socket_cleanup, (void *)fd);
+  intptr_t pfd = fd;
+  pthread_cleanup_push(socket_cleanup, (void *)pfd);
 
   do {
     if (pthread_mutex_lock(&descriptor->mutex) != 0)

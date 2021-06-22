@@ -1,14 +1,9 @@
 #ifndef _DEFINITIONS_H
 #define _DEFINITIONS_H
 
-//#include <libconfig.h>
-//#include <signal.h>
-//#include <stdint.h>
 #include <sys/socket.h>
 
-//#include "audio.h"
 #include "config.h"
-//#include "mdns.h"
 
 #if defined(__APPLE__) && defined(__MACH__)
 /* Apple OSX and iOS (Darwin). ------------------------------ */
@@ -21,6 +16,18 @@
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__CYGWIN__)
 #define COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD 1
+#endif
+
+#if defined(__linux__)
+#define COMPILE_FOR_LINUX 1
+#endif
+
+#if defined(__FreeBSD__) || defined(__OpenBSD__)
+#define COMPILE_FOR_BSD 1
+#endif
+
+#if defined(__FreeBSD__)
+#define COMPILE_FOR_FREEBSD 1
 #endif
 
 // struct sockaddr_in6 is bigger than struct sockaddr. derp

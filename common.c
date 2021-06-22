@@ -49,7 +49,16 @@
 #include <unistd.h>
 
 #include <ifaddrs.h>
+
+#ifdef COMPILE_FOR_LINUX
 #include <netpacket/packet.h>
+#endif
+
+#ifdef COMPILE_FOR_FREEBSD
+#include <netinet/in.h>
+#include <net/if_types.h>
+#include <net/if_dl.h>
+#endif
 
 #ifdef COMPILE_FOR_OSX
 #include <CoreServices/CoreServices.h>
@@ -1954,6 +1963,7 @@ int get_device_id(uint8_t *id, int int_length) {
     t = id;
     int found = 0;
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+ #ifdef AF_PACKET
       if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
         struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
         if ((strcmp(ifa->ifa_name, "lo") != 0) && (found == 0)) {
@@ -1963,8 +1973,25 @@ int get_device_id(uint8_t *id, int int_length) {
           found = 1;
         }
       }
+ #else
+ #ifdef AF_LINK
+       struct sockaddr_dl * sdl = (struct sockaddr_dl *) ifa->ifa_addr;
+       if ((sdl) && (sdl->sdl_family == AF_LINK)) {
+        if (sdl->sdl_type == IFT_ETHER) {
+          char *s = LLADDR(sdl);
+          for (i = 0; i < sdl->sdl_alen; i++) {
+            debug(1,"char %d: \"%c\".", i, *s);
+            *t++ = (uint8_t)*s++;   
+          }   
+          found = 1;
+        }
+      }
+ #endif
+ #endif
+
     }
     freeifaddrs(ifaddr);
   }
   return response;
 }
+
