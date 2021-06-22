@@ -2,17 +2,16 @@
 Shairport Sync
 =============
 * Shairport Sync is an AirPlay audio player – it plays audio streamed from Apple devices and from AirPlay sources such [ForkedDaapd](http://ejurgensen.github.io/forked-daapd/).
-* Shairport Sync can be built to support AirPlay 1 only or AirPlay 2. The AirPlay 2 build requires a good deal of extra library support and may not fit into smaller devices. AirPlay 2 also requires more CPU power and more RAM -- the minimum recommended device is a Raspberry Pi 3.
-* **AirPlay 2 support is experimental and incomplete.** The focus of the development effort is on getting the best possible audio performance. Thus, many features that are outside that scope are missing or broken. So, for examples, integration with Apple's Home app is missing; remote control doesn't work.
-* For AirPlay 2, Shairport Sync requires the services of another application called [NQPTP](https://github.com/mikebrady/nqptp) ("Not Quite PTP") for timing and synchronisation. NQPTP must run as `root` and must have exclusive access to ports `319` and `320`.
+* Shairport Sync can be built to support AirPlay 1 only or it can be built to support Airplay 2, which includes AirPlay 1 support. The AirPlay 2 build requires a good deal of extra library support and may not fit into smaller devices. It also requires more CPU power and more RAM -- the minimum recommended device is a Raspberry Pi 3.
+* **AirPlay 2 support is experimental and incomplete.** The focus of the development effort has been on getting the best possible audio performance. Many features outside that focus are missing or broken. So, for example, integration with Apple's Home app is missing; remote control doesn't work.
+* For AirPlay 2, Shairport Sync requires the services of another application called [`NQPTP`](https://github.com/mikebrady/nqptp) ("Not Quite PTP") for timing and synchronisation. NQPTP must run as `root` and must have exclusive access to ports `319` and `320`.
 * When built for AirPlay 1, Shairport Sync runs on Linux, FreeBSD and OpenBSD.
-* AirPlay 2 support is only available on recent Linux and FreeBSD builds. FreeBSD implementation has not been extensively tested.
-* OpenBSD and Cygwin are not supported.
-* AirPlay 2 support will definitely not work on Mac OS X. The reason is that Shairport Sync needs to use NQPTP, which uses ports `319` and `320`. These ports are  used by Mac OS X to support its implementation of AirPlay 2.
+* AirPlay 2 support is only available on recent Linux and FreeBSD builds. FreeBSD implementation has not been extensively tested. OpenBSD and Cygwin are not supported.
+* AirPlay 2 support will definitely not work on Mac OS X. The reason is that Shairport Sync needs to use [`NQPTP`](https://github.com/mikebrady/nqptp), which uses ports `319` and `320`. These ports are  used by Mac OS X to support its implementation of AirPlay 2.
 
-AirPlay 2 Issues
+AirPlay 2 Matters
 ====
-Did we mention AirPlay 2 support is experimental? You should also note that it is entirely possible that changes could be made that would stop Shairport Sync AirPlay 2 support from working. Let's hope that doesn't happen -- due to its limitations, there is little prospect of it having any kind of commercial significance.
+Did we mention AirPlay 2 support is experimental? You should also note that it is possible that changes could be made that would stop AirPlay 2 support from working. Let's hope that doesn't happen -- due to its limitations, there is little prospect of it having any kind of commercial significance.
 
 What Works
 ---
@@ -23,22 +22,21 @@ What Works
 What Does Not Work
 ---
 * Shairport Sync AirPlay 2 can not be used from a PC or from an Apple TV.
-* There is no integration with the Home app or HomeKit, so nothing to do with the Home app works.
-* There is no integration with Siri.
-* You can not run multiple instances of Shairport Sync on one device. This is because an instance of Shairport Sync requires exclusive access to NQPTP, and only one instance of that can run on a processor. (Docker may offer a workaround, but this has not been tested.)
-* Remote Control from Shairport Sync back to the player doesn't work. The `D-Bus` interface is working, but anything requiring sending commands to the player doesn't work.
+* There is no integration with Siri or with the Home app or HomeKit, so nothing to do with the Home app works.
+* You can not run multiple instances of Shairport Sync on one device. This is because an instance of Shairport Sync requires exclusive access to [`NQPTP`](https://github.com/mikebrady/nqptp), and only one instance of that can run on a processor. (Docker may offer a workaround, but this has not been tested.)
+* Remote Control from Shairport Sync back to the player doesn't work. The `D-Bus` and `MPRIS` interfaces are working, but anything requiring sending commands to the player doesn't work.
 * Artwork is not downloaded.
 
 More About What Works
 ---
-* Two types of audio are received -- CD quality ALAC (like AirPlay 1) and AAC stereo at 44,100 frames per seconds. The selection of encoding is made by the player.
+* Two types of audio are received -- "Realtime" streams of CD quality ALAC (like AirPlay 1) and "Buffered Audio" streams of AAC stereo at 44,100 frames per seconds. The selection of stream type is made by the player.
 * Audio is synchronised with other AirPlay 2 devices, including AirPlay 2 devices that have their own master clocks. (Limitation: This has not been tested with multiple nearly-identical master clock devices such as with two HomePod minis -- Shairport Sync may get confused about which is the current master.)
 * Shairport Sync continues to support AirPlay 1, and offers an AirPlay 1 compatibility mode for situations where iTunes or macOS Music plays to multiple speakers and one of more of them is compatible with AirPlay 1 only.
 
 What You Need
 ---
-* A Raspberry Pi 3 or better is needed. At present, Shairport Sync will not run on an original Pi or a Pi Zero.
-* An extra program, NQPTP, is needed and must be run as `root`. It will use ports `319` and `320`, normally reserved for PTP clocks. If you are using PTP clock services for something else, you can't install NQPTP and so you can't use Shairport Sync.
+* A Raspberry Pi 3 or better is needed. At present, Shairport Sync will not run successfully on an original Pi or a Pi Zero.
+* [`NQPTP`](https://github.com/mikebrady/nqptp) is needed and must be run as `root`. It will use ports `319` and `320`, normally reserved for PTP clocks. If you are using PTP clock services for something else, you can't install [`NQPTP`](https://github.com/mikebrady/nqptp) and so you can't use Shairport Sync.
 
 Guides
 ---
