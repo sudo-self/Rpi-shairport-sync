@@ -1716,7 +1716,7 @@ int do_play(void *buf, int samples) {
           // if we are not trying to recover from a previous underrun.
 
           if (prior_state == SND_PCM_STATE_XRUN)
-            debug(2, "alsa: recovering from a previous underrun.");
+            debug(1, "alsa: recovering from a previous underrun.");
           else
             debug(1, "alsa: underrun while writing %d samples to alsa device.", samples);
           int tret = snd_pcm_recover(alsa_handle, ret, 1);
