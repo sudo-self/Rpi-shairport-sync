@@ -1267,6 +1267,7 @@ void reset_ptp_anchor_info(rtsp_conn_info *conn) {
   conn->anchor_remote_info_is_valid = 0;
 }
 
+int long_time_notifcation_done = 0;
 int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
                                    uint64_t *anchorLocalTime) {
   uint64_t actual_clock_id, actual_time_of_sample, actual_offset, start_of_mastership;
@@ -1275,8 +1276,16 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   if (response == clock_ok) {
     uint64_t time_now = get_absolute_time_in_ns();
     int64_t time_since_sample = time_now - actual_time_of_sample;
-    if (time_since_sample > 1000000000)
-      debug(1,"A long time -- %f milliseconds -- has elapsed since the last timing sample was received.", 0.000001 * time_since_sample);
+    if (time_since_sample > 10000000000) {
+      if (long_time_notifcation_done == 0) {
+        debug(1,"The last PTP timing sample is pretty old: %f seconds.", 0.000000001 * time_since_sample);
+        long_time_notifcation_done = 1;
+      }
+    } else if ((time_since_sample < 2000000000) && (long_time_notifcation_done != 0)) {
+      debug(1,"The last PTP timing sample is no longer too old: %f seconds.", 0.000000001 * time_since_sample);
+      long_time_notifcation_done = 0;
+    }
+
     if (conn->anchor_remote_info_is_valid !=
         0) { // i.e. if we have anchor clock ID and anchor time / rtptime
       // figure out how long the clock has been master
