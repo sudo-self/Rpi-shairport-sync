@@ -1807,7 +1807,12 @@ void *player_thread_func(void *arg) {
 //  debug(1, "Output sample ratio is %d.", conn->output_sample_ratio);
 //  debug(1, "Output output_rtptime_sign_bit: %d.", output_rtptime_sign_bit);
 
-  conn->max_frame_size_change =
+  int64_t output_rtptime_mask = 1;
+  output_rtptime_mask = output_rtptime_mask << (output_rtptime_sign_bit + 1);
+  output_rtptime_mask = output_rtptime_mask - 1;
+  debug(3,"output_rtptime_mask is %" PRIx64 ".", output_rtptime_mask);
+  
+    conn->max_frame_size_change =
       1 * conn->output_sample_ratio; // we add or subtract one frame at the nominal
                                      // rate, multiply it by the frame ratio.
                                      // but, on some occasions, more than one frame could be added
@@ -2331,7 +2336,7 @@ void *player_thread_func(void *arg) {
             // current_delay is denominated in the frame rate of the outgoing stream
             int64_t will_be_frame = inframe->given_timestamp;
             will_be_frame = will_be_frame * conn->output_sample_ratio;
-            will_be_frame = (will_be_frame - current_delay) & ((1 << (output_rtptime_sign_bit + 1)) - 1);
+            will_be_frame = (will_be_frame - current_delay) & output_rtptime_mask;
 
             sync_error =
                 SIGNEX(should_be_frame - will_be_frame, output_rtptime_sign_bit) ; // all int64_t
