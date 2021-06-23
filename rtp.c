@@ -1224,7 +1224,7 @@ void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtpti
       ((clock_id != conn->anchor_clock) || (conn->anchor_rtptime != rtptime) ||
        (conn->anchor_time != networktime))) {
     uint64_t master_clock_id = 0;
-    ptp_get_clock_info(&master_clock_id, NULL, NULL);
+    ptp_get_clock_info(&master_clock_id, NULL, NULL, NULL);
     debug(1,
           "Connection %d: Note: anchor parameters have changed. Old clock: %" PRIx64
           ", rtptime: %u, networktime: %" PRIu64 ". New clock: %" PRIx64
@@ -1269,14 +1269,17 @@ void reset_ptp_anchor_info(rtsp_conn_info *conn) {
 
 int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
                                    uint64_t *anchorLocalTime) {
-  uint64_t actual_clock_id, actual_offset, start_of_mastership;
-  int response = ptp_get_clock_info(&actual_clock_id, &actual_offset, &start_of_mastership);
+  uint64_t actual_clock_id, actual_time_of_sample, actual_offset, start_of_mastership;
+  int response = ptp_get_clock_info(&actual_clock_id, &actual_time_of_sample, &actual_offset, &start_of_mastership);
 
   if (response == clock_ok) {
+    uint64_t time_now = get_absolute_time_in_ns();
+    int64_t time_since_sample = time_now - actual_time_of_sample;
+    if (time_since_sample > 1000000000)
+      debug(1,"A long time -- %f milliseconds -- has elapsed since the last timing sample was received.", 0.000001 * time_since_sample);
     if (conn->anchor_remote_info_is_valid !=
         0) { // i.e. if we have anchor clock ID and anchor time / rtptime
       // figure out how long the clock has been master
-      uint64_t time_now = get_absolute_time_in_ns();
       int64_t duration_of_mastership = time_now - start_of_mastership;
       // if we have an alternative, i.e. if last anchor stuff is valid
       // then we can wait for a long time to let the new master settle
@@ -1302,8 +1305,8 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
           conn->last_anchor_info_is_valid = 1;
           if (conn->anchor_clock_is_new != 0)
             debug(1,
-                  "Connection %d: Clock %" PRIx64 " is now the new anchor clock and master clock.",
-                  conn->connection_number, conn->anchor_clock);
+                  "Connection %d: Clock %" PRIx64 " is now the new anchor clock and master clock. History: %f milliseconds.",
+                  conn->connection_number, conn->anchor_clock, 0.000001 * duration_of_mastership);
           conn->anchor_clock_is_new = 0;
         }
       } else {
@@ -1316,15 +1319,15 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
         if (conn->anchor_clock_is_new != 0)
           debug(1,
                 "Connection %d: Anchor clock has changed to %" PRIx64 ", master clock is: %" PRIx64
-                ".",
-                conn->connection_number, conn->anchor_clock, actual_clock_id);
+                ". History: %f milliseconds.",
+                conn->connection_number, conn->anchor_clock, actual_clock_id, 0.000001 * duration_of_mastership);
 
         if ((conn->last_anchor_info_is_valid != 0) && (conn->anchor_clock_is_new == 0)) {
           int64_t time_since_last_update =
               get_absolute_time_in_ns() - conn->last_anchor_time_of_update;
           if (time_since_last_update > 5000000000) {
-            debug(1, "Connection %d: Master clock has changed to %" PRIx64 ".",
-                  conn->connection_number, actual_clock_id);
+            debug(1, "Connection %d: Master clock has changed to %" PRIx64 ". History: %f milliseconds.",
+                  conn->connection_number, actual_clock_id, 0.000001 * duration_of_mastership);
             // here we adjust the time of the anchor rtptime
             // we know its local time, so we use the new clocks's offset to
             // calculate what time that must be on the new clock
