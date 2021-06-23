@@ -36,7 +36,7 @@ More About What Works
 What You Need
 ---
 * A Raspberry Pi 3 or better is needed. At present, Shairport Sync will not run successfully on an original Pi or a Pi Zero.
-* [`NQPTP`](https://github.com/mikebrady/nqptp) is needed and must be run as `root`. It will use ports `319` and `320`, normally reserved for PTP clocks. If you are using PTP clock services for something else, you can't install [`NQPTP`](https://github.com/mikebrady/nqptp) and so you can't use Shairport Sync.
+* [`NQPTP`](https://github.com/mikebrady/nqptp) is needed and must be run as `root`. It will use ports `319` and `320`, normally reserved for [PTP](https://standards.ieee.org/standard/1588-2008.html) clocks. If you are using PTP clock services for something else, you can't install [`NQPTP`](https://github.com/mikebrady/nqptp) and so you can't use Shairport Sync.
 
 Guides
 ---
