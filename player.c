@@ -96,30 +96,7 @@
 
 #include "activity_monitor.h"
 
-// sign extending rtptime calculations to 64 bit is needed from time to time.
-
-// the standard rtptime is unsigned 32 bits,
-// so you can do modulo 2^32 difference calculations
-// and get a signed result simply by typing the result as a signed 32-bit number
-
-// So long as you can be sure the numbers are within 2^31 of each other,
-// the sign of the result calculated in this way indicates which comes after which
-// so if you subtract a from b and the result is positive,
-// b is the same as or comes after a in module 2^32 order.
-
-// We want to do the same with the rtptime calculations for multiples of
-// the rtptimes (1, 2, 4 or 8 times), and we want to do this in signed 64-bit
-// so we need to sign extend these modulo 2^32, 2^33, 2^34, or 2^35 but unsigned
-// numbers on the same basis
-
-// See http://graphics.stanford.edu/~seander/bithacks.html#FixedSignExtend
-// and https://stackoverflow.com/a/31655073/2942008
-// of which this is a slight variation
-
-#define SIGNEX(v, sb) (((v) & ((1 << (sb + 1)) - 1)) | (((v) & (1 << (sb))) ? ~((1 << (sb))-1) : 0))
-
-
-// make the first audio packet deliberately early to bias the sync error of
+// m<ake the first audio packet deliberately early to bias the sync error of
 // the very first packet, making the error more likely to be too early
 // rather than too late. It it's too early,
 // a delay exactly compensating for it can be sent just before the
@@ -276,13 +253,13 @@ static int init_alac_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
   // Here it is:
 
   /*
-      struct	ALACSpecificConfig (defined in ALACAudioTypes.h)
-      abstract   	This struct is used to describe codec provided information about the encoded
+      struct  ALACSpecificConfig (defined in ALACAudioTypes.h)
+      abstract     This struct is used to describe codec provided information about the encoded
      Apple Lossless bitstream.
                   It must accompany the encoded stream in the containing audio file and be provided
      to the decoder.
 
-      field      	frameLength 		uint32_t	indicating the frames per packet
+      field        frameLength     uint32_t  indicating the frames per packet
      when
      no
      explicit
@@ -292,27 +269,27 @@ static int init_alac_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
                                                             but for maximum compatibility, the
      default encoder setting of 4096 should be used.
 
-      field      	compatibleVersion 	uint8_t 	indicating compatible version,
+      field        compatibleVersion   uint8_t   indicating compatible version,
                                                             value must be set to 0
 
-      field      	bitDepth 		uint8_t 	describes the bit depth of the
+      field        bitDepth     uint8_t   describes the bit depth of the
      source
      PCM
      data
      (maximum
      value = 32)
 
-      field      	pb 			uint8_t 	currently unused tuning
+      field        pb       uint8_t   currently unused tuning
      parametetbugr.
                                                             value should be set to 40
 
-      field      	mb 			uint8_t 	currently unused tuning parameter.
+      field        mb       uint8_t   currently unused tuning parameter.
                                                             value should be set to 14
 
-      field      	kb			uint8_t 	currently unused tuning parameter.
+      field        kb      uint8_t   currently unused tuning parameter.
                                                             value should be set to 10
 
-      field      	numChannels 		uint8_t 	describes the channel count (1 =
+      field        numChannels     uint8_t   describes the channel count (1 =
      mono,
      2
      =
@@ -323,17 +300,17 @@ static int init_alac_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
                                                             describes a set of discreet channels
      with no specific ordering
 
-      field      	maxRun			uint16_t 	currently unused.
+      field        maxRun      uint16_t   currently unused.
                                                     value should be set to 255
 
-      field      	maxFrameBytes 		uint32_t 	the maximum size of an Apple
+      field        maxFrameBytes     uint32_t   the maximum size of an Apple
      Lossless
      packet
      within
      the encoded stream.
                                                           value of 0 indicates unknown
 
-      field      	avgBitRate 		uint32_t 	the average bit rate in bits per
+      field        avgBitRate     uint32_t   the average bit rate in bits per
      second
      of
      the
@@ -341,7 +318,7 @@ static int init_alac_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
      Lossless stream.
                                                           value of 0 indicates unknown
 
-      field      	sampleRate 		uint32_t 	sample rate of the encoded stream
+      field        sampleRate     uint32_t   sample rate of the encoded stream
    */
 
   // We are going to go on that basis
@@ -464,7 +441,7 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
       conn->frames_inward_measurement_time = time_now;
       conn->frames_inward_frames_received_at_measurement_time = actual_timestamp;
       abuf = conn->audio_buffer + BUFIDX(seqno);
-      conn->ab_write = seqno + 1; // move the write pointer to the next free space
+      conn->ab_write = seqno + 1;                 // move the write pointer to the next free space
     } else if (is_after(conn->ab_write, seqno)) { // newer than expected
       int32_t gap = seqno - conn->ab_write;
       if (gap <= 0)
@@ -535,7 +512,7 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
           (uint64_t)1000000000);
       uint64_t latency_time = (uint64_t)(conn->latency * (uint64_t)1000000000);
       latency_time = latency_time / (uint64_t)conn->input_rate;
-      
+
       // find the first frame that is missing, if known
       int x = conn->ab_read;
       if (first_possibly_missing_frame >= 0) {
@@ -543,11 +520,11 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
         int16_t buffer_size = conn->ab_write - conn->ab_read; // must be positive
         if (buffer_size >= 0) {
           int16_t position_in_buffer = first_possibly_missing_frame - conn->ab_read;
-          if ((position_in_buffer >=0) && (position_in_buffer < buffer_size))
+          if ((position_in_buffer >= 0) && (position_in_buffer < buffer_size))
             x = first_possibly_missing_frame;
         }
       }
-   
+
       first_possibly_missing_frame = -1; // has not been set
 
       int missing_frame_run_count = 0;
@@ -1783,36 +1760,62 @@ void *player_thread_func(void *arg) {
                                                             // successive rtptimes, at worst
 
   conn->output_sample_ratio = config.output_rate / conn->input_rate;
+  
+  
+// Sign extending rtptime calculations to 64 bit is needed from time to time.
+
+// The standard rtptime is unsigned 32 bits,
+// so you can do modulo 2^32 difference calculations
+// and get a signed result simply by typing the result as a signed 32-bit number.
+
+// So long as you can be sure the numbers are within 2^31 of each other,
+// the sign of the result calculated in this way indicates the order of the operands.
+// For example, if you subtract a from b and the result is positive, you can conclude
+// b is the same as or comes after a in module 2^32 order.
+
+// We want to do the same with the rtptime calculations for multiples of
+// the rtptimes (1, 2, 4 or 8 times), and we want to do this in signed 64-bit/
+// Therefore we need to sign extend these modulo 2^32, 2^33, 2^34, or 2^35 bit unsigned
+// numbers on the same basis.
+
+// That is what the output_rtptime_sign_bit, output_rtptime_mask, output_rtptime_mask_not and
+// output_rtptime_sign_mask are for -- see later, calculating the sync error.
+
 
   int output_rtptime_sign_bit;
   switch (conn->output_sample_ratio) {
-    case 1:
-      output_rtptime_sign_bit = 31;
-      break;
-    case 2:
-      output_rtptime_sign_bit = 32;
-      break;
-    case 4:
-      output_rtptime_sign_bit = 33;
-      break;
-    case 8:
-      output_rtptime_sign_bit = 34;
-      break;
-    default:
-      debug(1, "error with output ratio -- can't calculate sign bit number");
-      output_rtptime_sign_bit = 31;
-      break;
+  case 1:
+    output_rtptime_sign_bit = 31;
+    break;
+  case 2:
+    output_rtptime_sign_bit = 32;
+    break;
+  case 4:
+    output_rtptime_sign_bit = 33;
+    break;
+  case 8:
+    output_rtptime_sign_bit = 34;
+    break;
+  default:
+    debug(1, "error with output ratio -- can't calculate sign bit number");
+    output_rtptime_sign_bit = 31;
+    break;
   }
 
-//  debug(1, "Output sample ratio is %d.", conn->output_sample_ratio);
-//  debug(1, "Output output_rtptime_sign_bit: %d.", output_rtptime_sign_bit);
+  //  debug(1, "Output sample ratio is %d.", conn->output_sample_ratio);
+  //  debug(1, "Output output_rtptime_sign_bit: %d.", output_rtptime_sign_bit);
 
   int64_t output_rtptime_mask = 1;
   output_rtptime_mask = output_rtptime_mask << (output_rtptime_sign_bit + 1);
   output_rtptime_mask = output_rtptime_mask - 1;
-  debug(3,"output_rtptime_mask is %" PRIx64 ".", output_rtptime_mask);
-  
-    conn->max_frame_size_change =
+
+  int64_t output_rtptime_mask_not = output_rtptime_mask;
+  output_rtptime_mask_not = ~output_rtptime_mask;
+
+  int64_t output_rtptime_sign_mask = 1;
+  output_rtptime_sign_mask = output_rtptime_sign_mask << output_rtptime_sign_bit;
+
+  conn->max_frame_size_change =
       1 * conn->output_sample_ratio; // we add or subtract one frame at the nominal
                                      // rate, multiply it by the frame ratio.
                                      // but, on some occasions, more than one frame could be added
@@ -2270,7 +2273,7 @@ void *player_thread_func(void *arg) {
           }
 
           int16_t bo = conn->ab_write - conn->ab_read; // do this in 16 bits
-          conn->buffer_occupancy = bo; // 32 bits
+          conn->buffer_occupancy = bo;                 // 32 bits
 
           if (conn->buffer_occupancy < minimum_buffer_occupancy)
             minimum_buffer_occupancy = conn->buffer_occupancy;
@@ -2336,10 +2339,28 @@ void *player_thread_func(void *arg) {
             // current_delay is denominated in the frame rate of the outgoing stream
             int64_t will_be_frame = inframe->given_timestamp;
             will_be_frame = will_be_frame * conn->output_sample_ratio;
-            will_be_frame = (will_be_frame - current_delay) & output_rtptime_mask;
+            will_be_frame = (will_be_frame - current_delay) &
+                            output_rtptime_mask; // this is to make sure it's unsigned modulo 2^bits
+                                                 // for the rtptime
 
-            sync_error =
-                SIGNEX(should_be_frame - will_be_frame, output_rtptime_sign_bit) ; // all int64_t
+            // Now we have a tricky piece of calculation to perform.
+            // We know the rtptimes are unsigned in 32 or more bits -- call it r bits. We have to
+            // calculate the difference between them. on the basis that they should be within
+            // 2^(r-1) of one another, so that the unsigned subtraction result, modulo 2^r, if
+            // interpreted as a signed number, should yield the difference _and_ the ordering.
+
+            sync_error = should_be_frame - will_be_frame; // this is done in int64_t form
+
+            // sign-extend the r-bit unsigned int calculation by treating it as an r-bit signed
+            // integer
+            if ((sync_error & output_rtptime_sign_mask) !=
+                0) { // check what would be the sign bit in "r" bit unsigned arithmetic
+                     // result is negative
+              sync_error = sync_error | output_rtptime_mask_not;
+            } else {
+              // result is positive
+              sync_error = sync_error & output_rtptime_mask;
+            }
 
             if (at_least_one_frame_seen_this_session == 0) {
               at_least_one_frame_seen_this_session = 1;
@@ -2810,17 +2831,16 @@ void *player_thread_func(void *arg) {
                 statistics_item("min DAC queue", "%*" PRIu64 "", 13, minimum_dac_queue_size);
                 statistics_item("min buffers", "%*" PRIu32 "", 11, minimum_buffer_occupancy);
                 statistics_item("max buffers", "%*" PRIu32 "", 11, maximum_buffer_occupancy);
-                statistics_item("nominal fps", "%*.2f", 11,
-                                conn->remote_frame_rate);
-                statistics_item(" actual fps", "%*.2f", 11,
-                                conn->input_frame_rate);
+                statistics_item("nominal fps", "%*.2f", 11, conn->remote_frame_rate);
+                statistics_item(" actual fps", "%*.2f", 11, conn->input_frame_rate);
                 statistics_item(" output fps", "%*.2f", 11, conn->frame_rate);
                 statistics_item("source drift ppm", "%*.2f", 16,
                                 (conn->local_to_remote_time_gradient - 1.0) * 1000000);
                 statistics_item("drift samples", "%*d", 13,
                                 conn->local_to_remote_time_gradient_sample_count);
                 statistics_item(
-                    "estimated (unused) correction ppm", "%*.2f", strlen("estimated (unused) correction ppm"),
+                    "estimated (unused) correction ppm", "%*.2f",
+                    strlen("estimated (unused) correction ppm"),
                     (conn->frame_rate > 0.0)
                         ? ((conn->frame_rate - conn->remote_frame_rate * conn->output_sample_ratio *
                                                    conn->local_to_remote_time_gradient) *
@@ -3154,7 +3174,7 @@ int player_prepare_to_play(rtsp_conn_info *conn) {
   if (config.buffer_start_fill > BUFFER_FRAMES)
     die("specified buffer starting fill %d > buffer size %d", config.buffer_start_fill,
         BUFFER_FRAMES);
-   // active, and should be before play's command hook, command_start()
+  // active, and should be before play's command hook, command_start()
   command_start();
   conn->input_bytes_per_frame = 4; // default -- may be changed later
   // call on the output device to prepare itself
