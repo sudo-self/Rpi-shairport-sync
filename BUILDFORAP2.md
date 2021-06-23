@@ -65,10 +65,7 @@ Download, install and start/enable `nqptp` from [here](https://github.com/mikebr
 ***Note:*** At present, Shairport Sync expects the `nqptp` repository folder to be in the same directory as the `shairport-sync` repository folder, as it will look for a header file at `../nqptp/nqptp-shm-structures.h`.
 
 The `nqptp` service monitors PTP clocks. It provides a POSIX Shared Memory Interface (SMI)  at `/nqptp`. A shared
-pthread mutex is contained within the interface, and to use it you need write access. This is available
-to the `root` user and also to members of the unix group `nqptp`, which is created by the `nqptp` installer.
-
-You should include the relevant users in the `nqptp` group -- including the `shairport-sync` user if you are using the standard Shairport Sync installer.
+pthread mutex is contained within the interface, and to use it you need write access.
 
 Next, download Shairport Sync, configure it, compile and install it:
 ```
@@ -118,11 +115,11 @@ You may wish to run Shairport Sync from the command line (but remember to ensure
 ```
 $ shairport-sync -vu --statistics
 ```
-The user doesn't need to be privileged, but should be a member of the `nqptp` group for access to the `nqptp` service, and it should also be a member of the `audio` group for access to the `alsa` subsystem.
+The user doesn't need to be privileged, but should be a member of the `audio` group for access to the `alsa` subsystem.
 
 ### Using Shairport Sync ###
 
-The Shairport Sync AirPlay service should appear on the network with a service name made from the machine's hostname with the first letter capitalised, e.g. hostname `ubuntu` gives a service name `Ububntu`. You can change the service name in the configuration file.
+The Shairport Sync AirPlay service should appear on the network with a service name made from the machine's hostname with the first letter capitalised, e.g. hostname `ubuntu` gives a service name `Ubuntu`. You can change the service name in the configuration file.
 
 Connect and enjoy...
 
