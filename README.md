@@ -26,6 +26,9 @@ What Does Not Work
 * You can not run multiple instances of Shairport Sync on one device. This is because an instance of Shairport Sync requires exclusive access to [`NQPTP`](https://github.com/mikebrady/nqptp), and only one instance of that can run on a processor. (Docker may offer a workaround, but this has not been tested.)
 * Remote Control from Shairport Sync back to the player doesn't work. The `D-Bus` and `MPRIS` interfaces are working, but anything requiring sending commands to the player doesn't work.
 * Artwork is not downloaded.
+* Playing from certain Apple devices to Shairport Sync does not work as expected. For example:
+  * When using a service with the ability to play directly on HomePod (e.g. Apple Music). If the music starts on the HomePod, or is the first device selected from the AirPlay list on iOS, when Shairport Sync is then selected iOS shows it as not connected (even though it is). Therefore the expected volume controls are not displayed. A workaround for this is to force an AirPlay stream to the HomePod (rather than just acting as a remote controller), this can be done by selected Shairport Sync _before_ the HomePod. Note, this issue is not present for other services such as SoundCloud which do not integrate into the HomePod like Apple Music does.
+  * The above example is true also when trying to select Shairport Sync from the AirPlay menu on the HomePod from the Home app.
 
 More About What Works
 ---
