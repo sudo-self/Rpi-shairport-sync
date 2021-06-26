@@ -38,8 +38,14 @@ More About What Works
 
 What You Need
 ---
-* A Raspberry Pi 3 or better is needed. At present, Shairport Sync will not run successfully on an original Pi or a Pi Zero.
+* A Raspberry Pi. See table below for tested devices, feel free to open an issue or pull request if you have Shairport Sync working on a device not listed here!
 * [`NQPTP`](https://github.com/mikebrady/nqptp) is needed and must be run as `root`. It will use ports `319` and `320`, normally reserved for [PTP](https://standards.ieee.org/standard/1588-2008.html) clocks. If you are using PTP clock services for something else, you can't install [`NQPTP`](https://github.com/mikebrady/nqptp) and so you can't use Shairport Sync.(FYI, most computers do not have a PTP clock running -- instead, they may use a [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time. However, as noted above, macOS _does_ use a PTP clock to support AirPlay 2.)
+
+| Tested              | Native Hardware Status | Docker Status |
+|---------------------|------------------------|---------------|
+| Raspberry Pi 4      | Working                | Working       |
+| Raspberry Pi 3      | Working                | Working.      |
+| Raspberry Pi Zero W | Untested               | Working but since the Pi Zero is low powered, issues can arise fairly quickly when trying to run additional programs. Total CPU usage sits at around 75% when using Shairport Sync.|
 
 Guides
 ---
