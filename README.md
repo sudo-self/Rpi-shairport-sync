@@ -44,7 +44,7 @@ What You Need
 | Tested              | Native Hardware Status | Docker Status |
 |---------------------|------------------------|---------------|
 | Raspberry Pi 4      | Working                | Working       |
-| Raspberry Pi 3      | Working                | Working.      |
+| Raspberry Pi 3      | Working                | Working       |
 | Raspberry Pi Zero W | Untested               | Working but since the Pi Zero is low powered, issues can arise fairly quickly when trying to run additional programs. Total CPU usage sits at around 75% when using Shairport Sync.|
 
 Guides
