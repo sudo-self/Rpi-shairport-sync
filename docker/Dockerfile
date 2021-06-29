@@ -27,7 +27,8 @@ RUN apk -U add \
         xxd \
         libressl-dev \
         openssl-dev \
-        libplist-dev
+        libplist-dev \
+        libgcrypt-dev
 
 # ALAC Build System:
 FROM builder-base AS builder-alac
@@ -110,8 +111,7 @@ RUN apk -U add \
         libuuid \
         ffmpeg \
         libsodium \
-        libplist \
-        libgcrypt-static
+        libplist
 
 RUN rm -rf  /lib/apk/db/*
 
