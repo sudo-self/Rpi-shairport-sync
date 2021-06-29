@@ -55,7 +55,7 @@ First, install the packages needed by Shairport Sync:
 ```
 # apt-get install build-essential git xmltoman autoconf automake libtool \
     libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev libglib2.0-dev \
-    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt
+    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev
 ```
 (Note: if you don't want the `D-Bus` interface, you may omit `libglib2.0-dev`.)
 
