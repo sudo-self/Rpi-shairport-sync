@@ -390,7 +390,7 @@ if test "x$with_airplay_2" = "xyes" ; then
       PKG_CHECK_MODULES([libplist], [libplist-2.0 >= 2.0.0],[CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],[AC_MSG_ERROR(AirPlay 2 support requires libplist 2.0.0 or later -- search for pkg libplist-2.2.0 or later!)])
   fi
   PKG_CHECK_MODULES([libsodium], [libsodium],[CFLAGS="${libsodium_CFLAGS} ${CFLAGS}" LIBS="${libsodium_LIBS} ${LIBS}"],[AC_MSG_ERROR(AirPlay 2 support requires libsodium -- libsodium-dev suggested)])
-  AC_CHECK_LIB([gcrypt], [gcry_control], [], [AC_MSG_ERROR([Airplay 2 support requires libgcrypt -- libgcrypt-dev suggested])])
+  AC_CHECK_LIB([gcrypt], [main], [], [AC_MSG_ERROR([Airplay 2 support requires libgcrypt -- libgcrypt-dev suggested])])
 #  PKG_CHECK_MODULES([libgcrypt], [libgcrypt],[CFLAGS="${libgcrypt_CFLAGS} ${CFLAGS}" LIBS="${libgcrypt_LIBS} ${LIBS}"],[AC_MSG_ERROR(AirPlay 2 support requires libgcrypt -- libgcrypt-dev suggested)])
 #  AC_CHECK_LIB([sodium], [sodium_init], ,[AC_MSG_ERROR([AirPlay 2 support requires libsodium -- libsodium-dev suggested])])
   AC_CHECK_LIB([avutil],[av_malloc], [], [AC_MSG_ERROR([Airplay 2 support requires libavutil -- libavutil-dev suggested])])
