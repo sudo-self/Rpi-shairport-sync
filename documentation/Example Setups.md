@@ -13,8 +13,9 @@ Since some Amazon Echo devices have either a 3.5mm input or can be used as a blu
 * You should now be able to use your Echo device in sync with other AirPlay devices!
 
 ### _Raspberry Pi --> Echo as Bluetooth Speaker (Docker Version)_
-* 
+* WIP
 
 ### _Raspberry Pi --> Echo with Volume Control_
 * Before continuing with volume control via Home Assistant, please note that currently only one way volume control is tested - Shairport Sync to the Echo device. This means if the volume of the Echo is changed (e.g. by voice control or by the physical controls on the device), this will not be reflected in the volume of Shairport Sync and will be overwritten the next time Shairport Sync's volume is changed.
 * This setup requires Home Assistant and a MQTT broker. The basic idea is that Shairport Sync sends a MQTT message containing the new volume amount to the MQTT broker when the volume is changed, this is then picked up by Home Assistant (which is monitoring the MQTT broker). Home Assistant will then send a command to the Amazon Echo device to change the volume.
+* WIP
