@@ -93,7 +93,7 @@ RUN make -j
 RUN make install
 
 # Shairport Sync Runtime System:
-FROM alpine:3.12
+FROM alpine:3.8
 
 RUN apk add \
         alsa-lib \
@@ -111,7 +111,7 @@ RUN apk add \
         ffmpeg \
         libsodium \
         libplist \
-        libgcrypt-dev
+        libgcrypt
 
 RUN rm -rf  /lib/apk/db/*
 
