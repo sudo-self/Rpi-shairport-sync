@@ -111,7 +111,7 @@ RUN apk -U add \
         ffmpeg \
         libsodium \
         libplist \
-        libgcrypt
+        libgcrypt-static
 
 RUN rm -rf  /lib/apk/db/*
 
