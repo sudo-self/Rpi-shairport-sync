@@ -93,7 +93,7 @@ RUN make -j
 RUN make install
 
 # Shairport Sync Runtime System:
-FROM alpine:3.8
+FROM alpine:3.12
 
 RUN apk add \
         alsa-lib \
