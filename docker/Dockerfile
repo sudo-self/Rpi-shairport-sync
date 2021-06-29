@@ -111,7 +111,8 @@ RUN apk -U add \
         libuuid \
         ffmpeg \
         libsodium \
-        libplist
+        libplist \
+        libgcrypt
 
 RUN rm -rf  /lib/apk/db/*
 
