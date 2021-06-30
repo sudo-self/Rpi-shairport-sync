@@ -57,6 +57,7 @@ jobs:
           file: ./docker/airplay1/Dockerfile
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
           push: true
-          tags: registry.nova.do/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}-airplay1 registry.nova.do/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}-airplay1
+          tags: registry.nova.do/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}-airplay1
+          tags: registry.nova.do/shairport-sync:unstable-airplay1
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
