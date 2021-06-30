@@ -27,7 +27,8 @@ RUN apk -U add \
         xxd \
         libressl-dev \
         openssl-dev \
-        libplist-dev
+        libplist-dev \
+        libgcrypt-dev
 
 # ALAC Build System:
 FROM builder-base AS builder-alac
@@ -95,7 +96,7 @@ RUN make install
 # Shairport Sync Runtime System:
 FROM alpine:3.12
 
-RUN apk add \
+RUN apk -U add \
         alsa-lib \
         dbus \
         popt \
@@ -110,7 +111,8 @@ RUN apk add \
         libuuid \
         ffmpeg \
         libsodium \
-        libplist
+        libplist \
+        libgcrypt
 
 RUN rm -rf  /lib/apk/db/*
 
