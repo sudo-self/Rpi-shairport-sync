@@ -1,6 +1,5 @@
 # Example docker compose config.
 
-version: "3.8"
 services:
   shairport-sync:
     image: registry.nova.do/shairport-sync:unstable-development
