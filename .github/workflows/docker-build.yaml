@@ -2,7 +2,7 @@
 # Tag pattern: 'unstable-[BRANCH NAME]'.
 # See docker-build-releases.yaml for release build process.
 
-name: Build and push docker image based on specified branches.
+name: Build and push docker image based on commit to specified branches.
 
 on:
   push:

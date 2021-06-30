@@ -4,7 +4,7 @@
 # 'latest' & 'latest-airplay1'
 # '[RELEASE TAG]' & '[RELEASE TAG]-airplay1'
 
-name: Build and push docker images on release.
+name: Build and push docker images on releases.
 
 on:
   release:
