@@ -44,6 +44,8 @@ COPY --from=builder-alac /usr/local/include /usr/local/include
 WORKDIR shairport-sync
 COPY . .
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
+RUN git submodule init
+RUN git submodule update
 RUN autoreconf -fi
 RUN ./configure \
         --with-alsa \
