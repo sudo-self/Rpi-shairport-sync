@@ -41,7 +41,7 @@ jobs:
           file: ./docker/Dockerfile
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
           push: true
-          tags: [ registry.nova.do/shairport-sync:latest, registry.nova.do/shairport-sync:${{ github.event.release.tag_name }} ]
+          tags: registry.nova.do/shairport-sync:latest registry.nova.do/shairport-sync:${{ github.event.release.tag_name }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
           ssh: default=${{ env.SSH_AUTH_SOCK }} # Can be removed when no longer pulling from private repos.
@@ -52,6 +52,6 @@ jobs:
           file: ./docker/airplay1/Dockerfile-AirPlay1
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
           push: true
-          tags: [ registry.nova.do/shairport-sync:latest-airplay1, registry.nova.do/shairport-sync:${{ github.event.release.tag_name }}-airplay1 ]
+          tags: registry.nova.do/shairport-sync:latest-airplay1 registry.nova.do/shairport-sync:${{ github.event.release.tag_name }}-airplay1
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
