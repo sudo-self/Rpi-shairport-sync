@@ -475,14 +475,14 @@ int actual_open_alsa_device(int do_auto_setup) {
 
   ret = snd_pcm_hw_params_set_access(alsa_handle, alsa_params, access);
   if (ret < 0) {
-    warn("audio_alsa: Access type not available for device \"%s\": %s", alsa_out_dev,
+    die("audio_alsa: Access type not available for device \"%s\": %s", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
 
   ret = snd_pcm_hw_params_set_channels(alsa_handle, alsa_params, 2);
   if (ret < 0) {
-    warn("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
+    die("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
@@ -528,7 +528,7 @@ int actual_open_alsa_device(int do_auto_setup) {
       debug(1, "alsa: output format chosen is \"%s\".",
             sps_format_description_string(config.output_format));
     } else {
-      warn("audio_alsa: Could not automatically set the output format for device \"%s\": %s",
+      die("audio_alsa: Could not automatically set the output format for device \"%s\": %s",
            alsa_out_dev, snd_strerror(ret));
       return ret;
     }
@@ -539,7 +539,7 @@ int actual_open_alsa_device(int do_auto_setup) {
         config.output_rate; // this is the requested rate -- it'll be changed to the actual rate
     ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &actual_sample_rate, &dir);
     if (ret < 0) {
-      warn("audio_alsa: Rate %iHz not available for playback: %s", config.output_rate,
+      die("audio_alsa: The frame rate of %i frames per second is not available for playback: %s", config.output_rate,
            snd_strerror(ret));
       return ret;
     }
@@ -568,7 +568,7 @@ int actual_open_alsa_device(int do_auto_setup) {
       config.output_rate = actual_sample_rate;
       debug(1, "alsa: output speed chosen is %d.", config.output_rate);
     } else {
-      warn("audio_alsa: Could not automatically set the output rate for device \"%s\": %s",
+      die("audio_alsa: Could not automatically set the output rate for device \"%s\": %s",
            alsa_out_dev, snd_strerror(ret));
       return ret;
     }
@@ -613,7 +613,7 @@ int actual_open_alsa_device(int do_auto_setup) {
 
   ret = snd_pcm_hw_params(alsa_handle, alsa_params);
   if (ret < 0) {
-    warn("audio_alsa: Unable to set hw parameters for device \"%s\": %s.", alsa_out_dev,
+    die("audio_alsa: Unable to set hw parameters for device \"%s\": %s.", alsa_out_dev,
          snd_strerror(ret));
     return ret;
   }
