@@ -559,7 +559,7 @@ int actual_open_alsa_device(int do_auto_setup) {
       if (ret == 0) {
         speed_found = 1;
         if (actual_sample_rate != speeds[i])
-          die("The frame rate of the output DAC can not be set to a multiple of 44100 fps. (The nearest speed available is: %d fps.)", speeds[i], actual_sample_rate);
+          die("The frame rate of the output DAC can not be set to a %d fps. (The nearest speed available is: %d fps.)", speeds[i], actual_sample_rate);
       } else {
         i++;
       }
