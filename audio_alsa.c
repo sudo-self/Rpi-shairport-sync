@@ -434,7 +434,7 @@ int actual_open_alsa_device(int do_auto_setup) {
   ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK, 0);
   if (ret < 0) {
     if (ret == -ENOENT) {
-      warn("the alsa output_device \"%s\" can not be found.", alsa_out_dev);
+      die("the alsa output_device \"%s\" can not be found.", alsa_out_dev);
     } else {
       char errorstring[1024];
       strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
