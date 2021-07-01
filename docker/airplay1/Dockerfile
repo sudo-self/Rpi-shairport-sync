@@ -100,5 +100,6 @@ RUN adduser -D shairport-sync -G shairport-sync
 RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio
 
 COPY ./docker/airplay1/start.sh /
+RUN chmod +x /start.sh
 
 ENTRYPOINT [ "/start.sh" ]
