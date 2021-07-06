@@ -1,3 +1,70 @@
+Version 4.0-dev
+====
+
+Big Update
+----
+Version 4 brings limited AirPlay 2 functionality to Shairport Sync. 
+
+A major feature of Shairport Sync's AirPlay 2 support is Audio Synchronisation. This is achieved using an purpose-built passive [PTP](https://standards.ieee.org/standard/1588-2008.html) client called [`nqptp`](https://github.com/mikebrady/nqptp), which provides precise timing information that Shairport Sync uses to maintain tight synchronisation. (BTW, `nqptp` is not a "PTP slave". Instead, it passively monitors PTP traffic and extracts timing information from it.)
+
+Acknowledgements
+----
+Much of Shairport Sync's AirPlay 2 functionality is based on ideas developed at the [openairplay airplay2-receiver]( https://github.com/openairplay/airplay2-receiver) repository.
+
+A number of individuals made direct and invaluable contributions to Shairport Sync, so a huge "thank you" to them:
+1. [ejurgensen](https://github.com/ejurgensen) contributed ideas and code. The `pair_ap` submodule and related code in `rtsp.c` is theirs.
+2. [JD Smith](https://github.com/jdtsmith) contributed ideas, comments and suggestions along with extensive and thorough testing.
+3. [Charles Somer](https://github.com/charlesomer) contributed ideas, comments, bug fixes and Docker automation (forthcoming).
+
+Warning
+----
+1. Major changes have been made to the codebase to enable it to be used to build either a "traditonal" AirPlay 1 player or a new AirPlay 2 player. These changes may have had unexpected effects on the AirPlay 1 build.
+3. There is lots we don't know about AirPlay 2. This can result in incorrect behaviour. Watch out for very high volume levels, especially if you have a powerful audio system. 
+
+AirPlay 2 Overview
+----
+
+#### What Works
+- AirPlay 2 for iOS and Mac players.
+
+#### What Does Not Work
+- No AirPlay 2 for Windows iTunes
+- No integration with Siri or HomeKit
+- No Lossless or High Definition Lossless
+- No Remote Control
+- No Artwork in the Metadata
+
+#### What Partly Works
+- Incomplete functionality using AppleTV or HomePod as player.
+   A Shairport Sync player does work, but the selection button doesn't persist, and volume can't be set.
+
+#### Limitations
+- You can only run one instance of Shairport Sync on a device.
+
+AirPlay 2 -- More About What Works
+---
+* Two types of audio are received -- "Realtime" streams of CD quality ALAC (like AirPlay 1) and "Buffered Audio" streams of AAC stereo at 44,100 frames per second. The selection of stream type is made by the player.
+* Audio is synchronised with other AirPlay 2 devices, including AirPlay 2 devices that have their own master clocks. (Limitation: This has not been tested with multiple nearly-identical master clock devices such as with two HomePod minis -- Shairport Sync may get confused about which is the current master.)
+* Shairport Sync continues to support AirPlay 1, and offers an AirPlay 1 compatibility mode for situations where iTunes on macOS or macOS Music plays to multiple speakers and one of more of them is compatible with AirPlay 1 only.
+
+AirPlay 2 -- What You Need
+---
+The requirements for AirPlay 2 support are generally the same as before, but you need a more powerful CPU for decoding and synchronising, and you need more memory to accommodate bigger buffers and larger libraries. Raspberry Pi OS and Ubuntu 20.04 on a VM have been used extensively in development, with Alpine Linux and FreeBSD 12.2 used to a lesser extent.
+
+Here are some suggestions: 
+* A Raspberry Pi 3 or better.
+* A fully up-to-date Linux.
+* An audio infrastructure as before -- an `alsa` device (or `sndio` in FreeBSD). The `stdout` and `pipe` backends continue to work as before. Other backends have not been tested.
+
+Guides
+---
+The instructions for building Shairport Sync are different for AirPlay 2 than for AirPlay 1 -- please follow them very carefully.
+
+* A brief guide to building Shairport Sync for AirPlay 1 is available at [BUILDFORAP1.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP1.md).
+* To build Shairport Sync for AirPlay 2 on Linux, please follow the guide at [BUILDFORAP2.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP2.md).
+* A guide for building on FreeBSD is forthcoming.
+
+
 Version 3.3.8d7
 ====
 **Bug Fix**
