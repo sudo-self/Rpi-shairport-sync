@@ -5,7 +5,7 @@ Big Update
 ----
 Version 4 brings limited AirPlay 2 functionality to Shairport Sync. 
 
-A major feature of Shairport Sync's AirPlay 2 support is Audio Synchronisation. This is achieved using an purpose-built passive [PTP](https://standards.ieee.org/standard/1588-2008.html) client called [`nqptp`](https://github.com/mikebrady/nqptp), which provides precise timing information that Shairport Sync uses to maintain tight synchronisation. (BTW, `nqptp` is not a "PTP slave". Instead, it passively monitors PTP traffic and extracts timing information from it.)
+A major feature of Shairport Sync's AirPlay 2 support is Audio Synchronisation. This is achieved using an purpose-built passive [PTP](https://standards.ieee.org/standard/1588-2008.html) client called [`nqptp`](https://github.com/mikebrady/nqptp), which provides precise timing information that Shairport Sync uses to maintain tight synchronisation. (BTW, `nqptp` is not a "PTP slave". Instead, it passively monitors PTP traffic for  timing information.)
 
 Acknowledgements
 ----
@@ -18,8 +18,9 @@ A number of individuals made direct and invaluable contributions to Shairport Sy
 
 Warning
 ----
-1. Major changes have been made to the codebase to enable it to be used to build either a "traditonal" AirPlay 1 player or a new AirPlay 2 player. These changes may have had unexpected effects on the AirPlay 1 build.
-3. There is lots we don't know about AirPlay 2. This can result in incorrect behaviour. Watch out for very high volume levels, especially if you have a powerful audio system. 
+1. Big changes have been made to the codebase to enable it to be used to build either a "traditional" AirPlay 1 player or a new AirPlay 2 player. These changes may have introduced bugs into the AirPlay 1 build.
+2. There is lots we don't know about AirPlay 2. This can result in incorrect behaviour. Watch out for very high volume levels, especially if you have a powerful audio system.
+3. This is a `development` branch and is probably more buggy than usual. Normal support will not be provided -- instead, we will be interested in bug reports that help improve the program. If you are not adept with Linux or FreeBSD, please don't get involved.
 
 AirPlay 2 Overview
 ----
@@ -36,34 +37,34 @@ AirPlay 2 Overview
 
 #### What Partly Works
 - Incomplete functionality using AppleTV or HomePod as player.
-   A Shairport Sync player does work, but the selection button doesn't persist, and volume can't be set.
+   A Shairport Sync player will work, but the selection button won't persist and the volume can't be set.
 
 #### Limitations
 - You can only run one instance of Shairport Sync on a device.
+- The AirPlay 2 version of Shairport Sync will not run on macOS, since `nqptp` can not be installed on it.
 
 AirPlay 2 -- More About What Works
 ---
 * Two types of audio are received -- "Realtime" streams of CD quality ALAC (like AirPlay 1) and "Buffered Audio" streams of AAC stereo at 44,100 frames per second. The selection of stream type is made by the player.
-* Audio is synchronised with other AirPlay 2 devices, including AirPlay 2 devices that have their own master clocks. (Limitation: This has not been tested with multiple nearly-identical master clock devices such as with two HomePod minis -- Shairport Sync may get confused about which is the current master.)
+* Audio is synchronised with other AirPlay 2 devices, including AirPlay 2 devices that have their own master clocks. (Note: This has not been tested with multiple nearly-identical master clock devices such as with two HomePod minis -- Shairport Sync will get confused about which is the current master.)
 * Shairport Sync continues to support AirPlay 1, and offers an AirPlay 1 compatibility mode for situations where iTunes on macOS or macOS Music plays to multiple speakers and one of more of them is compatible with AirPlay 1 only.
 
 AirPlay 2 -- What You Need
 ---
-The requirements for AirPlay 2 support are generally the same as before, but you need a more powerful CPU for decoding and synchronising, and you need more memory to accommodate bigger buffers and larger libraries. Raspberry Pi OS and Ubuntu 20.04 on a VM have been used extensively in development, with Alpine Linux and FreeBSD 12.2 used to a lesser extent.
+The requirements for AirPlay 2 support are generally the same as before, except that you need a more powerful CPU for decoding and synchronisation, and you need more memory for bigger buffers and larger libraries. Raspberry Pi OS and Ubuntu 20.04 on a VM have been used extensively in development, with Alpine Linux and FreeBSD 12.2 being used to a lesser extent.
 
 Here are some suggestions: 
-* A Raspberry Pi 3 or better.
-* A fully up-to-date Linux.
-* An audio infrastructure as before -- an `alsa` device (or `sndio` in FreeBSD). The `stdout` and `pipe` backends continue to work as before. Other backends have not been tested.
+* Full access, including `root` priviliges, to a system at least as powerful as a Raspberry Pi 3.
+* A fully up-to-date Linux. This is important, as some of the libraries must be the very laterst available.
+* An audio output, for example an `alsa` device (or `sndio` in FreeBSD). The `stdout` and `pipe` backends continue to work as before. Other backends have not been tested.
 
 Guides
 ---
-The instructions for building Shairport Sync are different for AirPlay 2 than for AirPlay 1 -- please follow them very carefully.
+Instructions for building Shairport Sync are different for AirPlay 2 than for AirPlay 1 -- please follow them very carefully.
 
 * A brief guide to building Shairport Sync for AirPlay 1 is available at [BUILDFORAP1.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP1.md).
 * To build Shairport Sync for AirPlay 2 on Linux, please follow the guide at [BUILDFORAP2.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP2.md).
 * A guide for building on FreeBSD is forthcoming.
-
 
 Version 3.3.8d7
 ====
