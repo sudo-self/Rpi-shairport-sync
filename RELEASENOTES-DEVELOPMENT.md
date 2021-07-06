@@ -14,7 +14,7 @@ Much of Shairport Sync's AirPlay 2 functionality is based on ideas developed at 
 A number of individuals made direct and invaluable contributions to Shairport Sync, so a huge "thank you" to them:
 1. [ejurgensen](https://github.com/ejurgensen) contributed ideas and code. The `pair_ap` submodule and related code in `rtsp.c` is theirs.
 2. [JD Smith](https://github.com/jdtsmith) contributed ideas, comments and suggestions along with extensive and thorough testing.
-3. [Charles Somer](https://github.com/charlesomer) contributed ideas, comments, bug fixes and Docker automation (forthcoming).
+3. [Charles Omer](https://github.com/charlesomer) contributed ideas, comments, bug fixes and Docker automation (forthcoming).
 
 Warning
 ----
