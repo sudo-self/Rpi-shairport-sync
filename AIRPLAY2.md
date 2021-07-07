@@ -1,7 +1,6 @@
 AirPlay 2
 ===
 
-## General
 Shairport Sync offers limited AirPlay 2 support for audio sources on iOS devices and Macs. In addition, it partly works if the audio source is a HomePod mini or an Apple TV. It does not work for iTunes on Windows. Unfortunately, it does not integrate with the Home app or with Siri.
 
 The focus of the development effort has been on getting good audio performance for iOS and Mac. Features outside this focus may be missing or broken. So, for example, integration with Apple's Home app is missing; remote control doesn't work.
@@ -10,7 +9,7 @@ For AirPlay 2, Shairport Sync uses another application called [`nqptp`](https://
 
 AirPlay 2 functionality is available on recent Linux and FreeBSD builds. The FreeBSD implementation has not been extensively tested. OpenBSD and Cygwin are not supported.
 
-AirPlay 2 support definitely does not work on macOS. This is because Shairport Sync needs to use [`nqptp`](https://github.com/mikebrady/nqptp), which uses ports `319` and `320`. These ports are already used by macOS to support its implementation of AirPlay 2.
+AirPlay 2 support definitely does not work on macOS. This is because [`nqptp`](https://github.com/mikebrady/nqptp) uses ports `319` and `320` but these ports are unavailable because there are used by macOS to support its implementation of AirPlay 2.
 
 The AirPlay 2 build requires a good deal of extra library support and may not fit into smaller devices. It also requires more CPU power and more RAM.
 
