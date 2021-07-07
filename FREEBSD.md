@@ -1,4 +1,4 @@
-Shairport Sync on FreeBSD using `sndio`
+Shairport Sync on FreeBSD using `sndio` [Needs updating for Airplay 2]
 ----
 Shairport Sync runs natively on FreeBSD using the `sndio` back end, thanks to the work of [Tobias Kortkamp (t6)](https://github.com/t6).
 
