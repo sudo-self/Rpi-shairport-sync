@@ -61,12 +61,11 @@ First, install the packages needed by Shairport Sync:
 (Note: if you don't want the `D-Bus` interface, you may omit `libglib2.0-dev`.)
 
 ### nqptp ###
-Download, install and start/enable `nqptp` from [here](https://github.com/mikebrady/nqptp).
+Download, install, enable and start `nqptp` from [here](https://github.com/mikebrady/nqptp).
 
 ***Note:*** At present, Shairport Sync expects the `nqptp` repository folder to be in the same directory as the `shairport-sync` repository folder, as it will look for a header file at `../nqptp/nqptp-shm-structures.h`.
 
-The `nqptp` service monitors PTP clocks. It provides a POSIX Shared Memory Interface (SMI)  at `/nqptp`. A shared
-pthread mutex is contained within the interface, and to use it you need write access.
+The `nqptp` service monitors PTP clocks. It provides a [POSIX Shared Memory](https://man7.org/linux/man-pages/man7/shm_overview.7.html) Interface  at `/nqptp`. A shared pthread mutex is contained within the interface, and to use it you need write access.
 
 Next, download Shairport Sync, check out the `development` branch, configure it, compile and install it:
 ```
