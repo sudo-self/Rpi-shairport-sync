@@ -80,7 +80,21 @@ $ CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" ./configure --sysconfdir=/etc --with-metadat
 $ make -j
 # make install
 ```
-Now to configure Shairport Sync. Here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`:
+Now to configure Shairport Sync. Here, it will be configured for an `alsa` output device. A list of `alsa` output devices is given at the end of the help information. Thus, at the end of the output after the command `$ shairport-sync -h` on a Raspberry Pi, for example, the following appears:
+
+```
+...
+Settings and options for the audio backend "alsa":
+    -d output-device    set the output device, default is "default".
+    -c mixer-control    set the mixer control name, default is to use no mixer.
+    -m mixer-device     set the mixer device, default is the output device.
+    -i mixer-index      set the mixer index, default is 0.
+    hardware output devices:
+      "hw:Headphones"
+```
+Using a program such as `alsamixer`, the name of a mixer (i.e. an attenuator or volume control that could be used to control the output level) can be determined. In this case, the name of the mixer is `Headphone`.
+
+Following this, here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`. Note that everything is case-sensitive:
 ```
 // Sample Configuration File for Shairport Sync on a Raspberry Pi using the built-in audio DAC
 general =
@@ -90,12 +104,12 @@ general =
 
 alsa =
 {
-  output_device = "hw:0";
+  output_device = "hw:Headphones";
   mixer_control_name = "Headphone";
 };
 
 ```
-The `volume_range_db = 60;` setting makes Shairport Sync use only the usable part of the built-in audio card mixer's attenuation range.
+The `volume_range_db = 60;` setting makes Shairport Sync use only the usable part of the Raspberry Pi's built-in audio card mixer's attenuation range. It may not be necessary for other output devices.
 
 ### Automatic Start ###
 
@@ -115,7 +129,7 @@ You may wish to run Shairport Sync from the command line (but remember to ensure
 ```
 $ shairport-sync -vu --statistics
 ```
-The user doesn't need to be privileged, but should be a member of the `audio` group for access to the `alsa` subsystem.
+The user doesn't need to be privileged, but must be a member of the `audio` group for access to the `alsa` subsystem.
 
 ### Using Shairport Sync ###
 
@@ -123,3 +137,6 @@ The Shairport Sync AirPlay service should appear on the network with a service n
 
 Connect and enjoy...
 
+### Restart Your Mac! ###
+
+At the time of writing, there seems to be a bug in the Mac Music app. It appears that, when the Mac has been awoken after sleeping, the Music app may not fully reawaken, and it will be unable to drive AirPlay 2 devices for more than a few seconds. The only know solution is to reboot.
