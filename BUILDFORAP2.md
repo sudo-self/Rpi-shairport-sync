@@ -6,13 +6,14 @@ Experimental Build Instructions for AirPlay 2
 * At the time of writing, May 2, 2021, everything is on the latest version of the software -- macOS 11..3, iOS 14.5, Raspberry Pi OS 5.10.17-v7l+ (Buster), Ubuntu 20.04 -- fully updated.
 * AirPlay 2 uses a timing system based on the [IEEE-1588 Precision Timing Protocol (PTP)](https://standards.ieee.org/standard/1588-2008.html). Shairport Sync relies on a program called [`nqptp`](https://github.com/mikebrady/nqptp) to monitor PTP signals. This program uses ports 319 and 320 and replaces any PTP service you have on the computer.
   In addition, `nqptp` must run with `root` privileges.  
- (FYI, most computers do not have a PTP clock running -- instead, they may use a [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time.)
-* When Shairport Sync is updated, you should check and update `nqptp` *before* building the update.
+ (FYI, most computers do not have a PTP clock running. They often use a [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time.)
+* Shairport Sync has a build dependency on `nqptp`, so you should check and update `nqptp` *before* building or updating Shairport Sync.
+* The SMI Interface Version Numbers of `nqptp` and Shairport Sync must match. If they don't, you'll get a message in the logs. It means that one of the programs is out of date with respect to the other.
 * Build instructions are likely to change.
 
 Build and Install Instructions
 ==
-Overall, you'll be installing two programs. The first one is `nqptp` and the second one is Shairport Sync itself.
+Overall, you'll be installing two programs. The first one is `nqptp` and the second one is Shairport Sync itself. Build `nqptp` first.
 
 In the commands below, for a Debian-like Linux, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `apt-get update` in superuser mode and you are in user mode, enter `sudo apt-get update`.
 
