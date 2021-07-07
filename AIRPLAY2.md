@@ -1,42 +1,62 @@
-AirPlay 2 Matters
-====
-* The AirPlay 2 build requires a good deal of extra library support and may not fit into smaller devices. It also requires more CPU power and more RAM -- the minimum recommended device is a Raspberry Pi 3.
+AirPlay 2
+===
+
+## General
 * **AirPlay 2 support is experimental and incomplete.** The focus of the development effort has been on getting the best possible audio performance. Many features outside that focus are missing or broken. So, for example, integration with Apple's Home app is missing; remote control doesn't work.
-* For AirPlay 2, Shairport Sync requires the services of another application called [`NQPTP`](https://github.com/mikebrady/nqptp) ("Not Quite PTP") for timing and synchronisation. NQPTP must run as `root` and must have exclusive access to ports `319` and `320`.
-* AirPlay 2 support is only available on recent Linux and FreeBSD builds. The FreeBSD implementation has not been extensively tested. OpenBSD and Cygwin are not supported. AirPlay 2 support will definitely not work on Mac OS X. The reason is that Shairport Sync needs to use [`NQPTP`](https://github.com/mikebrady/nqptp), which uses ports `319` and `320`. These ports are already used by Mac OS X to support its implementation of AirPlay 2.
+* For AirPlay 2, Shairport Sync requires the services of another application called [`nqptp`](https://github.com/mikebrady/nqptp) ("Not Quite PTP") for timing and synchronisation. `nqptp` must run as `root` and must have exclusive access to ports `319` and `320`.
+* AirPlay 2 support is only available on recent Linux and FreeBSD builds. The FreeBSD implementation has not been extensively tested. OpenBSD and Cygwin are not supported. AirPlay 2 support will definitely not work on Mac OS X. The reason is that Shairport Sync needs to use [`nqptp`](https://github.com/mikebrady/nqptp), which uses ports `319` and `320`. These ports are already used by Mac OS X to support its implementation of AirPlay 2.
+* The AirPlay 2 build requires a good deal of extra library support and may not fit into smaller devices. It also requires more CPU power and more RAM.
 
-Did we mention AirPlay 2 support is experimental? You should also note that it is possible that changes could be made that would stop AirPlay 2 support from working. Let's hope that doesn't happen -- due to its limitations, there seems little prospect of it having any kind of commercial significance.
+### What Works
+- AirPlay 2 for iOS and Mac players.
 
-What Works
+### What Does Not Work
+- No AirPlay 2 for Windows iTunes
+- No integration with Siri or HomeKit
+- Lossless or High Definition Lossless material seems to be transcoded to AAC before transmission over AirPlay 2. 
+- No Remote Control
+- No Artwork in the Metadata
+
+### What Partly Works
+- Incomplete functionality using AppleTV or HomePod as player.
+   A Shairport Sync player will work -- i.e. it will play, but the selection button won't persist and the volume can't be set.
+
+### Limitations
+- You can only run a single instance of Shairport Sync on a device.
+- The AirPlay 2 version of Shairport Sync will not run on macOS, since `nqptp` can not be installed on it.
+
+### Known Issues
+- A crash can occur occasionally when a Shairport Sync player is being selected for output. If you can get this to happen reliably, please let us know.
+
+AirPlay 2 -- What You Need
 ---
-* AirPlay 2 audio for players hosted on macOS and iOS.
-* AirPlay 2 audio for System Sound Output from macOS.
-* The `ALSA`, `stdout` and `pipe` backends definitely work, as does the `sndio` backend for FreeBSD.
+AirPlay 2 support needs a more powerful CPU for decoding and synchronisation and more memory for bigger buffers and larger libraries. Raspberry Pi OS, Ubuntu 20.04 on a VM and Ubuntu 20.04.2 64-bit Server Edition have been used extensively in development, with Alpine Linux and FreeBSD 12.2 being used to a lesser extent.
 
-What Does Not Work
+Here are some suggestions: 
+* Full access, including `root` privileges, to a system at least as powerful as a Raspberry Pi 3.
+* A fully up-to-date Linux. This is important, as some of the libraries must be the latest available.
+* An audio output, for example an `alsa` device (or `sndio` in FreeBSD). The `stdout` and `pipe` backends continue to work as before. Other backends have not been tested.
+
+Guides
 ---
-* Shairport Sync AirPlay 2 can not be used from a PC or from an Apple TV.
-* There is no integration with Siri or with the Home app or HomeKit, so nothing to do with the Home app works.
-* You can not run multiple instances of Shairport Sync on one device. This is because an instance of Shairport Sync requires exclusive access to [`NQPTP`](https://github.com/mikebrady/nqptp), and only one instance of that can run on a processor. (Docker may offer a workaround, but this has not been tested.)
-* Remote Control from Shairport Sync back to the player doesn't work. The `D-Bus` and `MPRIS` interfaces are working, but anything requiring sending commands to the player doesn't work.
-* Artwork is not downloaded.
-* Playing from certain Apple devices to Shairport Sync does not work as expected. For example:
-  * When using a service with the ability to play directly on HomePod (e.g. Apple Music). If the music starts on the HomePod, or is the first device selected from the AirPlay list on iOS, when Shairport Sync is then selected iOS shows it as not connected (even though it is). Therefore the expected volume controls are not displayed. A workaround for this is to force an AirPlay stream to the HomePod (rather than just acting as a remote controller), this can be done by selected Shairport Sync _before_ the HomePod. Note, this issue is not present for other services such as SoundCloud which do not integrate into the HomePod like Apple Music does.
-  * The above example is true also when trying to select Shairport Sync from the AirPlay menu on the HomePod from the Home app.
+* To build Shairport Sync for AirPlay 2 on Linux, please follow the guide at [BUILDFORAP2.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP2.md).
+* A guide for building on FreeBSD is forthcoming.
 
-More About What Works
+AirPlay 2 -- More About What Works
 ---
 * Two types of audio are received -- "Realtime" streams of CD quality ALAC (like AirPlay 1) and "Buffered Audio" streams of AAC stereo at 44,100 frames per second. The selection of stream type is made by the player.
-* Audio is synchronised with other AirPlay 2 devices, including AirPlay 2 devices that have their own master clocks. (Limitation: This has not been tested with multiple nearly-identical master clock devices such as with two HomePod minis -- Shairport Sync may get confused about which is the current master.)
-* Shairport Sync continues to support AirPlay 1, and offers an AirPlay 1 compatibility mode for situations where iTunes or macOS Music plays to multiple speakers and one of more of them is compatible with AirPlay 1 only.
+* Audio is synchronised with other AirPlay 2 devices, including AirPlay 2 devices that have their own master clocks. (Note: This has not been tested with multiple nearly-identical master clock devices such as with two HomePod minis -- Shairport Sync will get confused about which is the current master.)
+* Shairport Sync continues to support AirPlay 1, and offers an AirPlay 1 compatibility mode for situations where iTunes on macOS or macOS Music plays to multiple speakers and one of more of them is compatible with AirPlay 1 only.
 
-What You Need
----
-* A Raspberry Pi. See table below for tested devices, feel free to open an issue or pull request if you have Shairport Sync working on a device not listed here!
-* [`NQPTP`](https://github.com/mikebrady/nqptp) is needed and must be run as `root`. It will use ports `319` and `320`, normally reserved for [PTP](https://standards.ieee.org/standard/1588-2008.html) clocks. If you are using PTP clock services for something else, you can't install [`NQPTP`](https://github.com/mikebrady/nqptp) and so you can't use Shairport Sync.(FYI, most computers do not have a PTP clock running -- instead, they may use a [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time. However, as noted above, macOS _does_ use a PTP clock to support AirPlay 2.)
+Acknowledgements
+----
+Much of Shairport Sync's AirPlay 2 functionality is based on ideas developed at the [openairplay airplay2-receiver]( https://github.com/openairplay/airplay2-receiver) repository.
 
-| Device              | Native   | Docker         | Notes |
-|---------------------|----------|----------------|-------|
-| Raspberry Pi 4      | Working  | Working        |       |
-| Raspberry Pi 3      | Working  | Working        |       |
-| Raspberry Pi Zero W | Untested | Mostly working | Since the Pi Zero is low powered, issues can arise fairly quickly when trying to run additional programs, this currently includes quickly changing the volume repeatedly. Total CPU usage sits at around 75% when using Shairport Sync. Updates to Shairport Sync could make this better or worse. |
+Big thanks are due to number of individuals made direct and valuable contributions to Shairport Sync:
+1. [ejurgensen](https://github.com/ejurgensen) contributed ideas and code. The `pair_ap` submodule and related code in `rtsp.c` is theirs.
+2. [JD Smith](https://github.com/jdtsmith) contributed ideas, comments and suggestions along with extensive and thorough testing.
+3. [Charles Omer](https://github.com/charlesomer) contributed ideas, comments, bug fixes and Docker automation (forthcoming).
+
+Finally
+----
+Did we mention AirPlay 2 support is experimental?
