@@ -25,7 +25,7 @@ The AirPlay 2 build requires a good deal of extra library support and may not fi
 
 ### What Partly Works
 - Incomplete functionality using AppleTV or HomePod as player.
-   A Shairport Sync player will work -- i.e. it will play, but the selection button won't persist and the volume can't be set.
+   A Shairport Sync player will work -- i.e. it will play -- but the selection button won't persist and the volume can't be set.
 
 ### Limitations
 - Only a single instance of Shairport Sync can run on a device.
