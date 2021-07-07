@@ -1,18 +1,20 @@
 Experimental Build Instructions for AirPlay 2
 ==
-* This code is experimental and much of the normal functionality of Shairport Sync is broken. Please do not use it in situations where reliable service is expected!
+* This code is experimental and much of the normal functionality of Shairport Sync is broken. Please do not use it in situations where reliable service is expected.
 * Be especially careful with audio systems capable of very high volume output -- the volume control in this software may not be reliable!
 * Initially, at least, leave the settings in the configuration file at default except as noted below.
 * At the time of writing, May 2, 2021, everything is on the latest version of the software -- macOS 11..3, iOS 14.5, Raspberry Pi OS 5.10.17-v7l+ (Buster), Ubuntu 20.04 -- fully updated.
-* At present, Shairport Sync will compile *but not work* on Raspbian Stretch (thanks JD Smith).
-* AirPlay 2 seems to use a timing system based on the [IEEE-1588 Precision Timing Protocol (PTP)](https://standards.ieee.org/standard/1588-2008.html). Shairport Sync relies on a program called [`nqptp`](https://github.com/mikebrady/nqptp) to monitor PTP signals. This program uses ports 319 and 320 and replaces any PTP service you have on the computer.
+* AirPlay 2 uses a timing system based on the [IEEE-1588 Precision Timing Protocol (PTP)](https://standards.ieee.org/standard/1588-2008.html). Shairport Sync relies on a program called [`nqptp`](https://github.com/mikebrady/nqptp) to monitor PTP signals. This program uses ports 319 and 320 and replaces any PTP service you have on the computer.
   In addition, `nqptp` must run with `root` privileges.  
- (FYI, most computers do not have a PTP clock running -- instead, they may use a [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time.)
-* When Shairport Sync is updated, you should check and update `nqptp` *before* building the update.
+ (FYI, most computers do not have a PTP clock running. They often use a [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time.)
+* Shairport Sync has a build dependency on `nqptp`, so you should check and update `nqptp` *before* building or updating Shairport Sync.
+* The SMI Interface Version Numbers of `nqptp` and Shairport Sync must match. If they don't, you'll get a message in the logs. It means that one of the programs is out of date with respect to the other.
 * Build instructions are likely to change.
 
 Build and Install Instructions
 ==
+Overall, you'll be building and installing two programs. The first one is `nqptp` and the second one is Shairport Sync itself. Build `nqptp` first.
+
 In the commands below, for a Debian-like Linux, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `apt-get update` in superuser mode and you are in user mode, enter `sudo apt-get update`.
 
 ### Turn Off WiFi Power Management
@@ -20,9 +22,9 @@ If you are using WiFi, you should turn off WiFi Power Management:
 ```
 # iwconfig wlan0 power off
 ```
-WiFi Power Management will put the WiFi system in low-power mode when the WiFi system considered inactive, and in this mode it may not respond to events initiated from the network, such as AirPlay requests. Hence, WiFi Power Management should be turned off. (See [TROUBLESHOOTING.md](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md#wifi-adapter-running-in-power-saving--low-power-mode) for more details.)
+WiFi Power Management will put the WiFi system in low-power mode when the WiFi system is considered inactive. In this mode, the system may not respond to events initiated from the network, such as AirPlay requests. Hence, WiFi Power Management should be turned off. (See [TROUBLESHOOTING.md](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md#wifi-adapter-running-in-power-saving--low-power-mode) for more details.)
 
-### Configure and Update
+### Update Your System
 Do the usual update and upgrade:
 ```
 # apt-get update
@@ -60,27 +62,42 @@ First, install the packages needed by Shairport Sync:
 (Note: if you don't want the `D-Bus` interface, you may omit `libglib2.0-dev`.)
 
 ### nqptp ###
-Download, install and start/enable `nqptp` from [here](https://github.com/mikebrady/nqptp).
+Download, install, enable and start `nqptp` from [here](https://github.com/mikebrady/nqptp).
 
-***Note:*** At present, Shairport Sync expects the `nqptp` repository folder to be in the same directory as the `shairport-sync` repository folder, as it will look for a header file at `../nqptp/nqptp-shm-structures.h`.
+***Note:*** Shairport Sync expects the `nqptp` repository folder to be in the same directory as the `shairport-sync` repository folder, as it will look for a header file at `../nqptp/nqptp-shm-structures.h`.
 
-The `nqptp` service monitors PTP clocks. It provides a POSIX Shared Memory Interface (SMI)  at `/nqptp`. A shared
-pthread mutex is contained within the interface, and to use it you need write access.
+The `nqptp` service monitors PTP clocks. It provides a [POSIX Shared Memory](https://man7.org/linux/man-pages/man7/shm_overview.7.html) Interface  at `/nqptp`. A shared pthread mutex is contained within the interface, and to use it you need write access.
 
-Next, download Shairport Sync, configure it, compile and install it:
+Next, download Shairport Sync, check out the `development` branch and configure, compile and install it:
 ```
 $ git clone git@github.com:aillwee/shairport-sync.git
 $ cd shairport-sync
 $ git checkout development
-$ git submodule init
-$ git submodule update
 $ autoreconf -fi
-$ CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" ./configure --sysconfdir=/etc --with-metadata \
-    --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-dbus-interface --with-airplay-2
+$ ./configure --sysconfdir=/etc --with-alsa \
+    --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-dbus-interface --with-airplay-2
 $ make -j
 # make install
 ```
-Now to configure Shairport Sync. Here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`:
+By the way, the `autoreconf` step may take quite a while -- be patient!
+
+Now to configure Shairport Sync. In this walkthrough, it is configured for an `alsa` output device.
+
+A list of `alsa` output devices is given at the end of the help information. For example, on a Raspberry Pi, at the end of the output from the command `$ shairport-sync -h`, the following appears:
+
+```
+...
+Settings and options for the audio backend "alsa":
+    -d output-device    set the output device, default is "default".
+    -c mixer-control    set the mixer control name, default is to use no mixer.
+    -m mixer-device     set the mixer device, default is the output device.
+    -i mixer-index      set the mixer index, default is 0.
+    hardware output devices:
+      "hw:Headphones"
+```
+Using a program such as `alsamixer`, the name of a mixer (i.e. an attenuator or volume control that could be used to control the output level) can be determined. In this case, the name of the mixer is `Headphone`.
+
+Following this, here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`. Note that everything is case-sensitive:
 ```
 // Sample Configuration File for Shairport Sync on a Raspberry Pi using the built-in audio DAC
 general =
@@ -90,12 +107,12 @@ general =
 
 alsa =
 {
-  output_device = "hw:0";
+  output_device = "hw:Headphones";
   mixer_control_name = "Headphone";
 };
 
 ```
-The `volume_range_db = 60;` setting makes Shairport Sync use only the usable part of the built-in audio card mixer's attenuation range.
+The `volume_range_db = 60;` setting makes Shairport Sync use only the usable part of the Raspberry Pi's built-in audio card mixer's attenuation range. It may not be necessary for other output devices.
 
 ### Automatic Start ###
 
@@ -115,7 +132,7 @@ You may wish to run Shairport Sync from the command line (but remember to ensure
 ```
 $ shairport-sync -vu --statistics
 ```
-The user doesn't need to be privileged, but should be a member of the `audio` group for access to the `alsa` subsystem.
+The user doesn't need to be privileged, but must be a member of the `audio` group for access to the `alsa` subsystem.
 
 ### Using Shairport Sync ###
 
@@ -123,3 +140,6 @@ The Shairport Sync AirPlay service should appear on the network with a service n
 
 Connect and enjoy...
 
+### Restart Your Mac! ###
+
+At the time of writing, there seems to be a bug in the Mac Music app. It appears that, when the Mac has been awoken after sleeping, the Music app may not fully reawaken, and it will be unable to drive AirPlay 2 devices for more than a few seconds. The only know solution is to reboot.

@@ -1,4 +1,4 @@
-Shairport Sync on OpenBSD
+Shairport Sync on OpenBSD [AirPlay 2 Not Supported]
 ----
 This is an initial note about installing Shairport Sync on OpenBSD. Shairport Sync compiles and runs natively on OpenBSD using the `sndio` back end.
 
