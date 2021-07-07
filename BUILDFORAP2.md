@@ -4,7 +4,6 @@ Experimental Build Instructions for AirPlay 2
 * Be especially careful with audio systems capable of very high volume output -- the volume control in this software may not be reliable!
 * Initially, at least, leave the settings in the configuration file at default except as noted below.
 * At the time of writing, May 2, 2021, everything is on the latest version of the software -- macOS 11..3, iOS 14.5, Raspberry Pi OS 5.10.17-v7l+ (Buster), Ubuntu 20.04 -- fully updated.
-* At present, Shairport Sync will compile *but not work* on Raspbian Stretch (thanks JD Smith).
 * AirPlay 2 seems to use a timing system based on the [IEEE-1588 Precision Timing Protocol (PTP)](https://standards.ieee.org/standard/1588-2008.html). Shairport Sync relies on a program called [`nqptp`](https://github.com/mikebrady/nqptp) to monitor PTP signals. This program uses ports 319 and 320 and replaces any PTP service you have on the computer.
   In addition, `nqptp` must run with `root` privileges.  
  (FYI, most computers do not have a PTP clock running -- instead, they may use a [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time.)
@@ -13,6 +12,8 @@ Experimental Build Instructions for AirPlay 2
 
 Build and Install Instructions
 ==
+Overall, you'll be installing two programs. The first one is `nqptp` and the second one is Shairport Sync itself.
+
 In the commands below, for a Debian-like Linux, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `apt-get update` in superuser mode and you are in user mode, enter `sudo apt-get update`.
 
 ### Turn Off WiFi Power Management
