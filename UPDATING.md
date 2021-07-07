@@ -1,5 +1,5 @@
 
-### Updating Shairport Sync
+### Updating Shairport Sync [Needs updating for Airplay 2]
 This guide is for updating an installation of Shairport Sync. If you installed Shairport Sync from a package, most of these instructions don't apply – please go to the section at the end called "Post Update Tasks"
 
 To do an update, you basically have to go through the whole process of building Shairport Sync again,
