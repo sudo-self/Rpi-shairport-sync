@@ -1984,44 +1984,44 @@ void *player_thread_func(void *arg) {
   conn->correctionsRequestedInThisEpoch = 0;
   statistics_row = 0; // statistics_line 0 means print the headings; anything else 1 means print the
                       // values. Set to 0 the first time out.
-  if (config.statistics_requested) {
-    // decide on what statistics profile to use
+
+  // decide on what statistics profile to use, if requested
 #ifdef CONFIG_AIRPLAY_2
-    if (conn->airplay_type == ap_2) {
-      if (conn->airplay_stream_type == realtime_stream) {
-        if (config.output->delay) {
-          if (config.no_sync == 0)
-            statistics_print_profile = ap2_realtime_synced_stream_statistics_print_profile;
-          else
-            statistics_print_profile = ap2_realtime_nosync_stream_statistics_print_profile;
-        } else {
-          statistics_print_profile = ap2_realtime_nodelay_stream_statistics_print_profile;
-        }
-      } else {
-        if (config.output->delay) {
-          if (config.no_sync == 0)
-            statistics_print_profile = ap2_buffered_synced_stream_statistics_print_profile;
-          else
-            statistics_print_profile = ap2_buffered_nosync_stream_statistics_print_profile;
-        } else {
-          statistics_print_profile = ap2_buffered_nodelay_stream_statistics_print_profile;
-        }
-      }
-    } else {
-#endif
+  if (conn->airplay_type == ap_2) {
+    if (conn->airplay_stream_type == realtime_stream) {
       if (config.output->delay) {
         if (config.no_sync == 0)
-          statistics_print_profile = ap1_synced_statistics_print_profile;
+          statistics_print_profile = ap2_realtime_synced_stream_statistics_print_profile;
         else
-          statistics_print_profile = ap1_nosync_statistics_print_profile;
+          statistics_print_profile = ap2_realtime_nosync_stream_statistics_print_profile;
       } else {
-        statistics_print_profile = ap1_nodelay_statistics_print_profile;
+        statistics_print_profile = ap2_realtime_nodelay_stream_statistics_print_profile;
       }
+    } else {
+      if (config.output->delay) {
+        if (config.no_sync == 0)
+          statistics_print_profile = ap2_buffered_synced_stream_statistics_print_profile;
+        else
+          statistics_print_profile = ap2_buffered_nosync_stream_statistics_print_profile;
+      } else {
+        statistics_print_profile = ap2_buffered_nodelay_stream_statistics_print_profile;
+      }
+    }
+  } else {
+#endif
+    if (config.output->delay) {
+      if (config.no_sync == 0)
+        statistics_print_profile = ap1_synced_statistics_print_profile;
+      else
+        statistics_print_profile = ap1_nosync_statistics_print_profile;
+    } else {
+      statistics_print_profile = ap1_nodelay_statistics_print_profile;
+    }
 // airplay 1 stuff here
 #ifdef CONFIG_AIRPLAY_2
-    }
-#endif
   }
+#endif
+
 
 #ifdef CONFIG_AIRPLAY_2
   if (conn->timing_type == ts_ntp) {
