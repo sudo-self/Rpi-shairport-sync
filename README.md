@@ -26,6 +26,6 @@ For the development of AirPlay 2 support, special thanks are due to:
 * [ejurgensen](https://github.com/ejurgensen) for advice and [code to deal with pairing and encryption](https://github.com/ejurgensen/pair_ap).
 * [ckdo](https://github.com/ckdo) for pointing the way, particularly with pairing and encryption protocols, with a [functional Python implementation](https://github.com/ckdo/airplay2-receiver) of AirPlay 2.
 * [invano](https://github.com/invano) for showing what might be possible and for initial Python development.
-* [Charles Omer](https://github.com/charlesomer) for Docker autoation (forthcoming), testing, encouragement, enthusiasm.
+* [Charles Omer](https://github.com/charlesomer) for Docker automation (forthcoming), testing, encouragement, enthusiasm.
 
 And of course, thanks to everyone who has supported and improved Shairport Sync over the years.
