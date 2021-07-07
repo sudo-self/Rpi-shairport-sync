@@ -2,7 +2,7 @@ AirPlay 2
 ===
 
 ## General
-Shairport Sync offers limited AirPlay 2 support for audio sources on iOS devices and Macs. In addition, it partly works if the audio source is a HomePod mini or an Apple TV. It does not work for iTunes on Windows. Unfortunately, it does not work with the Home app or with Siri.
+Shairport Sync offers limited AirPlay 2 support for audio sources on iOS devices and Macs. In addition, it partly works if the audio source is a HomePod mini or an Apple TV. It does not work for iTunes on Windows. Unfortunately, it does not integrate with the Home app or with Siri.
 
 The focus of the development effort has been on getting good audio performance for iOS and Mac. Features outside this focus may be missing or broken. So, for example, integration with Apple's Home app is missing; remote control doesn't work.
 
@@ -19,7 +19,7 @@ The AirPlay 2 build requires a good deal of extra library support and may not fi
 
 ### What Does Not Work
 - No integration with Siri or HomeKit
-- Lossless or High Definition Lossless material seems to be transcoded to AAC before transmission over AirPlay 2. 
+- Lossless or High Definition Lossless material is transcoded to AAC before transmission over AirPlay 2. 
 - No Remote Control
 - No Artwork in the Metadata
 - No AirPlay 2 for Windows iTunes
@@ -51,7 +51,7 @@ Guides
 
 AirPlay 2 -- More About What Works
 ---
-* Two types of audio are received -- "Realtime" streams of CD quality ALAC (like AirPlay 1) and "Buffered Audio" streams of AAC stereo at 44,100 frames per second. The selection of stream type is made by the player.
+* Two types of audio are received by Shairport Sync -- "Realtime" streams of CD quality ALAC (like AirPlay 1) and "Buffered Audio" streams of AAC stereo at 44,100 frames per second. The selection of stream type is made by the player.
 * Audio is synchronised with other AirPlay 2 devices, including AirPlay 2 devices that have their own master clocks. (Note: This has not been tested with multiple nearly-identical master clock devices such as with two HomePod minis -- Shairport Sync will get confused about which is the current master.)
 * Shairport Sync continues to support AirPlay 1, and offers an AirPlay 1 compatibility mode for situations where iTunes on macOS or macOS Music plays to multiple speakers and one of more of them is compatible with AirPlay 1 only.
 
