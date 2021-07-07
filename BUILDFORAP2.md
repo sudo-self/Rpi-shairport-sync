@@ -13,7 +13,7 @@ Experimental Build Instructions for AirPlay 2
 
 Build and Install Instructions
 ==
-Overall, you'll be installing two programs. The first one is `nqptp` and the second one is Shairport Sync itself. Build `nqptp` first.
+Overall, you'll be building and installing two programs. The first one is `nqptp` and the second one is Shairport Sync itself. Build `nqptp` first.
 
 In the commands below, for a Debian-like Linux, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `apt-get update` in superuser mode and you are in user mode, enter `sudo apt-get update`.
 
@@ -24,7 +24,7 @@ If you are using WiFi, you should turn off WiFi Power Management:
 ```
 WiFi Power Management will put the WiFi system in low-power mode when the WiFi system is considered inactive. In this mode, the system may not respond to events initiated from the network, such as AirPlay requests. Hence, WiFi Power Management should be turned off. (See [TROUBLESHOOTING.md](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md#wifi-adapter-running-in-power-saving--low-power-mode) for more details.)
 
-### Configure and Update
+### Update Your System
 Do the usual update and upgrade:
 ```
 # apt-get update
@@ -64,11 +64,11 @@ First, install the packages needed by Shairport Sync:
 ### nqptp ###
 Download, install, enable and start `nqptp` from [here](https://github.com/mikebrady/nqptp).
 
-***Note:*** At present, Shairport Sync expects the `nqptp` repository folder to be in the same directory as the `shairport-sync` repository folder, as it will look for a header file at `../nqptp/nqptp-shm-structures.h`.
+***Note:*** Shairport Sync expects the `nqptp` repository folder to be in the same directory as the `shairport-sync` repository folder, as it will look for a header file at `../nqptp/nqptp-shm-structures.h`.
 
 The `nqptp` service monitors PTP clocks. It provides a [POSIX Shared Memory](https://man7.org/linux/man-pages/man7/shm_overview.7.html) Interface  at `/nqptp`. A shared pthread mutex is contained within the interface, and to use it you need write access.
 
-Next, download Shairport Sync, check out the `development` branch, configure it, compile and install it:
+Next, download Shairport Sync, check out the `development` branch and configure, compile and install it:
 ```
 $ git clone git@github.com:aillwee/shairport-sync.git
 $ cd shairport-sync
@@ -81,7 +81,9 @@ $ make -j
 ```
 By the way, the `autoreconf` step may take quite a while -- be patient!
 
-Now to configure Shairport Sync. In this walkthrough, it will be configured for an `alsa` output device. A list of `alsa` output devices is given at the end of the help information. For example, on a Raspberry Pi, at the end of the output from the command `$ shairport-sync -h`, the following appears:
+Now to configure Shairport Sync. In this walkthrough, it is configured for an `alsa` output device.
+
+A list of `alsa` output devices is given at the end of the help information. For example, on a Raspberry Pi, at the end of the output from the command `$ shairport-sync -h`, the following appears:
 
 ```
 ...
