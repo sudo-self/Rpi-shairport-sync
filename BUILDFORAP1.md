@@ -46,36 +46,48 @@ First, install the packages needed by Shairport Sync:
 # apt-get install build-essential git xmltoman autoconf automake libtool \
     libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
 ```
-Next, download Shairport Sync, configure it, compile and install it:
+Next, download Shairport Sync, check out the `development` branch, configure it, compile and install it:
 ```
 $ git clone https://github.com/aillwee/shairport-sync.git
 $ cd shairport-sync
 $ git checkout development
-$ git submodule init
-$ git submodule update
 $ autoreconf -fi
 $ ./configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-systemd
 $ make
 $ sudo make install
 ```
-By the way, the `autoreconf` step may take quite a while on a Raspberry Pi -- be patient!
+By the way, the `autoreconf` step may take quite a while -- be patient!
 
-Now to configure Shairport Sync. Here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`:
+Now to configure Shairport Sync. In this walkthrough, it will be configured for an `alsa` output device. A list of `alsa` output devices is given at the end of the help information. For example, on a Raspberry Pi, at the end of the output from the command `$ shairport-sync -h`, the following appears:
+
 ```
-// Sample Configuration File for Shairport Sync on a Raspberry Pi using the built-in audio DAC:
+...
+Settings and options for the audio backend "alsa":
+    -d output-device    set the output device, default is "default".
+    -c mixer-control    set the mixer control name, default is to use no mixer.
+    -m mixer-device     set the mixer device, default is the output device.
+    -i mixer-index      set the mixer index, default is 0.
+    hardware output devices:
+      "hw:Headphones"
+```
+Using a program such as `alsamixer`, the name of a mixer (i.e. an attenuator or volume control that could be used to control the output level) can be determined. In this case, the name of the mixer is `Headphone`.
+
+Following this, here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`. Note that everything is case-sensitive:
+```
+// Sample Configuration File for Shairport Sync on a Raspberry Pi using the built-in audio DAC
 general =
 {
-  volume_range_db = 60; 
+  volume_range_db = 60;
 };
 
 alsa =
 {
-  output_device = "hw:0";
+  output_device = "hw:Headphones";
   mixer_control_name = "Headphone";
 };
 
 ```
-The `volume_range_db = 60;` setting makes Shairport Sync use only the usable part of the built-in audio card mixer's attenuation range.
+The `volume_range_db = 60;` setting makes Shairport Sync use only the usable part of the Raspberry Pi's built-in audio card mixer's attenuation range. It may not be necessary for other output devices.
 
 The next step is to enable Shairport Sync to start automatically on boot up:
 ```
