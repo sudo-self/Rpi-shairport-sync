@@ -68,8 +68,6 @@ WORKDIR /
 WORKDIR /shairport-sync
 COPY . .
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
-RUN git submodule init
-RUN git submodule update
 RUN autoreconf -fi
 # RUN ./configure \
 #         --with-alsa \
