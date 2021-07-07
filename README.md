@@ -2,7 +2,7 @@
 Shairport Sync
 =============
 * Shairport Sync is an AirPlay audio player – it plays audio streamed from Apple devices and from AirPlay sources such as [OwnTone](https://github.com/owntone/owntone-server) (formerly `forked-daapd`).
-* Shairport Sync can be built for "classic" AirPlay 1 or limited Airplay 2 support. The AirPlay 2 build is much bigger and requires more libraries and RAM at build time and run time.
+* Shairport Sync can provide "classic" AirPlay 1 or limited Airplay 2 support. The AirPlay 2 build is much bigger and requires more libraries and RAM at build time and run time.
 
 AirPlay 2
 ---
@@ -10,7 +10,7 @@ For the latest on AirPlay 2, please visit [AIRPLAY2.md](https://github.com/aillw
 
 Guides
 ---
-* A brief guide to building classic Shairport Sync for AirPlay 1 is available at [BUILDFORAP1.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP1.md).
+* A brief guide to building classic Shairport Sync (for AirPlay 1) is available at [BUILDFORAP1.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP1.md).
 * A guide to building Shairport Sync for AirPlay 2 on Linux is available at [BUILDFORAP2.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP2.md).
 * A guide for building on FreeBSD is forthcoming.
 
