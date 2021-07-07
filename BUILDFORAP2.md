@@ -67,20 +67,20 @@ Download, install and start/enable `nqptp` from [here](https://github.com/mikebr
 The `nqptp` service monitors PTP clocks. It provides a POSIX Shared Memory Interface (SMI)  at `/nqptp`. A shared
 pthread mutex is contained within the interface, and to use it you need write access.
 
-Next, download Shairport Sync, configure it, compile and install it:
+Next, download Shairport Sync, check out the `development` branch, configure it, compile and install it:
 ```
 $ git clone git@github.com:aillwee/shairport-sync.git
 $ cd shairport-sync
 $ git checkout development
-$ git submodule init
-$ git submodule update
 $ autoreconf -fi
-$ CFLAGS="-O0 -g" CXXFLAGS="-O0 -g" ./configure --sysconfdir=/etc --with-metadata \
-    --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-dbus-interface --with-airplay-2
+$ ./configure --sysconfdir=/etc --with-alsa \
+    --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-dbus-interface --with-airplay-2
 $ make -j
 # make install
 ```
-Now to configure Shairport Sync. Here, it will be configured for an `alsa` output device. A list of `alsa` output devices is given at the end of the help information. Thus, at the end of the output after the command `$ shairport-sync -h` on a Raspberry Pi, for example, the following appears:
+By the way, the `autoreconf` step may take quite a while -- be patient!
+
+Now to configure Shairport Sync. In this walkthrough, it will be configured for an `alsa` output device. A list of `alsa` output devices is given at the end of the help information. For example, on a Raspberry Pi, at the end of the output from the command `$ shairport-sync -h`, the following appears:
 
 ```
 ...
