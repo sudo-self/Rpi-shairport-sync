@@ -18,7 +18,7 @@ Big thanks are due to number of individuals made direct and valuable contributio
 
 Warning
 ----
-1. Big changes have been made to the codebase to enable it to be used to build either a "traditional" AirPlay 1 player or a new AirPlay 2 player. These changes may have introduced bugs into the AirPlay 1 build.
+1. Big changes have been made to the codebase to enable it to be used to build either as the "classic" AirPlay 1 player or as a new AirPlay 2 player. These changes have probably introduced bugs into the classic AirPlay 1 build.
 2. There is lots we don't know about AirPlay 2. This can result in incorrect behaviour. Watch out for very high volume levels, especially if you have a powerful audio system.
 3. This is a `development` branch and is probably more buggy than usual. Normal support will not be provided -- instead, we will be interested in bug reports that help improve the program. You need to be adept with Linux or FreeBSD to get involved.
 
@@ -44,7 +44,7 @@ AirPlay 2 Overview
 - The AirPlay 2 version of Shairport Sync will not run on macOS, since `nqptp` can not be installed on it.
 
 #### Known Issues
-- A crash can occur occasionally when a Shairport Sync player is being selected for output. If you can get this to happen reliably, pleasse let us know.
+- A crash can occur occasionally when a Shairport Sync player is being selected for output. If you can get this to happen reliably, please let us know.
 
 AirPlay 2 -- What You Need
 ---
