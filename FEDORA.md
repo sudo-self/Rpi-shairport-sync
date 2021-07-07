@@ -1,4 +1,4 @@
-Fedora Installation Guide
+Fedora Installation Guide [Needs updating for Airplay 2]
 -----
 
 Install the toolchain and pre-requisites, if necessary:
