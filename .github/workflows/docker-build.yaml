@@ -22,13 +22,11 @@ jobs:
 
       - name: Determine NQPTP env (part 1).
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
-        env:
-          NQPTP_BRANCH: development
+        run: echo "NQPTP_BRANCH=development" >> $GITHUB_ENV
       
       - name: Determine NQPTP env (part 2).
         if: ${{ env.SHAIRPORT_SYNC_BRANCH != 'development' }}
-        env:
-          NQPTP_BRANCH: master
+        run: echo "NQPTP_BRANCH=master" >> $GITHUB_ENV
         
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -53,6 +51,7 @@ jobs:
           tags: ${{ secrets.DOCKER_REGISTRY }}/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
+            NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
 
       - name: Build and push (AirPlay 1)
         uses: docker/build-push-action@v2
