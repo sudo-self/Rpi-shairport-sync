@@ -10,6 +10,9 @@ on:
   release:
     types: [ ]
  
+env:
+  DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
+
 jobs:
   main:
     runs-on: ubuntu-latest
@@ -48,9 +51,9 @@ jobs:
         with:
           context: ./
           file: ./docker/Dockerfile
-          platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
+          platforms: ${{ env.PLATFORMS }}
           push: true
-          tags: ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.DOCKER_REGISTRY_USER }}/shairport-sync:latest ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.DOCKER_REGISTRY_USER }}/shairport-sync:${{ github.event.release.tag_name }}
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:latest ${{ secrets.DOCKER_IMAGE_NAME }}:${{ github.event.release.tag_name }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
             NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
@@ -60,8 +63,8 @@ jobs:
         with:
           context: ./
           file: ./docker/airplay1/Dockerfile-AirPlay1
-          platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
+          platforms: ${{ env.PLATFORMS }}
           push: true
-          tags: ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.DOCKER_REGISTRY_USER }}/shairport-sync:latest-airplay1, ${{ secrets.DOCKER_REGISTRY }}/${{ secrets.DOCKER_REGISTRY_USER }}/shairport-sync:${{ github.event.release.tag_name }}-airplay1
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:latest-airplay1, ${{ secrets.DOCKER_IMAGE_NAME }}:${{ github.event.release.tag_name }}-airplay1
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
