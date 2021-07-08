@@ -52,7 +52,7 @@ COPY --from=builder-alac /usr/local/lib/libalac.* /usr/local/lib/
 COPY --from=builder-alac /usr/local/lib/pkgconfig/alac.pc /usr/local/lib/pkgconfig/alac.pc
 COPY --from=builder-alac /usr/local/include /usr/local/include
 
-RUN git clone git@github.com:mikebrady/nqptp.git
+RUN git clone https://github.com/mikebrady/nqptp
 WORKDIR /nqptp
 # Use development branch for now.
 RUN git checkout development
