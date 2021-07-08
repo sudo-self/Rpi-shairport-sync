@@ -35,4 +35,5 @@ docker buildx build --platform linux/arm/v7 -f ./docker/Dockerfile --build-arg S
 `SHAIRPORT_SYNC_BRANCH` is required to ensure the image is built using the expected branch.
 
 ## AirPlay 1 Only
+
 The AirPlay1 only dockerfile is in the `airplay1` folder. This also includes the `start.sh` script used by the container.
