@@ -81,7 +81,7 @@ Version without git information:
 #### Build and Install
 Download Shairport Sync, check out the `development` branch and configure, compile and install it:
 ```
-$ git clone git@github.com:aillwee/shairport-sync.git
+$ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
 $ git checkout development
 $ autoreconf -fi

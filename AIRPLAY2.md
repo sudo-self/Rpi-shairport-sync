@@ -45,7 +45,7 @@ So, here are some guideline requirements:
 
 Guides
 ---
-* To build Shairport Sync for AirPlay 2 on Linux, please follow the guide at [BUILDFORAP2.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP2.md).
+* To build Shairport Sync for AirPlay 2 on Linux, please follow the guide at [BUILDFORAP2.md](https://github.com/mikebrady/shairport-sync/blob/development/BUILDFORAP2.md).
 * A guide for building on FreeBSD is forthcoming.
 
 AirPlay 2 -- More About What Works

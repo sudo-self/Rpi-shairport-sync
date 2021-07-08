@@ -7,17 +7,17 @@ Shairport Sync
 
 AirPlay 2
 ---
-For the latest on AirPlay 2, please visit [AIRPLAY2.md](https://github.com/aillwee/shairport-sync/blob/development/AIRPLAY2.md).
+For the latest on AirPlay 2, please visit [AIRPLAY2.md](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md).
 
 Guides
 ---
-* A brief guide to building classic Shairport Sync (for AirPlay 1) is available at [BUILDFORAP1.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP1.md).
-* A guide to building Shairport Sync for AirPlay 2 on Linux is available at [BUILDFORAP2.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP2.md).
+* A brief guide to building classic Shairport Sync (for AirPlay 1) is available at [BUILDFORAP1.md](https://github.com/mikebrady/shairport-sync/blob/development/BUILDFORAP1.md).
+* A guide to building Shairport Sync for AirPlay 2 on Linux is available at [BUILDFORAP2.md](https://github.com/mikebrady/shairport-sync/blob/development/BUILDFORAP2.md).
 * A guide to building for AirPlay 2 on FreeBSD is forthcoming.
 
 More Information
 ---
-For more information, please visit [MOREINFO.md](https://github.com/aillwee/shairport-sync/blob/development/MOREINFO.md).
+For more information, please visit [MOREINFO.md](https://github.com/mikebrady/shairport-sync/blob/development/MOREINFO.md).
 
 Acknowledgements
 ---
