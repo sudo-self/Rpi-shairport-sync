@@ -1,5 +1,5 @@
 # Builds & pushes a docker image when a commit is made to one of the branches specified below.
-# Tag pattern: 'unstable-[BRANCH NAME]'.
+# Tag pattern: 'unstable-[BRANCH NAME]' & 'unstable-[BRANCH NAME]-airplay1'
 # See docker-build-releases.yaml for release build process.
 
 name: Build and push docker image based on commit to specified branches.
