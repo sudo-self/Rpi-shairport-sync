@@ -6,7 +6,7 @@ name: Build and push docker image based on commit to specified branches.
 
 on:
   push:
-    branches: [ master, development, charles-dev ]
+    branches: [ development ]
  
 jobs:
   main:
@@ -19,11 +19,6 @@ jobs:
           
       - name: Set SHAIRPORT_SYNC_BRANCH env.
         run: echo "SHAIRPORT_SYNC_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
-
-      - name: Set up ssh agent
-        uses: webfactory/ssh-agent@v0.5.2 # Can be removed when no longer pulling from private repos.
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -48,7 +43,6 @@ jobs:
           tags: ${{ env.DOCKER_REGISTRY }}/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
-          ssh: default=${{ env.SSH_AUTH_SOCK }} # Can be removed when no longer pulling from private repos.
 
       - name: Build and push (AirPlay 1)
         uses: docker/build-push-action@v2

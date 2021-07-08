@@ -28,9 +28,8 @@ Edit the configuration file `/etc/shairport-sync.conf` in the container (or use 
 
 ## Build Example (for arm7 devices)
 
-TODO: remove `--ssh` when going public as this is only for private repos.
 ```
-docker buildx build --ssh default=$SSH_AUTH_SOCK --platform linux/arm/v7 -f ./docker/Dockerfile --build-arg SHAIRPORT_SYNC_BRANCH=development -t shairport-sync:unstable-development .
+docker buildx build --platform linux/arm/v7 -f ./docker/Dockerfile --build-arg SHAIRPORT_SYNC_BRANCH=development -t shairport-sync:unstable-development .
 ```
 
 `SHAIRPORT_SYNC_BRANCH` is required to ensure the image is built using the expected branch.
