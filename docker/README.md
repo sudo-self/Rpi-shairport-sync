@@ -37,3 +37,11 @@ docker buildx build --platform linux/arm/v7 -f ./docker/Dockerfile --build-arg S
 ## AirPlay 1 Only
 
 The AirPlay1 only dockerfile is in the `airplay1` folder. This also includes the `start.sh` script used by the container. Please note that the AirPlay 1 image build via the AirPlay 2 branch does not work with multiple instances on the same hardware.
+
+## GitHub Action Builds
+
+Requires the following secrets to be set in the repo:
+- `DOCKER_REGISTRY` - docker.io if using Docker Hub, else set to your registry URL.
+- `DOCKER_REGISTRY_TOKEN` - Access token for your registry.
+- `DOCKER_REGISTRY_USER` - Login user for your registry.
+- `DOCKER_IMAGE_NAME` - The name of the image, for example `your-registry.com/shairport-sync` or just `your-username/shairport-sync` if using Docker Hub.
