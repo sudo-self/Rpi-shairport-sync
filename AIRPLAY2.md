@@ -9,7 +9,7 @@ For AirPlay 2, Shairport Sync uses another application called [`nqptp`](https://
 
 AirPlay 2 functionality is available on recent Linux and FreeBSD builds. The FreeBSD implementation has not been extensively tested. OpenBSD and Cygwin are not supported.
 
-AirPlay 2 support definitely does not work on macOS. This is because [`nqptp`](https://github.com/mikebrady/nqptp) uses ports `319` and `320` but these ports are unavailable because there are used by macOS to support its implementation of AirPlay 2.
+The AirPlay 2 version of Shairport Sync will not work if installed on macOS. This is because [`nqptp`](https://github.com/mikebrady/nqptp) uses ports `319` and `320` but these ports are unavailable because there are used by macOS to support its implementation of AirPlay 2.
 
 The AirPlay 2 build requires a good deal of extra library support and may not fit into smaller devices. It also requires more CPU power and more RAM.
 
@@ -29,7 +29,7 @@ The AirPlay 2 build requires a good deal of extra library support and may not fi
 
 ### Limitations
 - Only a single instance of Shairport Sync can run on a device.
-- The AirPlay 2 version of Shairport Sync will not run on macOS, since `nqptp` can not be installed on it.
+- The AirPlay 2 version of Shairport Sync will not work if installed on macOS, since `nqptp` can not be installed on macOS.
 
 ### Known Issues
 - A crash can occur occasionally when a Shairport Sync player is being selected for output. If you can get this to happen reliably, please let us know.
