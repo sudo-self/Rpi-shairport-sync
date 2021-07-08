@@ -29,7 +29,7 @@ Edit the configuration file `/etc/shairport-sync.conf` in the container (or use 
 ## Build Example (for arm7 devices)
 
 ```
-docker buildx build --platform linux/arm/v7 -f ./docker/Dockerfile --build-arg SHAIRPORT_SYNC_BRANCH=development -t shairport-sync:unstable-development .
+docker buildx build --platform linux/arm/v7 -f ./docker/Dockerfile --build-arg SHAIRPORT_SYNC_BRANCH=development --build-arg NQPTP_BRANCH=development -t shairport-sync:unstable-development .
 ```
 
 `SHAIRPORT_SYNC_BRANCH` is required to ensure the image is built using the expected branch.

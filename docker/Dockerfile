@@ -43,10 +43,12 @@ RUN make install
 # Shairport Sync Build System:
 FROM builder-base AS builder-sps
 
-# This will be modified by the Github Action Workflow and is required
-# to ensure the correct branch is being used.
+# These will be modified by the Github Action Workflow and are required
+# to ensure the correct branches are being used.
 ARG SHAIRPORT_SYNC_BRANCH
 RUN test -n "$SHAIRPORT_SYNC_BRANCH"
+ARG NQPTP_BRANCH
+RUN test -n "$NQPTP_BRANCH"
 
 COPY --from=builder-alac /usr/local/lib/libalac.* /usr/local/lib/
 COPY --from=builder-alac /usr/local/lib/pkgconfig/alac.pc /usr/local/lib/pkgconfig/alac.pc
@@ -55,7 +57,7 @@ COPY --from=builder-alac /usr/local/include /usr/local/include
 RUN git clone https://github.com/mikebrady/nqptp
 WORKDIR /nqptp
 # Use development branch for now.
-RUN git checkout development
+RUN git checkout "$NQPTP_BRANCH"
 RUN autoreconf -fi
 RUN ./configure
 RUN make
