@@ -67,17 +67,15 @@ Download, install, enable and start `nqptp` from [here](https://github.com/mikeb
 
 ***Note:*** Shairport Sync expects the `nqptp` repository folder to be in the same directory as the `shairport-sync` repository folder, as it will look for a header file at `../nqptp/nqptp-shm-structures.h`.
 
-The `nqptp` service monitors PTP clocks. It provides a [POSIX Shared Memory](https://man7.org/linux/man-pages/man7/shm_overview.7.html) Interface  at `/nqptp`. A shared pthread mutex is contained within the interface, and to use it you need write access.
-
 ### Shairport Sync
 
 #### Please use `git` to clone the repository!
-As you probably know, you can download the repository in two ways -- (1) using `git` to clone it  -- recommended -- or (2) downloading the repository as a ZIP archive. Please us the `git` method. The reason it that when you use `git`, the build process can incorporate the `git` commit hash in the version information. This will be very useful for identifying the exact build if you are making comments or bug reports. Here is an example:
+As you probably know, you can download the repository in two ways: (1) using `git` to clone it  -- recommended -- or (2) downloading the repository as a ZIP archive. Please us the `git` method. The reason it that when you use `git`, the build process can incorporate the `git` build information in the version information. This will be very useful for identifying the exact build if you are making comments or bug reports. Here is an example:
 ```
-Version with git hash:
+Version with git information:
 4.0-dev-138-g2789572-AirPlay2-OpenSSL-Avahi-ALSA-soxr-metadata-dbus-sysconfdir:/etc
 
-Version without git hash:
+Version without git information:
 4.0-dev-AirPlay2-OpenSSL-Avahi-ALSA-soxr-metadata-dbus-sysconfdir:/etc
 ```
 
