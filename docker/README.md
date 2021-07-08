@@ -36,4 +36,4 @@ docker buildx build --platform linux/arm/v7 -f ./docker/Dockerfile --build-arg S
 
 ## AirPlay 1 Only
 
-The AirPlay1 only dockerfile is in the `airplay1` folder. This also includes the `start.sh` script used by the container.
+The AirPlay1 only dockerfile is in the `airplay1` folder. This also includes the `start.sh` script used by the container. Please note that the AirPlay 1 image build via the AirPlay 2 branch does not work with multiple instances on the same hardware.
