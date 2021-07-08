@@ -56,12 +56,12 @@ AirPlay 2 -- More About What Works
 
 Acknowledgements
 ----
-Much of Shairport Sync's AirPlay 2 functionality is based on ideas developed at the [openairplay airplay2-receiver]( https://github.com/openairplay/airplay2-receiver) repository.
-
-Big thanks are due to number of individuals made direct and valuable contributions to Shairport Sync:
+Huge thanks are due to number of individuals made direct and valuable contributions to Shairport Sync:
 1. [ejurgensen](https://github.com/ejurgensen) contributed ideas and code. The `pair_ap` submodule and related code in `rtsp.c` is theirs.
 2. [JD Smith](https://github.com/jdtsmith) contributed ideas, comments and suggestions along with extensive and thorough testing.
-3. [Charles Omer](https://github.com/charlesomer) contributed ideas, comments, bug fixes and Docker automation (forthcoming).
+3. [Charles Omer](https://github.com/charlesomer) contributed ideas, comments, bug fixes, documentation and Docker automation (forthcoming).
+
+Much of Shairport Sync's AirPlay 2 functionality is based on ideas developed at the [openairplay airplay2-receiver]( https://github.com/openairplay/airplay2-receiver) repository. It is a pleasure to acknowledge the work of the contributors there.
 
 Finally
 ----
