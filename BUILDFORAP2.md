@@ -154,4 +154,4 @@ Connect and enjoy...
 
 ### Restart Your Mac!
 
-At the time of writing, there seems to be a bug in the Mac Music app, particularly on Apple silicon Macs. It appears that, if the Mac has been sleeping, the AirPlay 2 infrastructure is not fully reenabled, and it will be unable to drive AirPlay 2 devices for more than a few seconds. The only know solution is to reboot.
+At the time of writing, there seems to be a bug in the Mac Music app, particularly on Apple silicon Macs. It appears that, if the Mac has been sleeping, the AirPlay 2 infrastructure is not fully reenabled, and it will be unable to drive AirPlay 2 devices for more than a few seconds. The only known solution is to reboot.
