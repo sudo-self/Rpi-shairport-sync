@@ -29,7 +29,7 @@ jobs:
       - name: Login to Docker Registry
         uses: docker/login-action@v1
         with:
-          registry: ${{ env.DOCKER_REGISTRY }}
+          registry: ${{ secrets.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
           password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
 
@@ -40,7 +40,7 @@ jobs:
           file: ./docker/Dockerfile
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
           push: true
-          tags: ${{ env.DOCKER_REGISTRY }}/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}
+          tags: ${{ secrets.DOCKER_REGISTRY }}/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
 
@@ -51,6 +51,6 @@ jobs:
           file: ./docker/airplay1/Dockerfile
           platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
           push: true
-          tags: ${{ env.DOCKER_REGISTRY }}/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}-airplay1
+          tags: ${{ secrets.DOCKER_REGISTRY }}/shairport-sync:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}-airplay1
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
