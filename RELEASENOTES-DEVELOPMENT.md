@@ -3,9 +3,9 @@ Version 4.0-dev
 
 Big Update
 ----
-Version 4 brings limited AirPlay 2 functionality to Shairport Sync. 
+Version 4 brings [limited AirPlay 2 functionality](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md) to Shairport Sync. 
 
-For more information about AirPlay 2, including acknowledgements, please visit [AIRPLAY2.md].
+For information about AirPlay 2, including acknowledgements, please visit [AIRPLAY2.md](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md).
 
 #### Known Issues
 - In the AirPlay 2 build, a crash can occur occasionally when the player is being selected. If you can get this to happen reliably, please let us know.
