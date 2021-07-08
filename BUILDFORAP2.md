@@ -1,4 +1,4 @@
-Build Instructions for AirPlay 2
+Building Shairport Sync for AirPlay 2
 ==
 * Build instructions are different from previous versions of Shairport Sync. Please read carefully.
 * This code is experimental and much of the normal functionality of Shairport Sync is broken. Please do not use it in situations where reliable service is expected.
@@ -11,7 +11,7 @@ Build Instructions for AirPlay 2
 * The POSIX Shared Memory Interface (SMI) Version numbers of `nqptp` and Shairport Sync must match. If they don't, you'll get a message in the logs. It means that one of the programs is out of date with respect to the other.
 * Build instructions are likely to change.
 
-Build and Install Instructions
+Instructions
 ==
 Overall, you'll be building and installing two programs. The first one is `nqptp` and the second one is Shairport Sync itself. Build `nqptp` first.
 
@@ -69,7 +69,7 @@ Download, install, enable and start `nqptp` from [here](https://github.com/mikeb
 ### Shairport Sync
 
 #### Please use `git` to clone the repository!
-As you probably know, you can download the repository in two ways: (1) using `git` to clone it  -- recommended -- or (2) downloading the repository as a ZIP archive. Please us the `git` method. The reason it that when you use `git`, the build process can incorporate the `git` build information in the version information. This will be very useful for identifying the exact build if you are making comments or bug reports. Here is an example:
+As you probably know, you can download the repository in two ways: (1) using `git` to clone it  -- recommended -- or (2) downloading the repository as a ZIP archive. Please us the `git` method. The reason it that when you use `git`, the build process can incorporate the `git` build information in the version string you get when you execute the command `$ shairport-sync -V`. This will be very useful for identifying the exact build if you are making comments or bug reports. Here is an example:
 ```
 Version with git information:
 4.0-dev-138-g2789572-AirPlay2-OpenSSL-Avahi-ALSA-soxr-metadata-dbus-sysconfdir:/etc
