@@ -42,7 +42,6 @@ The first thing to do on a Pi would be to use the `raspi-config` tool to expand 
 ```
 # apt-get update
 # apt-get upgrade
-# rpi-update
 ``` 
 
 ### Shairport Sync
