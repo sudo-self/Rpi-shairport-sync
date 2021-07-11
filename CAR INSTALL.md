@@ -92,6 +92,7 @@ A number of packages to enable the Pi to work as a WiFi base station are needed:
 ```
 Disable both of these services from starting at boot time (this is because we will launch them sequentially later on):
 ```
+# systemctl unmask hostapd
 # systemctl disable hostapd
 # systemctl disable isc-dhcp-server
 ```
