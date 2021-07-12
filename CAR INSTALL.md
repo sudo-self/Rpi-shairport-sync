@@ -14,7 +14,7 @@ Note that Android devices can not, so far, do this trick of using the two networ
 
 ## Example
 
-In this example, a Raspberry Pi Zero W and a Pimoroni PHAT DAC are used. This combination has been tested for well over a year. Please note that some of the details of setting up networks are specific to the version of Linux used -- Raspbian Stretch.
+In this example, a Raspberry Pi Zero W and a Pimoroni PHAT DAC are used. This combination has been tested for over two years. Please note that some of the details of setting up networks are specific to the version of Linux used -- Raspbian Stretch or later.
 
 ### Prepare the initial SD Image
 * Download the latest version of Raspbian Lite -- Stretch Lite of 2018-03-13 at the time of writing -- and install it onto an SD Card.
