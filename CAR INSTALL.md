@@ -193,7 +193,7 @@ denyinterfaces wlan0
 ```
 From this point on, at least on the Raspberry Pi, if you reboot the machine, it will not reconnect to your network – instead, it will act as the WiFi base station you have configured with `hostapd` and `isc-dhcp-server`.
 
-### Optimise startup time -- Raspberry Pi
+### Optimise startup time -- Raspberry Pi Specific
 
 This is applicable to a Raspberry Pi only. Some of it may be applicable to other systems, but it has not been tested on them. There are quite a few services that are not necessary for this setup. Disabling them can increase startup time. Running these commands disables them:
 
@@ -207,7 +207,7 @@ sudo systemctl disable dphys-swapfile.service
 sudo systemctl disable networking.service
 ````
 
-### Read-only mode -- Raspberry Pi
+### Read-only mode -- Raspberry Pi Specific
 
 Run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem` and choose to enable the overlay filesystem, and to set the boot partition to be write-protected. 
 
