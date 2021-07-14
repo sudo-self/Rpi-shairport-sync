@@ -2369,7 +2369,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         debug(1, "Can't find timingPeerInfo addresses");
       }
     } else {
-      debug_log_rtsp_message(1, "Unrecognised SETUP incoming message", req);
+      debug_log_rtsp_message(2, "Unrecognised SETUP incoming message", req);
     }
 
     // make up the timing peer info list part of the response...
@@ -4414,7 +4414,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     *p++ = ap1_featuresString;
     *p++ = firmware_version;
     *p++ = "md=2";
-    *p++ = "am=SPS";
+    *p++ = "am=Shairport Sync";
     *p++ = "sf=0x4";
     *p++ = "tp=UDP";
     *p++ = "vn=65537";
@@ -4475,7 +4475,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     *p++ = "acl=0";
     *p++ = "rsf=0x0";
     *p++ = firmware_version;
-    *p++ = "model=SPS";
+    *p++ = "model=Shairport Sync";
     char piString[64];
     snprintf(piString, sizeof(piString), "pi=%s", config.airplay_pi);
     *p++ = piString;
