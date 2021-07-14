@@ -1596,7 +1596,7 @@ static void pairing_remove(struct pairings *pairing) {
 }
 
 static int pairing_add_cb(uint8_t public_key[32], const char *device_id, void *cb_arg __attribute__((unused))) {
-  debug(1, "pair-add cb for %s", device_id);
+  debug(2, "pair-add cb for %s", device_id);
 
   struct pairings *pairing = pairing_find(device_id);
   if (pairing) {
@@ -1609,11 +1609,11 @@ static int pairing_add_cb(uint8_t public_key[32], const char *device_id, void *c
 }
 
 static int pairing_remove_cb(uint8_t public_key[32] __attribute__((unused)), const char *device_id, void *cb_arg __attribute__((unused))) {
-  debug(1, "pair-remove cb for %s", device_id);
+  debug(2, "pair-remove cb for %s", device_id);
 
   struct pairings *pairing = pairing_find(device_id);
   if (!pairing) {
-    debug(1, "pair-remove callback for unknown device");
+    debug(2, "pair-remove callback for unknown device");
     return -1;
   }
 
@@ -1622,7 +1622,7 @@ static int pairing_remove_cb(uint8_t public_key[32] __attribute__((unused)), con
 }
 
 static void pairing_list_cb(pair_cb enum_cb, void *enum_cb_arg, void *cb_arg __attribute__((unused))) {
-  debug(1, "pair-list cb");
+  debug(2, "pair-list cb");
 
   for (struct pairings *pairing = pairings; pairing; pairing = pairing->next) {
     enum_cb(pairing->public_key, pairing->device_id, enum_cb_arg);
