@@ -1984,44 +1984,44 @@ void *player_thread_func(void *arg) {
   conn->correctionsRequestedInThisEpoch = 0;
   statistics_row = 0; // statistics_line 0 means print the headings; anything else 1 means print the
                       // values. Set to 0 the first time out.
-  if (config.statistics_requested) {
-    // decide on what statistics profile to use
+
+  // decide on what statistics profile to use, if requested
 #ifdef CONFIG_AIRPLAY_2
-    if (conn->airplay_type == ap_2) {
-      if (conn->airplay_stream_type == realtime_stream) {
-        if (config.output->delay) {
-          if (config.no_sync == 0)
-            statistics_print_profile = ap2_realtime_synced_stream_statistics_print_profile;
-          else
-            statistics_print_profile = ap2_realtime_nosync_stream_statistics_print_profile;
-        } else {
-          statistics_print_profile = ap2_realtime_nodelay_stream_statistics_print_profile;
-        }
-      } else {
-        if (config.output->delay) {
-          if (config.no_sync == 0)
-            statistics_print_profile = ap2_buffered_synced_stream_statistics_print_profile;
-          else
-            statistics_print_profile = ap2_buffered_nosync_stream_statistics_print_profile;
-        } else {
-          statistics_print_profile = ap2_buffered_nodelay_stream_statistics_print_profile;
-        }
-      }
-    } else {
-#endif
+  if (conn->airplay_type == ap_2) {
+    if (conn->airplay_stream_type == realtime_stream) {
       if (config.output->delay) {
         if (config.no_sync == 0)
-          statistics_print_profile = ap1_synced_statistics_print_profile;
+          statistics_print_profile = ap2_realtime_synced_stream_statistics_print_profile;
         else
-          statistics_print_profile = ap1_nosync_statistics_print_profile;
+          statistics_print_profile = ap2_realtime_nosync_stream_statistics_print_profile;
       } else {
-        statistics_print_profile = ap1_nodelay_statistics_print_profile;
+        statistics_print_profile = ap2_realtime_nodelay_stream_statistics_print_profile;
       }
+    } else {
+      if (config.output->delay) {
+        if (config.no_sync == 0)
+          statistics_print_profile = ap2_buffered_synced_stream_statistics_print_profile;
+        else
+          statistics_print_profile = ap2_buffered_nosync_stream_statistics_print_profile;
+      } else {
+        statistics_print_profile = ap2_buffered_nodelay_stream_statistics_print_profile;
+      }
+    }
+  } else {
+#endif
+    if (config.output->delay) {
+      if (config.no_sync == 0)
+        statistics_print_profile = ap1_synced_statistics_print_profile;
+      else
+        statistics_print_profile = ap1_nosync_statistics_print_profile;
+    } else {
+      statistics_print_profile = ap1_nodelay_statistics_print_profile;
+    }
 // airplay 1 stuff here
 #ifdef CONFIG_AIRPLAY_2
-    }
-#endif
   }
+#endif
+
 
 #ifdef CONFIG_AIRPLAY_2
   if (conn->timing_type == ts_ntp) {
@@ -2940,7 +2940,6 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
   // if it's both, we haven't decided whether hw or sw should be on top
   // we have to consider the settings ignore_volume_control and mute.
 
-  if (config.ignore_volume_control == 0) {
     if (airplay_volume == -144.0) {
 
       if ((config.output->mute) && (config.output->mute(1) == 0))
@@ -2978,14 +2977,16 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         debug(1, "player_volume_without_notification: error: not in a volume mode");
         break;
       }
-      double scaled_attenuation = 0.0;
-      if (config.volume_control_profile == VCP_standard)
-        scaled_attenuation = vol2attn(airplay_volume, max_db, min_db); // no cancellation points
-      else if (config.volume_control_profile == VCP_flat)
-        scaled_attenuation =
-            flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
-      else
-        debug(1, "player_volume_without_notification: unrecognised volume control profile");
+      double scaled_attenuation = max_db;
+      if (config.ignore_volume_control == 0) {
+        if (config.volume_control_profile == VCP_standard)
+          scaled_attenuation = vol2attn(airplay_volume, max_db, min_db); // no cancellation points
+        else if (config.volume_control_profile == VCP_flat)
+          scaled_attenuation =
+              flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
+        else
+          debug(1, "player_volume_without_notification: unrecognised volume control profile");
+      }
 
       // so here we have the scaled attenuation. If it's for hw or sw only, it's straightforward.
       double hardware_attenuation = 0.0;
@@ -3043,8 +3044,10 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
 
       if ((volume_mode == vol_sw_only) || (volume_mode == vol_both)) {
         double temp_fix_volume = 65536.0 * pow(10, software_attenuation / 2000);
-        // debug(1,"Software attenuation set to %f, i.e %f out of 65,536, for airplay volume of
-        // %f",software_attenuation,temp_fix_volume,airplay_volume);
+        if (config.ignore_volume_control == 0)
+          debug(2,"Software attenuation set to %f, i.e %f out of 65,536, for airplay volume of %f",software_attenuation,temp_fix_volume,airplay_volume);
+        else
+          debug(2,"Software attenuation set to %f, i.e %f out of 65,536. Volume control is ignored.",software_attenuation,temp_fix_volume);         
 
         conn->fix_volume = temp_fix_volume;
 
@@ -3083,6 +3086,8 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
             "is disabled.",
             volume_mode, airplay_volume, software_attenuation, hardware_attenuation);
     }
+
+ /*
   }
 
 #ifdef CONFIG_METADATA
@@ -3095,6 +3100,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
     send_ssnc_metadata('pvol', dv, strlen(dv), 1);
   }
 #endif
+*/
 
   // here, store the volume for possible use in the future
   config.airplay_volume = airplay_volume;
