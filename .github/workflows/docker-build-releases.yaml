@@ -8,8 +8,11 @@ name: Build and push docker images on releases.
 
 on:
   release:
-    types: [ published ]
+    types: [ ]
  
+env:
+  DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
+
 jobs:
   main:
     runs-on: ubuntu-latest
@@ -22,11 +25,14 @@ jobs:
       - name: Set SHAIRPORT_SYNC_BRANCH env.
         run: echo "SHAIRPORT_SYNC_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
 
-      - name: Set up ssh agent
-        uses: webfactory/ssh-agent@v0.5.2 # Can be removed when no longer pulling from private repos.
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
+      - name: Determine NQPTP env (part 1).
+        if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
+        run: echo "NQPTP_BRANCH=development" >> $GITHUB_ENV
+      
+      - name: Determine NQPTP env (part 2).
+        if: ${{ env.SHAIRPORT_SYNC_BRANCH != 'development' }}
+        run: echo "NQPTP_BRANCH=master" >> $GITHUB_ENV
+        
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
@@ -36,7 +42,7 @@ jobs:
       - name: Login to Docker Registry
         uses: docker/login-action@v1
         with:
-          registry: registry.nova.do
+          registry: ${{ secrets.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
           password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
 
@@ -45,20 +51,20 @@ jobs:
         with:
           context: ./
           file: ./docker/Dockerfile
-          platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
+          platforms: ${{ env.PLATFORMS }}
           push: true
-          tags: registry.nova.do/shairport-sync:latest registry.nova.do/shairport-sync:${{ github.event.release.tag_name }}
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:latest ${{ secrets.DOCKER_IMAGE_NAME }}:${{ github.event.release.tag_name }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
-          ssh: default=${{ env.SSH_AUTH_SOCK }} # Can be removed when no longer pulling from private repos.
+            NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
 
       - name: Build and push (AirPlay 1)
         uses: docker/build-push-action@v2
         with:
           context: ./
           file: ./docker/airplay1/Dockerfile-AirPlay1
-          platforms: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
+          platforms: ${{ env.PLATFORMS }}
           push: true
-          tags: registry.nova.do/shairport-sync:latest-airplay1, registry.nova.do/shairport-sync:${{ github.event.release.tag_name }}-airplay1
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:latest-airplay1, ${{ secrets.DOCKER_IMAGE_NAME }}:${{ github.event.release.tag_name }}-airplay1
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}

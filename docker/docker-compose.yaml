@@ -2,7 +2,7 @@
 
 services:
   shairport-sync:
-    image: registry.nova.do/shairport-sync:unstable-development
+    image: mikebrady/shairport-sync:unstable-development
     network_mode: host
     restart: unless-stopped
     devices:
