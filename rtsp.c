@@ -50,8 +50,8 @@
 
 #include <sys/ioctl.h>
 
-#include "config.h"
 #include "activity_monitor.h"
+#include "config.h"
 
 #ifdef CONFIG_OPENSSL
 #include <openssl/md5.h>
@@ -1560,10 +1560,9 @@ struct pairings {
   uint8_t public_key[32];
 
   struct pairings *next;
-} *pairings;
+} * pairings;
 
-static struct pairings * pairing_find(const char *device_id)
-{
+static struct pairings *pairing_find(const char *device_id) {
   for (struct pairings *pairing = pairings; pairing; pairing = pairing->next) {
     if (strcmp(device_id, pairing->device_id) == 0)
       return pairing;
@@ -1595,7 +1594,8 @@ static void pairing_remove(struct pairings *pairing) {
   free(pairing);
 }
 
-static int pairing_add_cb(uint8_t public_key[32], const char *device_id, void *cb_arg __attribute__((unused))) {
+static int pairing_add_cb(uint8_t public_key[32], const char *device_id,
+                          void *cb_arg __attribute__((unused))) {
   debug(1, "pair-add cb for %s", device_id);
 
   struct pairings *pairing = pairing_find(device_id);
@@ -1608,7 +1608,8 @@ static int pairing_add_cb(uint8_t public_key[32], const char *device_id, void *c
   return 0;
 }
 
-static int pairing_remove_cb(uint8_t public_key[32] __attribute__((unused)), const char *device_id, void *cb_arg __attribute__((unused))) {
+static int pairing_remove_cb(uint8_t public_key[32] __attribute__((unused)), const char *device_id,
+                             void *cb_arg __attribute__((unused))) {
   debug(1, "pair-remove cb for %s", device_id);
 
   struct pairings *pairing = pairing_find(device_id);
@@ -1621,7 +1622,8 @@ static int pairing_remove_cb(uint8_t public_key[32] __attribute__((unused)), con
   return 0;
 }
 
-static void pairing_list_cb(pair_cb enum_cb, void *enum_cb_arg, void *cb_arg __attribute__((unused))) {
+static void pairing_list_cb(pair_cb enum_cb, void *enum_cb_arg,
+                            void *cb_arg __attribute__((unused))) {
   debug(1, "pair-list cb");
 
   for (struct pairings *pairing = pairings; pairing; pairing = pairing->next) {
@@ -1629,10 +1631,12 @@ static void pairing_list_cb(pair_cb enum_cb, void *enum_cb_arg, void *cb_arg __a
   }
 }
 
-void handle_pair_add(rtsp_conn_info *conn __attribute__((unused)), rtsp_message *req, rtsp_message *resp) {
+void handle_pair_add(rtsp_conn_info *conn __attribute__((unused)), rtsp_message *req,
+                     rtsp_message *resp) {
   uint8_t *body = NULL;
   size_t body_len = 0;
-  int ret = pair_add(PAIR_SERVER_HOMEKIT, &body, &body_len, pairing_add_cb, NULL, (const uint8_t *)req->content, req->contentlength);
+  int ret = pair_add(PAIR_SERVER_HOMEKIT, &body, &body_len, pairing_add_cb, NULL,
+                     (const uint8_t *)req->content, req->contentlength);
   if (ret < 0) {
     debug(1, "pair-add returned an error");
     resp->respcode = 451;
@@ -1644,10 +1648,12 @@ void handle_pair_add(rtsp_conn_info *conn __attribute__((unused)), rtsp_message 
   debug_log_rtsp_message(2, "pair-add response", resp);
 }
 
-void handle_pair_list(rtsp_conn_info *conn __attribute__((unused)), rtsp_message *req, rtsp_message *resp) {
+void handle_pair_list(rtsp_conn_info *conn __attribute__((unused)), rtsp_message *req,
+                      rtsp_message *resp) {
   uint8_t *body = NULL;
   size_t body_len = 0;
-  int ret = pair_list(PAIR_SERVER_HOMEKIT, &body, &body_len, pairing_list_cb, NULL, (const uint8_t *)req->content, req->contentlength);
+  int ret = pair_list(PAIR_SERVER_HOMEKIT, &body, &body_len, pairing_list_cb, NULL,
+                      (const uint8_t *)req->content, req->contentlength);
   if (ret < 0) {
     debug(1, "pair-list returned an error");
     resp->respcode = 451;
@@ -1659,10 +1665,12 @@ void handle_pair_list(rtsp_conn_info *conn __attribute__((unused)), rtsp_message
   debug_log_rtsp_message(2, "pair-list response", resp);
 }
 
-void handle_pair_remove(rtsp_conn_info *conn __attribute__((unused)), rtsp_message *req, rtsp_message *resp) {
+void handle_pair_remove(rtsp_conn_info *conn __attribute__((unused)), rtsp_message *req,
+                        rtsp_message *resp) {
   uint8_t *body = NULL;
   size_t body_len = 0;
-  int ret = pair_remove(PAIR_SERVER_HOMEKIT, &body, &body_len, pairing_remove_cb, NULL, (const uint8_t *)req->content, req->contentlength);
+  int ret = pair_remove(PAIR_SERVER_HOMEKIT, &body, &body_len, pairing_remove_cb, NULL,
+                        (const uint8_t *)req->content, req->contentlength);
   if (ret < 0) {
     debug(1, "pair-remove returned an error");
     resp->respcode = 451;
@@ -1867,20 +1875,21 @@ void handle_fp_setup(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message 
 }
 
 /*
-	<key>Identifier</key>
-	<string>21cc689d-d5de-4814-872c-71d1426b57e0</string>
-	<key>Enable_HK_Access_Control</key>
-	<true/>
-	<key>PublicKey</key>
-	<data>
-	qXJDhhL5F3OACL+HO7LVLQVdy0OJtavepjpF720PaOQ=
-	</data>
-	<key>Device_Name</key>
-	<string>MyDevice</string>
-	<key>Access_Control_Level</key>
-	<integer>0</integer>
+        <key>Identifier</key>
+        <string>21cc689d-d5de-4814-872c-71d1426b57e0</string>
+        <key>Enable_HK_Access_Control</key>
+        <true/>
+        <key>PublicKey</key>
+        <data>
+        qXJDhhL5F3OACL+HO7LVLQVdy0OJtavepjpF720PaOQ=
+        </data>
+        <key>Device_Name</key>
+        <string>MyDevice</string>
+        <key>Access_Control_Level</key>
+        <integer>0</integer>
 */
-void handle_configure(rtsp_conn_info *conn __attribute__((unused)), rtsp_message *req __attribute__((unused)), rtsp_message *resp) {
+void handle_configure(rtsp_conn_info *conn __attribute__((unused)),
+                      rtsp_message *req __attribute__((unused)), rtsp_message *resp) {
   uint8_t public_key[32];
 
   pair_public_key_get(PAIR_SERVER_HOMEKIT, public_key, config.airplay_device_id);
@@ -1889,7 +1898,8 @@ void handle_configure(rtsp_conn_info *conn __attribute__((unused)), rtsp_message
 
   plist_dict_set_item(response_plist, "Identifier", plist_new_string(config.airplay_pi));
   plist_dict_set_item(response_plist, "Enable_HK_Access_Control", plist_new_bool(1));
-  plist_dict_set_item(response_plist, "PublicKey", plist_new_data((const char *)public_key, sizeof(public_key)));
+  plist_dict_set_item(response_plist, "PublicKey",
+                      plist_new_data((const char *)public_key, sizeof(public_key)));
   plist_dict_set_item(response_plist, "Device_Name", plist_new_string(config.service_name));
   plist_dict_set_item(response_plist, "Access_Control_Level", plist_new_uint(0));
 
@@ -2238,7 +2248,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       // hack.
       conn->max_frames_per_packet = 352; // number of audio frames per packet.
-      conn->input_rate = 44100; // we are stuck with this for the moment.
+      conn->input_rate = 44100;          // we are stuck with this for the moment.
       conn->input_num_channels = 2;
       conn->input_bit_depth = 16;
       conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
@@ -2253,7 +2263,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_dict_set_item(stream0dict, "dataPort", plist_new_uint(conn->local_buffered_audio_port));
       plist_dict_set_item(stream0dict, "audioBufferSize",
                           plist_new_uint(conn->ap2_audio_buffer_size));
-
 
       // this should be cancelled by an activity_monitor_signify_activity(1)
       // call in the SETRATEANCHORI handler, which should come up right away
@@ -4414,7 +4423,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     *p++ = ap1_featuresString;
     *p++ = firmware_version;
     *p++ = "md=2";
-    *p++ = "am=SPS";
+    *p++ = "am=Shairport Sync";
     *p++ = "sf=0x4";
     *p++ = "tp=UDP";
     *p++ = "vn=65537";
@@ -4475,7 +4484,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     *p++ = "acl=0";
     *p++ = "rsf=0x0";
     *p++ = firmware_version;
-    *p++ = "model=SPS";
+    *p++ = "model=Shairport Sync";
     char piString[64];
     snprintf(piString, sizeof(piString), "pi=%s", config.airplay_pi);
     *p++ = piString;
