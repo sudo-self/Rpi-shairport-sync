@@ -1587,15 +1587,12 @@ int main(int argc, char **argv) {
   // features=0x405F4A00,0x1C340 in the mDNS string, and in a signed decimal number in the plist:
   // 496155702020608 this setting here is the source of both the plist features response and the
   // mDNS string.
-  config.airplay_features = 0x1C340405F4A00;
+  // note: 0x300401F4A00 works but with weird delays and stuff
+  config.airplay_features = 0x1C340405FCA00;
   // Advertised with mDNS and returned with GET /info, see
   // https://openairplay.github.io/airplay-spec/status_flags.html 0x4: Audio cable attached, no PIN
-  // required (transient pairing), no Homekit access control 0x204: Audio cable attached,
-  // OneTimePairingRequired 0x604: Audio cable attached, OneTimePairingRequired, allow Homekit
-  // access control
-
-  // note: 0x300401F4A00 works but with weird delays and stuff
-
+  // required (transient pairing), 0x204: Audio cable attached, OneTimePairingRequired 0x604: Audio
+  // cable attached, OneTimePairingRequired, device was setup for Homekit access control
   config.airplay_statusflags = 0x4;
   // Set to NULL to work with transient pairing
   config.airplay_pin = NULL;
@@ -1622,7 +1619,7 @@ int main(int argc, char **argv) {
   uuid_generate_random(binuuid);
   
   char *uuid = malloc(UUID_STR_LEN);
-  /* Produces a UUID string at uuid consisting of lower-case letters. */
+  // Produces a UUID string at uuid consisting of lower-case letters
   uuid_unparse_lower(binuuid, uuid);
   config.airplay_pi = strdup(uuid);
   config.airplay_gid = strdup(uuid); // initially the gid is the same as the pi

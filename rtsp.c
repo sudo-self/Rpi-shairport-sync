@@ -1555,6 +1555,125 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
+struct pairings {
+  char device_id[PAIR_AP_DEVICE_ID_LEN_MAX];
+  uint8_t public_key[32];
+
+  struct pairings *next;
+} *pairings;
+
+static struct pairings * pairing_find(const char *device_id)
+{
+  for (struct pairings *pairing = pairings; pairing; pairing = pairing->next) {
+    if (strcmp(device_id, pairing->device_id) == 0)
+      return pairing;
+  }
+  return NULL;
+}
+
+static void pairing_add(uint8_t public_key[32], const char *device_id) {
+  struct pairings *pairing = calloc(1, sizeof(struct pairings));
+  snprintf(pairing->device_id, sizeof(pairing->device_id), "%s", device_id);
+  memcpy(pairing->public_key, public_key, sizeof(pairing->public_key));
+
+  pairing->next = pairings;
+  pairings = pairing;
+}
+
+static void pairing_remove(struct pairings *pairing) {
+  if (pairing == pairings) {
+    pairings = pairing->next;
+  } else {
+    struct pairings *iter;
+    for (iter = pairings; iter && (iter->next != pairing); iter = iter->next)
+      ; /* EMPTY */
+
+    if (iter)
+      iter->next = pairing->next;
+  }
+
+  free(pairing);
+}
+
+static int pairing_add_cb(uint8_t public_key[32], const char *device_id, void *cb_arg __attribute__((unused))) {
+  debug(1, "pair-add cb for %s", device_id);
+
+  struct pairings *pairing = pairing_find(device_id);
+  if (pairing) {
+    memcpy(pairing->public_key, public_key, sizeof(pairing->public_key));
+    return 0;
+  }
+
+  pairing_add(public_key, device_id);
+  return 0;
+}
+
+static int pairing_remove_cb(uint8_t public_key[32] __attribute__((unused)), const char *device_id, void *cb_arg __attribute__((unused))) {
+  debug(1, "pair-remove cb for %s", device_id);
+
+  struct pairings *pairing = pairing_find(device_id);
+  if (!pairing) {
+    debug(1, "pair-remove callback for unknown device");
+    return -1;
+  }
+
+  pairing_remove(pairing);
+  return 0;
+}
+
+static void pairing_list_cb(pair_cb enum_cb, void *enum_cb_arg, void *cb_arg __attribute__((unused))) {
+  debug(1, "pair-list cb");
+
+  for (struct pairings *pairing = pairings; pairing; pairing = pairing->next) {
+    enum_cb(pairing->public_key, pairing->device_id, enum_cb_arg);
+  }
+}
+
+void handle_pair_add(rtsp_conn_info *conn __attribute__((unused)), rtsp_message *req, rtsp_message *resp) {
+  uint8_t *body = NULL;
+  size_t body_len = 0;
+  int ret = pair_add(PAIR_SERVER_HOMEKIT, &body, &body_len, pairing_add_cb, NULL, (const uint8_t *)req->content, req->contentlength);
+  if (ret < 0) {
+    debug(1, "pair-add returned an error");
+    resp->respcode = 451;
+    return;
+  }
+  resp->content = (char *)body; // these will be freed when the data is sent
+  resp->contentlength = body_len;
+  msg_add_header(resp, "Content-Type", "application/octet-stream");
+  debug_log_rtsp_message(2, "pair-add response", resp);
+}
+
+void handle_pair_list(rtsp_conn_info *conn __attribute__((unused)), rtsp_message *req, rtsp_message *resp) {
+  uint8_t *body = NULL;
+  size_t body_len = 0;
+  int ret = pair_list(PAIR_SERVER_HOMEKIT, &body, &body_len, pairing_list_cb, NULL, (const uint8_t *)req->content, req->contentlength);
+  if (ret < 0) {
+    debug(1, "pair-list returned an error");
+    resp->respcode = 451;
+    return;
+  }
+  resp->content = (char *)body; // these will be freed when the data is sent
+  resp->contentlength = body_len;
+  msg_add_header(resp, "Content-Type", "application/octet-stream");
+  debug_log_rtsp_message(2, "pair-list response", resp);
+}
+
+void handle_pair_remove(rtsp_conn_info *conn __attribute__((unused)), rtsp_message *req, rtsp_message *resp) {
+  uint8_t *body = NULL;
+  size_t body_len = 0;
+  int ret = pair_remove(PAIR_SERVER_HOMEKIT, &body, &body_len, pairing_remove_cb, NULL, (const uint8_t *)req->content, req->contentlength);
+  if (ret < 0) {
+    debug(1, "pair-remove returned an error");
+    resp->respcode = 451;
+    return;
+  }
+  resp->content = (char *)body; // these will be freed when the data is sent
+  resp->contentlength = body_len;
+  msg_add_header(resp, "Content-Type", "application/octet-stream");
+  debug_log_rtsp_message(2, "pair-remove response", resp);
+}
+
 void handle_pair_verify(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int ret;
   uint8_t *body = NULL;
@@ -1747,14 +1866,56 @@ void handle_fp_setup(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message 
   msg_add_header(resp, "Content-Type", "application/octet-stream");
 }
 
+/*
+	<key>Identifier</key>
+	<string>21cc689d-d5de-4814-872c-71d1426b57e0</string>
+	<key>Enable_HK_Access_Control</key>
+	<true/>
+	<key>PublicKey</key>
+	<data>
+	qXJDhhL5F3OACL+HO7LVLQVdy0OJtavepjpF720PaOQ=
+	</data>
+	<key>Device_Name</key>
+	<string>MyDevice</string>
+	<key>Access_Control_Level</key>
+	<integer>0</integer>
+*/
+void handle_configure(rtsp_conn_info *conn __attribute__((unused)), rtsp_message *req __attribute__((unused)), rtsp_message *resp) {
+  uint8_t public_key[32];
+
+  pair_public_key_get(PAIR_SERVER_HOMEKIT, public_key, config.airplay_device_id);
+
+  plist_t response_plist = plist_new_dict();
+
+  plist_dict_set_item(response_plist, "Identifier", plist_new_string(config.airplay_pi));
+  plist_dict_set_item(response_plist, "Enable_HK_Access_Control", plist_new_bool(1));
+  plist_dict_set_item(response_plist, "PublicKey", plist_new_data((const char *)public_key, sizeof(public_key)));
+  plist_dict_set_item(response_plist, "Device_Name", plist_new_string(config.service_name));
+  plist_dict_set_item(response_plist, "Access_Control_Level", plist_new_uint(0));
+
+  plist_to_bin(response_plist, &resp->content, &resp->contentlength);
+  plist_free(response_plist);
+
+  msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
+  debug_log_rtsp_message(2, "POST /configure response:", resp);
+}
+
 void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   resp->respcode = 200;
   if (strcmp(req->path, "/pair-setup") == 0) {
     handle_pair_setup(conn, req, resp);
   } else if (strcmp(req->path, "/pair-verify") == 0) {
     handle_pair_verify(conn, req, resp);
+  } else if (strcmp(req->path, "/pair-add") == 0) {
+    handle_pair_add(conn, req, resp);
+  } else if (strcmp(req->path, "/pair-remove") == 0) {
+    handle_pair_remove(conn, req, resp);
+  } else if (strcmp(req->path, "/pair-list") == 0) {
+    handle_pair_list(conn, req, resp);
   } else if (strcmp(req->path, "/fp-setup") == 0) {
     handle_fp_setup(conn, req, resp);
+  } else if (strcmp(req->path, "/configure") == 0) {
+    handle_configure(conn, req, resp);
   } else {
     debug(3, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
           req->contentlength);
