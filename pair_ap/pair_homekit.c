@@ -2679,6 +2679,7 @@ server_add_remove_request(pair_cb cb, void *cb_arg, const uint8_t *in, size_t in
   pair_tlv_t *device_id;
   pair_tlv_t *pk;
   char id_str[PAIR_AP_DEVICE_ID_LEN_MAX] = { 0 };
+  uint8_t *public_key = NULL;
 
   request = message_process(in, in_len, &errmsg);
   if (!request)
@@ -2687,15 +2688,21 @@ server_add_remove_request(pair_cb cb, void *cb_arg, const uint8_t *in, size_t in
     }
 
   device_id = pair_tlv_get_value(request, TLVType_Identifier);
-  pk = pair_tlv_get_value(request, TLVType_PublicKey);
-  if (!device_id || device_id->size >= sizeof(id_str) || !pk || pk->size != crypto_sign_PUBLICKEYBYTES)
+  if (!device_id || device_id->size >= sizeof(id_str))
     {
       goto error;
     }
 
+  // Only present when adding
+  pk = pair_tlv_get_value(request, TLVType_PublicKey);
+  if (pk && pk->size == crypto_sign_PUBLICKEYBYTES)
+    {
+      public_key = pk->value;
+    }
+
   memcpy(id_str, device_id->value, device_id->size);
 
-  cb(pk->value, id_str, cb_arg);
+  cb(public_key, id_str, cb_arg);
 
   pair_tlv_free(request);
   return 0;
@@ -2757,9 +2764,18 @@ static int
 server_list_cb(uint8_t public_key[crypto_sign_PUBLICKEYBYTES], const char *device_id, void *cb_arg)
 {
   pair_tlv_values_t *response = cb_arg;
+  pair_tlv_t *previous_id;
+  uint8_t permissions = 1; // Means admin (TODO don't hardcode - let caller set)
+
+  // If this isn't the first iteration (item) then we must add a separator
+  previous_id = pair_tlv_get_value(response, TLVType_Identifier);
+  if (previous_id)
+    pair_tlv_add_value(response, TLVType_Separator, NULL, 0);
 
   pair_tlv_add_value(response, TLVType_Identifier, (unsigned char *)device_id, strlen(device_id));
   pair_tlv_add_value(response, TLVType_PublicKey, public_key, crypto_sign_PUBLICKEYBYTES);
+  pair_tlv_add_value(response, TLVType_Permissions, &permissions, sizeof(permissions));
+
   return 0;
 }
 

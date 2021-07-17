@@ -1,3 +1,18 @@
+Version 4.0-dev-185-g0c02ee2
+====
+
+#### New Features
+- **Home App Integration** An AirPlay 2 build of Shairport Sync now offers limited integration with the Home app. Specifically, a Shairport Sync AirPlay 2 instance can now be added as a speaker to the Home app. Thanks to [ckdo](https://github.com/ckdo) and [ejurgensen](https://github.com/ejurgensen) for figuring this out and for coding it up. It means that some Siri interaction is possible.
+- **Automated Docker Builds** Thanks to the work of [Charles Omer](https://github.com/charlesomer), Docker builds on the `development` branch should appear from time to time on the [Docker Hub](https://hub.docker.com/r/mikebrady/shairport-sync).
+
+#### Bug Fixes
+- [Crashing bug fix](https://github.com/mikebrady/nqptp/blob/main/RELEASE_NOTES.md) in `nqptp` -- thanks to [ste94pz](https://github.com/ste94pz).
+- Honour the `max_volume_db` setting even when `ignore_volume_control` is true. Note that dithering is enabled if software attenuation is needed.
+
+#### Other Changes
+- Spell out `Shairport Sync` instead of `SPS` in a few places.
+- Clang format some source files.
+
 Version 4.0-dev-153-g9ccde50
 ====
 
