@@ -1493,6 +1493,8 @@ int main(int argc, char **argv) {
     usage(argv[0]);
     exit(EXIT_SUCCESS);
   }
+  
+  log_to_syslog();
 
 #ifdef CONFIG_LIBDAEMON
   pid = getpid();
