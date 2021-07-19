@@ -4053,6 +4053,25 @@ void msg_cleanup_function(void *arg) {
   msg_free((rtsp_message **)arg);
 }
 
+// mDNS advertisement strings
+
+// Create these strings and then keep them updated.
+// When necessary, update the mDNS service records, using e.g. Avahi
+// from these sources.
+
+char *txt_records[64];
+char firmware_version[64];
+char ap1_featuresString[64];
+char pkString[128];
+#ifdef CONFIG_AIRPLAY_2
+char *secondary_txt_records[64];
+char deviceIdString[64];
+char featuresString[64];
+char statusflagsString[32];
+char piString[64];
+char gidString[64];
+#endif
+
 static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_conn_info *conn = pconn;
 
@@ -4383,19 +4402,12 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
         maxfd = sockfd[i];
     }
 
-    char **t1; // ap1 test records
-    char **t2; // two text records
+    char **t1 = txt_records; // ap1 test records
+    char **t2 = NULL;        // possibly two text records
 
-    t1 = NULL;
-    t2 = NULL;
-
-    // make up a txt record
-    char *txt_records[64];
-    char **p = txt_records;
-    t1 = p; // first set of text records
+    int entry_number = 0;
 
     // make up a firmware version
-    char firmware_version[64];
 #ifdef CONFIG_USE_GIT_VERSION_STRING
     if (git_version_string[0] != '\0')
       snprintf(firmware_version, sizeof(firmware_version), "fv=%s", git_version_string);
@@ -4404,96 +4416,86 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
       snprintf(firmware_version, sizeof(firmware_version), "fv=%s", PACKAGE_VERSION);
 
 #ifdef CONFIG_AIRPLAY_2
-    char ap1_featuresString[64];
     uint64_t features_hi = config.airplay_features;
     features_hi = (features_hi >> 32) & 0xffffffff;
     uint64_t features_lo = config.airplay_features;
     features_lo = features_lo & 0xffffffff;
     snprintf(ap1_featuresString, sizeof(ap1_featuresString), "ft=0x%" PRIX64 ",0x%" PRIX64 "",
              features_lo, features_hi);
-    char pkString[128];
     snprintf(pkString, sizeof(pkString), "pk=");
     pkString_make(pkString + strlen("pk="), sizeof(pkString) - strlen("pk="),
                   config.airplay_device_id);
 
-    // the ap1 text record is different if it is set up for ap2
-    *p++ = "cn=0,1";
-    *p++ = "da=true";
-    *p++ = "et=0,4";
-    *p++ = ap1_featuresString;
-    *p++ = firmware_version;
-    *p++ = "md=2";
-    *p++ = "am=Shairport Sync";
-    *p++ = "sf=0x4";
-    *p++ = "tp=UDP";
-    *p++ = "vn=65537";
-    *p++ = "vs=366.0";
-    *p++ = pkString;
-    *p++ = NULL;
+    txt_records[entry_number++] = "cn=0,1";
+    txt_records[entry_number++] = "da=true";
+    txt_records[entry_number++] = "et=0,4";
+    txt_records[entry_number++] = ap1_featuresString;
+    txt_records[entry_number++] = firmware_version;
+    txt_records[entry_number++] = "md=2";
+    txt_records[entry_number++] = "am=Shairport Sync";
+    txt_records[entry_number++] = "sf=0x4";
+    txt_records[entry_number++] = "tp=UDP";
+    txt_records[entry_number++] = "vn=65537";
+    txt_records[entry_number++] = "vs=366.0";
+    txt_records[entry_number++] = pkString;
+    txt_records[entry_number++] = NULL;
 
 #else
     // here, just replicate what happens in mdns.h when using those #defines
-    *p++ = "sf=0x4";
-    *p++ = firmware_version;
-    *p++ = "am=ShairportSync";
-    *p++ = "vs=105.1";
-    *p++ = "tp=TCP,UDP";
-    *p++ = "vn=65537";
+    txt_records[entry_number++] = "sf=0x4";
+    txt_records[entry_number++] = firmware_version;
+    txt_records[entry_number++] = "am=ShairportSync";
+    txt_records[entry_number++] = "vs=105.1";
+    txt_records[entry_number++] = "tp=TCP,UDP";
+    txt_records[entry_number++] = "vn=65537";
 #ifdef CONFIG_METADATA
     if (config.get_coverart == 0)
-      *p++ = "md=0,2";
+      txt_records[entry_number++] = "md=0,2";
     else
-      *p++ = "md=0,1,2";
+      txt_records[entry_number++] = "md=0,1,2";
 #endif
-    *p++ = "ss=16";
-    *p++ = "sr=44100";
-    *p++ = "da=true";
-    *p++ = "sv=false";
-    *p++ = "et=0,1";
-    *p++ = "ek=1";
-    *p++ = "cn=0,1";
-    *p++ = "ch=2";
-    *p++ = "txtvers=1";
+    txt_records[entry_number++] = "ss=16";
+    txt_records[entry_number++] = "sr=44100";
+    txt_records[entry_number++] = "da=true";
+    txt_records[entry_number++] = "sv=false";
+    txt_records[entry_number++] = "et=0,1";
+    txt_records[entry_number++] = "ek=1";
+    txt_records[entry_number++] = "cn=0,1";
+    txt_records[entry_number++] = "ch=2";
+    txt_records[entry_number++] = "txtvers=1";
     if (config.password == 0)
-      *p++ = "pw=false";
+      txt_records[entry_number++] = "pw=false";
     else
-      *p++ = "pw=true";
-
-    *p++ = NULL;
+      txt_records[entry_number++] = "pw=true";
+    txt_records[entry_number++] = NULL;
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
     // make up a secondary set of text records
-    char *secondary_txt_records[64];
-    p = secondary_txt_records;
-    t2 = p; // second set of text records in AirPlay 2 only
+    t2 = secondary_txt_records; // second set of text records in AirPlay 2 only
+    entry_number = 0;
 
-    *p++ = "srcvers=366.0";
-    char deviceIdString[64];
+    secondary_txt_records[entry_number++] = "srcvers=366.0";
     snprintf(deviceIdString, sizeof(deviceIdString), "deviceid=%s", config.airplay_device_id);
-    *p++ = deviceIdString;
-    char featuresString[64];
+    secondary_txt_records[entry_number++] = deviceIdString;
     snprintf(featuresString, sizeof(featuresString), "features=0x%" PRIX64 ",0x%" PRIX64 "",
              features_lo, features_hi);
-    *p++ = featuresString;
-    char statusflagsString[32];
+    secondary_txt_records[entry_number++] = featuresString;
     snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIX32,
              config.airplay_statusflags);
-    *p++ = statusflagsString;
-    *p++ = "protovers=1.1";
-    *p++ = "acl=0";
-    *p++ = "rsf=0x0";
-    *p++ = firmware_version;
-    *p++ = "model=Shairport Sync";
-    char piString[64];
+    secondary_txt_records[entry_number++] = statusflagsString;
+    secondary_txt_records[entry_number++] = "protovers=1.1";
+    secondary_txt_records[entry_number++] = "acl=0";
+    secondary_txt_records[entry_number++] = "rsf=0x0";
+    secondary_txt_records[entry_number++] = firmware_version;
+    secondary_txt_records[entry_number++] = "model=Shairport Sync";
     snprintf(piString, sizeof(piString), "pi=%s", config.airplay_pi);
-    *p++ = piString;
-    char gidString[64];
+    secondary_txt_records[entry_number++] = piString;
     snprintf(gidString, sizeof(gidString), "gid=%s", config.airplay_gid);
-    *p++ = gidString;
-    *p++ = "gcgl=0";
-    *p++ = pkString;
-    *p++ = NULL;
+    secondary_txt_records[entry_number++] = gidString;
+    secondary_txt_records[entry_number++] = "gcgl=0";
+    secondary_txt_records[entry_number++] = pkString;
+    secondary_txt_records[entry_number++] = NULL;
 #endif
 
     mdns_register(t1, t2);
