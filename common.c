@@ -231,7 +231,7 @@ void log_to_syslog() {
 #ifdef CONFIG_LIBDAEMON
   sps_log = daemon_log;
 #else
-  sps_log = syslog;
+  sps_log = do_sps_log_to_stderr;
 #endif
 }
 
