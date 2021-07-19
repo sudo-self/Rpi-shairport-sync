@@ -104,7 +104,7 @@ static void resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIn
         while (*dacpid == '0')
           dacpid++; // skip any leading zeroes
         if (strcmp(dacpid, dbs->dacp_id) == 0) {
-          debug(3, "resolve_callback: client dacp_id \"%s\" dacp port: %u.", dbs->dacp_id, port);
+          debug(1, "resolve_callback: client dacp_id \"%s\" dacp port: %u.", dbs->dacp_id, port);
 #ifdef CONFIG_DACP_CLIENT
           dacp_monitor_port_update_callback(dacpid, port);
 #endif
@@ -318,6 +318,50 @@ static void client_callback(AvahiClient *c, AvahiClientState state,
   }
 }
 
+static int avahi_update(char **txt_records,
+                          char **secondary_txt_records) {
+  // debug(1, "avahi_update.");
+
+/*
+  service_name = strdup(ap1name);
+  if (ap2name != NULL)
+    ap2_service_name = strdup(ap2name);
+  port = srvport;
+*/
+  int err = 0;
+  AvahiIfIndex selected_interface;
+    if (config.interface != NULL)
+      selected_interface = config.interface_index;
+    else
+      selected_interface = AVAHI_IF_UNSPEC;
+
+  if (txt_records != NULL) {
+    if (text_record_string_list)
+      avahi_string_list_free(text_record_string_list);
+    text_record_string_list =
+      avahi_string_list_new_from_array((const char **)txt_records, -1);
+    err = avahi_entry_group_update_service_txt_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
+                                                 service_name, config.regtype, NULL,
+                                                 text_record_string_list);
+    if (err != 0)
+      debug(1,"avahi_update error updating primary txt records.");
+  }
+
+  if (secondary_txt_records != NULL) {
+    if (ap2_text_record_string_list)
+      avahi_string_list_free(ap2_text_record_string_list);
+    ap2_text_record_string_list =
+      avahi_string_list_new_from_array((const char **)secondary_txt_records, -1);
+    err = avahi_entry_group_update_service_txt_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
+                                                 ap2_service_name, config.regtype2, NULL,
+                                                 ap2_text_record_string_list);
+    if (err != 0)
+      debug(1,"avahi_update error updating secondary txt records.");
+  }
+  return 0;
+}
+
+
 static int avahi_register(char *ap1name, char *ap2name, int srvport, char **txt_records,
                           char **secondary_txt_records) {
   // debug(1, "avahi_register.");
@@ -429,6 +473,7 @@ void avahi_dacp_monitor_set_id(const char *dacp_id) {
              avahi_strerror(avahi_client_errno(client)));
       }
       avahi_threaded_poll_unlock(tpoll);
+      debug(1,"dacp_monitor for \"%s\"", dacp_id);
     } else {
       warn("avahi_dacp_set_id: can not allocate a dacp_id string in dacp_browser_struct.");
     }
@@ -451,6 +496,7 @@ void avahi_dacp_monitor_stop() {
 
 mdns_backend mdns_avahi = {.name = "avahi",
                            .mdns_register = avahi_register,
+                           .mdns_update = avahi_update,
                            .mdns_unregister = avahi_unregister,
                            .mdns_dacp_monitor_start = avahi_dacp_monitor_start,
                            .mdns_dacp_monitor_set_id = avahi_dacp_monitor_set_id,
