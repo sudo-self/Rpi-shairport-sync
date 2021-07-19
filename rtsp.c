@@ -92,6 +92,27 @@
 #include "ptp-utilities.h"
 #endif
 
+#include "mdns.h"
+
+// mDNS advertisement strings
+
+// Create these strings and then keep them updated.
+// When necessary, update the mDNS service records, using e.g. Avahi
+// from these sources.
+
+char *txt_records[64];
+char firmware_version[64];
+char ap1_featuresString[64];
+char pkString[128];
+#ifdef CONFIG_AIRPLAY_2
+char *secondary_txt_records[64];
+char deviceIdString[64];
+char featuresString[64];
+char statusflagsString[32];
+char piString[64];
+char gidString[64];
+#endif
+
 #define METADATA_SNDBUF (4 * 1024 * 1024)
 
 enum rtsp_read_request_response {
@@ -157,6 +178,14 @@ typedef struct {
   // for responses
   int respcode;
 } rtsp_message;
+
+#ifdef CONFIG_AIRPLAY_2
+void mdns_update_flags(uint32_t flags) {
+  snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIX32,
+             flags);
+  mdns_update(NULL, secondary_txt_records);
+}
+#endif
 
 #ifdef CONFIG_METADATA
 typedef struct {
@@ -2168,6 +2197,26 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     plist_t item = plist_dict_get_item(stream0, "shk"); // session key
     uint64_t item_value = 0;
     plist_get_data_val(item, (char **)&conn->session_key, &item_value);
+    
+    // get the DACP-ID for remote control stuff
+    
+    char *ar = msg_get_header(req, "DACP-ID");
+    if (ar) {
+      debug(1, "Connection %d: SETUP AP2 -- DACP-ID string seen: \"%s\".", conn->connection_number, ar);
+      if (conn->dacp_id) // this is in case SETUP was previously called
+        free(conn->dacp_id);
+      conn->dacp_id = strdup(ar);
+#ifdef CONFIG_METADATA
+      send_metadata('ssnc', 'daid', ar, strlen(ar), req, 1);
+#endif
+    } else {
+      debug(1, "Connection %d: SETUP AP2 doesn't include DACP-ID string information.",
+            conn->connection_number);
+      if (conn->dacp_id) { // this is in case SETUP was previously called
+        free(conn->dacp_id);
+        conn->dacp_id = NULL;
+      }
+    }
 
     // now, get the type of the stream.
     item = plist_dict_get_item(stream0, "type");
@@ -2224,6 +2273,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
       else
         debug(1, "No timing peer list!");
+      //config.airplay_statusflags |= 1 << 10; // ReceiverSessionIsActive
+      //mdns_update_flags(config.airplay_statusflags);
       activity_monitor_signify_activity(1);
       player_prepare_to_play(conn);
       player_play(conn);
@@ -2266,14 +2317,16 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       // this should be cancelled by an activity_monitor_signify_activity(1)
       // call in the SETRATEANCHORI handler, which should come up right away
+      //config.airplay_statusflags |= 1 << 10; // ReceiverSessionIsActive
+      //mdns_update_flags(config.airplay_statusflags);
       activity_monitor_signify_activity(0);
-
       player_play(conn);
 
       conn->rtp_running = 1; // hack!
     } break;
     default:
       debug(1, "Unhandled stream type %" PRIu64 ".", item_value);
+      debug_log_rtsp_message(1, "Unhandled stream type incoming message", req);
     }
 
     plist_dict_set_item(stream0dict, "controlPort", plist_new_uint(conn->local_ap2_control_port));
@@ -4053,25 +4106,6 @@ void msg_cleanup_function(void *arg) {
   msg_free((rtsp_message **)arg);
 }
 
-// mDNS advertisement strings
-
-// Create these strings and then keep them updated.
-// When necessary, update the mDNS service records, using e.g. Avahi
-// from these sources.
-
-char *txt_records[64];
-char firmware_version[64];
-char ap1_featuresString[64];
-char pkString[128];
-#ifdef CONFIG_AIRPLAY_2
-char *secondary_txt_records[64];
-char deviceIdString[64];
-char featuresString[64];
-char statusflagsString[32];
-char piString[64];
-char gidString[64];
-#endif
-
 static void *rtsp_conversation_thread_func(void *pconn) {
   rtsp_conn_info *conn = pconn;
 
@@ -4483,6 +4517,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     secondary_txt_records[entry_number++] = featuresString;
     snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIX32,
              config.airplay_statusflags);
+    
     secondary_txt_records[entry_number++] = statusflagsString;
     secondary_txt_records[entry_number++] = "protovers=1.1";
     secondary_txt_records[entry_number++] = "acl=0";
