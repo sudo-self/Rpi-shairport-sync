@@ -2198,9 +2198,30 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     uint64_t item_value = 0;
     plist_get_data_val(item, (char **)&conn->session_key, &item_value);
     
-    // get the DACP-ID for remote control stuff
+    // get the DACP-ID and Active Remote for remote control stuff
     
-    char *ar = msg_get_header(req, "DACP-ID");
+    
+    char *ar = msg_get_header(req, "Active-Remote");
+    if (ar) {
+      debug(1, "Connection %d: SETUP AP2 -- Active-Remote string seen: \"%s\".",
+            conn->connection_number, ar);
+      // get the active remote
+      if (conn->dacp_active_remote) // this is in case SETUP was previously called
+        free(conn->dacp_active_remote);
+      conn->dacp_active_remote = strdup(ar);
+#ifdef CONFIG_METADATA
+      send_metadata('ssnc', 'acre', ar, strlen(ar), req, 1);
+#endif
+    } else {
+      debug(1, "Connection %d: SETUP AP2 no Active-Remote information  the SETUP Record.",
+            conn->connection_number);
+      if (conn->dacp_active_remote) { // this is in case SETUP was previously called
+        free(conn->dacp_active_remote);
+        conn->dacp_active_remote = NULL;
+      }
+    }
+    
+    ar = msg_get_header(req, "DACP-ID");
     if (ar) {
       debug(1, "Connection %d: SETUP AP2 -- DACP-ID string seen: \"%s\".", conn->connection_number, ar);
       if (conn->dacp_id) // this is in case SETUP was previously called
