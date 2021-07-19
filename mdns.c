@@ -109,6 +109,13 @@ void mdns_register(char **txt_records, char **secondary_txt_records) {
   mdns_dacp_monitor_start(); // create a dacp monitor thread
 }
 
+void mdns_update(char **txt_records, char **secondary_txt_records) {
+if ((config.mdns) && (config.mdns->mdns_update)) {
+    config.mdns->mdns_update(txt_records, secondary_txt_records);
+  } else
+    debug(1, "Can't mdns_update -- no mdns_update registered.");
+}
+
 void mdns_unregister(void) {
   mdns_dacp_monitor_stop();
   if (config.mdns) {
