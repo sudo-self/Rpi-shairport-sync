@@ -10,9 +10,4 @@ dbus-daemon --system
 
 avahi-daemon --daemonize --no-chroot
 
-# TODO: This should probably be implemented in a better way.
-nqptp &
-
-# su-exec shairport-sync shairport-sync $@
-
-shairport-sync -vu --statistics
+su-exec shairport-sync shairport-sync $@
