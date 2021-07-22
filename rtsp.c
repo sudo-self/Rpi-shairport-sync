@@ -1939,7 +1939,7 @@ void handle_configure(rtsp_conn_info *conn __attribute__((unused)),
   debug_log_rtsp_message(2, "POST /configure response:", resp);
 }
 
-void handle_feedback(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+void handle_feedback(__attribute__((unused)) rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req, __attribute__((unused)) rtsp_message *resp) {
 
 }
 
