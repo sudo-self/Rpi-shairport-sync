@@ -9,7 +9,8 @@ Do the usual update and upgrade:
 ```
 # apt-get update
 # apt-get upgrade
-``` 
+```
+(Separately, on a Raspberry Pi only, if you haven't done so already, consider using the `raspi-config` tool to expand the file system to use the entire card.)
 
 ### Turn Off WiFi Power Management
 If you are using WiFi, you should turn off WiFi Power Management:
