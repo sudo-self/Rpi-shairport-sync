@@ -1939,6 +1939,10 @@ void handle_configure(rtsp_conn_info *conn __attribute__((unused)),
   debug_log_rtsp_message(2, "POST /configure response:", resp);
 }
 
+void handle_feedback(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+
+}
+
 void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   resp->respcode = 200;
   if (strcmp(req->path, "/pair-setup") == 0) {
@@ -1955,11 +1959,12 @@ void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     handle_fp_setup(conn, req, resp);
   } else if (strcmp(req->path, "/configure") == 0) {
     handle_configure(conn, req, resp);
+  } else if (strcmp(req->path, "/feedback") == 0) {
+    handle_feedback(conn, req, resp);
   } else {
-    debug(3, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
+    debug(1, "Connection %d: Unhandled POST %s Content-Length %d", conn->connection_number, req->path,
           req->contentlength);
     debug_log_rtsp_message(2, "POST request", req);
-    debug(3, "Unhandled POST, path \"%s\".", req->path);
   }
 }
 
@@ -2246,7 +2251,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
     switch (item_value) {
     case 96: {
-      debug(1, "Connection %d. Realtime Audio Stream Detected.", conn->connection_number);
+      debug(2, "Connection %d. Realtime Audio Stream Detected.", conn->connection_number);
       debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
       get_play_lock(conn);
       conn->airplay_stream_type = realtime_stream;
@@ -2303,7 +2308,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       conn->rtp_running = 1; // hack!
     } break;
     case 103: {
-      debug(1, "Connection %d. Buffered Audio Stream Detected.", conn->connection_number);
+      debug(2, "Connection %d. Buffered Audio Stream Detected.", conn->connection_number);
       debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
       get_play_lock(conn);
       conn->airplay_stream_type = buffered_stream;
@@ -2360,6 +2365,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           "SETUP on Connection %d: No \"streams\" array has been found -- create an event thread "
           "and open a TCP port.",
           conn->connection_number);
+    debug_log_rtsp_message(2, "SETUP on Connection %d: No \"streams\" array has been found.", req);
     // first, get and retain the incoming plist.
     if (conn->client_setup_plist) {
       plist_free(conn->client_setup_plist);
@@ -4172,7 +4178,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       resp = msg_init();
       pthread_cleanup_push(msg_cleanup_function, (void *)&resp);
       resp->respcode = 400;
-
+/*
       if (strcmp(req->method, "OPTIONS") !=
           0) // the options message is very common, so don't log it until level 3
         debug_level = 2;
@@ -4180,6 +4186,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
             "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
             req->method),
           debug_print_msg_headers(debug_level, req);
+*/
 
       apple_challenge(conn->fd, req, resp);
       hdr = msg_get_header(req, "CSeq");
