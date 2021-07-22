@@ -1,7 +1,7 @@
 /*
  * libalsa output driver. This file is part of Shairport.
  * Copyright (c) Muffinman, Skaman 2013
- * Copyright (c) Mike Brady 2014 -- 2019
+ * Copyright (c) Mike Brady 2014 -- 2021
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person

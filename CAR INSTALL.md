@@ -14,7 +14,7 @@ Note that Android devices can not, so far, do this trick of using the two networ
 
 ## Example
 
-In this example, a Raspberry Pi Zero W and a Pimoroni PHAT DAC are used. This combination has been tested for well over a year. Please note that some of the details of setting up networks are specific to the version of Linux used -- Raspbian Stretch.
+In this example, a Raspberry Pi Zero W and a Pimoroni PHAT DAC are used. This combination has been tested for over two years. Please note that some of the details of setting up networks are specific to the version of Linux used -- Raspbian Stretch or later.
 
 ### Prepare the initial SD Image
 * Download the latest version of Raspbian Lite -- Stretch Lite of 2018-03-13 at the time of writing -- and install it onto an SD Card.
@@ -192,6 +192,24 @@ Up to now, if you reboot the Pi, it will reconnect to your WiFi network, ignorin
 denyinterfaces wlan0
 ```
 From this point on, at least on the Raspberry Pi, if you reboot the machine, it will not reconnect to your network – instead, it will act as the WiFi base station you have configured with `hostapd` and `isc-dhcp-server`.
+
+### Optimise startup time -- Raspberry Pi Specific
+
+This is applicable to a Raspberry Pi only. Some of it may be applicable to other systems, but it has not been tested on them. There are quite a few services that are not necessary for this setup. Disabling them can increase startup time. Running these commands disables them:
+
+````
+sudo systemctl disable systemd-timesyncd.service
+sudo systemctl disable keyboard-setup.service
+sudo systemctl disable triggerhappy.service
+sudo systemctl disable dhcpcd.service
+sudo systemctl disable wpa_supplicant.service
+sudo systemctl disable dphys-swapfile.service
+sudo systemctl disable networking.service
+````
+
+### Read-only mode -- Raspberry Pi Specific
+
+Run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem` and choose to enable the overlay filesystem, and to set the boot partition to be write-protected. 
 
 ### Ready
 Install the Raspberry Pi in your car. It should be powered from a source that is switched off when you leave the car, otherwise the slight current drain will eventually flatten the car's battery.

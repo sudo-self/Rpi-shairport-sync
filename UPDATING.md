@@ -1,13 +1,17 @@
 
 ### Updating Shairport Sync [Needs updating for Airplay 2]
-This guide is for updating an installation of Shairport Sync. If you installed Shairport Sync from a package, most of these instructions don't apply – please go to the section at the end called "Post Update Tasks"
+This guide is for building and updating an installation of Shairport Sync.
+
+If you updated Shairport Sync from a package, most of these instructions don't apply – please go to the section at the end called "Post Update Tasks". If you wish to build an installation of Shairport Sync to replace an installation that came from a package, instructions don't apply either – instead, please follow the guide at [INSTALL.md](https://github.com/mikebrady/shairport-sync/blob/master/INSTALL.md).
 
 To do an update, you basically have to go through the whole process of building Shairport Sync again,
 but a few steps are shorter because you've done them before; you won't have to reinstall the build tools or libraries needed, and you won't have to define the user and group or reconfigure the settings in the configuration file.
 
 But before you begin, you should update and upgrade any packages.
 
-Here is the sequence for Raspbian Stretch, which is based on Debian Stretch. The same commands work for Ubuntu, and maybe more. Here, a non-`root` user with `sudo` privileges is assumed.
+Note that in this guide, a `$` prefix means you should be in the normal user mode; a `#` prefix means you should be in the superuser or root mode.
+
+Here is the sequence for Raspberry Pi OS (Buster), which is based on Debian Buster. The same commands work for Ubuntu, and maybe more. Here, a non-`root` user with `sudo` privileges is assumed.
 
 ```
 $ sudo apt-get update
@@ -15,7 +19,26 @@ $ sudo apt-get upgrade
 ```
 Next, stop playing music to your device.
 
-Now, to update and install Shairport Sync, if you still have the directory in which you previously built Shairport Sync, it will contain the repository you originally downloaded. Navigate your way to it and 'pull' the changes from GitHub:
+### Remove Old Copies
+It's a good idea to search for and remove any existing copies of the application, called `shairport-sync`. Use the command `$ which shairport-sync` to find them. For example, if `shairport-sync` has been installed previously, this might happen:
+```
+$ which shairport-sync
+/usr/local/bin/shairport-sync
+```
+Remove it as follows:
+```
+# rm /usr/local/bin/shairport-sync
+```
+Do this until no more copies of `shairport-sync` are found. This is especially important if you are building Shairport Sync over an old version that was installed from packages, as the built application will be installed in a different directory to the packaged installation.
+
+### Remove Old Startup and Service Scripts
+You should also remove the startup script and service definition files `/etc/systemd/system/shairport-sync.service`, `/lib/systemd/system/shairport-sync.service`, `/etc/init.d/shairport-sync`, `/etc/dbus-1/system.d/shairport-sync-dbus.conf` and `/etc/dbus-1/system.d/shairport-sync-mpris.conf` if they exist – new ones will be installed if necessary. As with the previous section, this is especially important if you are building Shairport Sync over an old version that was installed from packages, as the scripts for the built application may be different to those of the packaged version. If they are left in place, bad things can happen.
+
+### Reboot after Cleaning Up
+If you removed any installations of Shairport Sync or any of its startup script files in the last two steps, you should reboot.
+
+### Building the Updated Shairport Sync
+Now, to build, update and install Shairport Sync, if you still have the directory in which you previously built Shairport Sync, it will contain the repository you originally downloaded. Navigate your way to it and 'pull' the changes from GitHub:
 
 ```
 $ git pull

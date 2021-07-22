@@ -4,9 +4,9 @@ The installation and setup of Shairport Sync is straightforward on recent Linux 
 
 In this brief document will be listed some problems and some solutions, some provided by other users.
 
-1. Before starting, ensure that your software is up-to-date.
-2. Set the `interpolation` in the `general` section of the configuration file to `basic` as the `soxr` setting can cause lower-powered devices to bog down at critical times, e.g. see [this report](https://github.com/mikebrady/shairport-sync/issues/631#issuecomment-366305203).
-
+1. Before starting, ensure that your software is up-to-date. This document always refers to the most recent version of Shairport Sync -- see [here](https://github.com/mikebrady/shairport-sync/releases) for information about the most recent release.
+2. If you have set `interpolation` in the `general` section of the configuration file to to `soxr`, comment it out or set it to `auto` or `basic` as the `soxr` setting can cause lower-powered devices to bog down at critical times, e.g. see [this report](https://github.com/mikebrady/shairport-sync/issues/631#issuecomment-366305203).
+3. Ensure the volume setting of your output device is set to some reasonable value and ensure it is not muted. For ALSA devices, the `alsamixer` command-line tool is very good for this. For other sound systems, please consult the relevant documentation.
 
 ### WiFi adapter running in power-saving / low-power mode
 
@@ -54,6 +54,10 @@ sudo chmod +x /etc/network/if-up.d/off-power-manager
 
 There are some more details in some the closed issues on this repository.
 
+### VPNs
+
+To see the AirPlay service Shairport Sync provides, your devices must be on the same subnet as Shairport Sync. If, say, a device such as an iPhone is on a VPN and Shairport Sync is not, or vice-versa, then even though the devices might be physically on the same network, they are effectively on separate networks due to the VPN and the AirPlay service will not be accessible to the device. So, when you are troubleshooting, look out for VPN issues. 
+
 ### Faulty WiFi
 For an example of what it can take to track down a bad WiFi situation – in this case, a faulty WiFi adapter – please look at [this report](https://github.com/mikebrady/shairport-sync/issues/689).
 
@@ -67,7 +71,7 @@ You can play from other devices but not from your Windows PC.
 
 Allow network discovery. This setting creates a private type network and enables Windows to access the ports and protocols necessary to use Shairport Sync.
 
-### UFW firewall blocking connections on Raspbian (Raspberry Pi)
+### UFW firewall blocking ports (commonly includes Raspberry Pi)
 
 **Problem**
 
@@ -87,7 +91,7 @@ You have installed Shairport Sync successfully, the daemon is running, you can s
 
 **Solution**
 
-You have to allow connections to your Pi from remote devices. To do so, after re-enabling UFW (see last step of the previous section), enter the following commands in shell:
+You have to allow connections to your Shairport Sync device from remote devices. To do so, after re-enabling UFW (see last step of the previous section), enter the following commands in shell:
 
 ```
 sudo ufw allow from 192.168.1.1/16 to any port 3689 proto tcp

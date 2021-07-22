@@ -17,7 +17,7 @@ If you are using WiFi, you should turn off WiFi Power Management:
 ```
 # iwconfig wlan0 power off
 ```
-WiFi Power Management will put the WiFi system in low-power mode when the WiFi system considered inactive, and in this mode it may not respond to events initiated from the network, such as AirPlay requests. Hence, WiFi Power Management should be turned off. (See [TROUBLESHOOTING.md](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md#wifi-adapter-running-in-power-saving--low-power-mode) for more details.)
+WiFi Power Management will put the WiFi system in low-power mode when the WiFi system is considered inactive, and in this mode it may not respond to events initiated from the network, such as AirPlay requests. Hence, WiFi Power Management should be turned off. (See [TROUBLESHOOTING.md](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md#wifi-adapter-running-in-power-saving--low-power-mode) for more details.)
 
 Reboot the computer.
 
@@ -33,8 +33,8 @@ Remove it as follows:
 ```
 Do this until no more copies of `shairport-sync` are found.
 
-### Remove Old Startup Scripts
-You should also remove the startup script files `/etc/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed in necessary.
+### Remove Old Startup and Service Scripts
+You should also remove the startup script and service definition files `/etc/systemd/system/shairport-sync.service`, `/lib/systemd/system/shairport-sync.service`, `/etc/init.d/shairport-sync`, `/etc/dbus-1/system.d/shairport-sync-dbus.conf` and `/etc/dbus-1/system.d/shairport-sync-mpris.conf` if they exist – new ones will be installed if necessary.
 
 ### Reboot after Cleaning Up
 If you removed any installations of Shairport Sync or any of its startup script files in the last two steps, you should reboot.

@@ -27,6 +27,9 @@ man/Makefile.in
 scripts/shairport-sync.service
 scripts/shairport-sync
 shairport-sync.core
+gitversion.h
+plist_xml_strings.*
+
 
 #Some dbus files that are automatically generated
 /org.gnome.ShairportSync.service
