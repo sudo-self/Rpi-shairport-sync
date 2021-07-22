@@ -181,8 +181,7 @@ typedef struct {
 
 #ifdef CONFIG_AIRPLAY_2
 void mdns_update_flags(uint32_t flags) {
-  snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIX32,
-             flags);
+  snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIX32, flags);
   mdns_update(NULL, secondary_txt_records);
 }
 #endif
@@ -1939,9 +1938,9 @@ void handle_configure(rtsp_conn_info *conn __attribute__((unused)),
   debug_log_rtsp_message(2, "POST /configure response:", resp);
 }
 
-void handle_feedback(__attribute__((unused)) rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req, __attribute__((unused)) rtsp_message *resp) {
-
-}
+void handle_feedback(__attribute__((unused)) rtsp_conn_info *conn,
+                     __attribute__((unused)) rtsp_message *req,
+                     __attribute__((unused)) rtsp_message *resp) {}
 
 void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   resp->respcode = 200;
@@ -1962,8 +1961,8 @@ void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   } else if (strcmp(req->path, "/feedback") == 0) {
     handle_feedback(conn, req, resp);
   } else {
-    debug(1, "Connection %d: Unhandled POST %s Content-Length %d", conn->connection_number, req->path,
-          req->contentlength);
+    debug(2, "Connection %d: Unhandled POST %s Content-Length %d", conn->connection_number,
+          req->path, req->contentlength);
     debug_log_rtsp_message(2, "POST request", req);
   }
 }
@@ -2202,13 +2201,12 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     plist_t item = plist_dict_get_item(stream0, "shk"); // session key
     uint64_t item_value = 0;
     plist_get_data_val(item, (char **)&conn->session_key, &item_value);
-    
+
     // get the DACP-ID and Active Remote for remote control stuff
-    
-    
+
     char *ar = msg_get_header(req, "Active-Remote");
     if (ar) {
-      debug(1, "Connection %d: SETUP AP2 -- Active-Remote string seen: \"%s\".",
+      debug(3, "Connection %d: SETUP AP2 -- Active-Remote string seen: \"%s\".",
             conn->connection_number, ar);
       // get the active remote
       if (conn->dacp_active_remote) // this is in case SETUP was previously called
@@ -2225,10 +2223,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         conn->dacp_active_remote = NULL;
       }
     }
-    
+
     ar = msg_get_header(req, "DACP-ID");
     if (ar) {
-      debug(1, "Connection %d: SETUP AP2 -- DACP-ID string seen: \"%s\".", conn->connection_number, ar);
+      debug(3, "Connection %d: SETUP AP2 -- DACP-ID string seen: \"%s\".", conn->connection_number,
+            ar);
       if (conn->dacp_id) // this is in case SETUP was previously called
         free(conn->dacp_id);
       conn->dacp_id = strdup(ar);
@@ -2299,8 +2298,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
       else
         debug(1, "No timing peer list!");
-      //config.airplay_statusflags |= 1 << 10; // ReceiverSessionIsActive
-      //mdns_update_flags(config.airplay_statusflags);
+      // config.airplay_statusflags |= 1 << 10; // ReceiverSessionIsActive
+      // mdns_update_flags(config.airplay_statusflags);
       activity_monitor_signify_activity(1);
       player_prepare_to_play(conn);
       player_play(conn);
@@ -2343,8 +2342,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       // this should be cancelled by an activity_monitor_signify_activity(1)
       // call in the SETRATEANCHORI handler, which should come up right away
-      //config.airplay_statusflags |= 1 << 10; // ReceiverSessionIsActive
-      //mdns_update_flags(config.airplay_statusflags);
+      // config.airplay_statusflags |= 1 << 10; // ReceiverSessionIsActive
+      // mdns_update_flags(config.airplay_statusflags);
       activity_monitor_signify_activity(0);
       player_play(conn);
 
@@ -4178,15 +4177,15 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       resp = msg_init();
       pthread_cleanup_push(msg_cleanup_function, (void *)&resp);
       resp->respcode = 400;
-/*
-      if (strcmp(req->method, "OPTIONS") !=
-          0) // the options message is very common, so don't log it until level 3
-        debug_level = 2;
-      debug(debug_level,
-            "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
-            req->method),
-          debug_print_msg_headers(debug_level, req);
-*/
+      /*
+            if (strcmp(req->method, "OPTIONS") !=
+                0) // the options message is very common, so don't log it until level 3
+              debug_level = 2;
+            debug(debug_level,
+                  "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
+                  req->method),
+                debug_print_msg_headers(debug_level, req);
+      */
 
       apple_challenge(conn->fd, req, resp);
       hdr = msg_get_header(req, "CSeq");
@@ -4545,7 +4544,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     secondary_txt_records[entry_number++] = featuresString;
     snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIX32,
              config.airplay_statusflags);
-    
+
     secondary_txt_records[entry_number++] = statusflagsString;
     secondary_txt_records[entry_number++] = "protovers=1.1";
     secondary_txt_records[entry_number++] = "acl=0";

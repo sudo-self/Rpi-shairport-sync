@@ -104,7 +104,7 @@ static void resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIn
         while (*dacpid == '0')
           dacpid++; // skip any leading zeroes
         if (strcmp(dacpid, dbs->dacp_id) == 0) {
-          debug(1, "resolve_callback: client dacp_id \"%s\" dacp port: %u.", dbs->dacp_id, port);
+          debug(3, "resolve_callback: client dacp_id \"%s\" dacp port: %u.", dbs->dacp_id, port);
 #ifdef CONFIG_DACP_CLIENT
           dacp_monitor_port_update_callback(dacpid, port);
 #endif
@@ -318,49 +318,46 @@ static void client_callback(AvahiClient *c, AvahiClientState state,
   }
 }
 
-static int avahi_update(char **txt_records,
-                          char **secondary_txt_records) {
+static int avahi_update(char **txt_records, char **secondary_txt_records) {
   // debug(1, "avahi_update.");
 
-/*
-  service_name = strdup(ap1name);
-  if (ap2name != NULL)
-    ap2_service_name = strdup(ap2name);
-  port = srvport;
-*/
+  /*
+    service_name = strdup(ap1name);
+    if (ap2name != NULL)
+      ap2_service_name = strdup(ap2name);
+    port = srvport;
+  */
   int err = 0;
   AvahiIfIndex selected_interface;
-    if (config.interface != NULL)
-      selected_interface = config.interface_index;
-    else
-      selected_interface = AVAHI_IF_UNSPEC;
+  if (config.interface != NULL)
+    selected_interface = config.interface_index;
+  else
+    selected_interface = AVAHI_IF_UNSPEC;
 
   if (txt_records != NULL) {
     if (text_record_string_list)
       avahi_string_list_free(text_record_string_list);
-    text_record_string_list =
-      avahi_string_list_new_from_array((const char **)txt_records, -1);
-    err = avahi_entry_group_update_service_txt_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
-                                                 service_name, config.regtype, NULL,
-                                                 text_record_string_list);
+    text_record_string_list = avahi_string_list_new_from_array((const char **)txt_records, -1);
+    err = avahi_entry_group_update_service_txt_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC,
+                                                      0, service_name, config.regtype, NULL,
+                                                      text_record_string_list);
     if (err != 0)
-      debug(1,"avahi_update error updating primary txt records.");
+      debug(1, "avahi_update error updating primary txt records.");
   }
 
   if (secondary_txt_records != NULL) {
     if (ap2_text_record_string_list)
       avahi_string_list_free(ap2_text_record_string_list);
     ap2_text_record_string_list =
-      avahi_string_list_new_from_array((const char **)secondary_txt_records, -1);
-    err = avahi_entry_group_update_service_txt_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
-                                                 ap2_service_name, config.regtype2, NULL,
-                                                 ap2_text_record_string_list);
+        avahi_string_list_new_from_array((const char **)secondary_txt_records, -1);
+    err = avahi_entry_group_update_service_txt_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC,
+                                                      0, ap2_service_name, config.regtype2, NULL,
+                                                      ap2_text_record_string_list);
     if (err != 0)
-      debug(1,"avahi_update error updating secondary txt records.");
+      debug(1, "avahi_update error updating secondary txt records.");
   }
   return 0;
 }
-
 
 static int avahi_register(char *ap1name, char *ap2name, int srvport, char **txt_records,
                           char **secondary_txt_records) {
@@ -446,7 +443,7 @@ static void avahi_unregister(void) {
 void avahi_dacp_monitor_start(void) {
   // debug(1, "avahi_dacp_monitor_start.");
   memset((void *)&private_dbs, 0, sizeof(dacp_browser_struct));
-  debug(1, "avahi_dacp_monitor_start Avahi DACP monitor successfully started");
+  debug(2, "avahi_dacp_monitor_start Avahi DACP monitor successfully started");
   return;
 }
 
@@ -454,28 +451,33 @@ void avahi_dacp_monitor_set_id(const char *dacp_id) {
   // debug(1, "avahi_dacp_monitor_set_id: Search for DACP ID \"%s\".", t);
   dacp_browser_struct *dbs = &private_dbs;
 
-  if (dbs->dacp_id)
-    free(dbs->dacp_id);
-  if (dacp_id == NULL)
-    dbs->dacp_id = NULL;
-  else {
-    char *t = strdup(dacp_id);
-    if (t) {
-      dbs->dacp_id = t;
-      avahi_threaded_poll_lock(tpoll);
-      if (dbs->service_browser)
-        avahi_service_browser_free(dbs->service_browser);
+  if (((dbs->dacp_id) && (dacp_id) && (strcmp(dbs->dacp_id, dacp_id) == 0)) ||
+      ((dbs->dacp_id == NULL) && (dacp_id == NULL))) {
+    debug(3, "no change...");
+  } else {
+    if (dbs->dacp_id)
+      free(dbs->dacp_id);
+    if (dacp_id == NULL)
+      dbs->dacp_id = NULL;
+    else {
+      char *t = strdup(dacp_id);
+      if (t) {
+        dbs->dacp_id = t;
+        avahi_threaded_poll_lock(tpoll);
+        if (dbs->service_browser)
+          avahi_service_browser_free(dbs->service_browser);
 
-      if (!(dbs->service_browser =
-                avahi_service_browser_new(client, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, "_dacp._tcp",
-                                          NULL, 0, browse_callback, (void *)dbs))) {
-        warn("failed to create avahi service browser: %s\n",
-             avahi_strerror(avahi_client_errno(client)));
+        if (!(dbs->service_browser =
+                  avahi_service_browser_new(client, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
+                                            "_dacp._tcp", NULL, 0, browse_callback, (void *)dbs))) {
+          warn("failed to create avahi service browser: %s\n",
+               avahi_strerror(avahi_client_errno(client)));
+        }
+        avahi_threaded_poll_unlock(tpoll);
+        debug(2, "dacp_monitor for \"%s\"", dacp_id);
+      } else {
+        warn("avahi_dacp_set_id: can not allocate a dacp_id string in dacp_browser_struct.");
       }
-      avahi_threaded_poll_unlock(tpoll);
-      debug(1,"dacp_monitor for \"%s\"", dacp_id);
-    } else {
-      warn("avahi_dacp_set_id: can not allocate a dacp_id string in dacp_browser_struct.");
     }
   }
 }

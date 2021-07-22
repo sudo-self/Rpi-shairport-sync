@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-
-
+                                             
+                                             
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-
+                                             
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-
+                                             
                                                               // Best guess is that this delay is 11,025 frames.
-
+                                             
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-
+                                             
                                                               uint32_t fl = nctohs(&packet[2]); //
-
+                                             
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -1271,18 +1271,21 @@ int long_time_notifcation_done = 0;
 int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
                                    uint64_t *anchorLocalTime) {
   uint64_t actual_clock_id, actual_time_of_sample, actual_offset, start_of_mastership;
-  int response = ptp_get_clock_info(&actual_clock_id, &actual_time_of_sample, &actual_offset, &start_of_mastership);
+  int response = ptp_get_clock_info(&actual_clock_id, &actual_time_of_sample, &actual_offset,
+                                    &start_of_mastership);
 
   if (response == clock_ok) {
     uint64_t time_now = get_absolute_time_in_ns();
     int64_t time_since_sample = time_now - actual_time_of_sample;
     if (time_since_sample > 10000000000) {
       if (long_time_notifcation_done == 0) {
-        debug(1,"The last PTP timing sample is pretty old: %f seconds.", 0.000000001 * time_since_sample);
+        debug(1, "The last PTP timing sample is pretty old: %f seconds.",
+              0.000000001 * time_since_sample);
         long_time_notifcation_done = 1;
       }
     } else if ((time_since_sample < 2000000000) && (long_time_notifcation_done != 0)) {
-      debug(1,"The last PTP timing sample is no longer too old: %f seconds.", 0.000000001 * time_since_sample);
+      debug(1, "The last PTP timing sample is no longer too old: %f seconds.",
+            0.000000001 * time_since_sample);
       long_time_notifcation_done = 0;
     }
 
@@ -1296,11 +1299,11 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       // using the master clock timing
 
       if (actual_clock_id == conn->anchor_clock) {
-         // if the master clock and the anchor clock are the same
-         // wait at least this time before using the new master clock
-         // note that mastershipo may be backdated
+        // if the master clock and the anchor clock are the same
+        // wait at least this time before using the new master clock
+        // note that mastershipo may be backdated
         if (duration_of_mastership < 1500000000) {
-          debug(3,"master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
+          debug(3, "master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
           response = clock_not_ready;
         } else if ((duration_of_mastership > 5000000000) ||
                    (conn->last_anchor_info_is_valid == 0)) {
@@ -1314,7 +1317,8 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
           conn->last_anchor_info_is_valid = 1;
           if (conn->anchor_clock_is_new != 0)
             debug(1,
-                  "Connection %d: Clock %" PRIx64 " is now the new anchor clock and master clock. History: %f milliseconds.",
+                  "Connection %d: Clock %" PRIx64
+                  " is now the new anchor clock and master clock. History: %f milliseconds.",
                   conn->connection_number, conn->anchor_clock, 0.000001 * duration_of_mastership);
           conn->anchor_clock_is_new = 0;
         }
@@ -1326,16 +1330,19 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
 
         // so, if the anchor has not changed, it must be that the master clock has changed
         if (conn->anchor_clock_is_new != 0)
-          debug(1,
+          debug(3,
                 "Connection %d: Anchor clock has changed to %" PRIx64 ", master clock is: %" PRIx64
                 ". History: %f milliseconds.",
-                conn->connection_number, conn->anchor_clock, actual_clock_id, 0.000001 * duration_of_mastership);
+                conn->connection_number, conn->anchor_clock, actual_clock_id,
+                0.000001 * duration_of_mastership);
 
         if ((conn->last_anchor_info_is_valid != 0) && (conn->anchor_clock_is_new == 0)) {
           int64_t time_since_last_update =
               get_absolute_time_in_ns() - conn->last_anchor_time_of_update;
           if (time_since_last_update > 5000000000) {
-            debug(1, "Connection %d: Master clock has changed to %" PRIx64 ". History: %f milliseconds.",
+            debug(1,
+                  "Connection %d: Master clock has changed to %" PRIx64
+                  ". History: %f milliseconds.",
                   conn->connection_number, actual_clock_id, 0.000001 * duration_of_mastership);
             // here we adjust the time of the anchor rtptime
             // we know its local time, so we use the new clocks's offset to
@@ -2157,7 +2164,8 @@ void *rtp_buffered_audio_processor(void *arg) {
   av_opt_set_int(swr, "in_channel_layout", AV_CH_LAYOUT_STEREO, 0);
   av_opt_set_int(swr, "out_channel_layout", AV_CH_LAYOUT_STEREO, 0);
   av_opt_set_int(swr, "in_sample_rate", conn->input_rate, 0);
-  av_opt_set_int(swr, "out_sample_rate", conn->input_rate, 0); // must match or the timing will be wrong`
+  av_opt_set_int(swr, "out_sample_rate", conn->input_rate,
+                 0); // must match or the timing will be wrong`
   av_opt_set_sample_fmt(swr, "in_sample_fmt", AV_SAMPLE_FMT_FLTP, 0);
 
   enum AVSampleFormat av_format;
@@ -2280,9 +2288,14 @@ void *rtp_buffered_audio_processor(void *arg) {
       if ((blocks_read != 0) && (seq_no >= flushUntilSeq)) {
         // we have reached or overshot the flushUntilSeq block
         if (flushUntilSeq != seq_no)
-          debug(2, "flush request ended with flushUntilSeq %u overshot at %u, flushUntilTS: %u, incoming timestamp: %u.", flushUntilSeq, seq_no, flushUntilTS, timestamp);
+          debug(2,
+                "flush request ended with flushUntilSeq %u overshot at %u, flushUntilTS: %u, "
+                "incoming timestamp: %u.",
+                flushUntilSeq, seq_no, flushUntilTS, timestamp);
         else
-          debug(2, "flush request ended with flushUntilSeq, flushUntilTS: %u, incoming timestamp: %u", flushUntilSeq, flushUntilTS, timestamp);
+          debug(2,
+                "flush request ended with flushUntilSeq, flushUntilTS: %u, incoming timestamp: %u",
+                flushUntilSeq, flushUntilTS, timestamp);
         conn->ap2_flush_requested = 0;
         flush_request_active = 0;
         flush_newly_requested = 0;
@@ -2301,7 +2314,6 @@ void *rtp_buffered_audio_processor(void *arg) {
     if (flush_newly_complete) {
       debug(2, "Flush Complete.");
       blocks_read_since_flush = 0;
-
     }
 
     if (play_newly_stopped != 0)
@@ -2329,9 +2341,10 @@ void *rtp_buffered_audio_processor(void *arg) {
       // is there space in the player thread's buffer system?
       unsigned int player_buffer_size, player_buffer_occupancy;
       get_audio_buffer_size_and_occupancy(&player_buffer_size, &player_buffer_occupancy, conn);
-      //debug(1,"player buffer size and occupancy: %u and %u", player_buffer_size, player_buffer_occupancy);
-      if (player_buffer_occupancy >
-          ((requested_lead_time + 0.4) * conn->input_rate / 352)) { // must be greater than the lead time.
+      // debug(1,"player buffer size and occupancy: %u and %u", player_buffer_size,
+      // player_buffer_occupancy);
+      if (player_buffer_occupancy > ((requested_lead_time + 0.4) * conn->input_rate /
+                                     352)) { // must be greater than the lead time.
         // if there is enough stuff in the player's buffer, sleep for a while and try again
         usleep(1000); // wait for a while
       } else {
@@ -2358,26 +2371,26 @@ void *rtp_buffered_audio_processor(void *arg) {
               // it seems that some garbage blocks can be left after the flush, so
               // only accept them if they have sensible lead times
               if ((lead_time_ms < 5000.0) && (lead_time > -1000.0)) {
-              // if it's the very first block (thus no priming needed)
-              if ((blocks_read == 1) || (blocks_read_since_flush > 3)) {
-                if ((lead_time >= (int64_t)(requested_lead_time * 1000000000)) ||
-                    (streaming_has_started != 0)) {
-                  if (streaming_has_started == 0)
-                    debug(
-                        2,
-                        "Connection %d: buffered audio starting frame: %u, lead time: %f seconds.",
-                        conn->connection_number, pcm_buffer_read_point_rtptime,
-                        0.000000001 * lead_time);
-                  // else {
-                  // if (expected_rtptime != pcm_buffer_read_point_rtptime)
-                  //  debug(1,"actual rtptime is %u, expected rtptime is %u.",
-                  //  pcm_buffer_read_point_rtptime, expected_rtptime);
-                  //}
-                  // expected_rtptime = pcm_buffer_read_point_rtptime + 352;
+                // if it's the very first block (thus no priming needed)
+                if ((blocks_read == 1) || (blocks_read_since_flush > 3)) {
+                  if ((lead_time >= (int64_t)(requested_lead_time * 1000000000)) ||
+                      (streaming_has_started != 0)) {
+                    if (streaming_has_started == 0)
+                      debug(2,
+                            "Connection %d: buffered audio starting frame: %u, lead time: %f "
+                            "seconds.",
+                            conn->connection_number, pcm_buffer_read_point_rtptime,
+                            0.000000001 * lead_time);
+                    // else {
+                    // if (expected_rtptime != pcm_buffer_read_point_rtptime)
+                    //  debug(1,"actual rtptime is %u, expected rtptime is %u.",
+                    //  pcm_buffer_read_point_rtptime, expected_rtptime);
+                    //}
+                    // expected_rtptime = pcm_buffer_read_point_rtptime + 352;
 
-                  // this is a diagnostic for introducing a timing error that will force the
-                  // processing chain to resync
-                  // clang-format off
+                    // this is a diagnostic for introducing a timing error that will force the
+                    // processing chain to resync
+                    // clang-format off
                   /*
                   if ((not_first_time_out == 0) && (blocks_read >= 20)) {
                     int timing_error = 150;
@@ -2390,21 +2403,23 @@ void *rtp_buffered_audio_processor(void *arg) {
                     not_first_time_out = 1;
                   }
                   */
-                  // clang-format on
+                    // clang-format on
 
-                  player_put_packet(0, 0, pcm_buffer_read_point_rtptime,
-                                    pcm_buffer + pcm_buffer_read_point, 352, conn);
-                  streaming_has_started++;
+                    player_put_packet(0, 0, pcm_buffer_read_point_rtptime,
+                                      pcm_buffer + pcm_buffer_read_point, 352, conn);
+                    streaming_has_started++;
+                  }
                 }
-              }
               } else {
-                debug(2,"Dropping packet %u from block %u with out-of-range lead_time: %.3f seconds.", pcm_buffer_read_point_rtptime, seq_no, 0.001 * lead_time_ms);
+                debug(2,
+                      "Dropping packet %u from block %u with out-of-range lead_time: %.3f seconds.",
+                      pcm_buffer_read_point_rtptime, seq_no, 0.001 * lead_time_ms);
               }
 
               pcm_buffer_read_point_rtptime += 352;
               pcm_buffer_read_point += 352 * conn->input_bytes_per_frame;
             } else {
-              debug(1,"frame to local time error");
+              debug(1, "frame to local time error");
             }
           } else {
             usleep(1000); // wait before asking if play is enabled again
@@ -2488,8 +2503,8 @@ void *rtp_buffered_audio_processor(void *arg) {
             // valid
             int64_t lead_time = should_be_time - get_absolute_time_in_ns();
             debug(1,
-                  "flush completed to seq: %u, flushUntilTS; %u with rtptime: %u, lead time: 0x%" PRIx64
-                  " nanoseconds, i.e. %f sec.",
+                  "flush completed to seq: %u, flushUntilTS; %u with rtptime: %u, lead time: "
+                  "0x%" PRIx64 " nanoseconds, i.e. %f sec.",
                   seq_no, flushUntilTS, timestamp, lead_time, lead_time * 0.000000001);
           } else {
             debug(2, "flush completed to seq: %u with rtptime: %u.", seq_no, timestamp);
