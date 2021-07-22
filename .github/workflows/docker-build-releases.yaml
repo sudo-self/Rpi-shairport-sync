@@ -31,7 +31,7 @@ jobs:
       
       - name: Determine NQPTP env (part 2).
         if: ${{ env.SHAIRPORT_SYNC_BRANCH != 'development' }}
-        run: echo "NQPTP_BRANCH=master" >> $GITHUB_ENV
+        run: echo "NQPTP_BRANCH=main" >> $GITHUB_ENV
         
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
