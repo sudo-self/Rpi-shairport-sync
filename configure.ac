@@ -305,6 +305,21 @@ if test "x$with_pa" = "xyes" ; then
 fi
 AM_CONDITIONAL([USE_PA], [test "x$with_pa" = "xyes"])
 
+# Look for pipewire flag
+AC_ARG_WITH(pw, [AS_HELP_STRING([--with-pw],[choose Pipewire support.])])
+if test "x$with_pw" = "xyes" ; then
+  AC_DEFINE([CONFIG_PW], 1, [Include Pipewire support.])
+  if  test "x${with_pkg_config}" = xyes ; then
+    PKG_CHECK_MODULES(
+      [PIPEWIRE], [libpipewire-0.3 >= 0.3.24],
+      [CFLAGS="${PIPEWIRE_CFLAGS} ${CFLAGS} -Wno-missing-field-initializers" LIBS="${PIPEWIRE_LIBS} ${LIBS}"],
+      [AC_MSG_ERROR(Pipewire support requires the libpipewire-dev library!)])
+  else
+    AC_CHECK_LIB([pipewire], [pw_stream_queue_buffer], , AC_MSG_ERROR(Pipewire support requires the libpipewire-dev library.))
+  fi
+fi
+AM_CONDITIONAL([USE_PW], [test "x$with_pw" = "xyes"])
+
 # Look for Convolution flag
 AC_ARG_WITH(convolution, [AS_HELP_STRING([--with-convolution],[choose audio DSP convolution support])])
 if test "x$with_convolution" = "xyes" ; then
