@@ -90,14 +90,13 @@ You have installed Shairport Sync successfully, the daemon is running, you can s
 You have to allow connections to your Pi from remote devices. To do so, after re-enabling UFW (see last step of the previous section), enter the following commands in shell:
 
 ```
-sudo ufw allow from 192.168.1.1/16 to any port 3689 proto tcp
-sudo ufw allow from 192.168.1.1/16 to any port 5353
-sudo ufw allow from 192.168.1.1/16 to any port 5000:5005 proto tcp
-sudo ufw allow from 192.168.1.1/16 to any port 6000:6005 proto udp
-sudo ufw allow from 192.168.1.1/16 to any port 35000:65535 proto udp
+sudo ufw allow 3689/tcp
+sudo ufw allow 5353
+sudo ufw allow 5000/tcp
+sudo ufw allow 7000/tcp
+sudo ufw allow 6000:6009/udp
+sudo ufw allow 35000:65535/udp
 ```
-
-You may have to change the IP addresses range depending on your own local network settings.
 
 You can check UFW config by typing `sudo ufw status` in shell. Please make sure that UFW is active, especially if you have deactivated it previously for testing purpose.
 
