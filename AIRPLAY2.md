@@ -1,9 +1,9 @@
 AirPlay 2
 ===
 
-Shairport Sync offers limited AirPlay 2 support for audio sources on iOS devices and Macs. In addition, it partly works if the audio source is a HomePod mini or an Apple TV. It does not work for iTunes on Windows. Unfortunately, it does not integrate with the Home app or with Siri.
+Shairport Sync offers limited AirPlay 2 support for audio sources on iOS devices and Macs. In addition, it partly works if the audio source is a HomePod mini or an Apple TV. It does not work for iTunes on Windows. It has limited integration with the Home app and Siri.
 
-The focus of the development effort has been on getting good audio performance for iOS and Mac. Features outside this focus may be missing or broken. So, for example, integration with Apple's Home app is missing; remote control doesn't work.
+The focus of the development effort has been on getting good audio performance for iOS and Mac. Features outside this focus may be missing or broken. So, for example, remote control doesn't work.
 
 For AirPlay 2, Shairport Sync uses another application called [`nqptp`](https://github.com/mikebrady/nqptp) ("Not Quite PTP") for timing and synchronisation. `nqptp` must run as `root` and must have exclusive access to ports `319` and `320`.
 
@@ -17,13 +17,13 @@ The AirPlay 2 build requires a good deal of extra library support and may not fi
 - AirPlay 2 for iOS and Mac players.
 
 ### What Does Not Work
-- No integration with Siri or HomeKit
 - Lossless or High Definition Lossless material is transcoded to AAC before transmission over AirPlay 2. 
 - No Remote Control
 - No Artwork in the Metadata
 - No AirPlay 2 for Windows iTunes
 
 ### What Partly Works
+- Incomplete functionality with Siri and HomeKit
 - Incomplete functionality using AppleTV or HomePod as player.
    A Shairport Sync player will work -- i.e. it will play -- but the selection button won't persist and the volume can't be set.
 
@@ -51,15 +51,16 @@ Guides
 AirPlay 2 -- More About What Works
 ---
 * Two types of audio are received by Shairport Sync -- "Realtime" streams of CD quality ALAC (like AirPlay 1) and "Buffered Audio" streams of AAC stereo at 44,100 frames per second. The selection of stream type is made by the player.
-* Audio is synchronised with other AirPlay 2 devices, including AirPlay 2 devices that have their own master clocks. (Note: This has not been tested with multiple nearly-identical master clock devices such as with two HomePod minis -- Shairport Sync will get confused about which is the current master.)
+* Audio is synchronised with other AirPlay 2 devices, including AirPlay 2 devices that have their own master clocks.
 * Shairport Sync continues to support AirPlay 1, and offers an AirPlay 1 compatibility mode for situations where iTunes on macOS or macOS Music plays to multiple speakers and one of more of them is compatible with AirPlay 1 only.
 
 Acknowledgements
 ----
-Huge thanks are due to number of individuals made direct and valuable contributions to Shairport Sync:
+Huge thanks are due to a number of individuals who made direct and valuable contributions to Shairport Sync:
 1. [ejurgensen](https://github.com/ejurgensen) contributed ideas and code. The `pair_ap` submodule and related code in `rtsp.c` is theirs.
 2. [JD Smith](https://github.com/jdtsmith) contributed ideas, comments and suggestions along with extensive and thorough testing.
 3. [Charles Omer](https://github.com/charlesomer) contributed ideas, comments, bug fixes, documentation and Docker automation (forthcoming).
+4. [ckdo](https://github.com/ckdo) for their pathfinding work on AirPlay 2, especially the HomeKit pairing.
 
 Much of Shairport Sync's AirPlay 2 functionality is based on ideas developed at the [openairplay airplay2-receiver]( https://github.com/openairplay/airplay2-receiver) repository. It is a pleasure to acknowledge the work of the contributors there.
 
