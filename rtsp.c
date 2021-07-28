@@ -2069,10 +2069,6 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       if (conn->event_socket)
         close(conn->event_socket);
 
-      if (conn->client_setup_plist) {
-        plist_free(conn->client_setup_plist);
-        conn->client_setup_plist = NULL;
-      }
       debug(2, "Connection %d: non-stream TEARDOWN complete", conn->connection_number);
     }
     //} else {
@@ -2162,12 +2158,13 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
   // the timing peer info in the accompanying plist
 
   plist_t messagePlist = plist_from_rtsp_content(req);
-  plist_t setupResponsePlist = plist_new_dict();
+  plist_t setupResponsePlist = NULL; // we'll create it when we need it
 
   // now see if the incoming plist contains a "streams" array
   plist_t streams = plist_dict_get_item(messagePlist, "streams");
 
   if (streams) {
+    setupResponsePlist = plist_new_dict(); // now that we know we need it, create it
     debug(2,
           "SETUP on Connection %d: A \"streams\" array has been found -- create control and audio "
           "threads and ports",
@@ -2250,7 +2247,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
     switch (item_value) {
     case 96: {
-      debug(2, "Connection %d. Realtime Audio Stream Detected.", conn->connection_number);
+      debug(1, "Connection %d. Realtime Audio Stream Detected.", conn->connection_number);
       debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
       get_play_lock(conn);
       conn->airplay_stream_type = realtime_stream;
@@ -2307,7 +2304,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       conn->rtp_running = 1; // hack!
     } break;
     case 103: {
-      debug(2, "Connection %d. Buffered Audio Stream Detected.", conn->connection_number);
+      debug(1, "Connection %d. Buffered Audio Stream Detected.", conn->connection_number);
       debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
       get_play_lock(conn);
       conn->airplay_stream_type = buffered_stream;
@@ -2365,19 +2362,16 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           "and open a TCP port.",
           conn->connection_number);
     debug_log_rtsp_message(2, "SETUP on Connection %d: No \"streams\" array has been found.", req);
-    // first, get and retain the incoming plist.
-    if (conn->client_setup_plist) {
-      plist_free(conn->client_setup_plist);
-    }
-    conn->client_setup_plist = messagePlist;
-    plist_t addresses = plist_new_array(); // to hold the device's peer interfaces
 
     // now determine which of the present device's IP numbers are in the
     // same subnet as any IP numbers in the timing peer info
     // provided by the client
 
-    plist_t timing_peer_info = plist_dict_get_item(conn->client_setup_plist, "timingPeerInfo");
+    plist_t timing_peer_info = plist_dict_get_item(messagePlist, "timingPeerInfo");
     if (timing_peer_info) {
+      // first, get and retain the incoming plist.
+      setupResponsePlist = plist_new_dict(); // now that we know we need it, create it
+      plist_t addresses = plist_new_array(); // to hold the device's peer interfaces
       plist_t addresses_array = plist_dict_get_item(timing_peer_info, "Addresses");
       if (addresses_array) {
         // iterate through the array of items
@@ -2456,45 +2450,40 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       } else {
         debug(1, "Can't find timingPeerInfo addresses");
       }
-    } else {
-      debug_log_rtsp_message(1, "Unrecognised SETUP incoming message", req);
+      // make up the timing peer info list part of the response...
+      // debug(1,"Create timingPeerInfoPlist");
+      plist_t timingPeerInfoPlist = plist_new_dict();
+      plist_dict_set_item(timingPeerInfoPlist, "Addresses", addresses);
+      plist_dict_set_item(timingPeerInfoPlist, "ID", plist_new_string(conn->self_ip_string));
+      plist_dict_set_item(setupResponsePlist, "timingPeerInfo", timingPeerInfoPlist);
+      // get a port to use as an event port
+
+      // bind a new TCP port and get a socket
+      conn->local_event_port = 0; // any port
+
+      int err =
+          bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family, conn->self_ip_string,
+                               conn->self_scope_id, &conn->local_event_port, &conn->event_socket);
+      if (err) {
+        die("Error %d: could not find a TCP port to use as an event port", err);
+      }
+
+      pthread_create(&conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
+
+      plist_dict_set_item(setupResponsePlist, "eventPort", plist_new_uint(conn->local_event_port));
+      plist_dict_set_item(setupResponsePlist, "timingPort", plist_new_uint(0)); // dummy
     }
-
-    // make up the timing peer info list part of the response...
-    // debug(1,"Create timingPeerInfoPlist");
-    plist_t timingPeerInfoPlist = plist_new_dict();
-    plist_dict_set_item(timingPeerInfoPlist, "Addresses", addresses);
-    plist_dict_set_item(timingPeerInfoPlist, "ID", plist_new_string(conn->self_ip_string));
-    plist_dict_set_item(setupResponsePlist, "timingPeerInfo", timingPeerInfoPlist);
-    // get a port to use as an event port
-
-    // bind a new TCP port and get a socket
-    conn->local_event_port = 0; // any port
-
-    int err =
-        bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family, conn->self_ip_string,
-                             conn->self_scope_id, &conn->local_event_port, &conn->event_socket);
-    if (err) {
-      die("Error %d: could not find a TCP port to use as an event port", err);
-    }
-
-    pthread_create(&conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
-
-    plist_dict_set_item(setupResponsePlist, "eventPort", plist_new_uint(conn->local_event_port));
-    plist_dict_set_item(setupResponsePlist, "timingPort", plist_new_uint(0)); // dummy
   }
-
-  plist_to_bin(setupResponsePlist, &resp->content, &resp->contentlength);
-  plist_free(setupResponsePlist);
-
-  msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
+  if (setupResponsePlist) {
+    plist_to_bin(setupResponsePlist, &resp->content, &resp->contentlength);
+    plist_free(setupResponsePlist);
+    msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
+  } else {
+    debug_log_rtsp_message(1, "Unrecognised SETUP incoming message", req);
+    warn("Unrecognised SETUP incoming message -- ignored.");
+  }
   debug_log_rtsp_message(2, " SETUP response", resp);
-  resp->respcode = 200; // it all worked out okay
-                        // } else {
-                        //   resp->respcode = 453;
-  //   debug(1, "Connection %d: SETUP failed because another connection is already playing.",
-  //         conn->connection_number);
-  // }
+  resp->respcode = 200;
 }
 #endif
 
@@ -4072,11 +4061,6 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   }
 
 #ifdef CONFIG_AIRPLAY_2
-  if (conn->client_setup_plist) {
-    plist_free(conn->client_setup_plist);
-    conn->client_setup_plist = NULL;
-  }
-
   buf_drain(&conn->ap2_control_pairing.plain_buf, -1);
   buf_drain(&conn->ap2_control_pairing.encrypted_buf, -1);
   pair_setup_free(conn->ap2_control_pairing.setup_ctx);

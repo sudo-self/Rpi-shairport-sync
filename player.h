@@ -328,7 +328,6 @@ typedef struct {
   uint16_t local_realtime_audio_port;
   uint16_t local_buffered_audio_port;
 
-  plist_t client_setup_plist;
   uint64_t audio_format;
   uint64_t compression;
   unsigned char *session_key; // needs to be free'd at the end
