@@ -1,15 +1,19 @@
+Version 4.0-dev-308-g23da206
+====
+#### Bug Fixes
+- Restore logging to `syslog`.
+
 Version 4.0-dev-303-g9074069
 ====
 #### New Features
 - An initial [PipeWire](https://pipewire.org) backend, with thanks to [Lukas Rusak](https://github.com/lrusak). Use the `--with-pw` configuration flag at the `./configure...` stage to include support.
-
 
 #### Bug Fixes
 - Fix a bug when using the `tinysvcmdns` mDNS implementation, with thanks to [fesc2000](https://github.com/fesc2000).
 - When an unrecognised SETUP message is received, just ignore it and put a warning in the log. Remove a redundant `client_setup_plist` data item from the `conn` data structure.
 
 #### Enhancements
-- Shairport Sync no longer needs to be in the same directory of NQPTP during compilation.
+- Shairport Sync no longer needs to be in the same directory as NQPTP during compilation.
 - Add Docker automations -- thanks to [Charles Omer](https://github.com/charlesomer).
 - Add Issue management automations -- thanks to [Charles Omer](https://github.com/charlesomer).
 - Reconnect the DACP scanner for AirPlay 2. (It still isn't useful, unfortunately.)
