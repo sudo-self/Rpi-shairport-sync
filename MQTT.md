@@ -1,3 +1,21 @@
+MQTT in Shairport Sync
+====
+To enable Shairport Sync to act as an MQTT publisher, you need to:
+1. Install the mosquitto library:
+```
+# apt install libmosquitto-dev
+```
+2. Add the configuration flag `--with-mqtt-client` to the list of parameters to the `./configure...` command, for example:
+```
+$ ./configure --with-mqtt-client --sysconfdir=/etc --with-alsa --with-avahi --with-ssl=openssl --with-systemd
+```
+
+If Shairport Sync has MQTT support, it will have the string `mqtt` in its configuration string. For example:
+```
+$ shairport-sync -V
+3.3.8-OpenSSL-Avahi-ALSA-metadata-mqtt-sysconfdir:/etc
+```
+
 Setting Up MQTT Publishing
 ====
 
