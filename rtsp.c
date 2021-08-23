@@ -1942,6 +1942,14 @@ void handle_feedback(__attribute__((unused)) rtsp_conn_info *conn,
                      __attribute__((unused)) rtsp_message *req,
                      __attribute__((unused)) rtsp_message *resp) {}
 
+void handle_command(__attribute__((unused)) rtsp_conn_info *conn,
+                     rtsp_message *req,
+                     __attribute__((unused)) rtsp_message *resp) {
+
+  debug_log_rtsp_message(2, "POST /command", req);
+}
+
+
 void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   resp->respcode = 200;
   if (strcmp(req->path, "/pair-setup") == 0) {
@@ -1960,6 +1968,8 @@ void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     handle_configure(conn, req, resp);
   } else if (strcmp(req->path, "/feedback") == 0) {
     handle_feedback(conn, req, resp);
+  } else if (strcmp(req->path, "/command") == 0) {
+    handle_command(conn, req, resp);
   } else {
     debug(2, "Connection %d: Unhandled POST %s Content-Length %d", conn->connection_number,
           req->path, req->contentlength);
