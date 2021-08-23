@@ -141,7 +141,7 @@ static void (*sps_log)(int prio, const char *t, ...) = syslog;
 #endif
 
 void do_sps_log_to_stderr(__attribute__((unused)) int prio, const char *t, ...) {
-  char s[1024];
+  char s[16384];
   va_list args;
   va_start(args, t);
   vsnprintf(s, sizeof(s), t, args);
@@ -150,7 +150,7 @@ void do_sps_log_to_stderr(__attribute__((unused)) int prio, const char *t, ...) 
 }
 
 void do_sps_log_to_stdout(__attribute__((unused)) int prio, const char *t, ...) {
-  char s[1024];
+  char s[16384];
   va_list args;
   va_start(args, t);
   vsnprintf(s, sizeof(s), t, args);
@@ -210,7 +210,7 @@ int create_log_file(const char *path) {
 }
 
 void do_sps_log_to_fd(__attribute__((unused)) int prio, const char *t, ...) {
-  char s[1024];
+  char s[16384];
   va_list args;
   va_start(args, t);
   vsnprintf(s, sizeof(s), t, args);
@@ -459,7 +459,7 @@ char *generate_preliminary_string(char *buffer, size_t buffer_length, double tss
 void _die(const char *filename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char b[1024];
+  char b[16384];
   b[0] = 0;
   char *s;
   if (debuglev) {
@@ -489,7 +489,7 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
 void _warn(const char *filename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char b[1024];
+  char b[16384];
   b[0] = 0;
   char *s;
   if (debuglev) {
@@ -519,7 +519,7 @@ void _debug(const char *filename, const int linenumber, int level, const char *f
     return;
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char b[1024];
+  char b[16384];
   b[0] = 0;
   pthread_mutex_lock(&debug_timing_lock);
   uint64_t time_now = get_absolute_time_in_ns();
@@ -541,7 +541,7 @@ void _debug(const char *filename, const int linenumber, int level, const char *f
 void _inform(const char *filename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char b[1024];
+  char b[16384];
   b[0] = 0;
   char *s;
   if (debuglev) {
@@ -1079,7 +1079,7 @@ void command_start(void) {
 void command_execute(const char *command, const char *extra_argument, const int block) {
   // this has a cancellation point if waiting is enabled
   if (command) {
-    char new_command_buffer[1024];
+    char new_command_buffer[2048];
     char *full_command = (char *)command;
     if (extra_argument != NULL) {
       memset(new_command_buffer, 0, sizeof(new_command_buffer));
