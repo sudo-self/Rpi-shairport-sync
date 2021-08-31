@@ -101,11 +101,12 @@
 // from these sources.
 
 char *txt_records[64];
+char *secondary_txt_records[64];
+
 char firmware_version[64];
 char ap1_featuresString[64];
 char pkString[128];
 #ifdef CONFIG_AIRPLAY_2
-char *secondary_txt_records[64];
 char deviceIdString[64];
 char featuresString[64];
 char statusflagsString[32];
@@ -180,11 +181,121 @@ typedef struct {
 } rtsp_message;
 
 #ifdef CONFIG_AIRPLAY_2
-void mdns_update_flags(uint32_t flags) {
-  snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIX32, flags);
-  mdns_update(NULL, secondary_txt_records);
+
+static void pkString_make(char *str, size_t str_size, const char *device_id) {
+  uint8_t public_key[32];
+  if (str_size < 2 * sizeof(public_key) + 1) {
+    warn("Insufficient string size");
+    str[0] = '\0';
+    return;
+  }
+  pair_public_key_get(PAIR_SERVER_HOMEKIT, public_key, device_id);
+  char *ptr = str;
+  for (size_t i = 0; i < sizeof(public_key); i++)
+    ptr += sprintf(ptr, "%02x", public_key[i]);
 }
 #endif
+
+void build_bonjour_strings(rtsp_conn_info *conn) {
+
+  int entry_number = 0;
+
+  // make up a firmware version
+#ifdef CONFIG_USE_GIT_VERSION_STRING
+  if (git_version_string[0] != '\0')
+    snprintf(firmware_version, sizeof(firmware_version), "fv=%s", git_version_string);
+  else
+#endif
+    snprintf(firmware_version, sizeof(firmware_version), "fv=%s", PACKAGE_VERSION);
+
+#ifdef CONFIG_AIRPLAY_2
+  uint64_t features_hi = config.airplay_features;
+  features_hi = (features_hi >> 32) & 0xffffffff;
+  uint64_t features_lo = config.airplay_features;
+  features_lo = features_lo & 0xffffffff;
+  snprintf(ap1_featuresString, sizeof(ap1_featuresString), "ft=0x%" PRIX64 ",0x%" PRIX64 "",
+           features_lo, features_hi);
+  snprintf(pkString, sizeof(pkString), "pk=");
+  pkString_make(pkString + strlen("pk="), sizeof(pkString) - strlen("pk="),
+                config.airplay_device_id);
+
+  txt_records[entry_number++] = "cn=0,1";
+  txt_records[entry_number++] = "da=true";
+  txt_records[entry_number++] = "et=0,4";
+  txt_records[entry_number++] = ap1_featuresString;
+  txt_records[entry_number++] = firmware_version;
+  txt_records[entry_number++] = "md=2";
+  txt_records[entry_number++] = "am=Shairport Sync";
+  txt_records[entry_number++] = "sf=0x4";
+  txt_records[entry_number++] = "tp=UDP";
+  txt_records[entry_number++] = "vn=65537";
+  txt_records[entry_number++] = "vs=366.0";
+  txt_records[entry_number++] = pkString;
+  txt_records[entry_number++] = NULL;
+
+#else
+  // here, just replicate what happens in mdns.h when using those #defines
+  txt_records[entry_number++] = "sf=0x4";
+  txt_records[entry_number++] = firmware_version;
+  txt_records[entry_number++] = "am=ShairportSync";
+  txt_records[entry_number++] = "vs=105.1";
+  txt_records[entry_number++] = "tp=TCP,UDP";
+  txt_records[entry_number++] = "vn=65537";
+#ifdef CONFIG_METADATA
+  if (config.get_coverart == 0)
+    txt_records[entry_number++] = "md=0,2";
+  else
+    txt_records[entry_number++] = "md=0,1,2";
+#endif
+  txt_records[entry_number++] = "ss=16";
+  txt_records[entry_number++] = "sr=44100";
+  txt_records[entry_number++] = "da=true";
+  txt_records[entry_number++] = "sv=false";
+  txt_records[entry_number++] = "et=0,1";
+  txt_records[entry_number++] = "ek=1";
+  txt_records[entry_number++] = "cn=0,1";
+  txt_records[entry_number++] = "ch=2";
+  txt_records[entry_number++] = "txtvers=1";
+  if (config.password == 0)
+    txt_records[entry_number++] = "pw=false";
+  else
+    txt_records[entry_number++] = "pw=true";
+  txt_records[entry_number++] = NULL;
+#endif
+
+#ifdef CONFIG_AIRPLAY_2
+  // make up a secondary set of text records
+  entry_number = 0;
+
+  secondary_txt_records[entry_number++] = "srcvers=366.0";
+  snprintf(deviceIdString, sizeof(deviceIdString), "deviceid=%s", config.airplay_device_id);
+  secondary_txt_records[entry_number++] = deviceIdString;
+  snprintf(featuresString, sizeof(featuresString), "features=0x%" PRIX64 ",0x%" PRIX64 "",
+           features_lo, features_hi);
+  secondary_txt_records[entry_number++] = featuresString;
+  snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIX32,
+           config.airplay_statusflags);
+
+  secondary_txt_records[entry_number++] = statusflagsString;
+  secondary_txt_records[entry_number++] = "protovers=1.1";
+  secondary_txt_records[entry_number++] = "acl=0";
+  secondary_txt_records[entry_number++] = "rsf=0x0";
+  secondary_txt_records[entry_number++] = firmware_version;
+  secondary_txt_records[entry_number++] = "model=Shairport Sync";
+  snprintf(piString, sizeof(piString), "pi=%s", config.airplay_pi);
+  secondary_txt_records[entry_number++] = piString;
+  snprintf(gidString, sizeof(gidString), "gid=%s", config.airplay_gid);
+  secondary_txt_records[entry_number++] = gidString;
+  if ((conn != NULL) && (conn->groupContainsGroupLeader != 0))
+    secondary_txt_records[entry_number++] = "gcgl=1";
+  else
+    secondary_txt_records[entry_number++] = "gcgl=0";
+  if (strcmp(config.airplay_pi, config.airplay_gid) != 0) // if it's in a group
+    secondary_txt_records[entry_number++] = "isGroupLeader=0";
+  secondary_txt_records[entry_number++] = pkString;
+  secondary_txt_records[entry_number++] = NULL;
+#endif
+}
 
 #ifdef CONFIG_METADATA
 typedef struct {
@@ -960,19 +1071,6 @@ static ssize_t write_encrypted(rtsp_conn_info *conn, const void *buf, size_t cou
   free(encrypted);
   return count;
 }
-
-static void pkString_make(char *str, size_t str_size, const char *device_id) {
-  uint8_t public_key[32];
-  if (str_size < 2 * sizeof(public_key) + 1) {
-    warn("Insufficient string size");
-    str[0] = '\0';
-    return;
-  }
-  pair_public_key_get(PAIR_SERVER_HOMEKIT, public_key, device_id);
-  char *ptr = str;
-  for (size_t i = 0; i < sizeof(public_key); i++)
-    ptr += sprintf(ptr, "%02x", public_key[i]);
-}
 #endif
 
 ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
@@ -1159,9 +1257,26 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
   int n;
   unsigned int i;
 
-  n = snprintf(p, pktfree, "RTSP/1.0 %d %s\r\n", resp->respcode,
-               resp->respcode == 200 ? "OK" : "Unauthorized");
-  // debug(1, "sending response: %s", pkt);
+  struct response_t {
+    int code;
+    char *string;
+  };
+
+  struct response_t responses[] = {{200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}};
+  int found = 0;
+  char *respcode_text = "Unauthorized";
+  for (i = 0; i < sizeof(responses) / sizeof(struct response_t); i++) {
+    if (resp->respcode == responses[i].code) {
+      found = 1;
+      respcode_text = responses[i].string;
+    }
+  }
+
+  if (found == 0)
+    debug(1, "can't find text for response code %d. Using \"%s\" instead.", resp->respcode,
+          respcode_text);
+
+  n = snprintf(p, pktfree, "RTSP/1.0 %d %s\r\n", resp->respcode, respcode_text);
   pktfree -= n;
   p += n;
 
@@ -1843,7 +1958,7 @@ void handle_fp_setup(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message 
 
   static uint8_t server_fp_header[] = "\x46\x50\x4c\x59\x03\x01\x04\x00\x00\x00\x00\x14";
 
-  resp->respcode = 200; // assume it's not handled
+  resp->respcode = 200; // assume it's handled
 
   // uint8_t *out;
   // size_t out_len;
@@ -1942,13 +2057,77 @@ void handle_feedback(__attribute__((unused)) rtsp_conn_info *conn,
                      __attribute__((unused)) rtsp_message *req,
                      __attribute__((unused)) rtsp_message *resp) {}
 
-void handle_command(__attribute__((unused)) rtsp_conn_info *conn,
-                     rtsp_message *req,
-                     __attribute__((unused)) rtsp_message *resp) {
-
+void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *req,
+                    __attribute__((unused)) rtsp_message *resp) {
   debug_log_rtsp_message(2, "POST /command", req);
-}
+  if (rtsp_message_contains_plist(req)) {
+    plist_t command_dict = NULL;
+    plist_from_memory(req->content, req->contentlength, &command_dict);
+    if (command_dict != NULL) {
+      // we have a plist -- try to get the dict item keyed to "updateMRSupportedCommands"
+      plist_t item = plist_dict_get_item(command_dict, "type");
+      if (item != NULL) {
+        char *typeValue = NULL;
+        plist_get_string_val(item, &typeValue);
+        if (strcmp(typeValue, "updateMRSupportedCommands") == 0) {
+          item = plist_dict_get_item(command_dict, "params");
+          if (item != NULL) {
+            // the item should be a dict
+            plist_t item_array = plist_dict_get_item(item, "mrSupportedCommandsFromSender");
+            if (item_array != NULL) {
+              // here we have an array of data items
+              uint32_t items = plist_array_get_size(item_array);
+              if (items) {
+                uint32_t item_number;
+                for (item_number = 0; item_number < items; item_number++) {
+                  plist_t the_item = plist_array_get_item(item_array, item_number);
+                  char *buff = NULL;
+                  uint64_t length = 0;
+                  plist_get_data_val(the_item, &buff, &length);
+                  // debug(1,"Item %d, length: %" PRId64 " bytes", item_number, length);
+                  if ((length >= strlen("bplist00")) && (strstr(buff, "bplist00") == buff)) {
+                    // debug(1,"Contains a plist.");
+                    plist_t subsidiary_plist = NULL;
+                    plist_from_memory(buff, length, &subsidiary_plist);
+                    if (subsidiary_plist) {
+                      char *printable_plist = plist_content(subsidiary_plist);
+                      if (printable_plist) {
+                        debug(2, "\n%s", printable_plist);
+                        free(printable_plist);
+                      } else {
+                        debug(1, "Can't print the plist!");
+                      }
+                      // plist_free(subsidiary_plist);
+                    } else {
+                      debug(1, "Can't access the plist!");
+                    }
+                  }
+                }
+              }
+            } else {
+              debug(1, "POST /command no mrSupportedCommandsFromSender item.");
+            }
+          } else {
+            debug(1, "POST /command no params dict.");
+          }
+          resp->respcode = 400; // say it's a bad request
+        } else {
+          debug(1,
+                "POST /command plist type is \"%s\", but \"updateMRSupportedCommands\" expected.",
+                typeValue);
+        }
+      } else {
+        debug(1, "Could not get the \"type\" item.");
+      }
 
+      plist_free(command_dict);
+    } else {
+      debug(1, "POST /command plist cannot be inputted.");
+    }
+  } else {
+    debug(1, "POST /command contains no plist");
+  }
+}
 
 void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   resp->respcode = 200;
@@ -2087,6 +2266,14 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     //  resp->respcode = 451;
 
     plist_free(messagePlist);
+    if (config.airplay_gid != NULL)
+      free(config.airplay_gid);
+    config.airplay_gid = strdup(config.airplay_pi);
+    // mdns_update_gid(config.airplay_gid);
+    config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
+    // mdns_update_flags(config.airplay_statusflags);
+    build_bonjour_strings(conn);
+    mdns_update(NULL, secondary_txt_records);
     resp->respcode = 200;
   } else {
     debug(1, "Connection %d: missing plist!", conn->connection_number);
@@ -2161,14 +2348,46 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 #ifdef CONFIG_AIRPLAY_2
 void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int err;
-  debug(2, "Connection %d: SETUP (AirPlay 2)", conn->connection_number);
-  // debug_log_rtsp_message(1, "Connection %d: SETUP (AirPlay 2) SETUP incoming message", req);
+  // debug(1, "Connection %d: SETUP (AirPlay 2)", conn->connection_number);
+  debug_log_rtsp_message(1, "SETUP (AirPlay 2) SETUP incoming message", req);
   // we need to get the timing peer interfaces.
   // I'm guessing they are all this device's adresses that are on the same subnets as
   // the timing peer info in the accompanying plist
 
   plist_t messagePlist = plist_from_rtsp_content(req);
   plist_t setupResponsePlist = NULL; // we'll create it when we need it
+
+  plist_t groupUUID = plist_dict_get_item(messagePlist, "groupUUID");
+  if (groupUUID) {
+    char *gid = NULL;
+    plist_get_string_val(groupUUID, &gid);
+    if (gid) {
+      if (config.airplay_gid)
+        free(config.airplay_gid);
+      config.airplay_gid = gid; // it'll be free'd later on...
+      // mdns_update_gid(config.airplay_gid);
+      build_bonjour_strings(conn);
+      mdns_update(NULL, secondary_txt_records);
+      // debug(1,"Updated groupUUID to \"%s\"", config.airplay_gid);
+    } else {
+      debug(1, "Invalid groupUUID");
+    }
+  } else {
+    debug(1, "No groupUUID in SETUP");
+  }
+
+  // now see if the group contains a group leader
+  plist_t groupContainsGroupLeader = plist_dict_get_item(messagePlist, "groupContainsGroupLeader");
+  if (groupContainsGroupLeader) {
+    uint8_t value = 0;
+    plist_get_bool_val(groupContainsGroupLeader, &value);
+    conn->groupContainsGroupLeader = value;
+    build_bonjour_strings(conn);
+    mdns_update(NULL, secondary_txt_records);
+    debug(1, "Updated groupContainsGroupLeader to %u", conn->groupContainsGroupLeader);
+  } else {
+    debug(1, "No groupContainsGroupLeader in SETUP");
+  }
 
   // now see if the incoming plist contains a "streams" array
   plist_t streams = plist_dict_get_item(messagePlist, "streams");
@@ -2305,8 +2524,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
       else
         debug(1, "No timing peer list!");
-      // config.airplay_statusflags |= 1 << 10; // ReceiverSessionIsActive
-      // mdns_update_flags(config.airplay_statusflags);
       activity_monitor_signify_activity(1);
       player_prepare_to_play(conn);
       player_play(conn);
@@ -2349,8 +2566,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       // this should be cancelled by an activity_monitor_signify_activity(1)
       // call in the SETRATEANCHORI handler, which should come up right away
-      // config.airplay_statusflags |= 1 << 10; // ReceiverSessionIsActive
-      // mdns_update_flags(config.airplay_statusflags);
       activity_monitor_signify_activity(0);
       player_play(conn);
 
@@ -2371,7 +2586,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           "SETUP on Connection %d: No \"streams\" array has been found -- create an event thread "
           "and open a TCP port.",
           conn->connection_number);
-    debug_log_rtsp_message(2, "SETUP on Connection %d: No \"streams\" array has been found.", req);
 
     // now determine which of the present device's IP numbers are in the
     // same subnet as any IP numbers in the timing peer info
@@ -2488,9 +2702,14 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     plist_to_bin(setupResponsePlist, &resp->content, &resp->contentlength);
     plist_free(setupResponsePlist);
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
+    config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay
+    build_bonjour_strings(conn);
+    mdns_update(NULL, secondary_txt_records);
   } else {
-    debug_log_rtsp_message(1, "Unrecognised SETUP incoming message", req);
-    warn("Unrecognised SETUP incoming message -- ignored.");
+    // debug(1, "Unrecognised SETUP incoming message from %s", (const char *)
+    // conn->client_ip_string); debug_log_rtsp_message(1, "Unrecognised SETUP incoming message.",
+    // req);
+    // warn("Unrecognised SETUP incoming message -- ignored.");
   }
   debug_log_rtsp_message(2, " SETUP response", resp);
   resp->respcode = 200;
@@ -4459,101 +4678,11 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
 
     char **t1 = txt_records; // ap1 test records
     char **t2 = NULL;        // possibly two text records
-
-    int entry_number = 0;
-
-    // make up a firmware version
-#ifdef CONFIG_USE_GIT_VERSION_STRING
-    if (git_version_string[0] != '\0')
-      snprintf(firmware_version, sizeof(firmware_version), "fv=%s", git_version_string);
-    else
-#endif
-      snprintf(firmware_version, sizeof(firmware_version), "fv=%s", PACKAGE_VERSION);
-
-#ifdef CONFIG_AIRPLAY_2
-    uint64_t features_hi = config.airplay_features;
-    features_hi = (features_hi >> 32) & 0xffffffff;
-    uint64_t features_lo = config.airplay_features;
-    features_lo = features_lo & 0xffffffff;
-    snprintf(ap1_featuresString, sizeof(ap1_featuresString), "ft=0x%" PRIX64 ",0x%" PRIX64 "",
-             features_lo, features_hi);
-    snprintf(pkString, sizeof(pkString), "pk=");
-    pkString_make(pkString + strlen("pk="), sizeof(pkString) - strlen("pk="),
-                  config.airplay_device_id);
-
-    txt_records[entry_number++] = "cn=0,1";
-    txt_records[entry_number++] = "da=true";
-    txt_records[entry_number++] = "et=0,4";
-    txt_records[entry_number++] = ap1_featuresString;
-    txt_records[entry_number++] = firmware_version;
-    txt_records[entry_number++] = "md=2";
-    txt_records[entry_number++] = "am=Shairport Sync";
-    txt_records[entry_number++] = "sf=0x4";
-    txt_records[entry_number++] = "tp=UDP";
-    txt_records[entry_number++] = "vn=65537";
-    txt_records[entry_number++] = "vs=366.0";
-    txt_records[entry_number++] = pkString;
-    txt_records[entry_number++] = NULL;
-
-#else
-    // here, just replicate what happens in mdns.h when using those #defines
-    txt_records[entry_number++] = "sf=0x4";
-    txt_records[entry_number++] = firmware_version;
-    txt_records[entry_number++] = "am=ShairportSync";
-    txt_records[entry_number++] = "vs=105.1";
-    txt_records[entry_number++] = "tp=TCP,UDP";
-    txt_records[entry_number++] = "vn=65537";
-#ifdef CONFIG_METADATA
-    if (config.get_coverart == 0)
-      txt_records[entry_number++] = "md=0,2";
-    else
-      txt_records[entry_number++] = "md=0,1,2";
-#endif
-    txt_records[entry_number++] = "ss=16";
-    txt_records[entry_number++] = "sr=44100";
-    txt_records[entry_number++] = "da=true";
-    txt_records[entry_number++] = "sv=false";
-    txt_records[entry_number++] = "et=0,1";
-    txt_records[entry_number++] = "ek=1";
-    txt_records[entry_number++] = "cn=0,1";
-    txt_records[entry_number++] = "ch=2";
-    txt_records[entry_number++] = "txtvers=1";
-    if (config.password == 0)
-      txt_records[entry_number++] = "pw=false";
-    else
-      txt_records[entry_number++] = "pw=true";
-    txt_records[entry_number++] = NULL;
-#endif
-
 #ifdef CONFIG_AIRPLAY_2
     // make up a secondary set of text records
     t2 = secondary_txt_records; // second set of text records in AirPlay 2 only
-    entry_number = 0;
-
-    secondary_txt_records[entry_number++] = "srcvers=366.0";
-    snprintf(deviceIdString, sizeof(deviceIdString), "deviceid=%s", config.airplay_device_id);
-    secondary_txt_records[entry_number++] = deviceIdString;
-    snprintf(featuresString, sizeof(featuresString), "features=0x%" PRIX64 ",0x%" PRIX64 "",
-             features_lo, features_hi);
-    secondary_txt_records[entry_number++] = featuresString;
-    snprintf(statusflagsString, sizeof(statusflagsString), "flags=0x%" PRIX32,
-             config.airplay_statusflags);
-
-    secondary_txt_records[entry_number++] = statusflagsString;
-    secondary_txt_records[entry_number++] = "protovers=1.1";
-    secondary_txt_records[entry_number++] = "acl=0";
-    secondary_txt_records[entry_number++] = "rsf=0x0";
-    secondary_txt_records[entry_number++] = firmware_version;
-    secondary_txt_records[entry_number++] = "model=Shairport Sync";
-    snprintf(piString, sizeof(piString), "pi=%s", config.airplay_pi);
-    secondary_txt_records[entry_number++] = piString;
-    snprintf(gidString, sizeof(gidString), "gid=%s", config.airplay_gid);
-    secondary_txt_records[entry_number++] = gidString;
-    secondary_txt_records[entry_number++] = "gcgl=0";
-    secondary_txt_records[entry_number++] = pkString;
-    secondary_txt_records[entry_number++] = NULL;
 #endif
-
+    build_bonjour_strings(NULL); // no conn yet
     mdns_register(t1, t2);
 
     pthread_setcancelstate(oldState, NULL);
