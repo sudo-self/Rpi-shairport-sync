@@ -146,7 +146,6 @@ typedef struct {
   uint32_t maximum_latency;  // set if an a=max-latency: line appears in the ANNOUNCE message; zero
                              // otherwise
   int software_mute_enabled; // if we don't have a real mute that we can use
-
   int fd;
   int authorized;   // set if a password is required and has been supplied
   char *auth_nonce; // the session nonce, if needed
@@ -333,7 +332,8 @@ typedef struct {
   unsigned char *session_key; // needs to be free'd at the end
   uint64_t frames_packet;
   uint64_t type;
-  uint64_t networkTimeTimelineID; // the clock ID used by the player
+  uint64_t networkTimeTimelineID;    // the clock ID used by the player
+  uint64_t groupContainsGroupLeader; // information coming from the SETUP
 
   char *ap2_timing_peer_list_message;
 
