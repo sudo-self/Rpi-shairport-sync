@@ -1493,7 +1493,7 @@ int main(int argc, char **argv) {
     usage(argv[0]);
     exit(EXIT_SUCCESS);
   }
-  
+
   log_to_syslog();
 
 #ifdef CONFIG_LIBDAEMON
@@ -1590,12 +1590,13 @@ int main(int argc, char **argv) {
   // 496155702020608 this setting here is the source of both the plist features response and the
   // mDNS string.
   // note: 0x300401F4A00 works but with weird delays and stuff
-  config.airplay_features = 0x1C340405FCA00;
+  // config.airplay_features = 0x1C340405FCA00;
+  config.airplay_features = 0x1C340405D4A00; // APX + Authentication4 (b14)
   // Advertised with mDNS and returned with GET /info, see
   // https://openairplay.github.io/airplay-spec/status_flags.html 0x4: Audio cable attached, no PIN
   // required (transient pairing), 0x204: Audio cable attached, OneTimePairingRequired 0x604: Audio
   // cable attached, OneTimePairingRequired, device was setup for Homekit access control
-  config.airplay_statusflags = 0x4;
+  config.airplay_statusflags = 0x04;
   // Set to NULL to work with transient pairing
   config.airplay_pin = NULL;
 
@@ -1619,7 +1620,7 @@ int main(int argc, char **argv) {
   // with thanks
   uuid_t binuuid;
   uuid_generate_random(binuuid);
-  
+
   char *uuid = malloc(UUID_STR_LEN);
   // Produces a UUID string at uuid consisting of lower-case letters
   uuid_unparse_lower(binuuid, uuid);
