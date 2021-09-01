@@ -1705,6 +1705,9 @@ void player_thread_cleanup_handler(void *arg) {
   if (conn->stream.type == ast_apple_lossless)
     terminate_decoders(conn);
 
+  if (conn->airplay_gid)
+    free(conn->airplay_gid);
+
   reset_anchor_info(conn);
   release_play_lock(conn);
   conn->rtp_running = 0;
