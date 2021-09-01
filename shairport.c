@@ -1625,7 +1625,6 @@ int main(int argc, char **argv) {
   // Produces a UUID string at uuid consisting of lower-case letters
   uuid_unparse_lower(binuuid, uuid);
   config.airplay_pi = strdup(uuid);
-  config.airplay_gid = strdup(uuid); // initially the gid is the same as the pi
 
   // now we need to create the sequence of items for a Bonjour TXT record.
 #else
