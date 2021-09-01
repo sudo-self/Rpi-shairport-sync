@@ -104,7 +104,7 @@ typedef struct {
 #ifdef CONFIG_AIRPLAY_2
 typedef enum { ts_ntp, ts_ptp } timing_t;
 typedef enum { ap_1, ap_2 } airplay_t;
-typedef enum { realtime_stream, buffered_stream } airplay_stream_t;
+typedef enum { realtime_stream, buffered_stream, remote_control_stream } airplay_stream_t;
 
 typedef struct {
   uint8_t *data;
