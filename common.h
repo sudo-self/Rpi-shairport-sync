@@ -302,7 +302,6 @@ typedef struct {
   char *airplay_device_id; // for the Bonjour advertisement and the GETINFO PList
   char *airplay_pin;       // non-NULL, 4 char PIN, if required for pairing
   char *airplay_pi;        // UUID in the Bonjour advertisement and the GETINFO Plist
-  char *airplay_gid;       // UUID in the Bonjour advertisement -- initially the same as the pi
 #endif
 } shairport_cfg;
 

@@ -287,6 +287,7 @@ typedef struct {
   clock_status_t clock_status;
 
 #ifdef CONFIG_AIRPLAY_2
+  char *airplay_gid;       // UUID in the Bonjour advertisement -- if NULL, the group UUID is the same as the pi UUID
   airplay_t airplay_type; // are we using AirPlay 1 or AirPlay 2 protocol on this connection?
   airplay_stream_t airplay_stream_type; // is it realtime audio or buffered audio...
   timing_t timing_type;                 // are we using NTP or PTP on this connection?
@@ -332,8 +333,8 @@ typedef struct {
   unsigned char *session_key; // needs to be free'd at the end
   uint64_t frames_packet;
   uint64_t type;
-  uint64_t networkTimeTimelineID;    // the clock ID used by the player
-  uint64_t groupContainsGroupLeader; // information coming from the SETUP
+  uint64_t networkTimeTimelineID;   // the clock ID used by the player
+  uint8_t groupContainsGroupLeader; // information coming from the SETUP
 
   char *ap2_timing_peer_list_message;
 
