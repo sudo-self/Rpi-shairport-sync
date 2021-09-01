@@ -110,7 +110,7 @@ void mdns_register(char **txt_records, char **secondary_txt_records) {
 }
 
 void mdns_update(char **txt_records, char **secondary_txt_records) {
-if ((config.mdns) && (config.mdns->mdns_update)) {
+  if ((config.mdns) && (config.mdns->mdns_update)) {
     config.mdns->mdns_update(txt_records, secondary_txt_records);
   } else
     debug(1, "Can't mdns_update -- no mdns_update registered.");
