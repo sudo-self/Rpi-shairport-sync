@@ -334,6 +334,7 @@ static int avahi_update(char **txt_records, char **secondary_txt_records) {
   else
     selected_interface = AVAHI_IF_UNSPEC;
 
+  avahi_threaded_poll_lock(tpoll);
   if (txt_records != NULL) {
     if (text_record_string_list)
       avahi_string_list_free(text_record_string_list);
@@ -356,6 +357,8 @@ static int avahi_update(char **txt_records, char **secondary_txt_records) {
     if (err != 0)
       debug(1, "avahi_update error updating secondary txt records.");
   }
+
+  avahi_threaded_poll_unlock(tpoll);
   return 0;
 }
 
