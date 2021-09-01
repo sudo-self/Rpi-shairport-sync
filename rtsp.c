@@ -2268,7 +2268,6 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       }
       conn->groupContainsGroupLeader = 0;
       config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
-      // mdns_update_flags(config.airplay_statusflags);
       build_bonjour_strings(conn);
       mdns_update(NULL, secondary_txt_records);
     }
