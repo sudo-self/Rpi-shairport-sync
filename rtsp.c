@@ -2260,8 +2260,6 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       debug(2, "Connection %d: TEARDOWN Close Event Socket.", conn->connection_number);
       if (conn->event_socket)
         close(conn->event_socket);
-
-      debug(2, "Connection %d: non-stream TEARDOWN complete", conn->connection_number);
       if (conn->airplay_gid != NULL) {
         free(conn->airplay_gid);
         conn->airplay_gid = NULL;
@@ -2270,6 +2268,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
       build_bonjour_strings(conn);
       mdns_update(NULL, secondary_txt_records);
+      debug(2, "Connection %d: non-stream TEARDOWN complete", conn->connection_number);
     }
     //} else {
     //  warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
@@ -2381,7 +2380,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     uint8_t value = 0;
     plist_get_bool_val(groupContainsGroupLeader, &value);
     conn->groupContainsGroupLeader = value;
-    debug(1, "Updated groupContainsGroupLeader to %u", conn->groupContainsGroupLeader);
+    debug(2, "Updated groupContainsGroupLeader to %u", conn->groupContainsGroupLeader);
   } else {
     debug(1, "No groupContainsGroupLeader in SETUP");
   }
