@@ -284,13 +284,17 @@ void build_bonjour_strings(rtsp_conn_info *conn) {
   secondary_txt_records[entry_number++] = "model=Shairport Sync";
   snprintf(piString, sizeof(piString), "pi=%s", config.airplay_pi);
   secondary_txt_records[entry_number++] = piString;
-  snprintf(gidString, sizeof(gidString), "gid=%s", config.airplay_gid);
+  if ((conn != NULL) && (conn->airplay_gid != 0)) {
+    snprintf(gidString, sizeof(gidString), "gid=%s", conn->airplay_gid);
+  } else {
+    snprintf(gidString, sizeof(gidString), "gid=%s", config.airplay_pi);
+  }
   secondary_txt_records[entry_number++] = gidString;
   if ((conn != NULL) && (conn->groupContainsGroupLeader != 0))
     secondary_txt_records[entry_number++] = "gcgl=1";
   else
     secondary_txt_records[entry_number++] = "gcgl=0";
-  if (strcmp(config.airplay_pi, config.airplay_gid) != 0) // if it's in a group
+  if ((conn != NULL) && (conn->airplay_gid != 0)) // if it's in a group
     secondary_txt_records[entry_number++] = "isGroupLeader=0";
   secondary_txt_records[entry_number++] = pkString;
   secondary_txt_records[entry_number++] = NULL;
@@ -2225,7 +2229,6 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
 
 void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                        rtsp_message *resp) {
-  debug(2, "Connection %d: TEARDOWN", conn->connection_number);
 
   // debug_log_rtsp_message(1, "TEARDOWN: ", req);
   // if (have_player(conn)) {
@@ -2238,6 +2241,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     plist_t streams = plist_dict_get_item(messagePlist, "streams");
 
     if (streams) {
+      debug(1, "Connection %d: TEARDOWN a stream.", conn->connection_number);
       // we are being asked to close a stream
       player_stop(conn);
       activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
@@ -2249,8 +2253,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       debug(2, "Connection %d: Stream TEARDOWN complete", conn->connection_number);
     } else {
       // we are being asked to disconnect
-      debug(2, "Connection %d: TEARDOWN No \"streams\" array has been found.",
-            conn->connection_number);
+      debug(1, "Connection %d: TEARDOWN a connection.", conn->connection_number);
       debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
       pthread_cancel(conn->rtp_event_thread);
       pthread_join(conn->rtp_event_thread, NULL);
@@ -2259,6 +2262,15 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
         close(conn->event_socket);
 
       debug(2, "Connection %d: non-stream TEARDOWN complete", conn->connection_number);
+      if (conn->airplay_gid != NULL) {
+        free(conn->airplay_gid);
+        conn->airplay_gid = NULL;
+      }
+      conn->groupContainsGroupLeader = 0;
+      config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
+      // mdns_update_flags(config.airplay_statusflags);
+      build_bonjour_strings(conn);
+      mdns_update(NULL, secondary_txt_records);
     }
     //} else {
     //  warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
@@ -2266,14 +2278,6 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     //  resp->respcode = 451;
 
     plist_free(messagePlist);
-    if (config.airplay_gid != NULL)
-      free(config.airplay_gid);
-    config.airplay_gid = strdup(config.airplay_pi);
-    // mdns_update_gid(config.airplay_gid);
-    config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
-    // mdns_update_flags(config.airplay_statusflags);
-    build_bonjour_strings(conn);
-    mdns_update(NULL, secondary_txt_records);
     resp->respcode = 200;
   } else {
     debug(1, "Connection %d: missing plist!", conn->connection_number);
@@ -2348,8 +2352,8 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 #ifdef CONFIG_AIRPLAY_2
 void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int err;
-  // debug(1, "Connection %d: SETUP (AirPlay 2)", conn->connection_number);
-  debug_log_rtsp_message(1, "SETUP (AirPlay 2) SETUP incoming message", req);
+  debug(1, "Connection %d: SETUP (AirPlay 2)", conn->connection_number);
+  // debug_log_rtsp_message(1, "SETUP (AirPlay 2) SETUP incoming message", req);
   // we need to get the timing peer interfaces.
   // I'm guessing they are all this device's adresses that are on the same subnets as
   // the timing peer info in the accompanying plist
@@ -2362,13 +2366,9 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     char *gid = NULL;
     plist_get_string_val(groupUUID, &gid);
     if (gid) {
-      if (config.airplay_gid)
-        free(config.airplay_gid);
-      config.airplay_gid = gid; // it'll be free'd later on...
-      // mdns_update_gid(config.airplay_gid);
-      build_bonjour_strings(conn);
-      mdns_update(NULL, secondary_txt_records);
-      // debug(1,"Updated groupUUID to \"%s\"", config.airplay_gid);
+      if (conn->airplay_gid)
+        free(conn->airplay_gid);
+      conn->airplay_gid = gid; // it'll be free'd later on...
     } else {
       debug(1, "Invalid groupUUID");
     }
@@ -2382,8 +2382,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     uint8_t value = 0;
     plist_get_bool_val(groupContainsGroupLeader, &value);
     conn->groupContainsGroupLeader = value;
-    build_bonjour_strings(conn);
-    mdns_update(NULL, secondary_txt_records);
     debug(1, "Updated groupContainsGroupLeader to %u", conn->groupContainsGroupLeader);
   } else {
     debug(1, "No groupContainsGroupLeader in SETUP");
@@ -2394,8 +2392,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
   if (streams) {
     setupResponsePlist = plist_new_dict(); // now that we know we need it, create it
-    debug(2,
-          "SETUP on Connection %d: A \"streams\" array has been found -- create control and audio "
+    debug(1,
+          "Connection %d: SETUP. A \"streams\" array has been found -- create control and audio "
           "threads and ports",
           conn->connection_number);
     // open a player)
@@ -2531,7 +2529,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       conn->rtp_running = 1; // hack!
     } break;
     case 103: {
-      debug(1, "Connection %d. Buffered Audio Stream Detected.", conn->connection_number);
+      debug(1, "SETUP on Connection %d. Buffered Audio Stream Detected.", conn->connection_number);
       debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
       get_play_lock(conn);
       conn->airplay_stream_type = buffered_stream;
@@ -2543,7 +2541,9 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                                  conn->self_scope_id, &conn->local_buffered_audio_port,
                                  &conn->buffered_audio_socket);
       if (err) {
-        die("Error %d: could not find a TCP port to use as a buffered_audio port", err);
+        die("SETUP on Connection %d: Error %d: could not find a TCP port to use as a "
+            "buffered_audio port",
+            conn->connection_number, err);
       }
 
       // hack.
@@ -2572,7 +2572,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       conn->rtp_running = 1; // hack!
     } break;
     default:
-      debug(1, "Unhandled stream type %" PRIu64 ".", item_value);
+      debug(1, "SETUP on Connection %d: Unhandled stream type %" PRIu64 ".",
+            conn->connection_number, item_value);
       debug_log_rtsp_message(1, "Unhandled stream type incoming message", req);
     }
 
@@ -2582,7 +2583,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     plist_dict_set_item(setupResponsePlist, "streams", streams_array);
 
   } else {
-    debug(2,
+    debug(1,
           "SETUP on Connection %d: No \"streams\" array has been found -- create an event thread "
           "and open a TCP port.",
           conn->connection_number);
@@ -2663,16 +2664,19 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 }
               }
             } else {
-              debug(1, "Don't recognise this as an IP address.");
+              debug(1, "SETUP on Connection %d: Don't recognise this as an IP address.",
+                    conn->connection_number);
             }
             free(ip_address);
           }
           freeifaddrs(addrs);
         } else {
-          debug(1, "No timingPeerInfo addresses in the array.");
+          debug(1, "SETUP on Connection %d: No timingPeerInfo addresses in the array.",
+                conn->connection_number);
         }
       } else {
-        debug(1, "Can't find timingPeerInfo addresses");
+        debug(1, "SETUP on Connection %d: Can't find timingPeerInfo addresses",
+              conn->connection_number);
       }
       // make up the timing peer info list part of the response...
       // debug(1,"Create timingPeerInfoPlist");
@@ -2689,7 +2693,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family, conn->self_ip_string,
                                conn->self_scope_id, &conn->local_event_port, &conn->event_socket);
       if (err) {
-        die("Error %d: could not find a TCP port to use as an event port", err);
+        die("SETUP on Connection %d: Error %d: could not find a TCP port to use as an event port",
+            conn->connection_number, err);
       }
 
       pthread_create(&conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
@@ -2706,10 +2711,10 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     build_bonjour_strings(conn);
     mdns_update(NULL, secondary_txt_records);
   } else {
-    // debug(1, "Unrecognised SETUP incoming message from %s", (const char *)
-    // conn->client_ip_string); debug_log_rtsp_message(1, "Unrecognised SETUP incoming message.",
-    // req);
-    // warn("Unrecognised SETUP incoming message -- ignored.");
+    debug(1, "SETUP on Connection %d: Unrecognised SETUP incoming message from %s",
+          conn->connection_number, (const char *)conn->client_ip_string);
+    debug_log_rtsp_message(1, "Unrecognised SETUP incoming message.", req);
+    warn("Unrecognised SETUP incoming message -- ignored.");
   }
   debug_log_rtsp_message(2, " SETUP response", resp);
   resp->respcode = 200;
