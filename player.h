@@ -287,7 +287,8 @@ typedef struct {
   clock_status_t clock_status;
 
 #ifdef CONFIG_AIRPLAY_2
-  char *airplay_gid;       // UUID in the Bonjour advertisement -- if NULL, the group UUID is the same as the pi UUID
+  char *airplay_gid; // UUID in the Bonjour advertisement -- if NULL, the group UUID is the same as
+                     // the pi UUID
   airplay_t airplay_type; // are we using AirPlay 1 or AirPlay 2 protocol on this connection?
   airplay_stream_t airplay_stream_type; // is it realtime audio or buffered audio...
   timing_t timing_type;                 // are we using NTP or PTP on this connection?
