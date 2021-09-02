@@ -2267,6 +2267,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       conn->groupContainsGroupLeader = 0;
       config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
       build_bonjour_strings(conn);
+      debug(1,"Connection %d: TEARDOWN mdns_update.", conn->connection_number);
       mdns_update(NULL, secondary_txt_records);
       debug(2, "Connection %d: non-stream TEARDOWN complete", conn->connection_number);
     }
@@ -2707,6 +2708,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
     config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay
     build_bonjour_strings(conn);
+    debug(1,"Connection %d: SETUP mdns_update.", conn->connection_number);
     mdns_update(NULL, secondary_txt_records);
   } else {
     debug(1, "SETUP on Connection %d: Unrecognised SETUP incoming message from %s",
@@ -4298,6 +4300,10 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   pair_setup_free(conn->ap2_control_pairing.setup_ctx);
   pair_verify_free(conn->ap2_control_pairing.verify_ctx);
   pair_cipher_free(conn->ap2_control_pairing.cipher_ctx);
+  if (conn->airplay_gid) {
+    free(conn->airplay_gid);
+    conn->airplay_gid = NULL;
+  }
 #endif
 
   rtp_terminate(conn);
