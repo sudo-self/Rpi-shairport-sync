@@ -1667,7 +1667,7 @@ int do_play(void *buf, int samples) {
       }
 
       snd_pcm_state_t prior_state = state; // keep this for afterwards....
-      debug(3, "alsa: write %d frames.", samples);
+      // debug(3, "alsa: write %d frames.", samples);
       ret = alsa_pcm_write(alsa_handle, buf, samples);
       if (ret == samples) {
         stall_monitor_frame_count += samples;
