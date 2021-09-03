@@ -840,7 +840,7 @@ int msg_handle_line(rtsp_message **pmsg, char *line) {
     *p = 0;
     p += 2;
     msg_add_header(msg, line, p);
-    // debug(3, "    %s: %s.", line, p);
+    debug(3, "    %s: %s.", line, p);
     return -1;
   } else {
     char *cl = msg_get_header(msg, "Content-Length");
@@ -1408,8 +1408,19 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
 
 void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *req,
                      rtsp_message *resp) {
-  if (rtsp_message_contains_plist(req)) { // it's stage one
 
+
+  if (rtsp_message_contains_plist(req)) { // it's stage one
+  // get version of AirPlay -- it might be too old. Not using it yet.
+    char *hdr = msg_get_header(req, "User-Agent");
+    if (hdr) {
+      if (strstr(hdr, "AirPlay/") == hdr) {
+        hdr = hdr + strlen("AirPlay/");
+        //double airplay_version = 0.0;
+        //airplay_version = atof(hdr);
+        debug(1,"Connection %d: GET_INFO: Source AirPlay Version is: %s.",conn->connection_number, hdr);
+      }
+    }
     plist_t info_plist = NULL;
     plist_from_memory(req->content, req->contentlength, &info_plist);
 
@@ -1490,7 +1501,7 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
 }
 
 void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
-  debug(3, "Connection %d: FLUSHBUFFERED %s :: Content-Length %d", conn->connection_number,
+  debug(3, "Connection %d: FLUSHBUFFERED %s : Content-Length %d", conn->connection_number,
         req->path, req->contentlength);
   debug_log_rtsp_message(2, "FLUSHBUFFERED request", req);
 
@@ -2713,7 +2724,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
   } else {
     debug(1, "SETUP on Connection %d: Unrecognised SETUP incoming message from %s",
           conn->connection_number, (const char *)conn->client_ip_string);
-    debug_log_rtsp_message(1, "Unrecognised SETUP incoming message.", req);
+    debug_log_rtsp_message(2, "Unrecognised SETUP incoming message.", req);
     warn("Unrecognised SETUP incoming message -- ignored.");
   }
   debug_log_rtsp_message(2, " SETUP response", resp);
