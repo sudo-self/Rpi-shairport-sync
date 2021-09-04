@@ -2114,8 +2114,8 @@ void *rtp_buffered_audio_processor(void *arg) {
 
   // initialize all muxers, demuxers and protocols for libavformat
   // (does nothing if called twice during the course of one program execution)
-  // not needed in ffmpeg 4.0 and later...
-  // av_register_all();
+  // not needed in ffmpeg 4.0 and later... but still needed in ffmpeg 3.6 / ubuntu 18
+  avcodec_register_all();
 
   AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
   if (codec == NULL) {
