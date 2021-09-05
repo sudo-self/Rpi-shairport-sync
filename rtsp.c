@@ -2792,7 +2792,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     plist_to_bin(setupResponsePlist, &resp->content, &resp->contentlength);
     plist_free(setupResponsePlist);
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
-    config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay
+    // config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay
     build_bonjour_strings(conn);
     debug(1, "Connection %d: SETUP mdns_update.", conn->connection_number);
     mdns_update(NULL, secondary_txt_records);
@@ -4737,7 +4737,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
         debug(1, "unable to listen on %s port %d. The error is: \"%s\".", family, config.port,
               strerror(errno));
       } else {
-        listen(fd, 5);
+        listen(fd, 255);
         nsock++;
         sockfd = realloc(sockfd, (nsock + 1) * sizeof(int));
         sockfd[nsock] = fd;
