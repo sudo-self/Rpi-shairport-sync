@@ -144,7 +144,6 @@ typedef struct flush_request_t {
 typedef struct {
   int connection_number;     // for debug ID purposes, nothing else...
   int resend_interval;       // this is really just for debugging
-  int has_been_cancelled;    // for cleaning up later.
   char *UserAgent;           // free this on teardown
   int AirPlayVersion;        // zero if not an AirPlay session. Used to help calculate latency
   uint32_t latency;          // the actual latency used for this play session
