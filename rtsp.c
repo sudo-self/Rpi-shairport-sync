@@ -130,8 +130,12 @@ rtsp_conn_info **conns;
 
 int metadata_running = 0;
 
-// always lock use this when accessing the playing conn value
+// always lock this when accessing the playing conn value
 pthread_mutex_t playing_conn_lock = PTHREAD_MUTEX_INITIALIZER;
+
+// always lock this when accessing the list of connection threads
+pthread_mutex_t conns_lock = PTHREAD_MUTEX_INITIALIZER;
+
 
 // every time we want to retain or release a reference count, lock it with this
 // if a reference count is read as zero, it means the it's being deallocated.
@@ -615,13 +619,29 @@ void *player_watchdog_thread_code(void *arg) {
 // keep track of the threads we have spawned so we can join() them
 static int nconns = 0;
 static void track_thread(rtsp_conn_info *conn) {
-  conns = realloc(conns, sizeof(rtsp_conn_info *) * (nconns + 1));
-  if (conns) {
-    conns[nconns] = conn;
-    nconns++;
-  } else {
-    die("could not reallocate memnory for \"conns\" in rtsp.c.");
+  debug_mutex_lock(&conns_lock, 1000000, 3);
+  // look for an empty slot first
+  int i = 0;
+  int found = 0;
+  while ((i < nconns) && (found == 0)) {
+    if (conns[i] == NULL)
+      found = 1;
+    else
+      i++;
   }
+  if (found != 0){
+    conns[i] = conn;
+  } else {
+    // make space for a new element
+    conns = realloc(conns, sizeof(rtsp_conn_info *) * (nconns + 1));
+    if (conns) {
+      conns[nconns] = conn;
+      nconns++;
+    } else {
+      die("could not reallocate memory for conns");
+    }
+  }
+  debug_mutex_unlock(&conns_lock, 3);
 }
 
 // note: connection numbers start at 1, so an except_this_one value of zero means "all threads"
@@ -629,43 +649,43 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
   // if the stream category is unspecified_stream_category
   // all categories are elegible for cancellation
   // otherwise just the category itself
-
+  debug_mutex_lock(&conns_lock, 1000000, 3);
   int i;
   for (i = 0; i < nconns; i++) {
-    if ((conns[i]->has_been_cancelled == 0) && (conns[i]->connection_number != except_this_one) && ((stream_category == unspecified_stream_category) || (stream_category == conns[i]->airplay_stream_category))) {
-      debug(2, "Connection %d: cancelling.", conns[i]->connection_number);
+    if ((conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) && ((stream_category == unspecified_stream_category) || (stream_category == conns[i]->airplay_stream_category))) {
+      debug(1, "Connection %d: stopped.", conns[i]->connection_number);
       pthread_cancel(conns[i]->thread);
     }
   }
   for (i = 0; i < nconns; i++) {
-    if ((conns[i]->has_been_cancelled == 0) && (conns[i]->connection_number != except_this_one) && ((stream_category == unspecified_stream_category) || (stream_category == conns[i]->airplay_stream_category))) {
-      debug(2, "Connection %d: joining.", conns[i]->connection_number);
+    if ((conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) && ((stream_category == unspecified_stream_category) || (stream_category == conns[i]->airplay_stream_category))) {
+      debug(1, "Connection %d: deleted.", conns[i]->connection_number);
       pthread_join(conns[i]->thread, NULL);
-      conns[i]->has_been_cancelled = 1;
+      free(conns[i]);
+      conns[i] = NULL;
     }
   }
+  debug_mutex_unlock(&conns_lock, 3);
 }
 
 void cleanup_threads(void) {
-  /*
+
   void *retval;
   int i;
   // debug(2, "culling threads.");
-  for (i = 0; i < nconns;) {
-    if (conns[i]->running == 0) {
+  debug_mutex_lock(&conns_lock, 1000000, 3);
+  for (i = 0; i < nconns; i++) {
+    if ((conns[i] != NULL ) && (conns[i]->running == 0)) {
       debug(3, "found RTSP connection thread %d in a non-running state.",
             conns[i]->connection_number);
       pthread_join(conns[i]->thread, &retval);
-      debug(3, "RTSP connection thread %d deleted...", conns[i]->connection_number);
+      debug(1, "Connection %d: deleted in cleanup.", conns[i]->connection_number);
       free(conns[i]);
-      nconns--;
-      if (nconns)
-        conns[i] = conns[nconns];
-    } else {
-      i++;
+      conns[i] = NULL;
     }
   }
-  */
+  debug_mutex_unlock(&conns_lock, 3);
+
 }
 
 // park a null at the line ending, and return the next line pointer
@@ -1383,7 +1403,7 @@ char *get_category_string(airplay_stream_c cat) {
   return category;
 }
 
-void handle_record_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+void handle_record_2(rtsp_conn_info *conn, __attribute((unused)) rtsp_message *req, rtsp_message *resp) {
   debug(1, "Connection %d: RECORD on %s", conn->connection_number, get_category_string(conn->airplay_stream_category));
   //debug_log_rtsp_message(1, "RECORD incoming message", req);
   resp->respcode = 200;
