@@ -624,20 +624,30 @@ static void track_thread(rtsp_conn_info *conn) {
   }
 }
 
-void cancel_all_RTSP_threads(void) {
+// note: connection numbers start at 1, so an except_this_one value of zero means "all threads"
+void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_one) {
+  // if the stream category is unspecified_stream_category
+  // all categories are elegible for cancellation
+  // otherwise just the category itself
+
   int i;
   for (i = 0; i < nconns; i++) {
-    debug(2, "Connection %d: cancelling.", conns[i]->connection_number);
-    pthread_cancel(conns[i]->thread);
+    if ((conns[i]->has_been_cancelled == 0) && (conns[i]->connection_number != except_this_one) && ((stream_category == unspecified_stream_category) || (stream_category == conns[i]->airplay_stream_category))) {
+      debug(2, "Connection %d: cancelling.", conns[i]->connection_number);
+      pthread_cancel(conns[i]->thread);
+    }
   }
   for (i = 0; i < nconns; i++) {
-    debug(2, "Connection %d: joining.", conns[i]->connection_number);
-    pthread_join(conns[i]->thread, NULL);
-    free(conns[i]);
+    if ((conns[i]->has_been_cancelled == 0) && (conns[i]->connection_number != except_this_one) && ((stream_category == unspecified_stream_category) || (stream_category == conns[i]->airplay_stream_category))) {
+      debug(2, "Connection %d: joining.", conns[i]->connection_number);
+      pthread_join(conns[i]->thread, NULL);
+      conns[i]->has_been_cancelled = 1;
+    }
   }
 }
 
 void cleanup_threads(void) {
+  /*
   void *retval;
   int i;
   // debug(2, "culling threads.");
@@ -655,6 +665,7 @@ void cleanup_threads(void) {
       i++;
     }
   }
+  */
 }
 
 // park a null at the line ending, and return the next line pointer
@@ -1350,9 +1361,31 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
   return 0;
 }
 
+char *get_category_string(airplay_stream_c cat) {
+  char *category;
+  switch (cat) {
+    case unspecified_stream_category:
+      category = "unspecified stream";
+      break;
+    case ptp_stream:
+      category = "PTP stream";
+      break;
+    case ntp_stream:
+      category = "NTP stream";
+      break;
+    case remote_control_stream:
+      category = "Remote Control stream";
+      break;
+    default:
+       category = "Unexpected stream code";
+      break;
+  }
+  return category;
+}
+
 void handle_record_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
-  debug(2, "Connection %d: RECORD (AirPlay 2)", conn->connection_number);
-  debug_log_rtsp_message(2, "RECORD incoming message", req);
+  debug(1, "Connection %d: RECORD on %s", conn->connection_number, get_category_string(conn->airplay_stream_category));
+  //debug_log_rtsp_message(1, "RECORD incoming message", req);
   resp->respcode = 200;
 }
 
@@ -1417,7 +1450,7 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
         hdr = hdr + strlen("AirPlay/");
         // double airplay_version = 0.0;
         // airplay_version = atof(hdr);
-        debug(1, "Connection %d: GET_INFO: Source AirPlay Version is: %s.", conn->connection_number,
+        debug(2, "Connection %d: GET_INFO: Source AirPlay Version is: %s.", conn->connection_number,
               hdr);
       }
     }
@@ -2241,7 +2274,7 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
 void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                        rtsp_message *resp) {
 
-  // debug_log_rtsp_message(1, "TEARDOWN: ", req);
+  debug_log_rtsp_message(2, "TEARDOWN: ", req);
   // if (have_player(conn)) {
   resp->respcode = 200;
   msg_add_header(resp, "Connection", "close");
@@ -2252,7 +2285,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     plist_t streams = plist_dict_get_item(messagePlist, "streams");
 
     if (streams) {
-      debug(1, "Connection %d: TEARDOWN a stream.", conn->connection_number);
+      debug(1, "Connection %d: TEARDOWN a %s.", conn->connection_number, get_category_string(conn->airplay_stream_category));
       // we are being asked to close a stream
       player_stop(conn);
       activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
@@ -2264,22 +2297,26 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       debug(2, "Connection %d: Stream TEARDOWN complete", conn->connection_number);
     } else {
       // we are being asked to disconnect
-      debug(1, "Connection %d: TEARDOWN a connection.", conn->connection_number);
+      debug(1, "Connection %d: TEARDOWN a %s connection.", conn->connection_number, get_category_string(conn->airplay_stream_category));
       debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
       pthread_cancel(conn->rtp_event_thread);
       pthread_join(conn->rtp_event_thread, NULL);
       debug(2, "Connection %d: TEARDOWN Close Event Socket.", conn->connection_number);
       if (conn->event_socket)
         close(conn->event_socket);
-      if (conn->airplay_gid != NULL) {
-        free(conn->airplay_gid);
-        conn->airplay_gid = NULL;
+
+      // if we are closing a PTP stream only, do this
+      if (conn->airplay_stream_category == ptp_stream) {
+        if (conn->airplay_gid != NULL) {
+          free(conn->airplay_gid);
+          conn->airplay_gid = NULL;
+        }
+        conn->groupContainsGroupLeader = 0;
+        config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
+        build_bonjour_strings(conn);
+        debug(1, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number, get_category_string(conn->airplay_stream_category));
+        mdns_update(NULL, secondary_txt_records);
       }
-      conn->groupContainsGroupLeader = 0;
-      config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
-      build_bonjour_strings(conn);
-      debug(1, "Connection %d: TEARDOWN mdns_update.", conn->connection_number);
-      mdns_update(NULL, secondary_txt_records);
       debug(2, "Connection %d: non-stream TEARDOWN complete", conn->connection_number);
     }
     //} else {
@@ -2374,44 +2411,44 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
   if (streams == NULL) {
     // no "streams" plist, so it must (?) be an initial setup
     debug(2,
-          "SETUP on Connection %d: No \"streams\" array has been found -- create an event thread "
+          "Connection %d SETUP: No \"streams\" array has been found -- create an event thread "
           "and open a TCP port.",
           conn->connection_number);
+    conn->airplay_stream_category = unspecified_stream_category;
     // figure out what category of stream it is, by looking at the plist
-    conn->airplay_stream_category = unknown_stream_category;
     plist_t timingProtocol = plist_dict_get_item(messagePlist, "timingProtocol");
     if (timingProtocol != NULL) {
       char *timingProtocolString = NULL;
       plist_get_string_val(timingProtocol, &timingProtocolString);
       if (timingProtocolString) {
         if (strcmp(timingProtocolString, "PTP") == 0) {
-          debug(1, "SETUP on Connection %d: PTP setup detected.", conn->connection_number);
+          debug(1, "Connection %d: SETUP: PTP setup detected.", conn->connection_number);
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
         } else if (strcmp(timingProtocolString, "NTP") == 0) {
-          debug(1, "SETUP on Connection %d: NTP setup detected.", conn->connection_number);
+          debug(1, "Connection %d: SETUP: NTP setup detected.", conn->connection_number);
           conn->airplay_stream_category = ntp_stream;
           conn->timing_type = ts_ntp;
         } else if (strcmp(timingProtocolString, "None") == 0) {
-          debug(2, "SETUP on Connection %d: a \"None\" setup detected.", conn->connection_number);
+          debug(2, "Connection %d: SETUP: a \"None\" setup detected.", conn->connection_number);
           // now check to see if it's got the "isRemoteControlOnly" item and check it's true
           plist_t isRemoteControlOnly = plist_dict_get_item(messagePlist, "isRemoteControlOnly");
           if (isRemoteControlOnly != NULL) {
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(1, "SETUP on Connection %d: Remote Control setup detected.",
+              debug(1, "Connection %d: SETUP: Remote Control setup detected.",
                     conn->connection_number);
               conn->airplay_stream_category = remote_control_stream;
             } else {
               debug(1,
-                    "SETUP on Connection %d: a \"None\" setup detected, with "
+                    "Connection %d: SETUP: a \"None\" setup detected, with "
                     "\"isRemoteControlOnly\" item set to \"false\".",
                     conn->connection_number);
             }
           } else {
             debug(1,
-                  "SETUP on Connection %d: a \"None\" setup detected, but no "
+                  "Connection %d: SETUP: a \"None\" setup detected, but no "
                   "\"isRemoteControlOnly\" item detected.",
                   conn->connection_number);
           }
@@ -2558,6 +2595,13 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             plist_dict_set_item(setupResponsePlist, "eventPort",
                                 plist_new_uint(conn->local_event_port));
             plist_dict_set_item(setupResponsePlist, "timingPort", plist_new_uint(0)); // dummy
+            cancel_all_RTSP_threads(unspecified_stream_category, conn->connection_number); // kill all the other listeners
+
+            config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay
+            build_bonjour_strings(conn);
+            debug(1, "Connection %d: SETUP mdns_update on %s.", conn->connection_number, get_category_string(conn->airplay_stream_category));
+            mdns_update(NULL, secondary_txt_records);
+
             resp->respcode = 200;
           } else {
             debug(1, "SETUP on Connection %d: PTP setup -- no timingPeerInfo plist.",
@@ -2568,8 +2612,26 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 conn->connection_number, req);
           warn("Shairport Sync can not handle NTP streams.");
         } else if (conn->airplay_stream_category == remote_control_stream) {
-          debug_log_rtsp_message(1, "SETUP \"isRemoteControlOnly\" message", req);
-          // resp->respcode = 200;
+          debug_log_rtsp_message(2, "SETUP \"isRemoteControlOnly\" message", req);
+
+          // get a port to use as an event port
+          // bind a new TCP port and get a socket
+          conn->local_event_port = 0; // any port
+          int err = bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family,
+                                         conn->self_ip_string, conn->self_scope_id,
+                                         &conn->local_event_port, &conn->event_socket);
+          if (err) {
+            die("SETUP on Connection %d: Error %d: could not find a TCP port to use as an event "
+                "port",
+                conn->connection_number, err);
+          }
+
+          pthread_create(&conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
+
+          plist_dict_set_item(setupResponsePlist, "eventPort",
+                              plist_new_uint(conn->local_event_port));
+          cancel_all_RTSP_threads(remote_control_stream, conn->connection_number); // kill all the other remote control listeners
+          resp->respcode = 200;
         } else {
           debug(1, "SETUP on Connection %d: an unrecognised \"%s\" setup detected.",
                 conn->connection_number, timingProtocolString);
@@ -2590,9 +2652,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     }
   } else {
     debug(2,
-          "Connection %d: SETUP. A \"streams\" array has been found -- create control and audio "
-          "threads and ports",
-          conn->connection_number);
+          "Connection %d: SETUP on %s. A \"streams\" array has been found",
+          conn->connection_number, get_category_string(conn->airplay_stream_category));
     if (conn->airplay_stream_category == ptp_stream) {
       // get stream[0]
       plist_t stream0 = plist_array_get_item(streams, 0);
@@ -2779,11 +2840,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_dict_set_item(setupResponsePlist, "streams", streams_array);
       resp->respcode = 200;
     } else if (conn->airplay_stream_category == remote_control_stream) {
-      debug(1, "SETUP on Connection %d: Remote Control Stream received. Nothing done.",
+      debug(1, "Connection %d: SETUP: Remote Control Stream received.",
             conn->connection_number);
-      // resp->respcode = 200;
+      resp->respcode = 200;
     } else {
-      debug(1, "SETUP on Connection %d: Stream received but no airplay category set. Nothing done.",
+      debug(1, "Connection %d: SETUP: Stream received but no airplay category set. Nothing done.",
             conn->connection_number);
     }
   }
@@ -2792,10 +2853,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     plist_to_bin(setupResponsePlist, &resp->content, &resp->contentlength);
     plist_free(setupResponsePlist);
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
-    // config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay
-    build_bonjour_strings(conn);
-    debug(1, "Connection %d: SETUP mdns_update.", conn->connection_number);
-    mdns_update(NULL, secondary_txt_records);
   }
   debug_log_rtsp_message(2, " SETUP response", resp);
 }
@@ -2808,7 +2865,7 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     uint16_t cport, tport;
     char *ar = msg_get_header(req, "Active-Remote");
     if (ar) {
-      debug(2, "Connection %d: SETUP -- Active-Remote string seen: \"%s\".",
+      debug(2, "Connection %d: SETUP: Active-Remote string seen: \"%s\".",
             conn->connection_number, ar);
       // get the active remote
       if (conn->dacp_active_remote) // this is in case SETUP was previously called
@@ -2818,7 +2875,7 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
       send_metadata('ssnc', 'acre', ar, strlen(ar), req, 1);
 #endif
     } else {
-      debug(2, "Connection %d: SETUP -- Note: no Active-Remote information  the SETUP Record.",
+      debug(2, "Connection %d: SETUP: Note: no Active-Remote information seen.",
             conn->connection_number);
       if (conn->dacp_active_remote) { // this is in case SETUP was previously called
         free(conn->dacp_active_remote);
@@ -2828,7 +2885,7 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 
     ar = msg_get_header(req, "DACP-ID");
     if (ar) {
-      debug(2, "Connection %d: SETUP -- DACP-ID string seen: \"%s\".", conn->connection_number, ar);
+      debug(2, "Connection %d: SETUP: DACP-ID string seen: \"%s\".", conn->connection_number, ar);
       if (conn->dacp_id) // this is in case SETUP was previously called
         free(conn->dacp_id);
       conn->dacp_id = strdup(ar);
@@ -4645,7 +4702,7 @@ void rtsp_listen_loop_cleanup_handler(__attribute__((unused)) void *arg) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(2, "rtsp_listen_loop_cleanup_handler called.");
-  cancel_all_RTSP_threads();
+  cancel_all_RTSP_threads(unspecified_stream_category,0); // kill all RTSP listeners
   int *sockfd = (int *)arg;
   mdns_unregister();
   if (sockfd) {

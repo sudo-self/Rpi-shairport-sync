@@ -105,7 +105,7 @@ typedef struct {
 typedef enum { ts_ntp, ts_ptp } timing_t;
 typedef enum { ap_1, ap_2 } airplay_t;
 typedef enum {
-  unknown_stream_category,
+  unspecified_stream_category = 0,
   ptp_stream,
   ntp_stream,
   remote_control_stream
@@ -144,6 +144,7 @@ typedef struct flush_request_t {
 typedef struct {
   int connection_number;     // for debug ID purposes, nothing else...
   int resend_interval;       // this is really just for debugging
+  int has_been_cancelled;    // for cleaning up later.
   char *UserAgent;           // free this on teardown
   int AirPlayVersion;        // zero if not an AirPlay session. Used to help calculate latency
   uint32_t latency;          // the actual latency used for this play session
