@@ -136,7 +136,6 @@ pthread_mutex_t playing_conn_lock = PTHREAD_MUTEX_INITIALIZER;
 // always lock this when accessing the list of connection threads
 pthread_mutex_t conns_lock = PTHREAD_MUTEX_INITIALIZER;
 
-
 // every time we want to retain or release a reference count, lock it with this
 // if a reference count is read as zero, it means the it's being deallocated.
 static pthread_mutex_t reference_counter_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -629,7 +628,7 @@ static void track_thread(rtsp_conn_info *conn) {
     else
       i++;
   }
-  if (found != 0){
+  if (found != 0) {
     conns[i] = conn;
   } else {
     // make space for a new element
@@ -652,13 +651,17 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
   debug_mutex_lock(&conns_lock, 1000000, 3);
   int i;
   for (i = 0; i < nconns; i++) {
-    if ((conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) && ((stream_category == unspecified_stream_category) || (stream_category == conns[i]->airplay_stream_category))) {
+    if ((conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
+        ((stream_category == unspecified_stream_category) ||
+         (stream_category == conns[i]->airplay_stream_category))) {
       debug(1, "Connection %d: stopped.", conns[i]->connection_number);
       pthread_cancel(conns[i]->thread);
     }
   }
   for (i = 0; i < nconns; i++) {
-    if ((conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) && ((stream_category == unspecified_stream_category) || (stream_category == conns[i]->airplay_stream_category))) {
+    if ((conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
+        ((stream_category == unspecified_stream_category) ||
+         (stream_category == conns[i]->airplay_stream_category))) {
       debug(1, "Connection %d: deleted.", conns[i]->connection_number);
       pthread_join(conns[i]->thread, NULL);
       free(conns[i]);
@@ -675,7 +678,7 @@ void cleanup_threads(void) {
   // debug(2, "culling threads.");
   debug_mutex_lock(&conns_lock, 1000000, 3);
   for (i = 0; i < nconns; i++) {
-    if ((conns[i] != NULL ) && (conns[i]->running == 0)) {
+    if ((conns[i] != NULL) && (conns[i]->running == 0)) {
       debug(3, "found RTSP connection thread %d in a non-running state.",
             conns[i]->connection_number);
       pthread_join(conns[i]->thread, &retval);
@@ -685,7 +688,6 @@ void cleanup_threads(void) {
     }
   }
   debug_mutex_unlock(&conns_lock, 3);
-
 }
 
 // park a null at the line ending, and return the next line pointer
@@ -1384,28 +1386,30 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
 char *get_category_string(airplay_stream_c cat) {
   char *category;
   switch (cat) {
-    case unspecified_stream_category:
-      category = "unspecified stream";
-      break;
-    case ptp_stream:
-      category = "PTP stream";
-      break;
-    case ntp_stream:
-      category = "NTP stream";
-      break;
-    case remote_control_stream:
-      category = "Remote Control stream";
-      break;
-    default:
-       category = "Unexpected stream code";
-      break;
+  case unspecified_stream_category:
+    category = "unspecified stream";
+    break;
+  case ptp_stream:
+    category = "PTP stream";
+    break;
+  case ntp_stream:
+    category = "NTP stream";
+    break;
+  case remote_control_stream:
+    category = "Remote Control stream";
+    break;
+  default:
+    category = "Unexpected stream code";
+    break;
   }
   return category;
 }
 
-void handle_record_2(rtsp_conn_info *conn, __attribute((unused)) rtsp_message *req, rtsp_message *resp) {
-  debug(1, "Connection %d: RECORD on %s", conn->connection_number, get_category_string(conn->airplay_stream_category));
-  //debug_log_rtsp_message(1, "RECORD incoming message", req);
+void handle_record_2(rtsp_conn_info *conn, __attribute((unused)) rtsp_message *req,
+                     rtsp_message *resp) {
+  debug(1, "Connection %d: RECORD on %s", conn->connection_number,
+        get_category_string(conn->airplay_stream_category));
+  // debug_log_rtsp_message(1, "RECORD incoming message", req);
   resp->respcode = 200;
 }
 
@@ -2305,7 +2309,8 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     plist_t streams = plist_dict_get_item(messagePlist, "streams");
 
     if (streams) {
-      debug(1, "Connection %d: TEARDOWN a %s.", conn->connection_number, get_category_string(conn->airplay_stream_category));
+      debug(1, "Connection %d: TEARDOWN a %s.", conn->connection_number,
+            get_category_string(conn->airplay_stream_category));
       // we are being asked to close a stream
       player_stop(conn);
       activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
@@ -2317,7 +2322,8 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       debug(2, "Connection %d: Stream TEARDOWN complete", conn->connection_number);
     } else {
       // we are being asked to disconnect
-      debug(1, "Connection %d: TEARDOWN a %s connection.", conn->connection_number, get_category_string(conn->airplay_stream_category));
+      debug(1, "Connection %d: TEARDOWN a %s connection.", conn->connection_number,
+            get_category_string(conn->airplay_stream_category));
       debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
       pthread_cancel(conn->rtp_event_thread);
       pthread_join(conn->rtp_event_thread, NULL);
@@ -2334,7 +2340,8 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
         conn->groupContainsGroupLeader = 0;
         config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
         build_bonjour_strings(conn);
-        debug(1, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number, get_category_string(conn->airplay_stream_category));
+        debug(1, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
+              get_category_string(conn->airplay_stream_category));
         mdns_update(NULL, secondary_txt_records);
       }
       debug(2, "Connection %d: non-stream TEARDOWN complete", conn->connection_number);
@@ -2615,11 +2622,13 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             plist_dict_set_item(setupResponsePlist, "eventPort",
                                 plist_new_uint(conn->local_event_port));
             plist_dict_set_item(setupResponsePlist, "timingPort", plist_new_uint(0)); // dummy
-            cancel_all_RTSP_threads(unspecified_stream_category, conn->connection_number); // kill all the other listeners
+            cancel_all_RTSP_threads(unspecified_stream_category,
+                                    conn->connection_number); // kill all the other listeners
 
             config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay
             build_bonjour_strings(conn);
-            debug(1, "Connection %d: SETUP mdns_update on %s.", conn->connection_number, get_category_string(conn->airplay_stream_category));
+            debug(1, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
+                  get_category_string(conn->airplay_stream_category));
             mdns_update(NULL, secondary_txt_records);
 
             resp->respcode = 200;
@@ -2650,7 +2659,9 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
           plist_dict_set_item(setupResponsePlist, "eventPort",
                               plist_new_uint(conn->local_event_port));
-          cancel_all_RTSP_threads(remote_control_stream, conn->connection_number); // kill all the other remote control listeners
+          cancel_all_RTSP_threads(
+              remote_control_stream,
+              conn->connection_number); // kill all the other remote control listeners
           resp->respcode = 200;
         } else {
           debug(1, "SETUP on Connection %d: an unrecognised \"%s\" setup detected.",
@@ -2671,8 +2682,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       warn("Unrecognised SETUP incoming message -- ignored.");
     }
   } else {
-    debug(2,
-          "Connection %d: SETUP on %s. A \"streams\" array has been found",
+    debug(2, "Connection %d: SETUP on %s. A \"streams\" array has been found",
           conn->connection_number, get_category_string(conn->airplay_stream_category));
     if (conn->airplay_stream_category == ptp_stream) {
       // get stream[0]
@@ -2860,8 +2870,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_dict_set_item(setupResponsePlist, "streams", streams_array);
       resp->respcode = 200;
     } else if (conn->airplay_stream_category == remote_control_stream) {
-      debug(1, "Connection %d: SETUP: Remote Control Stream received.",
-            conn->connection_number);
+      debug(1, "Connection %d: SETUP: Remote Control Stream received.", conn->connection_number);
       resp->respcode = 200;
     } else {
       debug(1, "Connection %d: SETUP: Stream received but no airplay category set. Nothing done.",
@@ -2885,8 +2894,8 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     uint16_t cport, tport;
     char *ar = msg_get_header(req, "Active-Remote");
     if (ar) {
-      debug(2, "Connection %d: SETUP: Active-Remote string seen: \"%s\".",
-            conn->connection_number, ar);
+      debug(2, "Connection %d: SETUP: Active-Remote string seen: \"%s\".", conn->connection_number,
+            ar);
       // get the active remote
       if (conn->dacp_active_remote) // this is in case SETUP was previously called
         free(conn->dacp_active_remote);
@@ -4722,7 +4731,7 @@ void rtsp_listen_loop_cleanup_handler(__attribute__((unused)) void *arg) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   debug(2, "rtsp_listen_loop_cleanup_handler called.");
-  cancel_all_RTSP_threads(unspecified_stream_category,0); // kill all RTSP listeners
+  cancel_all_RTSP_threads(unspecified_stream_category, 0); // kill all RTSP listeners
   int *sockfd = (int *)arg;
   mdns_unregister();
   if (sockfd) {
