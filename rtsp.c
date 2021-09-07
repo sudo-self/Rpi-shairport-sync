@@ -651,7 +651,7 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
   debug_mutex_lock(&conns_lock, 1000000, 3);
   int i;
   for (i = 0; i < nconns; i++) {
-    if ((conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
+    if ((conns[i] != NULL) && (conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
       debug(1, "Connection %d: stopped.", conns[i]->connection_number);
@@ -659,7 +659,7 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
     }
   }
   for (i = 0; i < nconns; i++) {
-    if ((conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
+    if ((conns[i] != NULL) && (conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
       debug(1, "Connection %d: deleted.", conns[i]->connection_number);
