@@ -199,7 +199,11 @@ static void pkString_make(char *str, size_t str_size, const char *device_id) {
 }
 #endif
 
+#ifdef CONFIG_AIRPLAY_2
 void build_bonjour_strings(rtsp_conn_info *conn) {
+#else
+void build_bonjour_strings(__attribute((unused)) rtsp_conn_info *conn) {
+#endif
 
   int entry_number = 0;
 
@@ -1767,6 +1771,12 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
         req->contentlength);
   resp->respcode = 500;
 }
+void handle_post(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)) rtsp_message *req,
+                __attribute((unused)) rtsp_message *resp) {
+  debug(1, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
+        req->contentlength);
+  resp->respcode = 500;
+}
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
@@ -2871,6 +2881,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       resp->respcode = 200;
     } else if (conn->airplay_stream_category == remote_control_stream) {
       debug(1, "Connection %d: SETUP: Remote Control Stream received.", conn->connection_number);
+      debug_log_rtsp_message(1, "Remote Control Stream stream (second) message", req);
+
       resp->respcode = 200;
     } else {
       debug(1, "Connection %d: SETUP: Stream received but no airplay category set. Nothing done.",
@@ -4166,6 +4178,8 @@ static struct method_handler {
   void (*handler)(rtsp_conn_info *conn, rtsp_message *req,
                   rtsp_message *resp); // for AirPlay 1 only
 } method_handlers[] = {{"OPTIONS", handle_options},
+                       {"GET", handle_get},
+                       {"POST", handle_post},
                        {"ANNOUNCE", handle_announce},
                        {"FLUSH", handle_flush},
                        {"TEARDOWN", handle_teardown},

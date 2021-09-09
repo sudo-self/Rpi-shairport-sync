@@ -101,15 +101,18 @@ typedef struct {
   audio_stream_type type;
 } stream_cfg;
 
-#ifdef CONFIG_AIRPLAY_2
-typedef enum { ts_ntp, ts_ptp } timing_t;
-typedef enum { ap_1, ap_2 } airplay_t;
+// the following is used even when not built for AirPlay 2
 typedef enum {
   unspecified_stream_category = 0,
   ptp_stream,
   ntp_stream,
   remote_control_stream
 } airplay_stream_c; // "c" for category
+
+
+#ifdef CONFIG_AIRPLAY_2
+typedef enum { ts_ntp, ts_ptp } timing_t;
+typedef enum { ap_1, ap_2 } airplay_t;
 typedef enum { realtime_stream, buffered_stream } airplay_stream_t;
 
 typedef struct {
@@ -292,12 +295,13 @@ typedef struct {
 
   clock_status_t clock_status;
 
+  airplay_stream_c
+      airplay_stream_category; // is it a remote control stream or a normal "full service" stream? (will be unspecified if not build for AirPlay 2)
+
 #ifdef CONFIG_AIRPLAY_2
   char *airplay_gid; // UUID in the Bonjour advertisement -- if NULL, the group UUID is the same as
                      // the pi UUID
   airplay_t airplay_type; // are we using AirPlay 1 or AirPlay 2 protocol on this connection?
-  airplay_stream_c
-      airplay_stream_category; // is it a remote control stream or a normal "full service" stream?
   airplay_stream_t airplay_stream_type; // is it realtime audio or buffered audio...
   timing_t timing_type;                 // are we using NTP or PTP on this connection?
 
