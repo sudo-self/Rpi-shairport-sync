@@ -438,7 +438,7 @@ int actual_open_alsa_device(int do_auto_setup) {
     } else {
       char errorstring[1024];
       strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
-      warn("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring,
+      die("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring,
            alsa_out_dev);
     }
     return ret;
