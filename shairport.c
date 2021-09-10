@@ -1584,49 +1584,6 @@ int main(int argc, char **argv) {
 #ifdef CONFIG_AIRPLAY_2
   config.timeout = 0; // disable watchdog
   config.port = 7000;
-  // the features code is a 64-bit number, but in the mDNS advertisement, the least significant 32
-  // bit are given first for example, if the features number is 0x1C340405F4A00, it will be given as
-  // features=0x405F4A00,0x1C340 in the mDNS string, and in a signed decimal number in the plist:
-  // 496155702020608 this setting here is the source of both the plist features response and the
-  // mDNS string.
-  // note: 0x300401F4A00 works but with weird delays and stuff
-  // config.airplay_features = 0x1C340405FCA00;
-  config.airplay_features = 0x1C340405D4A00; // APX + Authentication4 (b14)
-  // Advertised with mDNS and returned with GET /info, see
-  // https://openairplay.github.io/airplay-spec/status_flags.html 0x4: Audio cable attached, no PIN
-  // required (transient pairing), 0x204: Audio cable attached, OneTimePairingRequired 0x604: Audio
-  // cable attached, OneTimePairingRequired, device was setup for Homekit access control
-  config.airplay_statusflags = 0x04;
-  // Set to NULL to work with transient pairing
-  config.airplay_pin = NULL;
-
-  // use the config.hw_addr to generated an airplay_device_id
-  {
-    char obf[256] = {0};
-    char *obfp = obf;
-    int i;
-    for (i = 0; i < 6; i++) {
-      snprintf(obfp, 4, "%02X:", config.hw_addr[i]);
-      obfp += 3;
-    }
-    obfp -= 1;
-    *obfp = 0;
-    config.airplay_device_id = strdup(obf);
-  }
-  debug(1, "Started in Airplay 2 mode on device \"%s\"!", config.airplay_device_id);
-
-  // now generate a UUID
-  // from https://stackoverflow.com/questions/51053568/generating-a-random-uuid-in-c
-  // with thanks
-  uuid_t binuuid;
-  uuid_generate_random(binuuid);
-
-  char *uuid = malloc(UUID_STR_LEN);
-  // Produces a UUID string at uuid consisting of lower-case letters
-  uuid_unparse_lower(binuuid, uuid);
-  config.airplay_pi = strdup(uuid);
-
-  // now we need to create the sequence of items for a Bonjour TXT record.
 #else
   config.port = 5000;
 #endif
@@ -1820,10 +1777,58 @@ int main(int argc, char **argv) {
   }
 
 #endif
-  debug(1, "Started!");
 
 #ifdef CONFIG_AIRPLAY_2
-  debug(1, "Started in Airplay 2 mode!");
+  // the features code is a 64-bit number, but in the mDNS advertisement, the least significant 32
+  // bit are given first for example, if the features number is 0x1C340405F4A00, it will be given as
+  // features=0x405F4A00,0x1C340 in the mDNS string, and in a signed decimal number in the plist:
+  // 496155702020608 this setting here is the source of both the plist features response and the
+  // mDNS string.
+  // note: 0x300401F4A00 works but with weird delays and stuff
+  // config.airplay_features = 0x1C340405FCA00;
+  uint64_t mask = ((uint64_t)1 << 17) |  ((uint64_t)1 << 16) | ((uint64_t)1 << 15) | ((uint64_t)1 << 50);
+  config.airplay_features = 0x1C340405D4A00 & ~mask; // APX + Authentication4 (b14) with no metadata (see below)
+  // Advertised with mDNS and returned with GET /info, see
+  // https://openairplay.github.io/airplay-spec/status_flags.html 0x4: Audio cable attached, no PIN
+  // required (transient pairing), 0x204: Audio cable attached, OneTimePairingRequired 0x604: Audio
+  // cable attached, OneTimePairingRequired, device was setup for Homekit access control
+  
+  // If we are asking for metadata, turn on the relevant bits
+  if (config.metadata_enabled != 0)
+    config.airplay_features |= (1 << 17) | (1 << 16);
+  // If we are asking for artwork, turn on the relevant bit
+  if (config.get_coverart)
+    config.airplay_features |= (1 << 15);
+  debug(1,"Features: 0x%" PRIx64 ".", config.airplay_features);  
+  config.airplay_statusflags = 0x04;
+  // Set to NULL to work with transient pairing
+  config.airplay_pin = NULL;
+
+  // use the config.hw_addr to generated an airplay_device_id
+  {
+    char obf[256] = {0};
+    char *obfp = obf;
+    int i;
+    for (i = 0; i < 6; i++) {
+      snprintf(obfp, 4, "%02X:", config.hw_addr[i]);
+      obfp += 3;
+    }
+    obfp -= 1;
+    *obfp = 0;
+    config.airplay_device_id = strdup(obf);
+  }
+
+  // now generate a UUID
+  // from https://stackoverflow.com/questions/51053568/generating-a-random-uuid-in-c
+  // with thanks
+  uuid_t binuuid;
+  uuid_generate_random(binuuid);
+
+  char *uuid = malloc(UUID_STR_LEN);
+  // Produces a UUID string at uuid consisting of lower-case letters
+  uuid_unparse_lower(binuuid, uuid);
+  config.airplay_pi = strdup(uuid);
+  debug(1, "Started in Airplay 2 mode on device \"%s\"!", config.airplay_device_id);
 #else
   debug(1, "Started in Airplay 1 mode!");
 #endif
