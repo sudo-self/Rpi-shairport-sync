@@ -4472,22 +4472,21 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
 
   debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
         conn->connection_number);
+#ifdef CONFIG_AIRPLAY_2
   teardown_phase_one(conn);
   teardown_phase_two(conn);
+#endif
 
   debug(3, "Connection %d terminating:Closing timing, control and audio sockets...",
         conn->connection_number);
   if (conn->control_socket) {
     close(conn->control_socket);
-    debug(1, "Connection %d: closing control port %u", conn->local_ap2_control_port);
   }
   if (conn->timing_socket) {
     close(conn->timing_socket);
-    debug(1, "Connection %d: closing timing port %u", conn->local_ap2_control_port);
   }
   if (conn->audio_socket) {
     close(conn->audio_socket);
-    debug(1, "Connection %d: closing audio port %u", conn->local_ap2_control_port);
   }
   
   
