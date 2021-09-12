@@ -658,16 +658,16 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
     if ((conns[i] != NULL) && (conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
-      debug(1, "Connection %d: stopped.", conns[i]->connection_number);
       pthread_cancel(conns[i]->thread);
+      debug(1, "Connection %d: cancelled.", conns[i]->connection_number);
     }
   }
   for (i = 0; i < nconns; i++) {
     if ((conns[i] != NULL) && (conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
-      debug(1, "Connection %d: deleted.", conns[i]->connection_number);
       pthread_join(conns[i]->thread, NULL);
+      debug(1, "Connection %d: joined.", conns[i]->connection_number);
       free(conns[i]);
       conns[i] = NULL;
     }
@@ -2305,6 +2305,47 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
                  "OPTIONS, POST, GET, PUT");
 }
 
+void teardown_phase_one(rtsp_conn_info *conn) {
+  if (conn->player_thread) {
+    player_stop(conn);
+    activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
+  }
+  if (conn->session_key) {
+    free(conn->session_key);
+    conn->session_key = NULL;
+  }
+}
+
+void teardown_phase_two(rtsp_conn_info *conn) {
+  // we are being asked to disconnect
+  debug(1, "Connection %d: TEARDOWN a %s connection.", conn->connection_number,
+        get_category_string(conn->airplay_stream_category));
+  debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
+  pthread_cancel(conn->rtp_event_thread);
+  pthread_join(conn->rtp_event_thread, NULL);
+  debug(1, "Connection %d: TEARDOWN Close Event Socket.", conn->connection_number);
+  if (conn->event_socket) {
+    close(conn->event_socket);
+    conn->event_socket = 0;
+    debug(1, "Connection %d: closing TCP event port %u.", conn->connection_number, conn->local_event_port);
+  }
+
+  // if we are closing a PTP stream only, do this
+  if (conn->airplay_stream_category == ptp_stream) {
+    if (conn->airplay_gid != NULL) {
+      free(conn->airplay_gid);
+      conn->airplay_gid = NULL;
+    }
+    conn->groupContainsGroupLeader = 0;
+    config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
+    build_bonjour_strings(conn);
+    debug(1, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
+          get_category_string(conn->airplay_stream_category));
+    mdns_update(NULL, secondary_txt_records);
+  }
+}
+
+
 void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                        rtsp_message *resp) {
 
@@ -2322,38 +2363,11 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       debug(1, "Connection %d: TEARDOWN a %s.", conn->connection_number,
             get_category_string(conn->airplay_stream_category));
       // we are being asked to close a stream
-      player_stop(conn);
-      activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
-      if (conn->session_key) {
-        free(conn->session_key);
-        conn->session_key = NULL;
-      }
+      teardown_phase_one(conn);
       plist_free(streams);
       debug(2, "Connection %d: Stream TEARDOWN complete", conn->connection_number);
     } else {
-      // we are being asked to disconnect
-      debug(1, "Connection %d: TEARDOWN a %s connection.", conn->connection_number,
-            get_category_string(conn->airplay_stream_category));
-      debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
-      pthread_cancel(conn->rtp_event_thread);
-      pthread_join(conn->rtp_event_thread, NULL);
-      debug(2, "Connection %d: TEARDOWN Close Event Socket.", conn->connection_number);
-      if (conn->event_socket)
-        close(conn->event_socket);
-
-      // if we are closing a PTP stream only, do this
-      if (conn->airplay_stream_category == ptp_stream) {
-        if (conn->airplay_gid != NULL) {
-          free(conn->airplay_gid);
-          conn->airplay_gid = NULL;
-        }
-        conn->groupContainsGroupLeader = 0;
-        config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
-        build_bonjour_strings(conn);
-        debug(1, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
-              get_category_string(conn->airplay_stream_category));
-        mdns_update(NULL, secondary_txt_records);
-      }
+      teardown_phase_two(conn);
       debug(2, "Connection %d: non-stream TEARDOWN complete", conn->connection_number);
     }
     //} else {
@@ -2627,6 +2641,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                   conn->connection_number, err);
             }
 
+            debug(1, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number, conn->local_event_port);
+
             pthread_create(&conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
 
             plist_dict_set_item(setupResponsePlist, "eventPort",
@@ -2664,6 +2680,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 "port",
                 conn->connection_number, err);
           }
+          
+          debug(1, "Connection %d: TCP Remote Control event port opened: %u.", conn->connection_number, conn->local_event_port);
 
           pthread_create(&conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
 
@@ -2711,6 +2729,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       if (err) {
         die("Error %d: could not find a UDP port to use as an ap2_control port", err);
       }
+      debug(1, "Connection %d: UDP control port opened: %u.", conn->connection_number, conn->local_ap2_control_port);
 
       pthread_create(&conn->rtp_ap2_control_thread, NULL, &rtp_ap2_control_receiver, (void *)conn);
 
@@ -2780,6 +2799,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         if (err) {
           die("Error %d: could not find a UDP port to use as a realtime_audio port", err);
         }
+        debug(1, "Connection %d: UDP realtime audio port opened: %u.", conn->connection_number, conn->local_realtime_audio_port);
 
         pthread_create(&conn->rtp_realtime_audio_thread, NULL, &rtp_realtime_audio_receiver,
                        (void *)conn);
@@ -2841,6 +2861,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
               "buffered_audio port",
               conn->connection_number, err);
         }
+
+        debug(1, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number, conn->local_buffered_audio_port);
 
         // hack.
         conn->max_frames_per_packet = 352; // number of audio frames per packet.
@@ -4448,26 +4470,36 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
 
-  debug(3, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
+  debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
         conn->connection_number);
-  if (conn->player_thread) {
-    player_stop(conn);
-    activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
-  }
+  teardown_phase_one(conn);
+  teardown_phase_two(conn);
 
   debug(3, "Connection %d terminating:Closing timing, control and audio sockets...",
         conn->connection_number);
-  if (conn->control_socket)
+  if (conn->control_socket) {
     close(conn->control_socket);
-  if (conn->timing_socket)
+    debug(1, "Connection %d: closing control port %u", conn->local_ap2_control_port);
+  }
+  if (conn->timing_socket) {
     close(conn->timing_socket);
-  if (conn->audio_socket)
+    debug(1, "Connection %d: closing timing port %u", conn->local_ap2_control_port);
+  }
+  if (conn->audio_socket) {
     close(conn->audio_socket);
+    debug(1, "Connection %d: closing audio port %u", conn->local_ap2_control_port);
+  }
+  
+  
 
   if (conn->fd > 0) {
     debug(3, "Connection %d terminating: closing fd %d.", conn->connection_number, conn->fd);
     close(conn->fd);
     debug(3, "Connection %d terminating: closed fd %d.", conn->connection_number, conn->fd);
+
+    debug(1, "Connection %d: terminating connection from %s:%u to self at %s:%u.",
+          conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+          conn->self_ip_string, conn->self_rtsp_port);
   }
   if (conn->auth_nonce) {
     free(conn->auth_nonce);
@@ -4958,7 +4990,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
           inet_ntop(conn->connection_ip_family, self_addr, conn->self_ip_string,
                     sizeof(conn->self_ip_string));
 
-          debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
+          debug(1, "Connection %d: new connection from %s:%u to self at %s:%u.",
                 conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                 conn->self_ip_string, conn->self_rtsp_port);
         } else {
