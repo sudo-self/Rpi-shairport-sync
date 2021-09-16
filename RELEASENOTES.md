@@ -1,5 +1,69 @@
 Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
 
+Version 3.3.8
+====
+**Enhancements**
+* Documentation for the MQTT interface. Many thanks to [minix1234](https://github.com/minix1234)!
+
+**Bug Fixes**
+* Fix a bug in the `alsa` back end. In the interval between checking that the alsa device handle was non-`NULL` and actually using it, the handle could be set to `NULL`. The interval between check and usage is now protected.
+* Fix a bug in the `alsa` precision timing code. Thanks to [durwin99](https://github.com/durwin99), [Nicolas Da Mutten](https://github.com/cleverer), [mistakenideas](https://github.com/mistakenideas), [Ben Willmore](https://github.com/ben-willmore) and [giggywithit](https://github.com/giggywithit) for the [report](https://github.com/mikebrady/shairport-sync/issues/1158).
+* Fix a bug that caused Shairport Sync to hang, but not actually crash, if an `on-...` script failed.
+* Fix a crash that occurred if metadata support is enabled during compilation but turned off in the configuration file. Thanks to [Tim Curtis](https://github.com/moodeaudio) for the report.
+* Fix a crash that occurred playing from AirPower on Android. Thanks to [Ircama](https://github.com/Ircama) for the report.
+* Fix the configure.ac file so that `--without-<feature>` configuration options are not interpreted as `--with-<feature>` options instead! Thanks to [David Racine](https://github.com/bassdr) for the report.
+
+Version 3.3.7
+====
+**Docker Integration**
+* Docker Hub integration. From now on, prebuilt Docker images should be available on the Docker Hub at https://hub.docker.com/r/mikebrady/shairport-sync.
+
+**New Feature**
+* For the PulseAudio backend `pa`, added a new `server` entry to the `pa` section of the configuration file, allowing you to specify a connection to a remote or a local system PulseAudio instance instead of letting PulseAudio choose. Thanks to [Guillaume Revaillot](https://github.com/grevaillot) for this new feature.
+
+**Pesky Changes**
+* The underlying timing system has been moved from 64-bit fixed-point time representation (like NTP) to a 64-bit unsigned nanoseconds representation. This should make precisely no difference to the functionality of Shairport Sync but the transition might inadvertently have introduced bugs. Problem reports gratefully received.
+
+**Bug Fixes**
+* Fixed a number of bugs that prevented Shairport Sync from terminating cleanly in response to the `MPRIS` interface's `Quit()` command. Thanks to [João Gabriel](https://github.com/jgabriel98) for reporting this issue.
+* Related to the above, the code used to terminate the application after a fatal error has been cleaned up. It now uses the correct `exit()` call rather than the rather hacky `abort()` call, returning the value of the constant `EXIT_FAILURE` (typically `1`) to the caller .
+* Fixed a bug whereby the start and end of active mode tokens `abeg` and `aend` where not generated or published --  `pend` tokens were being generated instead. Thanks to [minix1234](https://github.com/minix1234) for the bug report and [fix](https://github.com/mikebrady/shairport-sync/pull/1023).
+* Fixed a bug calculating the instantaneous synchronisation error. This bug could occasionally cause Shairport Sync to lose synchronisation and maybe even to mute for a few seconds before resynchronising. It was caused doing modulo arithmetic incorrectly and it's been there for a while.
+* Removed a bug which would affect initial synchronisation if a `FLUSH` command was received from the player at an inopportune time.
+* Added code to do calculations involving the `audio_backend_latency_offset_in_seconds` and `audio_backend_silent_lead_in_time` settings correctly. Many thanks to [Tucker Kern](https://github.com/mill1000) for discovering a number of bugs associated with this and for [proposing a solution](https://github.com/mikebrady/shairport-sync/pull/1001). This prompted a closer investigation and a number of further improvements were made, and a few "hostages to fortune" removed.
+* The DACP ID looks like a 64-bit number expressed in hexadecimal. It is normally quoted with leading zeroes removed, but in the `_dacp._tcp` service string, leading zeros are not removed from the DACP ID. The bug fix removes those leading zeroes. Thanks to [julianc1969](https://github.com/juliandc1969) for tracking down this bug so tenaciously!
+* Make the first output backend in the list of backends the default and make its name the default `output_name`.
+* Fix a flaw in resyncing -- a flush is set up but not triggered.
+* Ensure metadata and cover art are enabled if metadata support is included at compilation.
+* Set convolution defaults even if no configuration file is found.
+* Handle the `active_remote_id` token as a string rather than an unsigned 32-bit number --  it seems ROON uses a longer character sequence.
+
+**Enhancements**
+* Added the strings `-alac` and `-jack` to the the version string returned by the  `-V` command line option if Apple ALAC decoder support and Jack Audio support are included respectively.
+* Cleaned up and simplified the code that handles `FLUSH` requests coming from the player. (Debug messages are still a little verbose.)
+* Improved timing estimation. Shairport Sync has been using linear least-squares regression to estimate timing drift between the (remote) source clock and the local clock. This technique is now extended to provide an estimate of the remote-to-local clock difference itself. (The remote-to-local clock difference is used to remap the timing of audio frames from the remote device's clock to the local clock.)
+
+  Timing drift estimates are now saved when a sessions ends, keyed to the client IP number. When a new session starts from that IP number, the stored estimate is used until a new estimate can be generated from the new session.
+
+  In practice, the timing techniques in use up to now have been very accurate, but this should result in slightly smoother rates of correction. 
+* Tidied up the creation and initial opening of pipes. Suppress repeated pipe-opening error messages.
+* Tidied up warnings and fatal error messages when log verbosity is zero.
+* Cleaned up the code that provides a silent lead-in to play on a back end without synchronisation, e.g. a pipe or `stdout`.
+* Added in commented-out code to check the timeliness of the release of audio to a back end without synchronisation, e.g. a pipe or `stdout`. TL;DR – so long as the back end does not block, frames will be released to it not more than one packet (352 frames) late.
+* Logs and statistics can now be directed to the system log (default), `stdout`, `stderr` or to a file or pipe of your choice using a new setting, `log_output_to` in the `diagnostics` section of the configuration file. This is very useful when the system log is disabled or diverted.
+* Audio data from the `pipe` back end and metadata from the metadata pipe are now written using standard blocking `write` commands rather than a slightly complex non-blocking write function. Pipes are now opened in non-blocking mode and changed to blocking mode when successfully opened.
+* Add a default name for the pipe backend: `/tmp/shairport-sync-audio`.
+* Separate threads are now used for each metadata subsystem. Until now, all metadata was processed on a single thread. This included writing to the metadata pipe and the multicast stream and supplying metadata for the `mqtt` interface and for the `dbus` and `MPRIS` interfaces. Unfortunately, that meant that a problem with any one of these subsystems could propagate into the others. Now they all run on separate threads. If one thread blocks, it will not interfere with the other subsystems.
+* Cleaned up and improved the code to synchronise the first frame of audio. This should result in more accurate and reliable initial synchronisation, usually to under a millisecond, and often to within 20 or 30 microseconds. Syncronisation should improve even when the silent lead-in time is as short as 0.3 seconds or when the `audio_backend_latency_offset_in_seconds` is as much as -1.7 seconds, i.e. when only 0.3 seconds of latency are left when the latency would normally be 2.0 seconds.
+* Cleaned up some confused uses of modulo arithmetic.
+* Cleaned up the allocation of memory for gathering running statistics – the heap is now used instead of the stack.
+* Cleaned up the display of statistics for backends that do not implement active synchronisation, e.g. the `pipe` and `STDOUT` back ends.
+* Cleaned up the `audio_backend_silent_lead_in_time` setting by adding an `"auto"` setting.
+* Improved synchronisation accuracy with short silence lead-ins.
+* While a player is active, the DACP port number to which to send remote commands should be broadcast over ZEROCONF/Bonjour. However, if that information is not available, Shairport Sync will now check for it every two seconds.
+* The timing software in the `sndio` backend does some extra sanity checking on certain time estimates, it may help a little when running on virtual machines.
+* Open metadata and audio pipes with 666 permissions to allow them to be shared by other applications.
+
 Version 3.3.6
 ====
 **New Features**

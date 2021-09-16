@@ -302,7 +302,6 @@ typedef struct {
   char *airplay_device_id; // for the Bonjour advertisement and the GETINFO PList
   char *airplay_pin;       // non-NULL, 4 char PIN, if required for pairing
   char *airplay_pi;        // UUID in the Bonjour advertisement and the GETINFO Plist
-  char *airplay_gid;       // UUID in the Bonjour advertisement -- initially the same as the pi
 #endif
 } shairport_cfg;
 
@@ -379,7 +378,7 @@ double flat_vol2attn(double vol, long max_db, long min_db);
 // dB), return an attenuation depending on the transfer function
 double vol2attn(double vol, long max_db, long min_db);
 
-// return a monolithic (always increasing) time in nanoseconds
+// return a time in nanoseconds
 // uint64_t get_absolute_time_in_fp(void); // obselete
 uint64_t get_absolute_time_in_ns(void);
 

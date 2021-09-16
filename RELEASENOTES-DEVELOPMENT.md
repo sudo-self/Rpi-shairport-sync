@@ -1,17 +1,56 @@
-Version 4.0-dev
+Version 4.0-dev-308-g23da206
+====
+#### Bug Fixes
+- Restore logging to `syslog`.
+
+Version 4.0-dev-303-g9074069
+====
+#### New Features
+- An initial [PipeWire](https://pipewire.org) backend, with thanks to [Lukas Rusak](https://github.com/lrusak). Use the `--with-pw` configuration flag at the `./configure...` stage to include support.
+
+#### Bug Fixes
+- Fix a bug when using the `tinysvcmdns` mDNS implementation, with thanks to [fesc2000](https://github.com/fesc2000).
+- When an unrecognised SETUP message is received, just ignore it and put a warning in the log. Remove a redundant `client_setup_plist` data item from the `conn` data structure.
+
+#### Enhancements
+- Shairport Sync no longer needs to be in the same directory as NQPTP during compilation.
+- Add Docker automations -- thanks to [Charles Omer](https://github.com/charlesomer).
+- Add Issue management automations -- thanks to [Charles Omer](https://github.com/charlesomer).
+- Reconnect the DACP scanner for AirPlay 2. (It still isn't useful, unfortunately.)
+- Add initial support to allow dynamic modification of Rendezvous advertisements.
+- Simplify some UFW suggestions in the Troubleshooting Guide.
+- Merge some documentation changes from the `master` branch.
+- Add information to the Car Install Guide about improving boot times, thanks to [vasilisvg](https://github.com/vasilisvg)
+
+Version 4.0-dev-185-g0c02ee2
+====
+
+#### New Features
+- **Home App Integration** An AirPlay 2 build of Shairport Sync now offers limited integration with the Home app. Specifically, a Shairport Sync AirPlay 2 instance can now be added as a speaker to the Home app. Thanks to [ckdo](https://github.com/ckdo) and [ejurgensen](https://github.com/ejurgensen) for figuring this out and for coding it up. It means that some Siri interaction is possible.
+- **Automated Docker Builds** Thanks to the work of [Charles Omer](https://github.com/charlesomer), Docker builds on the `development` branch should appear from time to time on the [Docker Hub](https://hub.docker.com/r/mikebrady/shairport-sync).
+
+#### Bug Fixes
+- [Crashing bug fix](https://github.com/mikebrady/nqptp/blob/main/RELEASE_NOTES.md) in `nqptp` -- thanks to [ste94pz](https://github.com/ste94pz).
+- Honour the `max_volume_db` setting even when `ignore_volume_control` is true. Note that dithering is enabled if software attenuation is needed.
+
+#### Other Changes
+- Spell out `Shairport Sync` instead of `SPS` in a few places.
+- Clang format some source files.
+
+Version 4.0-dev-153-g9ccde50
 ====
 
 Big Update
 ----
-Version 4 brings limited AirPlay 2 functionality to Shairport Sync. 
+Version 4 brings [limited AirPlay 2 functionality](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md) to Shairport Sync. 
 
-For more information about AirPlay 2, including acknowledgements, please visit [AIRPLAY2.md].
+For information about AirPlay 2, including acknowledgements, please visit [AIRPLAY2.md](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md).
 
 #### Known Issues
 - In the AirPlay 2 build, a crash can occur occasionally when the player is being selected. If you can get this to happen reliably, please let us know.
 
-Warning
-----
+#### Warning
+
 1. Big changes have been made to the codebase to enable it to be used to build either as the "classic" AirPlay 1 player or as a new AirPlay 2 player. These changes have probably introduced bugs into the classic AirPlay 1 build.
 2. There is lots we don't know about AirPlay 2. This can result in incorrect behaviour. Watch out for very high volume levels, especially if you have a powerful audio system.
 3. This is a `development` branch and is probably more buggy than usual. Normal support will not be provided -- instead, we will be interested in bug reports that help improve the program. You need to be adept with Linux or FreeBSD to get involved.

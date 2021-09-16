@@ -281,7 +281,7 @@ calculate_M(enum hash_alg alg, NGConstant *ng, unsigned char *dest, const char *
 
   for (i=0; i < hash_len; i++ )
     H_xor[i] = H_N[i] ^ H_g[i];
-    
+
   hash_init( alg, &ctx );
 
   hash_update( alg, &ctx, H_xor, hash_len );
@@ -410,7 +410,7 @@ srp_user_start_authentication(struct SRPUser *usr, const char **username,
 //  BN_hex2bn(&(usr->a), "D929DFB605687233C9E9030C2280156D03BDB9FDCF3CCE3BC27D9CCFCB5FF6A1");
 
   bnum_modexp(usr->A, usr->ng->g, usr->a, usr->ng->N);
-    
+
   *len_A   = bnum_num_bytes(usr->A);
   *bytes_A = malloc(*len_A);
 
@@ -515,7 +515,7 @@ static int
 srp_create_salted_verification_key(enum hash_alg alg,
                                    SRP_NGType ng_type, const char *username,
                                    const unsigned char *password, int len_password,
-                                   unsigned char **bytes_s, int *len_s, 
+                                   unsigned char **bytes_s, int *len_s,
                                    unsigned char **bytes_v, int *len_v,
                                    const char *n_hex, const char *g_hex )
 {
@@ -2764,7 +2764,13 @@ static int
 server_list_cb(uint8_t public_key[crypto_sign_PUBLICKEYBYTES], const char *device_id, void *cb_arg)
 {
   pair_tlv_values_t *response = cb_arg;
+  pair_tlv_t *previous_id;
   uint8_t permissions = 1; // Means admin (TODO don't hardcode - let caller set)
+
+  // If this isn't the first iteration (item) then we must add a separator
+  previous_id = pair_tlv_get_value(response, TLVType_Identifier);
+  if (previous_id)
+    pair_tlv_add_value(response, TLVType_Separator, NULL, 0);
 
   pair_tlv_add_value(response, TLVType_Identifier, (unsigned char *)device_id, strlen(device_id));
   pair_tlv_add_value(response, TLVType_PublicKey, public_key, crypto_sign_PUBLICKEYBYTES);

@@ -1,7 +1,7 @@
 /*
  * libalsa output driver. This file is part of Shairport.
  * Copyright (c) Muffinman, Skaman 2013
- * Copyright (c) Mike Brady 2014 -- 2019
+ * Copyright (c) Mike Brady 2014 -- 2021
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -438,7 +438,7 @@ int actual_open_alsa_device(int do_auto_setup) {
     } else {
       char errorstring[1024];
       strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
-      warn("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring,
+      die("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring,
            alsa_out_dev);
     }
     return ret;
@@ -1667,7 +1667,7 @@ int do_play(void *buf, int samples) {
       }
 
       snd_pcm_state_t prior_state = state; // keep this for afterwards....
-      debug(3, "alsa: write %d frames.", samples);
+      // debug(3, "alsa: write %d frames.", samples);
       ret = alsa_pcm_write(alsa_handle, buf, samples);
       if (ret == samples) {
         stall_monitor_frame_count += samples;

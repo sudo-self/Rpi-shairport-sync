@@ -41,7 +41,7 @@
 #include <inttypes.h>
 #include <unistd.h>
 
-#include "../nqptp/nqptp-shm-structures.h"
+#include "nqptp-shm-structures.h"
 #include "ptp-utilities.h"
 
 int shm_fd;

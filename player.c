@@ -1760,27 +1760,25 @@ void *player_thread_func(void *arg) {
                                                             // successive rtptimes, at worst
 
   conn->output_sample_ratio = config.output_rate / conn->input_rate;
-  
-  
-// Sign extending rtptime calculations to 64 bit is needed from time to time.
 
-// The standard rtptime is unsigned 32 bits,
-// so you can do modulo 2^32 difference calculations
-// and get a signed result simply by typing the result as a signed 32-bit number.
+  // Sign extending rtptime calculations to 64 bit is needed from time to time.
 
-// So long as you can be sure the numbers are within 2^31 of each other,
-// the sign of the result calculated in this way indicates the order of the operands.
-// For example, if you subtract a from b and the result is positive, you can conclude
-// b is the same as or comes after a in module 2^32 order.
+  // The standard rtptime is unsigned 32 bits,
+  // so you can do modulo 2^32 difference calculations
+  // and get a signed result simply by typing the result as a signed 32-bit number.
 
-// We want to do the same with the rtptime calculations for multiples of
-// the rtptimes (1, 2, 4 or 8 times), and we want to do this in signed 64-bit/
-// Therefore we need to sign extend these modulo 2^32, 2^33, 2^34, or 2^35 bit unsigned
-// numbers on the same basis.
+  // So long as you can be sure the numbers are within 2^31 of each other,
+  // the sign of the result calculated in this way indicates the order of the operands.
+  // For example, if you subtract a from b and the result is positive, you can conclude
+  // b is the same as or comes after a in module 2^32 order.
 
-// That is what the output_rtptime_sign_bit, output_rtptime_mask, output_rtptime_mask_not and
-// output_rtptime_sign_mask are for -- see later, calculating the sync error.
+  // We want to do the same with the rtptime calculations for multiples of
+  // the rtptimes (1, 2, 4 or 8 times), and we want to do this in signed 64-bit/
+  // Therefore we need to sign extend these modulo 2^32, 2^33, 2^34, or 2^35 bit unsigned
+  // numbers on the same basis.
 
+  // That is what the output_rtptime_sign_bit, output_rtptime_mask, output_rtptime_mask_not and
+  // output_rtptime_sign_mask are for -- see later, calculating the sync error.
 
   int output_rtptime_sign_bit;
   switch (conn->output_sample_ratio) {
@@ -2021,7 +2019,6 @@ void *player_thread_func(void *arg) {
 #ifdef CONFIG_AIRPLAY_2
   }
 #endif
-
 
 #ifdef CONFIG_AIRPLAY_2
   if (conn->timing_type == ts_ntp) {
@@ -2940,168 +2937,169 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
   // if it's both, we haven't decided whether hw or sw should be on top
   // we have to consider the settings ignore_volume_control and mute.
 
-    if (airplay_volume == -144.0) {
+  if (airplay_volume == -144.0) {
 
-      if ((config.output->mute) && (config.output->mute(1) == 0))
-        debug(2,
-              "player_volume_without_notification: volume mode is %d, airplay_volume is %f, "
-              "hardware mute is enabled.",
-              volume_mode, airplay_volume);
-      else {
-        conn->software_mute_enabled = 1;
-        debug(2,
-              "player_volume_without_notification: volume mode is %d, airplay_volume is %f, "
-              "software mute is enabled.",
-              volume_mode, airplay_volume);
-      }
-
-    } else {
-      int32_t max_db = 0, min_db = 0;
-      switch (volume_mode) {
-      case vol_hw_only:
-        max_db = hw_max_db;
-        min_db = hw_min_db;
-        break;
-      case vol_sw_only:
-        max_db = sw_max_db;
-        min_db = sw_min_db;
-        break;
-      case vol_both:
-        // debug(1, "dB range passed is hw: %d, sw: %d, total: %d", hw_max_db - hw_min_db,
-        //      sw_max_db - sw_min_db, (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db));
-        max_db =
-            (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db); // this should be the range requested
-        min_db = 0;
-        break;
-      default:
-        debug(1, "player_volume_without_notification: error: not in a volume mode");
-        break;
-      }
-      double scaled_attenuation = max_db;
-      if (config.ignore_volume_control == 0) {
-        if (config.volume_control_profile == VCP_standard)
-          scaled_attenuation = vol2attn(airplay_volume, max_db, min_db); // no cancellation points
-        else if (config.volume_control_profile == VCP_flat)
-          scaled_attenuation =
-              flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
-        else
-          debug(1, "player_volume_without_notification: unrecognised volume control profile");
-      }
-
-      // so here we have the scaled attenuation. If it's for hw or sw only, it's straightforward.
-      double hardware_attenuation = 0.0;
-      double software_attenuation = 0.0;
-
-      switch (volume_mode) {
-      case vol_hw_only:
-        hardware_attenuation = scaled_attenuation;
-        break;
-      case vol_sw_only:
-        software_attenuation = scaled_attenuation;
-        break;
-      case vol_both:
-        // here, we now the attenuation required, so we have to apportion it to the sw and hw mixers
-        // if we give the hw priority, that means when lowering the volume, set the hw volume to its
-        // lowest
-        // before using the sw attenuation.
-        // similarly, if we give the sw priority, that means when lowering the volume, set the sw
-        // volume to its lowest
-        // before using the hw attenuation.
-        // one imagines that hw priority is likely to be much better
-        // if (config.volume_range_hw_priority) {
-        if (config.volume_range_hw_priority != 0) {
-          // hw priority
-          if ((sw_max_db - sw_min_db) > scaled_attenuation) {
-            software_attenuation = sw_min_db + scaled_attenuation;
-            hardware_attenuation = hw_min_db;
-          } else {
-            software_attenuation = sw_max_db;
-            hardware_attenuation = hw_min_db + scaled_attenuation - (sw_max_db - sw_min_db);
-          }
-        } else {
-          // sw priority
-          if ((hw_max_db - hw_min_db) > scaled_attenuation) {
-            hardware_attenuation = hw_min_db + scaled_attenuation;
-            software_attenuation = sw_min_db;
-          } else {
-            hardware_attenuation = hw_max_db;
-            software_attenuation = sw_min_db + scaled_attenuation - (hw_max_db - hw_min_db);
-          }
-        }
-        break;
-      default:
-        debug(1, "player_volume_without_notification: error: not in a volume mode");
-        break;
-      }
-
-      if (((volume_mode == vol_hw_only) || (volume_mode == vol_both)) && (config.output->volume)) {
-        config.output->volume(hardware_attenuation); // otherwise set the output to the lowest value
-        // debug(1,"Hardware attenuation set to %f for airplay volume of
-        // %f.",hardware_attenuation,airplay_volume);
-        if (volume_mode == vol_hw_only)
-          conn->fix_volume = 0x10000;
-      }
-
-      if ((volume_mode == vol_sw_only) || (volume_mode == vol_both)) {
-        double temp_fix_volume = 65536.0 * pow(10, software_attenuation / 2000);
-        if (config.ignore_volume_control == 0)
-          debug(2,"Software attenuation set to %f, i.e %f out of 65,536, for airplay volume of %f",software_attenuation,temp_fix_volume,airplay_volume);
-        else
-          debug(2,"Software attenuation set to %f, i.e %f out of 65,536. Volume control is ignored.",software_attenuation,temp_fix_volume);         
-
-        conn->fix_volume = temp_fix_volume;
-
-        // if (config.loudness)
-        loudness_set_volume(software_attenuation / 100);
-      }
-
-      if (config.logOutputLevel) {
-        inform("Output Level set to: %.2f dB.", scaled_attenuation / 100.0);
-      }
-
-#ifdef CONFIG_METADATA
-      // here, send the 'pvol' metadata message when the airplay volume information
-      // is being used by shairport sync to control the output volume
-      char dv[128];
-      memset(dv, 0, 128);
-      if (volume_mode == vol_both) {
-        // normalise the maximum output to the hardware device's max output
-        snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume,
-                 (scaled_attenuation - max_db + hw_max_db) / 100.0,
-                 (min_db - max_db + hw_max_db) / 100.0, (max_db - max_db + hw_max_db) / 100.0);
-      } else {
-        snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, scaled_attenuation / 100.0,
-                 min_db / 100.0, max_db / 100.0);
-      }
-      send_ssnc_metadata('pvol', dv, strlen(dv), 1);
-#endif
-
-      if (config.output->mute)
-        config.output->mute(0);
-      conn->software_mute_enabled = 0;
-
+    if ((config.output->mute) && (config.output->mute(1) == 0))
       debug(2,
-            "player_volume_without_notification: volume mode is %d, airplay volume is %f, "
-            "software_attenuation: %f, hardware_attenuation: %f, muting "
-            "is disabled.",
-            volume_mode, airplay_volume, software_attenuation, hardware_attenuation);
+            "player_volume_without_notification: volume mode is %d, airplay_volume is %f, "
+            "hardware mute is enabled.",
+            volume_mode, airplay_volume);
+    else {
+      conn->software_mute_enabled = 1;
+      debug(2,
+            "player_volume_without_notification: volume mode is %d, airplay_volume is %f, "
+            "software mute is enabled.",
+            volume_mode, airplay_volume);
     }
 
- /*
-  }
+  } else {
+    int32_t max_db = 0, min_db = 0;
+    switch (volume_mode) {
+    case vol_hw_only:
+      max_db = hw_max_db;
+      min_db = hw_min_db;
+      break;
+    case vol_sw_only:
+      max_db = sw_max_db;
+      min_db = sw_min_db;
+      break;
+    case vol_both:
+      // debug(1, "dB range passed is hw: %d, sw: %d, total: %d", hw_max_db - hw_min_db,
+      //      sw_max_db - sw_min_db, (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db));
+      max_db =
+          (hw_max_db - hw_min_db) + (sw_max_db - sw_min_db); // this should be the range requested
+      min_db = 0;
+      break;
+    default:
+      debug(1, "player_volume_without_notification: error: not in a volume mode");
+      break;
+    }
+    double scaled_attenuation = max_db;
+    if (config.ignore_volume_control == 0) {
+
+      if (config.volume_control_profile == VCP_standard)
+        scaled_attenuation = vol2attn(airplay_volume, max_db, min_db); // no cancellation points
+      else if (config.volume_control_profile == VCP_flat)
+        scaled_attenuation =
+            flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
+      else
+        debug(1, "player_volume_without_notification: unrecognised volume control profile");
+    }
+    // so here we have the scaled attenuation. If it's for hw or sw only, it's straightforward.
+    double hardware_attenuation = 0.0;
+    double software_attenuation = 0.0;
+
+    switch (volume_mode) {
+    case vol_hw_only:
+      hardware_attenuation = scaled_attenuation;
+      break;
+    case vol_sw_only:
+      software_attenuation = scaled_attenuation;
+      break;
+    case vol_both:
+      // here, we now the attenuation required, so we have to apportion it to the sw and hw mixers
+      // if we give the hw priority, that means when lowering the volume, set the hw volume to its
+      // lowest
+      // before using the sw attenuation.
+      // similarly, if we give the sw priority, that means when lowering the volume, set the sw
+      // volume to its lowest
+      // before using the hw attenuation.
+      // one imagines that hw priority is likely to be much better
+      // if (config.volume_range_hw_priority) {
+      if (config.volume_range_hw_priority != 0) {
+        // hw priority
+        if ((sw_max_db - sw_min_db) > scaled_attenuation) {
+          software_attenuation = sw_min_db + scaled_attenuation;
+          hardware_attenuation = hw_min_db;
+        } else {
+          software_attenuation = sw_max_db;
+          hardware_attenuation = hw_min_db + scaled_attenuation - (sw_max_db - sw_min_db);
+        }
+      } else {
+        // sw priority
+        if ((hw_max_db - hw_min_db) > scaled_attenuation) {
+          hardware_attenuation = hw_min_db + scaled_attenuation;
+          software_attenuation = sw_min_db;
+        } else {
+          hardware_attenuation = hw_max_db;
+          software_attenuation = sw_min_db + scaled_attenuation - (hw_max_db - hw_min_db);
+        }
+      }
+      break;
+    default:
+      debug(1, "player_volume_without_notification: error: not in a volume mode");
+      break;
+    }
+
+    if (((volume_mode == vol_hw_only) || (volume_mode == vol_both)) && (config.output->volume)) {
+      config.output->volume(hardware_attenuation); // otherwise set the output to the lowest value
+      // debug(1,"Hardware attenuation set to %f for airplay volume of
+      // %f.",hardware_attenuation,airplay_volume);
+      if (volume_mode == vol_hw_only)
+        conn->fix_volume = 0x10000;
+    }
+
+    if ((volume_mode == vol_sw_only) || (volume_mode == vol_both)) {
+      double temp_fix_volume = 65536.0 * pow(10, software_attenuation / 2000);
+
+      if (config.ignore_volume_control == 0)
+        debug(2, "Software attenuation set to %f, i.e %f out of 65,536, for airplay volume of %f",
+              software_attenuation, temp_fix_volume, airplay_volume);
+      else
+        debug(2, "Software attenuation set to %f, i.e %f out of 65,536. Volume control is ignored.",
+              software_attenuation, temp_fix_volume);
+
+      conn->fix_volume = temp_fix_volume;
+
+      // if (config.loudness)
+      loudness_set_volume(software_attenuation / 100);
+    }
+
+    if (config.logOutputLevel) {
+      inform("Output Level set to: %.2f dB.", scaled_attenuation / 100.0);
+    }
 
 #ifdef CONFIG_METADATA
-  else {
     // here, send the 'pvol' metadata message when the airplay volume information
     // is being used by shairport sync to control the output volume
     char dv[128];
     memset(dv, 0, 128);
-    snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, 0.0, 0.0, 0.0);
+    if (volume_mode == vol_both) {
+      // normalise the maximum output to the hardware device's max output
+      snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume,
+               (scaled_attenuation - max_db + hw_max_db) / 100.0,
+               (min_db - max_db + hw_max_db) / 100.0, (max_db - max_db + hw_max_db) / 100.0);
+    } else {
+      snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, scaled_attenuation / 100.0,
+               min_db / 100.0, max_db / 100.0);
+    }
     send_ssnc_metadata('pvol', dv, strlen(dv), 1);
-  }
 #endif
-*/
 
+    if (config.output->mute)
+      config.output->mute(0);
+    conn->software_mute_enabled = 0;
+
+    debug(2,
+          "player_volume_without_notification: volume mode is %d, airplay volume is %f, "
+          "software_attenuation: %f, hardware_attenuation: %f, muting "
+          "is disabled.",
+          volume_mode, airplay_volume, software_attenuation, hardware_attenuation);
+  }
+  /*
+    }
+
+  #ifdef CONFIG_METADATA
+    else {
+      // here, send the 'pvol' metadata message when the airplay volume information
+      // is being used by shairport sync to control the output volume
+      char dv[128];
+      memset(dv, 0, 128);
+      snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, 0.0, 0.0, 0.0);
+      send_ssnc_metadata('pvol', dv, strlen(dv), 1);
+    }
+  #endif
+  */
   // here, store the volume for possible use in the future
   config.airplay_volume = airplay_volume;
   debug_mutex_unlock(&conn->volume_control_mutex, 3);

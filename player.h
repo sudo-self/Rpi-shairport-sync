@@ -101,6 +101,15 @@ typedef struct {
   audio_stream_type type;
 } stream_cfg;
 
+// the following is used even when not built for AirPlay 2
+typedef enum {
+  unspecified_stream_category = 0,
+  ptp_stream,
+  ntp_stream,
+  remote_control_stream
+} airplay_stream_c; // "c" for category
+
+
 #ifdef CONFIG_AIRPLAY_2
 typedef enum { ts_ntp, ts_ptp } timing_t;
 typedef enum { ap_1, ap_2 } airplay_t;
@@ -146,7 +155,6 @@ typedef struct {
   uint32_t maximum_latency;  // set if an a=max-latency: line appears in the ANNOUNCE message; zero
                              // otherwise
   int software_mute_enabled; // if we don't have a real mute that we can use
-
   int fd;
   int authorized;   // set if a password is required and has been supplied
   char *auth_nonce; // the session nonce, if needed
@@ -287,7 +295,12 @@ typedef struct {
 
   clock_status_t clock_status;
 
+  airplay_stream_c
+      airplay_stream_category; // is it a remote control stream or a normal "full service" stream? (will be unspecified if not build for AirPlay 2)
+
 #ifdef CONFIG_AIRPLAY_2
+  char *airplay_gid; // UUID in the Bonjour advertisement -- if NULL, the group UUID is the same as
+                     // the pi UUID
   airplay_t airplay_type; // are we using AirPlay 1 or AirPlay 2 protocol on this connection?
   airplay_stream_t airplay_stream_type; // is it realtime audio or buffered audio...
   timing_t timing_type;                 // are we using NTP or PTP on this connection?
@@ -328,13 +341,13 @@ typedef struct {
   uint16_t local_realtime_audio_port;
   uint16_t local_buffered_audio_port;
 
-  plist_t client_setup_plist;
   uint64_t audio_format;
   uint64_t compression;
   unsigned char *session_key; // needs to be free'd at the end
   uint64_t frames_packet;
   uint64_t type;
-  uint64_t networkTimeTimelineID; // the clock ID used by the player
+  uint64_t networkTimeTimelineID;   // the clock ID used by the player
+  uint8_t groupContainsGroupLeader; // information coming from the SETUP
 
   char *ap2_timing_peer_list_message;
 

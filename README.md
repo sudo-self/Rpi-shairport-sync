@@ -7,17 +7,17 @@ Shairport Sync
 
 AirPlay 2
 ---
-For the latest on AirPlay 2, please visit [AIRPLAY2.md](https://github.com/aillwee/shairport-sync/blob/development/AIRPLAY2.md).
+For the latest on AirPlay 2, please visit [AIRPLAY2.md](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md).
 
 Guides
 ---
-* A brief guide to building classic Shairport Sync (for AirPlay 1) is available at [BUILDFORAP1.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP1.md).
-* A guide to building Shairport Sync for AirPlay 2 on Linux is available at [BUILDFORAP2.md](https://github.com/aillwee/shairport-sync/blob/development/BUILDFORAP2.md).
+* A brief guide to building classic Shairport Sync (for AirPlay 1) is available at [BUILDFORAP1.md](https://github.com/mikebrady/shairport-sync/blob/development/BUILDFORAP1.md).
+* A guide to building Shairport Sync for AirPlay 2 on Linux is available at [BUILDFORAP2.md](https://github.com/mikebrady/shairport-sync/blob/development/BUILDFORAP2.md).
 * A guide to building for AirPlay 2 on FreeBSD is forthcoming.
 
 More Information
 ---
-For more information, please visit [MOREINFO.md](https://github.com/aillwee/shairport-sync/blob/development/MOREINFO.md).
+For more information, please visit [MOREINFO.md](https://github.com/mikebrady/shairport-sync/blob/development/MOREINFO.md).
 
 Acknowledgements
 ---
@@ -26,6 +26,6 @@ For the development of AirPlay 2 support, special thanks are due to:
 * [ejurgensen](https://github.com/ejurgensen) for advice and [code to deal with pairing and encryption](https://github.com/ejurgensen/pair_ap).
 * [ckdo](https://github.com/ckdo) for pointing the way, particularly with pairing and encryption protocols, with a [functional Python implementation](https://github.com/ckdo/airplay2-receiver) of AirPlay 2.
 * [invano](https://github.com/invano) for showing what might be possible and for initial Python development.
-* [Charles Omer](https://github.com/charlesomer) for Docker automation (forthcoming), testing, encouragement, enthusiasm.
+* [Charles Omer](https://github.com/charlesomer) for Docker automation, repository management automation, testing, encouragement, enthusiasm.
 
 And of course, thanks to everyone who has supported and improved Shairport Sync over the years.

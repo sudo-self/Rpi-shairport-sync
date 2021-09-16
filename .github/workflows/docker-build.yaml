@@ -6,11 +6,11 @@ name: Build and push docker image based on commit to specified branches.
 
 on:
   push:
-    branches: [ master, development, charles-dev ]
+    branches: [ development ]
 
 env:
   DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
- 
+
 jobs:
   main:
     runs-on: ubuntu-latest
@@ -19,18 +19,18 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-          
+
       - name: Set SHAIRPORT_SYNC_BRANCH env.
         run: echo "SHAIRPORT_SYNC_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
 
       - name: Determine NQPTP env (part 1).
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
         run: echo "NQPTP_BRANCH=development" >> $GITHUB_ENV
-      
+
       - name: Determine NQPTP env (part 2).
         if: ${{ env.SHAIRPORT_SYNC_BRANCH != 'development' }}
         run: echo "NQPTP_BRANCH=main" >> $GITHUB_ENV
-        
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 

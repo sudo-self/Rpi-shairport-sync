@@ -1,5 +1,5 @@
 Name:           shairport-sync
-Version:        3.3.7
+Version:        3.3.8
 Release:        1%{?dist}
 Summary:        AirTunes emulator. Multi-Room with Audio Synchronisation
 # MIT licensed except for tinysvcmdns under BSD, 
@@ -66,29 +66,31 @@ getent passwd %{name} &> /dev/null || useradd --system -c "%{name} User" \
 %license LICENSES
 
 %changelog
-* Tue Nov 1 2020 Mike Brady <mikebradydublin@icloud.com) 3.3.7
+* Mon Apr 26 2021 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.3.8
+- Bug fixes and enhancements.
+* Tue Nov 1 2020 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.3.7
 - Jack resampling, bug fixes and additions to the pipe and stdout backends, to metadata and to the D-Bus and MPRIS interfaces.
-* Thu Feb 20 2020 Mike Brady <mikebradydublin@icloud.com) 3.3.6
+* Thu Feb 20 2020 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.3.6
 - Jack resampling, bug fixes and additions to the D-Bus and MPRIS interfaces.
-* Wed Nov 13 2019 Mike Brady <mikebrady@eircom.net) 3.3.5
+* Wed Nov 13 2019 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.3.5
 - Bug fixes and additions to the D-Bus interface.
-* Mon Oct 28 2019 Mike Brady <mikebrady@eircom.net) 3.3.4
+* Mon Oct 28 2019 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.3.4
 - Bug fixes and minor enhancements.
-* Fri Jul 26 2019 Mike Brady <mikebrady@eircom.net) 3.3.2
+* Fri Jul 26 2019 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.3.2
 - Minor bug fixes.
-* Wed Jun 05 2019 Mike Brady <mikebrady@eircom.net) 3.3.1
+* Wed Jun 05 2019 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.3.1
 - Bug fixes.
-* Fri May 24 2019 Mike Brady <mikebrady@eircom.net) 3.3
+* Fri May 24 2019 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.3
 - Audio enhancements, stability improvements, MQTT and Jack Audio interfaces.
-* Sun Oct 14 2018 Mike Brady <mikebrady@eircom.net) 3.2.2
+* Sun Oct 14 2018 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.2.2
 - Compatibility with iOS 12 and mac OS Mojave AirPlay latencies. Minor bug fix.
-* Fri Jul 13 2018 Mike Brady <mikebrady@eircom.net) 3.2.1
+* Fri Jul 13 2018 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.2.1
 - Stability improvements when soxr interpolation is chosen.
-* Mon Jul 09 2018 Mike Brady <mikebrady@eircom.net) 3.2
+* Mon Jul 09 2018 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.2
 - New D-Bus and MPRIS Interfaces, Bug Fixes and Enhancements.
-* Thu Dec 21 2017 Mike Brady <mikebrady@eircom.net> 3.1.7
+* Thu Dec 21 2017 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.1.7
 - Bug fix for unexpectedly resuming play at full volume from iOS 11.2 and macOS 10.3.2.
-* Mon Dec 11 2017 Mike Brady <mikebrady@eircom.net> 3.1.5
+* Mon Dec 11 2017 Mike Brady <4265913+mikebrady@users.noreply.github.com> 3.1.5
 - Bug fixes and better compatibility with iOS 11.2 and mac OS 10.13.2.
 - Better AirPlay synchronisation.
 * Wed Sep 13 2017 Bill Peck <bpeck@redhat.com> 3.1.2-1
@@ -115,27 +117,27 @@ getent passwd %{name} &> /dev/null || useradd --system -c "%{name} User" \
 - new optional loudness and convolution filters
 - improvements in non-synchronised backends
 - enhancements, stability improvements and bug fixes
-* Fri Feb 24 2017 Mike Brady <mikebrady@eircom.net> 2.8.6
+* Fri Feb 24 2017 Mike Brady <4265913+mikebrady@users.noreply.github.com> 2.8.6
 - Many changes including 8- 16- 24- and 32-bit output
-* Fri Oct 21 2016 Mike Brady <mikebrady@eircom.net> 2.8.6
+* Fri Oct 21 2016 Mike Brady <4265913+mikebrady@users.noreply.github.com> 2.8.6
 - Advertise self as ShairportSync rather than AirPort device 2.8.6
-* Sun Sep 25 2016 Mike Brady <mikebrady@eircom.net> 2.8.5
+* Sun Sep 25 2016 Mike Brady <4265913+mikebrady@users.noreply.github.com> 2.8.5
 - Bug fixes and small enhancements 2.8.5
-* Sat May 28 2016 Mike Brady <mikebrady@eircom.net> 2.8.4
+* Sat May 28 2016 Mike Brady <4265913+mikebrady@users.noreply.github.com> 2.8.4
 - Bug fixes and a few small enhancements 2.8.4
-* Fri Apr 15 2016 Mike Brady <mikebrady@eircom.net> 2.8.2
+* Fri Apr 15 2016 Mike Brady <4265913+mikebrady@users.noreply.github.com> 2.8.2
 - Stability improvements, bug fixes and a few special-purpose settings 2.8.2
-* Wed Mar 02 2016 Mike Brady <mikebrady@eircom.net> 2.8.1
+* Wed Mar 02 2016 Mike Brady <4265913+mikebrady@users.noreply.github.com> 2.8.1
 - Stability improvements and important bug fixes 2.8.1
-* Sat Jan 30 2016 Mike Brady <mikebrady@eircom.net> 2.8.0
+* Sat Jan 30 2016 Mike Brady <4265913+mikebrady@users.noreply.github.com> 2.8.0
 - Enhancements and bug fixes 2.8.0
-* Sun Oct 18 2015 Mike Brady <mikebrady@eircom.net> 2.6
+* Sun Oct 18 2015 Mike Brady <4265913+mikebrady@users.noreply.github.com> 2.6
 - Important enhancements and bug fixes 2.6
-* Thu Aug 27 2015 Mike Brady <mikebrady@eircom.net> 2.4.1
+* Thu Aug 27 2015 Mike Brady <4265913+mikebrady@users.noreply.github.com> 2.4.1
 - Minor bug fixes 2.4.1
-* Thu Aug 27 2015 Mike Brady <mikebrady@eircom.net> 2.4
+* Thu Aug 27 2015 Mike Brady <4265913+mikebrady@users.noreply.github.com> 2.4
 - Prepare for stable release 2.4
-* Wed Aug 26 2015 Mike Brady <mikebrady@eircom.net> 2.3.13.1-1
+* Wed Aug 26 2015 Mike Brady <4265913+mikebrady@users.noreply.github.com> 2.3.13.1-1
 - Harmonise release numbers
 * Fri Jul 24 2015 Bill Peck <bill@pecknet.com> 2.3.7-1
 - Initial spec file

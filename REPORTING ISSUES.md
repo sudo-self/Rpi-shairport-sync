@@ -2,21 +2,21 @@
 Reporting Issues and Making Pull Requests
 ====
 
-Pull Requests
-----
-If you would like to contribute to the development of Shairport Sync, please make you changes to the `development` branch and make a pull request.
-
-Changes and additions in the development branch make their way eventually to the `master` branch.
-
 Issue Reports
 ----
-Issue reports are welcome, but before you report an issue, please have a look though the existing [issues](https://github.com/mikebrady/shairport-sync/issues), both open and closed, and check for hints in the [TROUBLESHOOTING](TROUBLESHOOTING.md) page. It would be great to give some details of the device and version of Linux or FreeBSD in use along with the version of Shairport Sync you are using (use `$ shairport-sync -V` to get this). Then, if possible, some diagnostic information from the log or logfile would be useful.
+Issue reports are welcome, but before you report an issue, please have a look though the existing [issues](https://github.com/mikebrady/shairport-sync/issues), both open and closed, and check for hints in the [TROUBLESHOOTING](TROUBLESHOOTING.md) page.
+
+It would be great to give some details of the device and version of Linux or FreeBSD in use along with the version of Shairport Sync you are using. Use:
+```
+$ shairport-sync -V
+```
+Then, if possible, some diagnostic information from the log or logfile would be useful.
 
 If your system uses `systemd`, as most recent Linuxes do, try using:
 ```
 $ sudo systemctl status shairport-sync
 ```
-You might get something lke this:
+You might get something like this:
 ```
 ● shairport-sync.service - Shairport Sync - AirPlay Audio Receiver
    Loaded: loaded (/lib/systemd/system/shairport-sync.service; disabled; vendor preset: enabled)
@@ -40,4 +40,11 @@ If you are pasting in code or a log file, format it as code by preceding it and 
 code or log file entries
 ```
 \`\`\`
+
+Pull Requests
+----
+If you would like to contribute to the development of Shairport Sync, please make you changes to the `development` branch and make a pull request.
+
+Changes and additions in the development branch make their way eventually to the `master` branch.
+
 
