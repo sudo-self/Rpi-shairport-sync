@@ -1,7 +1,7 @@
 AirPlay 2
 ===
 
-Shairport Sync offers limited AirPlay 2 support for audio sources on iOS devices and Macs. In addition, it partly works if the audio source is a HomePod mini or an Apple TV. It does not work for iTunes on Windows. It has limited integration with the Home app and Siri.
+Shairport Sync offers limited AirPlay 2 support for audio sources on iOS devices, Macs and HomePod minis. It does not work for iTunes on Windows. 
 
 The focus of the development effort has been on getting good audio performance for iOS and Mac. Features outside this focus may be missing or broken. So, for example, remote control doesn't work.
 
@@ -14,32 +14,26 @@ The AirPlay 2 version of Shairport Sync will not work if installed on macOS. Thi
 The AirPlay 2 build requires a good deal of extra library support and may not fit into smaller devices. It also requires more CPU power and more RAM.
 
 ### What Works
-- AirPlay 2 for iOS and Mac players.
+- AirPlay 2 for iOS, HomePod mini and Mac players.
 
 ### What Does Not Work
 - Lossless or High Definition Lossless material is transcoded to AAC before transmission over AirPlay 2. 
 - No Remote Control
-- No Artwork in the Metadata
 - No AirPlay 2 for Windows iTunes
 
 ### What Partly Works
-- Incomplete functionality with Siri and HomeKit
-- Incomplete functionality using AppleTV or HomePod as player.
-   A Shairport Sync player will work -- i.e. it will play -- but the selection button won't persist and the volume can't be set.
+- Incomplete functionality using AppleTV?. (Reports of usage welcome!)
 
 ### Limitations
 - Only a single instance of Shairport Sync can run on a device.
 - The AirPlay 2 version of Shairport Sync will not work if installed on macOS, since `nqptp` can not be installed on macOS.
-
-### Known Issues
-- A crash can occur occasionally when a Shairport Sync player is being selected for output. If you can get this to happen reliably, please let us know.
 
 AirPlay 2 -- What You Need
 ---
 AirPlay 2 support needs a more powerful CPU for decoding and synchronisation and more memory for bigger buffers and larger libraries. Raspberry Pi OS, Ubuntu 20.04 on a VM and Ubuntu 20.04.2 64-bit Server Edition have been used extensively in development, with Alpine Linux and FreeBSD 12.2 being used to a lesser extent.
 
 So, here are some guideline requirements: 
-* Full access, including `root` privileges, to a system at least as powerful as a Raspberry Pi 3.
+* Full access, including `root` privileges, to a system at least as powerful as a Raspberry Pi 2.
 * A fully up-to-date Linux. This is important, as some of the libraries must be the latest available.
 * An audio output, for example an `alsa` device (or `sndio` in FreeBSD). The `stdout` and `pipe` backends continue to work as before. Other backends have not been tested.
 
