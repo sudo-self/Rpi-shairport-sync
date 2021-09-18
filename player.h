@@ -305,7 +305,7 @@ typedef struct {
   airplay_stream_t airplay_stream_type; // is it realtime audio or buffered audio...
   timing_t timing_type;                 // are we using NTP or PTP on this connection?
 
-  pthread_t rtp_event_thread;
+  pthread_t *rtp_event_thread;
   pthread_t rtp_ap2_control_thread;
   pthread_t rtp_realtime_audio_thread;
   pthread_t rtp_buffered_audio_thread;

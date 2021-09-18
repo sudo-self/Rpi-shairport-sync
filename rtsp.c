@@ -2306,8 +2306,10 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
 }
 
 void teardown_phase_one(rtsp_conn_info *conn) {
+  // this can be called more than once on the same connection --
+  // by the player itself but also by the play seesion being killed
   if (conn->player_thread) {
-    player_stop(conn);
+    player_stop(conn); // this nulls the player_thread
     activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
   }
   if (conn->session_key) {
@@ -2318,11 +2320,17 @@ void teardown_phase_one(rtsp_conn_info *conn) {
 
 void teardown_phase_two(rtsp_conn_info *conn) {
   // we are being asked to disconnect
+  // this can be called more than once on the same connection --
+  // by the player itself but also by the play seesion being killed
   debug(1, "Connection %d: TEARDOWN a %s connection.", conn->connection_number,
         get_category_string(conn->airplay_stream_category));
-  debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
-  pthread_cancel(conn->rtp_event_thread);
-  pthread_join(conn->rtp_event_thread, NULL);
+  if (conn->rtp_event_thread) {
+    debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
+    pthread_cancel(*conn->rtp_event_thread);
+    pthread_join(*conn->rtp_event_thread, NULL);
+    free(conn->rtp_event_thread);
+    conn->rtp_event_thread = NULL;
+  }
   debug(1, "Connection %d: TEARDOWN Close Event Socket.", conn->connection_number);
   if (conn->event_socket) {
     close(conn->event_socket);
@@ -2642,8 +2650,14 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             }
 
             debug(1, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number, conn->local_event_port);
+            
+            if (conn->rtp_event_thread != NULL)
+              debug(1, "previous rtp_event_thread allocation not freed, it seems.");
+            conn->rtp_event_thread = malloc(sizeof(pthread_t));
+            if (conn->rtp_event_thread == NULL)
+              die("Couldn't allocate space for pthread_t");
 
-            pthread_create(&conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
+            pthread_create(conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
 
             plist_dict_set_item(setupResponsePlist, "eventPort",
                                 plist_new_uint(conn->local_event_port));
@@ -2682,8 +2696,12 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           }
 
           debug(1, "Connection %d: TCP Remote Control event port opened: %u.", conn->connection_number, conn->local_event_port);
-
-          pthread_create(&conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
+          if (conn->rtp_event_thread != NULL)
+            debug(1, "previous rtp_event_thread allocation not freed, it seems.");
+          conn->rtp_event_thread = malloc(sizeof(pthread_t));
+          if (conn->rtp_event_thread == NULL)
+            die("Couldn't allocate space for pthread_t");
+          pthread_create(conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
 
           plist_dict_set_item(setupResponsePlist, "eventPort",
                               plist_new_uint(conn->local_event_port));
