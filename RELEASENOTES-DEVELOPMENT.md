@@ -1,7 +1,7 @@
-Version-4.0-dev-382-g02734e58
+Version-4.1-dev
 ====
 #### Enhancement
-- **Better HomePod mini and Home Integration** An AirPlay 2 build of Shairport Sync now provides a visible volume control when used by a HomePod mini. This should work for other devices too -- reports welcome. You can use the Home app and Siri to set and adjust the volume when used to play from the HomePod mini.
+- **Better Siri, HomePod mini and Home Integration** An AirPlay 2 build of Shairport Sync now provides a visible volume control when used by a HomePod mini. This should work for other devices too -- reports welcome. You can use the Home app and Siri to set and adjust the volume when used to play from the HomePod mini.
 
 Version 4.0-dev-308-g23da206
 ====
