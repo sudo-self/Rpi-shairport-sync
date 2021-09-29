@@ -686,7 +686,7 @@ void cleanup_threads(void) {
       debug(3, "found RTSP connection thread %d in a non-running state.",
             conns[i]->connection_number);
       pthread_join(conns[i]->thread, &retval);
-      debug(1, "Connection %d: deleted in cleanup.", conns[i]->connection_number);
+      debug(2, "Connection %d: deleted in cleanup.", conns[i]->connection_number);
       free(conns[i]);
       conns[i] = NULL;
     }
@@ -2322,7 +2322,7 @@ void teardown_phase_two(rtsp_conn_info *conn) {
   // we are being asked to disconnect
   // this can be called more than once on the same connection --
   // by the player itself but also by the play seesion being killed
-  debug(1, "Connection %d: TEARDOWN a %s connection.", conn->connection_number,
+  debug(2, "Connection %d: TEARDOWN a %s connection.", conn->connection_number,
         get_category_string(conn->airplay_stream_category));
   if (conn->rtp_event_thread) {
     debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
@@ -2331,11 +2331,11 @@ void teardown_phase_two(rtsp_conn_info *conn) {
     free(conn->rtp_event_thread);
     conn->rtp_event_thread = NULL;
   }
-  debug(1, "Connection %d: TEARDOWN Close Event Socket.", conn->connection_number);
+  debug(2, "Connection %d: TEARDOWN Close Event Socket.", conn->connection_number);
   if (conn->event_socket) {
     close(conn->event_socket);
     conn->event_socket = 0;
-    debug(1, "Connection %d: closing TCP event port %u.", conn->connection_number, conn->local_event_port);
+    debug(2, "Connection %d: closing TCP event port %u.", conn->connection_number, conn->local_event_port);
   }
 
   // if we are closing a PTP stream only, do this
@@ -2347,7 +2347,7 @@ void teardown_phase_two(rtsp_conn_info *conn) {
     conn->groupContainsGroupLeader = 0;
     config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
     build_bonjour_strings(conn);
-    debug(1, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
+    debug(2, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
           get_category_string(conn->airplay_stream_category));
     mdns_update(NULL, secondary_txt_records);
   }
@@ -2368,7 +2368,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     plist_t streams = plist_dict_get_item(messagePlist, "streams");
 
     if (streams) {
-      debug(1, "Connection %d: TEARDOWN a %s.", conn->connection_number,
+      debug(2, "Connection %d: TEARDOWN a %s.", conn->connection_number,
             get_category_string(conn->airplay_stream_category));
       // we are being asked to close a stream
       teardown_phase_one(conn);
@@ -3633,7 +3633,6 @@ void *metadata_mqtt_thread_function(__attribute__((unused)) void *ignore) {
 #endif
 
 void metadata_init(void) {
-  int ret;
   if (config.metadata_enabled) {
     // create the metadata pipe, if necessary
     size_t pl = strlen(config.metadata_pipename) + 1;
@@ -3659,24 +3658,18 @@ void metadata_init(void) {
            (char *)errorstring, path);
     }
     free(path);
-    int ret;
-    ret = pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL);
-    if (ret)
+    if (pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL) != 0)
       debug(1, "Failed to create metadata thread!");
 
-    ret =
-        pthread_create(&metadata_multicast_thread, NULL, metadata_multicast_thread_function, NULL);
-    if (ret)
+    if (pthread_create(&metadata_multicast_thread, NULL, metadata_multicast_thread_function, NULL) != 0)
       debug(1, "Failed to create metadata multicast thread!");
   }
 #ifdef CONFIG_METADATA_HUB
-  ret = pthread_create(&metadata_hub_thread, NULL, metadata_hub_thread_function, NULL);
-  if (ret)
+  if (pthread_create(&metadata_hub_thread, NULL, metadata_hub_thread_function, NULL) != 0)
     debug(1, "Failed to create metadata hub thread!");
 #endif
 #ifdef CONFIG_MQTT
-  ret = pthread_create(&metadata_mqtt_thread, NULL, metadata_mqtt_thread_function, NULL);
-  if (ret)
+  if (pthread_create(&metadata_mqtt_thread, NULL, metadata_mqtt_thread_function, NULL) != 0)
     debug(1, "Failed to create metadata mqtt thread!");
 #endif
   metadata_running = 1;
@@ -4488,7 +4481,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
 
-  debug(1, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
+  debug(2, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
         conn->connection_number);
 #ifdef CONFIG_AIRPLAY_2
   teardown_phase_one(conn);
@@ -4514,7 +4507,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     close(conn->fd);
     debug(3, "Connection %d terminating: closed fd %d.", conn->connection_number, conn->fd);
 
-    debug(1, "Connection %d: terminating connection from %s:%u to self at %s:%u.",
+    debug(2, "Connection %d: terminating connection from %s:%u to self at %s:%u.",
           conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
           conn->self_ip_string, conn->self_rtsp_port);
   }

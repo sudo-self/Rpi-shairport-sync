@@ -1564,7 +1564,7 @@ void rtp_ap2_control_handler_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(2, "Connection %d: AP2 Control Receiver Cleanup.", conn->connection_number);
   close(conn->ap2_control_socket);
-          debug(1, "Connection %d: UDP control port %u closed.", conn->connection_number, conn->local_ap2_control_port);
+  debug(2, "Connection %d: UDP control port %u closed.", conn->connection_number, conn->local_ap2_control_port);
   conn->ap2_control_socket = 0;
   conn->ap2_remote_control_socket_addr_length =
       0; // indicates to the control receiver thread that the socket address need to be
@@ -1749,7 +1749,7 @@ void *rtp_ap2_control_receiver(void *arg) {
 
 void rtp_realtime_audio_cleanup_handler(__attribute__((unused)) void *arg) {
   debug(2, "Realtime Audio Receiver Cleanup Start.");
-  rtsp_conn_info *conn = (rtsp_conn_info *)arg;  
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   close(conn->realtime_audio_socket);
   debug(1, "Connection %d: closing realtime audio port %u", conn->local_realtime_audio_port);
   conn->realtime_audio_socket = 0;
@@ -2030,7 +2030,7 @@ void rtp_buffered_audio_cleanup_handler(__attribute__((unused)) void *arg) {
   debug(2, "Buffered Audio Receiver Cleanup Start.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   close(conn->buffered_audio_socket);
-  debug(1, "Connection %d: TCP Buffered Audio port closed: %u.", conn->connection_number, conn->local_buffered_audio_port);
+  debug(2, "Connection %d: TCP Buffered Audio port closed: %u.", conn->connection_number, conn->local_buffered_audio_port);
   conn->buffered_audio_socket = 0;
   debug(2, "Buffered Audio Receiver Cleanup Done.");
 }
