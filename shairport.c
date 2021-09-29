@@ -1787,18 +1787,21 @@ int main(int argc, char **argv) {
   // note: 0x300401F4A00 works but with weird delays and stuff
   // config.airplay_features = 0x1C340405FCA00;
   uint64_t mask = ((uint64_t)1 << 17) |  ((uint64_t)1 << 16) | ((uint64_t)1 << 15) | ((uint64_t)1 << 50);
-  config.airplay_features = 0x1C340405D4A00 & ~mask; // APX + Authentication4 (b14) with no metadata (see below)
+  config.airplay_features = 0x1C340405D4A00 & (~mask); // APX + Authentication4 (b14) with no metadata (see below)
   // Advertised with mDNS and returned with GET /info, see
   // https://openairplay.github.io/airplay-spec/status_flags.html 0x4: Audio cable attached, no PIN
   // required (transient pairing), 0x204: Audio cable attached, OneTimePairingRequired 0x604: Audio
   // cable attached, OneTimePairingRequired, device was setup for Homekit access control
 
+#ifdef CONFIG_METADATA
   // If we are asking for metadata, turn on the relevant bits
   if (config.metadata_enabled != 0)
-    config.airplay_features |= (1 << 17) | (1 << 16);
+    config.airplay_features |= (1 << 17) | (1 << 16); // 16 is progress, 17 is text
   // If we are asking for artwork, turn on the relevant bit
   if (config.get_coverart)
-    config.airplay_features |= (1 << 15);
+    config.airplay_features |= (1 << 15); // 15 is artwork
+#endif
+
   debug(1,"Features: 0x%" PRIx64 ".", config.airplay_features);
   config.airplay_statusflags = 0x04;
   // Set to NULL to work with transient pairing

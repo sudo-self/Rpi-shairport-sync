@@ -2650,7 +2650,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             }
 
             debug(1, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number, conn->local_event_port);
-            
+
             if (conn->rtp_event_thread != NULL)
               debug(1, "previous rtp_event_thread allocation not freed, it seems.");
             conn->rtp_event_thread = malloc(sizeof(pthread_t));
@@ -3105,16 +3105,16 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
         conn->initial_airplay_volume = volume;
         conn->initial_airplay_volume_set = 1;
       }
-    } else
+    } else if (strncmp(cp, "progress: ", strlen("progress: ")) == 0) { // this can be sent even when metadata is not solicited
+
 #ifdef CONFIG_METADATA
-        if (!strncmp(cp, "progress: ", strlen("progress: "))) {
       char *progress = cp + strlen("progress: ");
       // debug(2, "progress: \"%s\"",progress); // rtpstampstart/rtpstampnow/rtpstampend 44100 per
       // second
       send_ssnc_metadata('prgr', progress, strlen(progress), 1);
+#endif
 
     } else
-#endif
     {
       debug(1, "Connection %d, unrecognised parameter: \"%s\" (%d)\n", conn->connection_number, cp,
             strlen(cp));
