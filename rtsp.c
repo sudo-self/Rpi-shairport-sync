@@ -1411,7 +1411,7 @@ char *get_category_string(airplay_stream_c cat) {
 
 void handle_record_2(rtsp_conn_info *conn, __attribute((unused)) rtsp_message *req,
                      rtsp_message *resp) {
-  debug(1, "Connection %d: RECORD on %s", conn->connection_number,
+  debug(2, "Connection %d: RECORD on %s", conn->connection_number,
         get_category_string(conn->airplay_stream_category));
   // debug_log_rtsp_message(1, "RECORD incoming message", req);
   resp->respcode = 200;
@@ -2481,7 +2481,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_get_string_val(timingProtocol, &timingProtocolString);
       if (timingProtocolString) {
         if (strcmp(timingProtocolString, "PTP") == 0) {
-          debug(1, "Connection %d: SETUP: PTP setup detected.", conn->connection_number);
+          debug(2, "Connection %d: SETUP: PTP setup detected.", conn->connection_number);
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
         } else if (strcmp(timingProtocolString, "NTP") == 0) {
@@ -2649,7 +2649,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                   conn->connection_number, err);
             }
 
-            debug(1, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number, conn->local_event_port);
+            debug(2, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number, conn->local_event_port);
 
             if (conn->rtp_event_thread != NULL)
               debug(1, "previous rtp_event_thread allocation not freed, it seems.");
@@ -2667,7 +2667,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
             config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay
             build_bonjour_strings(conn);
-            debug(1, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
+            debug(2, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
                   get_category_string(conn->airplay_stream_category));
             mdns_update(NULL, secondary_txt_records);
 
@@ -2747,7 +2747,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       if (err) {
         die("Error %d: could not find a UDP port to use as an ap2_control port", err);
       }
-      debug(1, "Connection %d: UDP control port opened: %u.", conn->connection_number, conn->local_ap2_control_port);
+      debug(2, "Connection %d: UDP control port opened: %u.", conn->connection_number, conn->local_ap2_control_port);
 
       pthread_create(&conn->rtp_ap2_control_thread, NULL, &rtp_ap2_control_receiver, (void *)conn);
 
@@ -2817,7 +2817,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         if (err) {
           die("Error %d: could not find a UDP port to use as a realtime_audio port", err);
         }
-        debug(1, "Connection %d: UDP realtime audio port opened: %u.", conn->connection_number, conn->local_realtime_audio_port);
+        debug(2, "Connection %d: UDP realtime audio port opened: %u.", conn->connection_number, conn->local_realtime_audio_port);
 
         pthread_create(&conn->rtp_realtime_audio_thread, NULL, &rtp_realtime_audio_receiver,
                        (void *)conn);
@@ -2880,7 +2880,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
               conn->connection_number, err);
         }
 
-        debug(1, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number, conn->local_buffered_audio_port);
+        debug(2, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number, conn->local_buffered_audio_port);
 
         // hack.
         conn->max_frames_per_packet = 352; // number of audio frames per packet.
@@ -2920,7 +2920,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_dict_set_item(setupResponsePlist, "streams", streams_array);
       resp->respcode = 200;
     } else if (conn->airplay_stream_category == remote_control_stream) {
-      debug(1, "Connection %d: SETUP: Remote Control Stream received.", conn->connection_number);
+      debug(2, "Connection %d: SETUP: Remote Control Stream received.", conn->connection_number);
       debug_log_rtsp_message(1, "Remote Control Stream stream (second) message", req);
 
       resp->respcode = 200;
