@@ -2912,6 +2912,8 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
           warn("The range requested is too large to accommodate -- ignored.");
         else
           sw_min_db = (sw_max_db - desired_sw_range);
+      } else {
+          hw_min_db = hw_max_db - desired_range_db;
       }
     }
   } else {
@@ -3086,20 +3088,6 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
           "is disabled.",
           volume_mode, airplay_volume, software_attenuation, hardware_attenuation);
   }
-  /*
-    }
-
-  #ifdef CONFIG_METADATA
-    else {
-      // here, send the 'pvol' metadata message when the airplay volume information
-      // is being used by shairport sync to control the output volume
-      char dv[128];
-      memset(dv, 0, 128);
-      snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, 0.0, 0.0, 0.0);
-      send_ssnc_metadata('pvol', dv, strlen(dv), 1);
-    }
-  #endif
-  */
   // here, store the volume for possible use in the future
   config.airplay_volume = airplay_volume;
   debug_mutex_unlock(&conn->volume_control_mutex, 3);
