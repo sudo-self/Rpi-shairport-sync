@@ -1,4 +1,10 @@
-Version-4.1-dev
+Version 4.1-dev-4-g0fe21f3a
+====
+#### Bug Fixes
+- Fix a bug whereby the `volume_range_db` setting would be ignored if it was less than the range of the hardware mixer.
+- Fix a bug that prevented an AirPlay 2 build if metadata was not enabled, either directly or indirectly, at the `./configure...` step.
+
+Version 4.1-dev
 ====
 #### Enhancement
 - **Better Siri, HomePod mini and Home Integration** An AirPlay 2 build of Shairport Sync now provides a visible volume control when used by a HomePod mini. This should work for other devices too -- reports welcome. You can use the Home app and Siri to set and adjust the volume when used to play from the HomePod mini.
