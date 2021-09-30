@@ -1,7 +1,7 @@
 
 Shairport Sync
 =============
-Shairport Sync is an AirPlay 1 audio player. Switch to the `development` branch for a version with limited AirPlay 2 functionality. Shairport Sync plays audio streamed from iTunes, iOS, Apple TV and macOS devices and AirPlay sources such as Quicktime Player and [ForkedDaapd](http://ejurgensen.github.io/forked-daapd/), among others.
+Shairport Sync is an AirPlay 1 audio player. Switch to the `development` branch for a version with limited AirPlay 2 functionality. Shairport Sync plays audio streamed from iTunes, iOS, Apple TV and macOS devices and AirPlay sources such as Quicktime Player and [OwnTone](https://github.com/owntone/owntone-server#owntone-previously-forked-daapd), among others.
 
 Audio played by a Shairport Sync-powered device stays synchronised with the source and hence with similar devices playing the same source. In this way, synchronised multi-room audio is possible for players that support it, such as iTunes and the macOS Music app.
 
