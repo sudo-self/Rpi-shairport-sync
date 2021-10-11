@@ -59,6 +59,8 @@ $ sudo make install
 ```
 By the way, the `autoreconf` step may take quite a while -- be patient!
 
+### Configure
+
 Now to configure Shairport Sync. In this walkthrough, it will be configured for an `alsa` output device. A list of `alsa` output devices is given at the end of the help information. For example, on a Raspberry Pi, at the end of the output from the command `$ shairport-sync -h`, the following appears:
 
 ```
