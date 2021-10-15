@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.50])
 AC_INIT([shairport-sync], [4.1-dev], [4265913+mikebrady@users.noreply.github.com])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_SRCDIR([shairport.c])
 AC_CONFIG_HEADERS([config.h])
 AC_PROG_RANLIB
@@ -323,7 +323,6 @@ AM_CONDITIONAL([USE_PW], [test "x$with_pw" = "xyes"])
 # Look for Convolution flag
 AC_ARG_WITH(convolution, [AS_HELP_STRING([--with-convolution],[choose audio DSP convolution support])])
 if test "x$with_convolution" = "xyes" ; then
-  AM_INIT_AUTOMAKE([subdir-objects])
   AC_DEFINE([CONFIG_CONVOLUTION], 1, [Include audio DSP convolution support.])
   if  test "x${with_pkg_config}" = xyes ; then
     PKG_CHECK_MODULES(
