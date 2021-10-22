@@ -1,3 +1,8 @@
+Version 4.1-dev-9-gd2e35fc0
+====
+#### Bug Fix
+- Fix an incompatibility with iOS 15.1 betas and release candidates. The problem was this: if an unknown RTSP command was received, Shairport Sync would return a HTTP error response code of 400 ("Bad Request") but the player would not continue. After some experimentation, it was discovered that a HTTP error response code of 501 ("Not Implemented") would allow the player to continue. Thanks to [corrpel](https://github.com/corrpel) and [bloomkd46](https://github.com/bloomkd46) for reporting the issue.
+
 Version 4.1-dev-4-g0fe21f3a
 ====
 #### Bug Fixes
