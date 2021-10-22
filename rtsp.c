@@ -1303,7 +1303,7 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
     char *string;
   };
 
-  struct response_t responses[] = {{200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}};
+  struct response_t responses[] = {{200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}, {501, "Not Implemented"}};
   int found = 0;
   char *respcode_text = "Unauthorized";
   for (i = 0; i < sizeof(responses) / sizeof(struct response_t); i++) {
@@ -4620,7 +4620,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       pthread_cleanup_push(msg_cleanup_function, (void *)&req);
       resp = msg_init();
       pthread_cleanup_push(msg_cleanup_function, (void *)&resp);
-      resp->respcode = 400;
+      resp->respcode = 501; // Not Implemented
       /*
             if (strcmp(req->method, "OPTIONS") !=
                 0) // the options message is very common, so don't log it until level 3
@@ -4661,7 +4661,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         }
         if (method_selected == 0) {
-          debug(1, "Connection %d: Unrecognised and unhandled rtsp request \"%s\".",
+          debug(1, "Connection %d: Unrecognised and unhandled rtsp request \"%s\". HTTP Response Code 501 (\"Not Implemented\") returned.",
                 conn->connection_number, req->method);
 
           int y = req->contentlength;
@@ -4680,6 +4680,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
             *obfp = 0;
             debug(1, "Content: \"%s\".", obf);
           }
+
         }
       }
       debug(debug_level, "Connection %d: RTSP Response:", conn->connection_number);
