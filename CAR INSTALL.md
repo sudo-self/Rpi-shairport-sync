@@ -217,3 +217,41 @@ Install the Raspberry Pi in your car. It should be powered from a source that is
 
 When the power source is switched on, typically when you start the car, it will take maybe a minute for the system to boot up.
 ### Enjoy!
+
+## Updating
+From time to time, you may wish to update this installation. When it comes to updating, you should undo the last few steps above to allow the device to reconnect to your home network. But first, if it's a Raspberry Pu and you have enabled the Read-only mode, you must take the device out of the read-only mode. Then you can update it in the normal way.
+1. Run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem` and choose to disable the overlay filesystem and to set the boot partition not to be write-protected. This is to enable changes to be made. Save the changes and reboot the system.
+2. I you have disabled the `dhcpcd` and `wpa_supplicant` services, re-enable them:
+```
+sudo systemctl enable dhcpcd.service
+sudo systemctl enable wpa_supplicant.service
+sudo systemctl enable systemd-timesyncd.service
+``` 
+Reboot.
+3. Edit `/etc/dhcpcd.conf` and comment out the following line at the start:
+```
+denyinterfaces wlan0
+```
+so that it looks like this:
+```
+# denyinterfaces wlan0
+```
+From this point on, at least on the Raspberry Pi, if you reboot the machine, it will connect to the network you used when you set it up for the first time.
+
+You can perform updates in the normal way. When you are finixhed, you need to undo the temporary changes you make to the setup, as follows:
+
+1. Disable the three system services you temporarily re-enabled:
+```
+sudo systemctl disable dhcpcd.service
+sudo systemctl disable wpa_supplicant.service
+sudo systemctl disable systemd-timesyncd.service
+```
+2. Edit `/etc/dhcpcd.conf` and uncomment the following line that you had temporarily commented out at the start:
+```
+# denyinterfaces wlan0
+```
+so that it looks like this:
+```
+denyinterfaces wlan0
+```
+3. Run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem` and choose to enable the overlay filesystem, and to set the boot partition to be write-protected. 
