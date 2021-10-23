@@ -219,16 +219,20 @@ When the power source is switched on, typically when you start the car, it will 
 ### Enjoy!
 
 ## Updating
-From time to time, you may wish to update this installation. When it comes to updating, you should undo the last few steps above to allow the device to reconnect to your home network. But first, if it's a Raspberry Pu and you have enabled the Read-only mode, you must take the device out of the read-only mode. Then you can update it in the normal way.
-1. Run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem` and choose to disable the overlay filesystem and to set the boot partition not to be write-protected. This is to enable changes to be made. Save the changes and reboot the system.
-2. I you have disabled the `dhcpcd` and `wpa_supplicant` services, re-enable them:
+From time to time, you may wish to update this installation. When it comes to updating, you should undo the last few steps above to allow the device to reconnect to the network it was created on. 
+1. First, if it's a Raspberry Pi and you have enabled the Read-only mode, you must take the device out of Read-only mode. Then you can update it in the normal way. Here is how to take it out of Read-only mode:
+
+Run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem` and choose to disable the overlay filesystem and to set the boot partition not to be write-protected. This is to enable changes to be made. Save the changes and reboot the system.
+
+
+2. Next, if you have disabled the `dhcpcd` and `wpa_supplicant` services as suggested above, you need to re-enable them:
 ```
 sudo systemctl enable dhcpcd.service
 sudo systemctl enable wpa_supplicant.service
 sudo systemctl enable systemd-timesyncd.service
 ``` 
 Reboot.
-3. Edit `/etc/dhcpcd.conf` and comment out the following line at the start:
+3. Next, to allow your device to connect to reconnect to the network it was created on, edit `/etc/dhcpcd.conf` and comment out the following line at the start:
 ```
 denyinterfaces wlan0
 ```
@@ -236,9 +240,9 @@ so that it looks like this:
 ```
 # denyinterfaces wlan0
 ```
-From this point on, at least on the Raspberry Pi, if you reboot the machine, it will connect to the network you used when you set it up for the first time.
+From this point on, at least on the Raspberry Pi, if you reboot the machine, it will connect to the network it was configured on, i.e. the network you used when you set it up for the first time.
 
-You can perform updates in the normal way. When you are finixhed, you need to undo the temporary changes you make to the setup, as follows:
+You can perform updates in the normal way. When you are finished, you need to undo the temporary changes you made to the setup, as follows:
 
 1. Disable the three system services you temporarily re-enabled:
 ```
