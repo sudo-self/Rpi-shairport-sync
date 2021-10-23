@@ -232,6 +232,7 @@ sudo systemctl enable wpa_supplicant.service
 sudo systemctl enable systemd-timesyncd.service
 ``` 
 Reboot.
+
 3. Next, to allow your device to connect to reconnect to the network it was created on, edit `/etc/dhcpcd.conf` and comment out the following line at the start:
 ```
 denyinterfaces wlan0
@@ -258,4 +259,6 @@ so that it looks like this:
 ```
 denyinterfaces wlan0
 ```
-3. Run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem` and choose to enable the overlay filesystem, and to set the boot partition to be write-protected. 
+3. Reboot. The system should start, creating the WiFi network as it would if it was in the car. It remains now to make the file-system read-only, if desired.
+4. Connect to the system. Run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem` and choose to enable the overlay filesystem, and to set the boot partition to be write-protected.
+5. Do a final reboot and check that everyting is in order.
