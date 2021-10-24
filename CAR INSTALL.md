@@ -218,7 +218,9 @@ When the power source is switched on, typically when you start the car, it will 
 ### Enjoy!
 
 ## Updating
-From time to time, you may wish to update this installation. However, in order to update Shairport Sync, you must reconnect the system to a network that can access the internet. The easiest thing is to temporarily reconnect to the network you used when you created the system. To do that, you have to temporarily undo the "Final Steps" and any of the "Raspberry Pi Specific" steps you used. This will enable you to connect your device back to the network it was created on. You should then be able to update the operating system and libraries in the normal way and then update Shairport Sync. So, take the following steps:
+From time to time, you may wish to update this installation. However, in order to update Shairport Sync, you must reconnect the system to a network that can access the internet. The easiest thing is to temporarily reconnect to the network you used when you created the system. To do that, you have to temporarily undo the "Final Steps" and some of the "Raspberry Pi Specific" steps you used. This will enable you to connect your device back to the network it was created on. You should then be able to update the operating system and libraries in the normal way and then update Shairport Sync.
+
+So, take the following steps:
 
 1. If it's a Raspberry Pi and you have enabled the Read-only mode, you must take the device out of Read-only mode:  
 Run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem` and choose to disable the overlay filesystem and to set the boot partition not to be write-protected. This is so that changes can be written to the file system; you can make the filesystem read-only again later. Save the changes and reboot the system.
