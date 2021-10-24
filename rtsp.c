@@ -1661,6 +1661,18 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
   resp->respcode = 200;
 }
 
+void handle_setrate(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  debug(3, "Connection %d: SETRATE %s : Content-Length %d", conn->connection_number,
+        req->path, req->contentlength);
+  debug_log_rtsp_message(2, "SETRATE request -- unimplemented", req);
+  resp->respcode = 501; // Not Implemented
+}
+
+void handle_unimplemented_ap1(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+  debug_log_rtsp_message(1, "request not recognised for AirPlay 1 operation", req);
+  resp->respcode = 501;
+}
+
 void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: SETRATEANCHORI %s :: Content-Length %d", conn->connection_number,
         req->path, req->contentlength);
@@ -4201,9 +4213,10 @@ static struct method_handler {
                        {"RECORD", handle_record, handle_record_2},
                        {"GET", handle_get, handle_get},
                        {"POST", handle_post, handle_post},
-                       {"SETPEERS", handle_setpeers, handle_setpeers},
-                       {"SETRATEANCHORTI", handle_setrateanchori, handle_setrateanchori},
-                       {"FLUSHBUFFERED", handle_flushbuffered, handle_flushbuffered},
+                       {"SETPEERS", handle_unimplemented_ap1, handle_setpeers},
+                       {"SETRATEANCHORTI", handle_unimplemented_ap1, handle_setrateanchori},
+                       {"FLUSHBUFFERED", handle_unimplemented_ap1, handle_flushbuffered},
+                       {"SETRATE", handle_unimplemented_ap1, handle_setrate},
                        {NULL, NULL, NULL}};
 #else
 static struct method_handler {
