@@ -217,6 +217,8 @@ Install the Raspberry Pi in your car. It should be powered from a source that is
 When the power source is switched on, typically when you start the car, it will take maybe a minute for the system to boot up.
 ### Enjoy!
 
+---
+
 ## Updating
 From time to time, you may wish to update this installation. However, in order to update Shairport Sync, you must reconnect the system to a network that can access the internet. The easiest thing is to temporarily reconnect to the network you used when you created the system. To do that, you have to temporarily undo the "Final Steps" and some of the "Raspberry Pi Specific" steps you used. This will enable you to connect your device back to the network it was created on. You should then be able to update the operating system and libraries in the normal way and then update Shairport Sync.
 
