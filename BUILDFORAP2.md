@@ -55,7 +55,7 @@ Okay, now let's get the tools and libraries for building and installing Shairpor
 First, install the packages needed by Shairport Sync:
 ```
 # apt install --no-install-recommends build-essential git xmltoman autoconf automake libtool \
-    libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev libglib2.0-dev \
+    libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
     libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev
 ```
 
@@ -68,10 +68,10 @@ Download, install, enable and start `nqptp` from [here](https://github.com/mikeb
 As you probably know, you can download the repository in two ways: (1) using `git` to clone it  -- recommended -- or (2) downloading the repository as a ZIP archive. Please use the `git` method. The reason it that when you use `git`, the build process can incorporate the `git` build information in the version string you get when you execute the command `$ shairport-sync -V`. This will be very useful for identifying the exact build if you are making comments or bug reports. Here is an example:
 ```
 Version with git information:
-4.0-dev-138-g2789572-AirPlay2-OpenSSL-Avahi-ALSA-soxr-metadata-dbus-sysconfdir:/etc
+4.0-dev-138-g2789572-AirPlay2-OpenSSL-Avahi-ALSA-soxr-sysconfdir:/etc
 
 Version without git information:
-4.0-dev-AirPlay2-OpenSSL-Avahi-ALSA-soxr-metadata-dbus-sysconfdir:/etc
+4.0-dev-AirPlay2-OpenSSL-Avahi-ALSA-soxr-sysconfdir:/etc
 ```
 
 #### Build and Install
@@ -82,7 +82,7 @@ $ cd shairport-sync
 $ git checkout development
 $ autoreconf -fi
 $ ./configure --sysconfdir=/etc --with-alsa \
-    --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-dbus-interface --with-airplay-2
+    --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
 $ make -j
 # make install
 ```
