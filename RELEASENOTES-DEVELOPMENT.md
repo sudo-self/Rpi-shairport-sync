@@ -1,3 +1,20 @@
+Version 4.1-dev-15-gf4115c45
+====
+#### Bug Fix
+- Fix the following [buildroot](https://buildroot.org) build failure when the `--with convolution` flag is included. The issue is due to a change in the behaviour of automake 1.16.5 -- see [`https://git.savannah.gnu.org/cgit/automake.git/commit/?id=f4a3a70f69e1dbccb6578f39ef47835098a04624`](https://git.savannah.gnu.org/cgit/automake.git/commit/?id=f4a3a70f69e1dbccb6578f39ef47835098a04624):
+```
+configure.ac:305: error: AM_INIT_AUTOMAKE expanded multiple times
+/home/giuliobenetti/autobuild/run/instance-1/output-1/host/share/aclocal-1.16/init.m4:29: AM_INIT_AUTOMAKE is expanded from...
+configure.ac:6: the top level
+/home/giuliobenetti/autobuild/run/instance-1/output-1/host/share/aclocal-1.16/init.m4:29: AM_INIT_AUTOMAKE is expanded from...
+configure.ac:305: the top level
+```
+Fixes:
+[`http://autobuild.buildroot.org/results/464148bdccb705d8992dc860262bfdeb01b7e2a1`](http://autobuild.buildroot.org/results/464148bdccb705d8992dc860262bfdeb01b7e2a1).
+
+Thanks to [Fabrice Fontaine](https://github.com/ffontaine) for [Pull Request #1314](https://github.com/mikebrady/shairport-sync/pull/1314).
+
+
 Version 4.1-dev-9-gd2e35fc0
 ====
 #### Bug Fix
