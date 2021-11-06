@@ -60,7 +60,8 @@ static int play(void *buf, int samples);
 static void stop(void);
 static void flush(void);
 int delay(long *the_delay);
-int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
+int get_frames_sent_for_output(__attribute__ ((unused)) uint64_t *elapsed_time, uint64_t *frames_sent_to_dac);
+// int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
 void *alsa_buffer_monitor_thread_code(void *arg);
 
 static void volume(double vol);
@@ -88,7 +89,8 @@ audio_output audio_alsa = {
     .flush = &flush,
     .delay = &delay,
     .play = &play,
-    .rate_info = &get_rate_information,
+    .rate_info = &get_frames_sent_for_output, // will also include frames of silence sent to stop standby mode
+//    .rate_info = NULL,
     .mute = NULL,        // a function will be provided if it can, and is allowed to,
                          // do hardware mute
     .volume = NULL,      // a function will be provided if it can do hardware volume
@@ -239,22 +241,13 @@ int precision_delay_available() {
   return (precision_delay_available_status == YNDK_YES);
 }
 
-// static int play_number;
-// static int64_t accumulated_delay, accumulated_da_delay;
 int alsa_characteristics_already_listed = 0;
 
 static snd_pcm_uframes_t period_size_requested, buffer_size_requested;
 static int set_period_size_request, set_buffer_size_request;
 
-static uint64_t measurement_start_time;
-static uint64_t frames_played_at_measurement_start_time;
-
-static uint64_t measurement_time;
-static uint64_t frames_played_at_measurement_time;
-
 static uint64_t frames_sent_for_playing;
-static uint64_t frame_index;
-static int measurement_data_is_valid;
+static int output_error_occurred; // set to true if an underrun or similar has occurred since last requested
 
 static void help(void) {
   printf("    -d output-device    set the output device, default is \"default\".\n"
@@ -1407,8 +1400,8 @@ static void start(__attribute__((unused)) int i_sample_rate,
                   __attribute__((unused)) int i_sample_format) {
   debug(3, "audio_alsa start called.");
 
-  frame_index = 0;
-  measurement_data_is_valid = 0;
+  // frame_index = 0;
+  // measurement_data_is_valid = 0;
 
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
@@ -1430,8 +1423,8 @@ int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
   } else {
     // not running, thus no delay information, thus can't check for frame
     // rates
-    frame_index = 0; // we'll be starting over...
-    measurement_data_is_valid = 0;
+    // frame_index = 0; // we'll be starting over...
+    // measurement_data_is_valid = 0;
     *delay = 0;
   }
 
@@ -1587,8 +1580,8 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
 
       // not running, thus no delay information, thus can't check for frame
       // rates
-      frame_index = 0; // we'll be starting over...
-      measurement_data_is_valid = 0;
+      // frame_index = 0; // we'll be starting over...
+      // measurement_data_is_valid = 0;
     }
   } else {
     debug(1, "alsa: can't get device's status.");
@@ -1631,6 +1624,21 @@ int delay(long *the_delay) {
   return ret;
 }
 
+int get_frames_sent_for_output(__attribute__ ((unused)) uint64_t *elapsed_time, uint64_t *frames_sent_to_dac) {
+  int ret = 0;
+  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
+  *frames_sent_to_dac = frames_sent_for_playing;
+  if (alsa_handle == NULL)
+    ret = ENODEV;
+  else   
+    ret = output_error_occurred; // will be zero unless an error occurred
+  output_error_occurred = 0; // reset it.
+  debug_mutex_unlock(&alsa_mutex, 0);
+  pthread_cleanup_pop(0);
+  return ret;  
+}
+
+/*
 int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
   // elapsed_time is in nanoseconds
   int response = 0; // zero means okay
@@ -1644,6 +1652,7 @@ int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
   }
   return response;
 }
+*/
 
 int do_play(void *buf, int samples) {
   // assuming the alsa_mutex has been acquired
@@ -1671,34 +1680,9 @@ int do_play(void *buf, int samples) {
       ret = alsa_pcm_write(alsa_handle, buf, samples);
       if (ret == samples) {
         stall_monitor_frame_count += samples;
-
-        if (frame_index == 0) {
-          frames_sent_for_playing = samples;
-        } else {
-          frames_sent_for_playing += samples;
-        }
-
-        const uint64_t start_measurement_from_this_frame =
-            (2 * config.output_rate) / 352; // two seconds of frames
-
-        frame_index++;
-
-        if ((frame_index == start_measurement_from_this_frame) ||
-            ((frame_index > start_measurement_from_this_frame) && (frame_index % 32 == 0))) {
-
-          measurement_time = get_absolute_time_in_ns();
-          frames_played_at_measurement_time = frames_sent_for_playing - my_delay - samples;
-
-          if (frame_index == start_measurement_from_this_frame) {
-            // debug(1, "Start frame counting");
-            frames_played_at_measurement_start_time = frames_played_at_measurement_time;
-            measurement_start_time = measurement_time;
-            measurement_data_is_valid = 1;
-          }
-        }
+        frames_sent_for_playing += samples;
       } else {
-        frame_index = 0;
-        measurement_data_is_valid = 0;
+        output_error_occurred = -ret;    // note than an output error has occurred
         if (ret == -EPIPE) { /* underrun */
 
           // It could be that the DAC was in the SND_PCM_STATE_XRUN state before
@@ -1748,8 +1732,6 @@ int do_play(void *buf, int samples) {
           "alsa: device status returns fault status %d and SND_PCM_STATE_* "
           "%d  for play.",
           ret, state);
-    frame_index = 0;
-    measurement_data_is_valid = 0;
   }
 
   pthread_setcancelstate(oldState, NULL);
@@ -1774,7 +1756,8 @@ int do_open(int do_auto_setup) {
                           // set accordingly
         // do_mute(0); // complete unmute
       }
-
+      output_error_occurred = 0;
+      frames_sent_for_playing = 0;
       alsa_backend_state = abm_connected; // only do this if it really opened it.
     }
   } else {
@@ -2005,8 +1988,8 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
                  "alsa_backend_state => abm_connected");
     } else if ((alsa_backend_state == abm_connected) && (config.keep_dac_busy == 0)) {
       stall_monitor_start_time = 0;
-      frame_index = 0;
-      measurement_data_is_valid = 0;
+      // frame_index = 0;
+      // measurement_data_is_valid = 0;
       debug(2, "alsa: alsa_buffer_monitor_thread_code() -- closing the output "
                "device");
       do_close();

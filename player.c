@@ -1611,7 +1611,7 @@ void player_thread_cleanup_handler(void *arg) {
     int elapsedHours = rawSeconds / 3600;
     int elapsedMin = (rawSeconds / 60) % 60;
     int elapsedSec = rawSeconds % 60;
-    if (conn->frame_rate_status)
+    if (conn->frame_rate_valid)
       inform("Connection %d: Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, "
              "output: %0.2f "
              "frames per second.",
@@ -1714,6 +1714,12 @@ void player_thread_cleanup_handler(void *arg) {
 
 void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  
+  uint64_t previous_frames_played;
+  uint64_t previous_frames_played_time;
+  int previous_frames_played_valid = 0;
+
+  
   // pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
   conn->packet_count = 0;
   conn->packet_count_since_flush = 0;
@@ -1866,7 +1872,7 @@ void *player_thread_func(void *arg) {
   conn->playstart = time(NULL);
 
   conn->frame_rate = 0.0;
-  conn->frame_rate_status = 0;
+  conn->frame_rate_valid = 0;
 
   conn->input_frame_rate = 0.0;
   conn->input_frame_rate_starting_point_is_valid = 0;
@@ -2059,7 +2065,7 @@ void *player_thread_func(void *arg) {
     pthread_testcancel();                     // allow a pthread_cancel request to take effect.
     abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not
                                               // guaranteed that they'll always be executed
-
+    uint64_t local_time_now = get_absolute_time_in_ns(); // types okay
     if (inframe) {
       inbuf = inframe->data;
       inbuflength = inframe->length;
@@ -2244,8 +2250,6 @@ void *player_thread_func(void *arg) {
           // frames from then onwards
 
           at_least_one_frame_seen = 1;
-
-          uint64_t local_time_now = get_absolute_time_in_ns(); // types okay
 
           // This is the timing error for the next audio frame in the DAC, if applicable
           int64_t sync_error = 0;
@@ -2780,21 +2784,32 @@ void *player_thread_func(void *arg) {
             conn->input_frame_rate = 0.0;
           }
 
+          uint64_t frames_sent_for_play;
+          int status = -1;
           if ((config.output->delay) && (config.no_sync == 0) && (config.output->rate_info)) {
-            uint64_t elapsed_play_time, frames_played;
-            if (config.output->rate_info(&elapsed_play_time, &frames_played) == 0)
-              conn->frame_rate_status = 1;
-            else
-              conn->frame_rate_status = 0;
-            if (conn->frame_rate_status) {
-              conn->frame_rate =
-                  (1.0E9 * frames_played) /
-                  elapsed_play_time; // an IEEE double calculation with two 64-bit integers
-            } else {
-              conn->frame_rate = 0.0;
+            uint64_t elapsed_play_time; // dummy
+            status = config.output->rate_info(&elapsed_play_time, &frames_sent_for_play);
+            uint64_t frames_played = frames_sent_for_play - play_samples - current_delay;
+            // If the status is zero, it means that there were no output problems since the
+            // last time the rate_info call was made. Thus, the frame rate should be valid.
+            if ((status == 0) && (previous_frames_played_valid)) {
+              uint64_t frames_played_in_this_interval = frames_played - previous_frames_played;
+              uint64_t interval = local_time_now - previous_frames_played_time;
+              conn->frame_rate = (1e9 * frames_played_in_this_interval) / interval;
+              conn->frame_rate_valid = 1;
             }
+            
+            // uncomment the if statement if your want to get as long a period for
+            // calculating the frame rate
+            // if ((status != 0) || (previous_frames_played_valid == 0)) {
+              // if we have just detected an outputting error, or if we have no
+              // starting information
+              previous_frames_played = frames_played;
+              previous_frames_played_time = local_time_now;
+              previous_frames_played_valid = 1;
+            // }
           }
-
+          
           // we can now calculate running averages for sync error (frames), corrections (ppm),
           // insertions plus deletions (ppm), drift (ppm)
           double moving_average_sync_error = (1.0 * tsum_of_sync_errors) / number_of_statistics;
@@ -2830,7 +2845,10 @@ void *player_thread_func(void *arg) {
                 statistics_item("max buffers", "%*" PRIu32 "", 11, maximum_buffer_occupancy);
                 statistics_item("nominal fps", "%*.2f", 11, conn->remote_frame_rate);
                 statistics_item(" actual fps", "%*.2f", 11, conn->input_frame_rate);
-                statistics_item(" output fps", "%*.2f", 11, conn->frame_rate);
+                if (conn->frame_rate_valid)
+                  statistics_item(" output fps", "%*.2f", 11, conn->frame_rate);
+                else
+                  statistics_item(" output fps", "        N/A");
                 statistics_item("source drift ppm", "%*.2f", 16,
                                 (conn->local_to_remote_time_gradient - 1.0) * 1000000);
                 statistics_item("drift samples", "%*d", 13,
@@ -2838,7 +2856,7 @@ void *player_thread_func(void *arg) {
                 statistics_item(
                     "estimated (unused) correction ppm", "%*.2f",
                     strlen("estimated (unused) correction ppm"),
-                    (conn->frame_rate > 0.0)
+                    (conn->frame_rate_valid != 0)
                         ? ((conn->frame_rate - conn->remote_frame_rate * conn->output_sample_ratio *
                                                    conn->local_to_remote_time_gradient) *
                            1000000) /

@@ -181,7 +181,7 @@ typedef struct {
 
   // for holding the output rate information until printed out at the end of a session
   double frame_rate;
-  int frame_rate_status;
+  int frame_rate_valid;
 
   // for holding input rate information until printed out at the end of a session
 
