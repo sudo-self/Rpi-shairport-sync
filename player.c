@@ -1714,12 +1714,11 @@ void player_thread_cleanup_handler(void *arg) {
 
 void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  
+
   uint64_t previous_frames_played;
   uint64_t previous_frames_played_time;
   int previous_frames_played_valid = 0;
 
-  
   // pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
   conn->packet_count = 0;
   conn->packet_count_since_flush = 0;
@@ -2787,6 +2786,7 @@ void *player_thread_func(void *arg) {
           uint64_t frames_sent_for_play;
           int status = -1;
           if ((config.output->delay) && (config.no_sync == 0) && (config.output->rate_info)) {
+            uint64_t monotonic_time_now = get_monotonic_time_in_ns();
             uint64_t elapsed_play_time; // dummy
             status = config.output->rate_info(&elapsed_play_time, &frames_sent_for_play);
             uint64_t frames_played = frames_sent_for_play - play_samples - current_delay;
@@ -2794,22 +2794,22 @@ void *player_thread_func(void *arg) {
             // last time the rate_info call was made. Thus, the frame rate should be valid.
             if ((status == 0) && (previous_frames_played_valid)) {
               uint64_t frames_played_in_this_interval = frames_played - previous_frames_played;
-              uint64_t interval = local_time_now - previous_frames_played_time;
+              uint64_t interval = monotonic_time_now - previous_frames_played_time;
               conn->frame_rate = (1e9 * frames_played_in_this_interval) / interval;
               conn->frame_rate_valid = 1;
             }
-            
+
             // uncomment the if statement if your want to get as long a period for
             // calculating the frame rate
             // if ((status != 0) || (previous_frames_played_valid == 0)) {
-              // if we have just detected an outputting error, or if we have no
-              // starting information
-              previous_frames_played = frames_played;
-              previous_frames_played_time = local_time_now;
-              previous_frames_played_valid = 1;
-            // }
+            // if we have just detected an outputting error, or if we have no
+            // starting information
+            previous_frames_played = frames_played;
+            previous_frames_played_time = monotonic_time_now;
+            previous_frames_played_valid = 1;
+            //}
           }
-          
+
           // we can now calculate running averages for sync error (frames), corrections (ppm),
           // insertions plus deletions (ppm), drift (ppm)
           double moving_average_sync_error = (1.0 * tsum_of_sync_errors) / number_of_statistics;
@@ -2931,7 +2931,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
         else
           sw_min_db = (sw_max_db - desired_sw_range);
       } else {
-          hw_min_db = hw_max_db - desired_range_db;
+        hw_min_db = hw_max_db - desired_range_db;
       }
     }
   } else {

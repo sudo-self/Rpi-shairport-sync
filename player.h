@@ -109,7 +109,6 @@ typedef enum {
   remote_control_stream
 } airplay_stream_c; // "c" for category
 
-
 #ifdef CONFIG_AIRPLAY_2
 typedef enum { ts_ntp, ts_ptp } timing_t;
 typedef enum { ap_1, ap_2 } airplay_t;
@@ -296,7 +295,8 @@ typedef struct {
   clock_status_t clock_status;
 
   airplay_stream_c
-      airplay_stream_category; // is it a remote control stream or a normal "full service" stream? (will be unspecified if not build for AirPlay 2)
+      airplay_stream_category; // is it a remote control stream or a normal "full service" stream?
+                               // (will be unspecified if not build for AirPlay 2)
 
 #ifdef CONFIG_AIRPLAY_2
   char *airplay_gid; // UUID in the Bonjour advertisement -- if NULL, the group UUID is the same as
