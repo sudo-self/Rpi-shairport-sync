@@ -1727,6 +1727,13 @@ void *player_thread_func(void *arg) {
   conn->flush_rtp_timestamp = 0;  // it seems this number has a special significance -- it seems to
                                   // be used as a null operand, so we'll use it like that too
   conn->fix_volume = 0x10000;
+  
+#ifdef CONFIG_AIRPLAY_2
+  conn->ap2_flush_requested = 0;
+  conn->ap2_flush_from_valid = 0;
+  conn->ap2_rate = 0;
+  conn->ap2_play_enabled = 0;
+#endif
 
   reset_anchor_info(conn);
 
