@@ -55,9 +55,9 @@
 #endif
 
 #ifdef COMPILE_FOR_FREEBSD
-#include <netinet/in.h>
-#include <net/if_types.h>
 #include <net/if_dl.h>
+#include <net/if_types.h>
+#include <netinet/in.h>
 #endif
 
 #ifdef COMPILE_FOR_OSX
@@ -1258,6 +1258,49 @@ uint64_t get_absolute_time_in_fp() {
   return time_now_fp;
 }
 
+uint64_t get_monotonic_time_in_ns() {
+  uint64_t time_now_ns;
+
+#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
+  struct timespec tn;
+  // can't use CLOCK_MONOTONIC_RAW as it's not implemented in OpenWrt
+  // CLOCK_REALTIME because PTP uses it.
+  clock_gettime(CLOCK_MONOTONIC, &tn);
+  uint64_t tnnsec = tn.tv_sec;
+  tnnsec = tnnsec * 1000000000;
+  uint64_t tnjnsec = tn.tv_nsec;
+  time_now_ns = tnnsec + tnjnsec;
+#endif
+
+#ifdef COMPILE_FOR_OSX
+  uint64_t time_now_mach;
+  uint64_t elapsedNano;
+  static mach_timebase_info_data_t sTimebaseInfo = {0, 0};
+
+  // this actually give you a monotonic clock
+  // see https://news.ycombinator.com/item?id=6303755
+  time_now_mach = mach_absolute_time();
+
+  // If this is the first time we've run, get the timebase.
+  // We can use denom == 0 to indicate that sTimebaseInfo is
+  // uninitialised because it makes no sense to have a zero
+  // denominator in a fraction.
+
+  if (sTimebaseInfo.denom == 0) {
+    debug(1, "Mac initialise timebase info.");
+    (void)mach_timebase_info(&sTimebaseInfo);
+  }
+
+  // Do the maths. We hope that the multiplication doesn't
+  // overflow; the price you pay for working in fixed point.
+
+  // this gives us nanoseconds
+  time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
+#endif
+
+  return time_now_ns;
+}
+
 uint64_t get_absolute_time_in_ns() {
   uint64_t time_now_ns;
 
@@ -1277,6 +1320,7 @@ uint64_t get_absolute_time_in_ns() {
   uint64_t elapsedNano;
   static mach_timebase_info_data_t sTimebaseInfo = {0, 0};
 
+  // this actually give you a monotonic clock
   time_now_mach = mach_absolute_time();
 
   // If this is the first time we've run, get the timebase.
@@ -1963,7 +2007,7 @@ int get_device_id(uint8_t *id, int int_length) {
     t = id;
     int found = 0;
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
- #ifdef AF_PACKET
+#ifdef AF_PACKET
       if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
         struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
         if ((strcmp(ifa->ifa_name, "lo") != 0) && (found == 0)) {
@@ -1973,25 +2017,23 @@ int get_device_id(uint8_t *id, int int_length) {
           found = 1;
         }
       }
- #else
- #ifdef AF_LINK
-       struct sockaddr_dl * sdl = (struct sockaddr_dl *) ifa->ifa_addr;
-       if ((sdl) && (sdl->sdl_family == AF_LINK)) {
+#else
+#ifdef AF_LINK
+      struct sockaddr_dl *sdl = (struct sockaddr_dl *)ifa->ifa_addr;
+      if ((sdl) && (sdl->sdl_family == AF_LINK)) {
         if (sdl->sdl_type == IFT_ETHER) {
           char *s = LLADDR(sdl);
           for (i = 0; i < sdl->sdl_alen; i++) {
-            debug(1,"char %d: \"%c\".", i, *s);
-            *t++ = (uint8_t)*s++;   
-          }   
+            debug(1, "char %d: \"%c\".", i, *s);
+            *t++ = (uint8_t)*s++;
+          }
           found = 1;
         }
       }
- #endif
- #endif
-
+#endif
+#endif
     }
     freeifaddrs(ifaddr);
   }
   return response;
 }
-

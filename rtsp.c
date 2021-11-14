@@ -3784,7 +3784,7 @@ int send_metadata_to_queue(pc_queue *queue, uint32_t type, uint32_t code, char *
 
 int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,
                   int block) {
-  int rc;
+  int rc = 0;
   if (config.metadata_enabled) {
     rc = send_metadata_to_queue(&metadata_queue, type, code, data, length, carrier, block);
     rc =
