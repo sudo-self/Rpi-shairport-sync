@@ -44,6 +44,7 @@
 #include "config.h"
 
 #ifdef CONFIG_AIRPLAY_2
+#include <gcrypt.h>
 #include <sodium.h>
 #include <uuid/uuid.h>
 #endif
@@ -1786,8 +1787,10 @@ int main(int argc, char **argv) {
   // mDNS string.
   // note: 0x300401F4A00 works but with weird delays and stuff
   // config.airplay_features = 0x1C340405FCA00;
-  uint64_t mask = ((uint64_t)1 << 17) |  ((uint64_t)1 << 16) | ((uint64_t)1 << 15) | ((uint64_t)1 << 50);
-  config.airplay_features = 0x1C340405D4A00 & (~mask); // APX + Authentication4 (b14) with no metadata (see below)
+  uint64_t mask =
+      ((uint64_t)1 << 17) | ((uint64_t)1 << 16) | ((uint64_t)1 << 15) | ((uint64_t)1 << 50);
+  config.airplay_features =
+      0x1C340405D4A00 & (~mask); // APX + Authentication4 (b14) with no metadata (see below)
   // Advertised with mDNS and returned with GET /info, see
   // https://openairplay.github.io/airplay-spec/status_flags.html 0x4: Audio cable attached, no PIN
   // required (transient pairing), 0x204: Audio cable attached, OneTimePairingRequired 0x604: Audio
@@ -1802,7 +1805,7 @@ int main(int argc, char **argv) {
     config.airplay_features |= (1 << 15); // 15 is artwork
 #endif
 
-  debug(1,"Features: 0x%" PRIx64 ".", config.airplay_features);
+  debug(1, "Features: 0x%" PRIx64 ".", config.airplay_features);
   config.airplay_statusflags = 0x04;
   // Set to NULL to work with transient pairing
   config.airplay_pin = NULL;
@@ -1910,6 +1913,29 @@ int main(int argc, char **argv) {
   } else {
     debug(1, "libsodium initialised.");
   }
+
+  // this code is based on
+  // https://www.gnupg.org/documentation/manuals/gcrypt/Initializing-the-library.html
+
+  /* Version check should be the very first call because it
+    makes sure that important subsystems are initialized.
+    #define NEED_LIBGCRYPT_VERSION to the minimum required version. */
+    
+#define NEED_LIBGCRYPT_VERSION "1.5.4"
+
+  if (!gcry_check_version(NEED_LIBGCRYPT_VERSION)) {
+    die("libgcrypt is too old (need %s, have %s).", NEED_LIBGCRYPT_VERSION,
+        gcry_check_version(NULL));
+  }
+
+  /* Disable secure memory.  */
+  gcry_control(GCRYCTL_DISABLE_SECMEM, 0);
+
+  /* ... If required, other initialization goes here.  */
+
+  /* Tell Libgcrypt that initialization has completed. */
+  gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
+
 #endif
 
   /* Mess around with the latency options */
@@ -1961,8 +1987,9 @@ int main(int argc, char **argv) {
   debug(1, "mdns backend \"%s\".", config.mdns_name);
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
   debug(1, "interpolation setting is \"%s\".",
-        config.packet_stuffing == ST_basic ? "basic"
-                                           : config.packet_stuffing == ST_soxr ? "soxr" : "auto");
+        config.packet_stuffing == ST_basic  ? "basic"
+        : config.packet_stuffing == ST_soxr ? "soxr"
+                                            : "auto");
   debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
   debug(1, "resync time is %f seconds.", config.resyncthreshold);
   debug(1, "allow a session to be interrupted: %d.", config.allow_session_interruption);

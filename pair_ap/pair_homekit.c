@@ -281,7 +281,7 @@ calculate_M(enum hash_alg alg, NGConstant *ng, unsigned char *dest, const char *
 
   for (i=0; i < hash_len; i++ )
     H_xor[i] = H_N[i] ^ H_g[i];
-
+    
   hash_init( alg, &ctx );
 
   hash_update( alg, &ctx, H_xor, hash_len );
@@ -410,7 +410,7 @@ srp_user_start_authentication(struct SRPUser *usr, const char **username,
 //  BN_hex2bn(&(usr->a), "D929DFB605687233C9E9030C2280156D03BDB9FDCF3CCE3BC27D9CCFCB5FF6A1");
 
   bnum_modexp(usr->A, usr->ng->g, usr->a, usr->ng->N);
-
+    
   *len_A   = bnum_num_bytes(usr->A);
   *bytes_A = malloc(*len_A);
 
@@ -515,7 +515,7 @@ static int
 srp_create_salted_verification_key(enum hash_alg alg,
                                    SRP_NGType ng_type, const char *username,
                                    const unsigned char *password, int len_password,
-                                   unsigned char **bytes_s, int *len_s,
+                                   unsigned char **bytes_s, int *len_s, 
                                    unsigned char **bytes_v, int *len_v,
                                    const char *n_hex, const char *g_hex )
 {
@@ -1137,7 +1137,7 @@ client_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add
 {
   struct pair_client_setup_context *sctx = &handle->sctx.client;
 
-  if (sodium_init() == -1)
+  if (!is_initialized())
     return -1;
 
   if (handle->type == &pair_client_homekit_normal)
@@ -1626,7 +1626,7 @@ client_verify_new(struct pair_verify_context *handle, const char *client_setup_k
   struct pair_client_verify_context *vctx = &handle->vctx.client;
   size_t hexkey_len;
 
-  if (sodium_init() == -1)
+  if (!is_initialized())
     return -1;
 
   if (!device_id || strlen(device_id) >= PAIR_AP_DEVICE_ID_LEN_MAX)
@@ -1950,7 +1950,7 @@ server_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add
 {
   struct pair_server_setup_context *sctx = &handle->sctx.server;
 
-  if (sodium_init() == -1)
+  if (!is_initialized())
     return -1;
 
   if (!pin)
@@ -2396,7 +2396,7 @@ server_verify_new(struct pair_verify_context *handle, const char *client_setup_k
 {
   struct pair_server_verify_context *vctx = &handle->vctx.server;
 
-  if (sodium_init() == -1)
+  if (!is_initialized())
     return -1;
 
   if (client_setup_keys)
