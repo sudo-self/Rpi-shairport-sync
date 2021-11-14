@@ -1,3 +1,8 @@
+Version 4.1-dev-19-g3f6f0932
+===
+#### Bug fix
+- Fix a bug that would occasionally mute Shairport Sync when using it with AppleTV. Combined with the [recent update](https://github.com/mikebrady/nqptp/blob/development/RELEASE_NOTES.md) of `nqptp`, this makes using Shairport Sync much more useful with an AppleTV 4K.
+
 Version 4.1-dev-15-gf4115c45
 ====
 #### Bug Fix
