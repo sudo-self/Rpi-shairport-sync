@@ -1,3 +1,8 @@
+Version 4.1-dev-21-g1032cad6
+===
+#### Enhancement
+- Update the `pair_ap` library to the [latest version](https://github.com/ejurgensen/pair_ap). Thanks again to [ejurgensen](https://github.com/ejurgensen). Addresses Issue [#1334](https://github.com/mikebrady/shairport-sync/issues/1334). Thanks to [iChUdY](https://github.com/iChUdY) for reporting the issue.
+
 Version 4.1-dev-19-g3f6f0932
 ===
 #### Bug fix
