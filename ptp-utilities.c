@@ -33,8 +33,8 @@
 #include <string.h>
 #include <sys/mman.h>
 #ifdef COMPILE_FOR_FREEBSD
-#include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/socket.h>
 #endif
 #define __STDC_FORMAT_MACROS
 #include "common.h"
@@ -86,7 +86,7 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *time_of_sample, uint
           if (actual_clock_id != NULL)
             *actual_clock_id = nqptp_data.master_clock_id;
           if (time_of_sample != NULL)
-            *time_of_sample = nqptp_data.local_time;          
+            *time_of_sample = nqptp_data.local_time;
           if (raw_offset != NULL)
             *raw_offset = nqptp_data.local_to_master_time_offset;
           if (mastership_start_time != NULL)

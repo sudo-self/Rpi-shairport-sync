@@ -60,7 +60,8 @@ static int play(void *buf, int samples);
 static void stop(void);
 static void flush(void);
 int delay(long *the_delay);
-int get_frames_sent_for_output(__attribute__ ((unused)) uint64_t *elapsed_time, uint64_t *frames_sent_to_dac);
+int get_frames_sent_for_output(__attribute__((unused)) uint64_t *elapsed_time,
+                               uint64_t *frames_sent_to_dac);
 // int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
 void *alsa_buffer_monitor_thread_code(void *arg);
 
@@ -89,8 +90,9 @@ audio_output audio_alsa = {
     .flush = &flush,
     .delay = &delay,
     .play = &play,
-    .rate_info = &get_frames_sent_for_output, // will also include frames of silence sent to stop standby mode
-//    .rate_info = NULL,
+    .rate_info = &get_frames_sent_for_output, // will also include frames of silence sent to stop
+                                              // standby mode
+                                              //    .rate_info = NULL,
     .mute = NULL,        // a function will be provided if it can, and is allowed to,
                          // do hardware mute
     .volume = NULL,      // a function will be provided if it can do hardware volume
@@ -247,7 +249,8 @@ static snd_pcm_uframes_t period_size_requested, buffer_size_requested;
 static int set_period_size_request, set_buffer_size_request;
 
 static uint64_t frames_sent_for_playing;
-static int output_error_occurred; // set to true if an underrun or similar has occurred since last requested
+static int output_error_occurred; // set to true if an underrun or similar has occurred since last
+                                  // requested
 
 static void help(void) {
   printf("    -d output-device    set the output device, default is \"default\".\n"
@@ -432,7 +435,7 @@ int actual_open_alsa_device(int do_auto_setup) {
       char errorstring[1024];
       strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
       die("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring,
-           alsa_out_dev);
+          alsa_out_dev);
     }
     return ret;
   }
@@ -469,14 +472,14 @@ int actual_open_alsa_device(int do_auto_setup) {
   ret = snd_pcm_hw_params_set_access(alsa_handle, alsa_params, access);
   if (ret < 0) {
     die("audio_alsa: Access type not available for device \"%s\": %s", alsa_out_dev,
-         snd_strerror(ret));
+        snd_strerror(ret));
     return ret;
   }
 
   ret = snd_pcm_hw_params_set_channels(alsa_handle, alsa_params, 2);
   if (ret < 0) {
     die("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
-         snd_strerror(ret));
+        snd_strerror(ret));
     return ret;
   }
 
@@ -522,7 +525,7 @@ int actual_open_alsa_device(int do_auto_setup) {
             sps_format_description_string(config.output_format));
     } else {
       die("audio_alsa: Could not automatically set the output format for device \"%s\": %s",
-           alsa_out_dev, snd_strerror(ret));
+          alsa_out_dev, snd_strerror(ret));
       return ret;
     }
   }
@@ -532,8 +535,8 @@ int actual_open_alsa_device(int do_auto_setup) {
         config.output_rate; // this is the requested rate -- it'll be changed to the actual rate
     ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &actual_sample_rate, &dir);
     if (ret < 0) {
-      die("audio_alsa: The frame rate of %i frames per second is not available for playback: %s", config.output_rate,
-           snd_strerror(ret));
+      die("audio_alsa: The frame rate of %i frames per second is not available for playback: %s",
+          config.output_rate, snd_strerror(ret));
       return ret;
     }
   } else {
@@ -552,7 +555,9 @@ int actual_open_alsa_device(int do_auto_setup) {
       if (ret == 0) {
         speed_found = 1;
         if (actual_sample_rate != speeds[i])
-          die("The output DAC can not be set to %d frames per second (fps). The nearest speed available is %d fps.", speeds[i], actual_sample_rate);
+          die("The output DAC can not be set to %d frames per second (fps). The nearest speed "
+              "available is %d fps.",
+              speeds[i], actual_sample_rate);
       } else {
         i++;
       }
@@ -562,7 +567,7 @@ int actual_open_alsa_device(int do_auto_setup) {
       debug(1, "alsa: output speed chosen is %d.", config.output_rate);
     } else {
       die("audio_alsa: Could not automatically set the output rate for device \"%s\": %s",
-           alsa_out_dev, snd_strerror(ret));
+          alsa_out_dev, snd_strerror(ret));
       return ret;
     }
   }
@@ -607,7 +612,7 @@ int actual_open_alsa_device(int do_auto_setup) {
   ret = snd_pcm_hw_params(alsa_handle, alsa_params);
   if (ret < 0) {
     die("audio_alsa: Unable to set hw parameters for device \"%s\": %s.", alsa_out_dev,
-         snd_strerror(ret));
+        snd_strerror(ret));
     return ret;
   }
 
@@ -774,10 +779,11 @@ int actual_open_alsa_device(int do_auto_setup) {
       break;
     }
 
-    if (snd_pcm_hw_params_get_rate_numden(alsa_params, &uval, &uval2) == 0)
+    if ((snd_pcm_hw_params_get_rate_numden(alsa_params, &uval, &uval2) == 0) && (uval2 != 0))
+      // watch for a divide by zero too!
       debug(log_level, "  precise (rational) rate = %.3f frames per second (i.e. %u/%u).", uval,
-            uval2, ((double)uval) / uval2);
-    else
+            uval2, ((double)uval) / uval2);        
+     else
       debug(log_level, "  precise (rational) rate information unavailable.");
 
     snd_pcm_hw_params_get_period_time(alsa_params, &uval, &dir);
@@ -1283,16 +1289,16 @@ static int init(int argc, char **argv) {
         warn("Invalid use_precision_timing option choice \"%s\". It should be "
              "\"yes\", \"auto\" or \"no\". "
              "It remains set to \"%s\".",
-             config.use_precision_timing == YNA_NO
-                 ? "no"
-                 : config.use_precision_timing == YNA_AUTO ? "auto" : "yes");
+             config.use_precision_timing == YNA_NO     ? "no"
+             : config.use_precision_timing == YNA_AUTO ? "auto"
+                                                       : "yes");
       }
     }
 
     debug(1, "alsa: disable_standby_mode is \"%s\".",
-          config.disable_standby_mode == disable_standby_off
-              ? "never"
-              : config.disable_standby_mode == disable_standby_always ? "always" : "auto");
+          config.disable_standby_mode == disable_standby_off      ? "never"
+          : config.disable_standby_mode == disable_standby_always ? "always"
+                                                                  : "auto");
     debug(1, "alsa: disable_standby_mode_silence_threshold is %f seconds.",
           config.disable_standby_mode_silence_threshold);
     debug(1, "alsa: disable_standby_mode_silence_scan_interval is %f seconds.",
@@ -1624,18 +1630,19 @@ int delay(long *the_delay) {
   return ret;
 }
 
-int get_frames_sent_for_output(__attribute__ ((unused)) uint64_t *elapsed_time, uint64_t *frames_sent_to_dac) {
+int get_frames_sent_for_output(__attribute__((unused)) uint64_t *elapsed_time,
+                               uint64_t *frames_sent_to_dac) {
   int ret = 0;
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
   *frames_sent_to_dac = frames_sent_for_playing;
   if (alsa_handle == NULL)
     ret = ENODEV;
-  else   
+  else
     ret = output_error_occurred; // will be zero unless an error occurred
-  output_error_occurred = 0; // reset it.
+  output_error_occurred = 0;     // reset it.
   debug_mutex_unlock(&alsa_mutex, 0);
   pthread_cleanup_pop(0);
-  return ret;  
+  return ret;
 }
 
 /*
@@ -1682,8 +1689,8 @@ int do_play(void *buf, int samples) {
         stall_monitor_frame_count += samples;
         frames_sent_for_playing += samples;
       } else {
-        output_error_occurred = -ret;    // note than an output error has occurred
-        if (ret == -EPIPE) { /* underrun */
+        output_error_occurred = -ret; // note than an output error has occurred
+        if (ret == -EPIPE) {          /* underrun */
 
           // It could be that the DAC was in the SND_PCM_STATE_XRUN state before
           // sending the samples to be output. If so, it will still be in

@@ -1920,7 +1920,7 @@ int main(int argc, char **argv) {
   /* Version check should be the very first call because it
     makes sure that important subsystems are initialized.
     #define NEED_LIBGCRYPT_VERSION to the minimum required version. */
-    
+
 #define NEED_LIBGCRYPT_VERSION "1.5.4"
 
   if (!gcry_check_version(NEED_LIBGCRYPT_VERSION)) {

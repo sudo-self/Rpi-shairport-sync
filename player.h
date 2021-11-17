@@ -170,7 +170,7 @@ typedef struct {
       player_watchdog_thread;
 
   // buffers to delete on exit
-  signed short *tbuf;
+  int32_t *tbuf;
   int32_t *sbuf;
   char *outbuf;
 

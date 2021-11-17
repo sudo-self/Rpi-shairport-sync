@@ -169,11 +169,11 @@ void *activity_monitor_thread_code(void *arg) {
   do {
     switch (state) {
     case am_inactive:
-      debug(2,"am_state: am_inactive");
+      debug(2, "am_state: am_inactive");
       while (player_state != ps_active)
         pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);
       state = am_active;
-      debug(2,"am_state: going active");
+      debug(2, "am_state: going active");
       break;
     case am_active:
       // debug(1,"am_state: am_active");

@@ -655,7 +655,8 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
   debug_mutex_lock(&conns_lock, 1000000, 3);
   int i;
   for (i = 0; i < nconns; i++) {
-    if ((conns[i] != NULL) && (conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
+    if ((conns[i] != NULL) && (conns[i]->running != 0) &&
+        (conns[i]->connection_number != except_this_one) &&
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
       pthread_cancel(conns[i]->thread);
@@ -663,7 +664,8 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
     }
   }
   for (i = 0; i < nconns; i++) {
-    if ((conns[i] != NULL) && (conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
+    if ((conns[i] != NULL) && (conns[i]->running != 0) &&
+        (conns[i]->connection_number != except_this_one) &&
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
       pthread_join(conns[i]->thread, NULL);
@@ -1303,7 +1305,8 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
     char *string;
   };
 
-  struct response_t responses[] = {{200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}, {501, "Not Implemented"}};
+  struct response_t responses[] = {
+      {200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}, {501, "Not Implemented"}};
   int found = 0;
   char *respcode_text = "Unauthorized";
   for (i = 0; i < sizeof(responses) / sizeof(struct response_t); i++) {
@@ -1662,13 +1665,14 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
 }
 
 void handle_setrate(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
-  debug(3, "Connection %d: SETRATE %s : Content-Length %d", conn->connection_number,
-        req->path, req->contentlength);
+  debug(3, "Connection %d: SETRATE %s : Content-Length %d", conn->connection_number, req->path,
+        req->contentlength);
   debug_log_rtsp_message(2, "SETRATE request -- unimplemented", req);
   resp->respcode = 501; // Not Implemented
 }
 
-void handle_unimplemented_ap1(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+void handle_unimplemented_ap1(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *req,
+                              rtsp_message *resp) {
   debug_log_rtsp_message(1, "request not recognised for AirPlay 1 operation", req);
   resp->respcode = 501;
 }
@@ -1783,8 +1787,9 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
         req->contentlength);
   resp->respcode = 500;
 }
-void handle_post(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)) rtsp_message *req,
-                __attribute((unused)) rtsp_message *resp) {
+void handle_post(__attribute((unused)) rtsp_conn_info *conn,
+                 __attribute((unused)) rtsp_message *req,
+                 __attribute((unused)) rtsp_message *resp) {
   debug(1, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
         req->contentlength);
   resp->respcode = 500;
@@ -2321,7 +2326,7 @@ void teardown_phase_one(rtsp_conn_info *conn) {
   // this can be called more than once on the same connection --
   // by the player itself but also by the play seesion being killed
   if (conn->player_thread) {
-    player_stop(conn); // this nulls the player_thread
+    player_stop(conn);                    // this nulls the player_thread
     activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
   }
   if (conn->session_key) {
@@ -2347,7 +2352,8 @@ void teardown_phase_two(rtsp_conn_info *conn) {
   if (conn->event_socket) {
     close(conn->event_socket);
     conn->event_socket = 0;
-    debug(2, "Connection %d: closing TCP event port %u.", conn->connection_number, conn->local_event_port);
+    debug(2, "Connection %d: closing TCP event port %u.", conn->connection_number,
+          conn->local_event_port);
   }
 
   // if we are closing a PTP stream only, do this
@@ -2364,7 +2370,6 @@ void teardown_phase_two(rtsp_conn_info *conn) {
     mdns_update(NULL, secondary_txt_records);
   }
 }
-
 
 void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                        rtsp_message *resp) {
@@ -2661,7 +2666,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                   conn->connection_number, err);
             }
 
-            debug(2, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number, conn->local_event_port);
+            debug(2, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number,
+                  conn->local_event_port);
 
             if (conn->rtp_event_thread != NULL)
               debug(1, "previous rtp_event_thread allocation not freed, it seems.");
@@ -2707,7 +2713,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 conn->connection_number, err);
           }
 
-          debug(1, "Connection %d: TCP Remote Control event port opened: %u.", conn->connection_number, conn->local_event_port);
+          debug(1, "Connection %d: TCP Remote Control event port opened: %u.",
+                conn->connection_number, conn->local_event_port);
           if (conn->rtp_event_thread != NULL)
             debug(1, "previous rtp_event_thread allocation not freed, it seems.");
           conn->rtp_event_thread = malloc(sizeof(pthread_t));
@@ -2759,7 +2766,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       if (err) {
         die("Error %d: could not find a UDP port to use as an ap2_control port", err);
       }
-      debug(2, "Connection %d: UDP control port opened: %u.", conn->connection_number, conn->local_ap2_control_port);
+      debug(2, "Connection %d: UDP control port opened: %u.", conn->connection_number,
+            conn->local_ap2_control_port);
 
       pthread_create(&conn->rtp_ap2_control_thread, NULL, &rtp_ap2_control_receiver, (void *)conn);
 
@@ -2829,7 +2837,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         if (err) {
           die("Error %d: could not find a UDP port to use as a realtime_audio port", err);
         }
-        debug(2, "Connection %d: UDP realtime audio port opened: %u.", conn->connection_number, conn->local_realtime_audio_port);
+        debug(2, "Connection %d: UDP realtime audio port opened: %u.", conn->connection_number,
+              conn->local_realtime_audio_port);
 
         pthread_create(&conn->rtp_realtime_audio_thread, NULL, &rtp_realtime_audio_receiver,
                        (void *)conn);
@@ -2892,7 +2901,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
               conn->connection_number, err);
         }
 
-        debug(2, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number, conn->local_buffered_audio_port);
+        debug(2, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number,
+              conn->local_buffered_audio_port);
 
         // hack.
         conn->max_frames_per_packet = 352; // number of audio frames per packet.
@@ -3117,7 +3127,8 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
         conn->initial_airplay_volume = volume;
         conn->initial_airplay_volume_set = 1;
       }
-    } else if (strncmp(cp, "progress: ", strlen("progress: ")) == 0) { // this can be sent even when metadata is not solicited
+    } else if (strncmp(cp, "progress: ", strlen("progress: ")) ==
+               0) { // this can be sent even when metadata is not solicited
 
 #ifdef CONFIG_METADATA
       char *progress = cp + strlen("progress: ");
@@ -3126,8 +3137,7 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
       send_ssnc_metadata('prgr', progress, strlen(progress), 1);
 #endif
 
-    } else
-    {
+    } else {
       debug(1, "Connection %d, unrecognised parameter: \"%s\" (%d)\n", conn->connection_number, cp,
             strlen(cp));
     }
@@ -3381,6 +3391,8 @@ void metadata_multicast_process(uint32_t type, uint32_t code, char *data, uint32
     // ("ssnc", "chnk", packet_ix, packet_counts, packet_tag, packet_type, chunked_data)
 
     uint32_t chunk_ix = 0;
+    if (config.metadata_sockmsglength == 24)
+      die("A divide by zero almost occurred (config.metadata_sockmsglength = 24).");
     uint32_t chunk_total = length / (config.metadata_sockmsglength - 24);
     if (chunk_total * (config.metadata_sockmsglength - 24) < length) {
       chunk_total++;
@@ -3673,7 +3685,8 @@ void metadata_init(void) {
     if (pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL) != 0)
       debug(1, "Failed to create metadata thread!");
 
-    if (pthread_create(&metadata_multicast_thread, NULL, metadata_multicast_thread_function, NULL) != 0)
+    if (pthread_create(&metadata_multicast_thread, NULL, metadata_multicast_thread_function,
+                       NULL) != 0)
       debug(1, "Failed to create metadata multicast thread!");
   }
 #ifdef CONFIG_METADATA_HUB
@@ -4513,8 +4526,6 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     close(conn->audio_socket);
   }
 
-
-
   if (conn->fd > 0) {
     debug(3, "Connection %d terminating: closing fd %d.", conn->connection_number, conn->fd);
     close(conn->fd);
@@ -4674,7 +4685,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         }
         if (method_selected == 0) {
-          debug(1, "Connection %d: Unrecognised and unhandled rtsp request \"%s\". HTTP Response Code 501 (\"Not Implemented\") returned.",
+          debug(1,
+                "Connection %d: Unrecognised and unhandled rtsp request \"%s\". HTTP Response Code "
+                "501 (\"Not Implemented\") returned.",
                 conn->connection_number, req->method);
 
           int y = req->contentlength;
@@ -4693,7 +4706,6 @@ static void *rtsp_conversation_thread_func(void *pconn) {
             *obfp = 0;
             debug(1, "Content: \"%s\".", obf);
           }
-
         }
       }
       debug(debug_level, "Connection %d: RTSP Response:", conn->connection_number);

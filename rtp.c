@@ -290,8 +290,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-
-
+                                             
+                                             
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -302,19 +302,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-
+                                             
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-
+                                             
                                                               // Best guess is that this delay is 11,025 frames.
-
+                                             
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-
+                                             
                                                               uint32_t fl = nctohs(&packet[2]); //
-
+                                             
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -1564,7 +1564,8 @@ void rtp_ap2_control_handler_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(2, "Connection %d: AP2 Control Receiver Cleanup.", conn->connection_number);
   close(conn->ap2_control_socket);
-  debug(2, "Connection %d: UDP control port %u closed.", conn->connection_number, conn->local_ap2_control_port);
+  debug(2, "Connection %d: UDP control port %u closed.", conn->connection_number,
+        conn->local_ap2_control_port);
   conn->ap2_control_socket = 0;
   conn->ap2_remote_control_socket_addr_length =
       0; // indicates to the control receiver thread that the socket address need to be
@@ -2030,7 +2031,8 @@ void rtp_buffered_audio_cleanup_handler(__attribute__((unused)) void *arg) {
   debug(2, "Buffered Audio Receiver Cleanup Start.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   close(conn->buffered_audio_socket);
-  debug(2, "Connection %d: TCP Buffered Audio port closed: %u.", conn->connection_number, conn->local_buffered_audio_port);
+  debug(2, "Connection %d: TCP Buffered Audio port closed: %u.", conn->connection_number,
+        conn->local_buffered_audio_port);
   conn->buffered_audio_socket = 0;
   debug(2, "Buffered Audio Receiver Cleanup Done.");
 }
@@ -2119,10 +2121,10 @@ void *rtp_buffered_audio_processor(void *arg) {
   // (does nothing if called twice during the course of one program execution)
   // deprecated in ffmpeg 4.0 and later... but still needed in ffmpeg 3.6 / ubuntu 18
 
-  #pragma GCC diagnostic push
-  #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   avcodec_register_all();
-  #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
 
   AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
   if (codec == NULL) {
@@ -2221,7 +2223,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   ssize_t data_remaining;
   uint32_t seq_no; // audio packet number
   // uint32_t previous_seq_no = 0;
-  int new_buffer_needed;
+  int new_buffer_needed = 0;
   ssize_t nread;
 
   int finished = 0;
