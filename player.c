@@ -2019,7 +2019,7 @@ void *player_thread_func(void *arg) {
     }
   } else {
 #endif
-    if (config.output->delay) {
+    if (config.output->stats) {
       if (config.no_sync == 0)
         statistics_print_profile = ap1_synced_statistics_print_profile;
       else
@@ -2311,15 +2311,15 @@ void *player_thread_func(void *arg) {
           }
 
           int stats_status = -1;
-          if ((config.output->delay) && (config.no_sync == 0) && (config.output->rate_info)) {
+          if ((config.output->delay) && (config.no_sync == 0) && (config.output->stats)) {
             uint64_t frames_sent_for_play;
             uint64_t measurement_time;
             uint64_t actual_delay;
-            stats_status = config.output->rate_info(&measurement_time, &actual_delay, &frames_sent_for_play);
+            stats_status = config.output->stats(&measurement_time, &actual_delay, &frames_sent_for_play);
             // debug(1,"actual_delay: %" PRIu64 ", frames_sent_for_play: %" PRIu64 ", frames_played: %" PRIu64 ".", actual_delay, frames_sent_for_play, frames_sent_for_play - actual_delay);
             uint64_t frames_played = frames_sent_for_play - actual_delay;
             // If the status is zero, it means that there were no output problems since the
-            // last time the rate_info call was made. Thus, the frame rate should be valid.
+            // last time the stats call was made. Thus, the frame rate should be valid.
             if ((stats_status == 0) && (previous_frames_played_valid)) {
               uint64_t frames_played_in_this_interval = frames_played - previous_frames_played;
               uint64_t interval = measurement_time - previous_frames_played_time;

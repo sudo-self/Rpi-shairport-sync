@@ -60,7 +60,7 @@ static int play(void *buf, int samples);
 static void stop(void);
 static void flush(void);
 int delay(long *the_delay);
-int play_stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac);
+int stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac);
 // int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
 void *alsa_buffer_monitor_thread_code(void *arg);
 
@@ -89,7 +89,7 @@ audio_output audio_alsa = {
     .flush = &flush,
     .delay = &delay,
     .play = &play,
-    .rate_info = &play_stats, // will also include frames of silence sent to stop
+    .stats = &stats, // will also include frames of silence sent to stop
                                               // standby mode
                                               //    .rate_info = NULL,
     .mute = NULL,        // a function will be provided if it can, and is allowed to,
@@ -1629,7 +1629,7 @@ int delay(long *the_delay) {
   return ret;
 }
 
-int play_stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac) {
+int stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac) {
   // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or
   // SND_PCM_STATE_PREPARED
   // or SND_PCM_STATE_DRAINING
