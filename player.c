@@ -1999,7 +1999,7 @@ void *player_thread_func(void *arg) {
 #ifdef CONFIG_AIRPLAY_2
   if (conn->airplay_type == ap_2) {
     if (conn->airplay_stream_type == realtime_stream) {
-      if (config.output->delay) {
+      if (config.output->stats) {
         if (config.no_sync == 0)
           statistics_print_profile = ap2_realtime_synced_stream_statistics_print_profile;
         else
@@ -2008,7 +2008,7 @@ void *player_thread_func(void *arg) {
         statistics_print_profile = ap2_realtime_nodelay_stream_statistics_print_profile;
       }
     } else {
-      if (config.output->delay) {
+      if (config.output->stats) {
         if (config.no_sync == 0)
           statistics_print_profile = ap2_buffered_synced_stream_statistics_print_profile;
         else
