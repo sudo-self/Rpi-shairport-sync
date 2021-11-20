@@ -60,8 +60,7 @@ static int play(void *buf, int samples);
 static void stop(void);
 static void flush(void);
 int delay(long *the_delay);
-int get_frames_sent_for_output(__attribute__((unused)) uint64_t *elapsed_time,
-                               uint64_t *frames_sent_to_dac);
+int play_stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac);
 // int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
 void *alsa_buffer_monitor_thread_code(void *arg);
 
@@ -90,7 +89,7 @@ audio_output audio_alsa = {
     .flush = &flush,
     .delay = &delay,
     .play = &play,
-    .rate_info = &get_frames_sent_for_output, // will also include frames of silence sent to stop
+    .rate_info = &play_stats, // will also include frames of silence sent to stop
                                               // standby mode
                                               //    .rate_info = NULL,
     .mute = NULL,        // a function will be provided if it can, and is allowed to,
@@ -1627,6 +1626,46 @@ int delay(long *the_delay) {
 
   *the_delay = my_delay; // note: snd_pcm_sframes_t is a long
 
+  return ret;
+}
+
+int play_stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac) {
+  // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or
+  // SND_PCM_STATE_PREPARED
+  // or SND_PCM_STATE_DRAINING
+  // and returns the actual delay if running or 0 if prepared in *the_delay
+
+  // otherwise return an error code
+  // the error code could be a Unix errno code or a snderror code, or
+  // the sps_extra_code_output_stalled or the
+  // sps_extra_code_output_state_cannot_make_ready codes
+  int ret = 0;
+  *the_delay = 0;
+
+  int oldState;
+
+  snd_pcm_state_t state;
+  snd_pcm_sframes_t my_delay = 0; // this initialisation is to silence a clang warning
+
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
+
+  if (alsa_handle == NULL) {
+    ret = ENODEV;
+  } else {
+    *the_time = get_absolute_time_in_ns();
+    ret = delay_and_status(&state, &my_delay, NULL);
+  }
+  if (ret == 0)
+    ret = output_error_occurred; // will be zero unless an error like an underrun occurred
+  output_error_occurred = 0;     // reset it.
+  if (frames_sent_to_dac != NULL)
+    *frames_sent_to_dac = frames_sent_for_playing;
+  debug_mutex_unlock(&alsa_mutex, 0);
+  pthread_cleanup_pop(0);
+  pthread_setcancelstate(oldState, NULL);
+  uint64_t hd = my_delay; // note: snd_pcm_sframes_t is a long
+  *the_delay = hd;
   return ret;
 }
 
