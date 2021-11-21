@@ -22,6 +22,8 @@ static void write_callback(struct SoundIoOutStream *outstream, int frame_count_m
 
   char *read_ptr = soundio_ring_buffer_read_ptr(ring_buffer);
   int fill_bytes = soundio_ring_buffer_fill_count(ring_buffer);
+  if (outstream->bytes_per_frame == 0)
+    die("soundio: outstream->bytes_per_frame is zero.");
   int fill_count = fill_bytes / outstream->bytes_per_frame;
 
   debug(3,

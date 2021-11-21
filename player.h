@@ -30,6 +30,7 @@
 #include "audio.h"
 
 #define time_ping_history_power_of_two 7
+// this must now be zero, otherwise bad things will happen
 #define time_ping_history                                                                          \
   (1 << time_ping_history_power_of_two) // 2^7 is 128. At 1 per three seconds, approximately six
                                         // minutes of records

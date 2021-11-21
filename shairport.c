@@ -202,15 +202,24 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
   double soxr_execution_time_ns = (get_absolute_time_in_ns() - soxr_start_time) * 1.0;
   // free(outbuffer);
   // free(inbuffer);
-  config.soxr_delay_index = (int)(0.9 + soxr_execution_time_ns / (number_of_iterations * 1000000));
+  if (number_of_iterations != 0) {
+    config.soxr_delay_index =
+        (int)(0.9 + soxr_execution_time_ns / (number_of_iterations * 1000000));
+  } else {
+    debug(1, "No soxr-timing iterations performed, so \"basic\" iteration will be used.");
+    config.soxr_delay_index = 0; // used as a flag
+  }
   debug(2, "soxr_delay_index: %d.", config.soxr_delay_index);
   if ((config.packet_stuffing == ST_soxr) &&
       (config.soxr_delay_index > config.soxr_delay_threshold))
     inform("Note: this device may be too slow for \"soxr\" interpolation. Consider choosing the "
            "\"basic\" or \"auto\" interpolation setting.");
   if (config.packet_stuffing == ST_auto)
-    debug(1, "\"%s\" interpolation has been chosen.",
-          config.soxr_delay_index <= config.soxr_delay_threshold ? "soxr" : "basic");
+    debug(
+        1, "\"%s\" interpolation has been chosen.",
+        ((config.soxr_delay_index != 0) && (config.soxr_delay_index <= config.soxr_delay_threshold))
+            ? "soxr"
+            : "basic");
   pthread_exit(NULL);
 }
 

@@ -154,7 +154,7 @@ void *rtp_audio_receiver(void *arg) {
       float stat_delta = time_interval_us - stat_mean;
       stat_mean += stat_delta / stat_n;
       stat_M2 += stat_delta * (time_interval_us - stat_mean);
-      if (stat_n % 2500 == 0) {
+      if ((stat_n != 1) && (stat_n % 2500 == 0)) {
         debug(2,
               "Packet reception interval stats: mean, standard deviation and max for the last "
               "2,500 packets in microseconds: %10.1f, %10.1f, %10.1f.",
@@ -650,6 +650,8 @@ void *rtp_timing_receiver(void *arg) {
   double log_of_multiplier = log10(diffusion_expansion_factor) / time_ping_history;
   double multiplier = pow(10, log_of_multiplier);
   uint64_t dispersion_factor = (uint64_t)(multiplier * 100);
+  if (dispersion_factor == 0)
+    die("dispersion factor is zero!");
   // debug(1,"dispersion factor is %" PRIu64 ".", dispersion_factor);
 
   // uint64_t first_local_to_remote_time_difference_time;
@@ -1029,6 +1031,8 @@ const int use_nominal_rate = 0; // specify whether to use the nominal input rate
 
 int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_conn_info *conn) {
   int result = 1;
+  if (conn->input_rate == 0)
+    die("conn->input_rate is zero!");
   uint32_t fs = conn->input_rate;
   *frames = fs;       // default value to return
   *time = 1000000000; // default value to return
@@ -1051,7 +1055,11 @@ int sanitised_source_rate_information(uint32_t *frames, uint64_t *time, rtsp_con
         result = 1;
       } else {
         *frames = local_frames;
+        if (local_frames == 0)
+          die("local_frames is zero!");
         *time = local_time;
+        if (local_time == 0)
+          die("local_time is zero!");
         result = 0;
       }
     }
@@ -1469,6 +1477,8 @@ int frame_to_ptp_local_time(uint32_t timestamp, uint64_t *time, rtsp_conn_info *
     int32_t frame_difference = timestamp - anchor_rtptime;
     int64_t time_difference = frame_difference;
     time_difference = time_difference * 1000000000;
+    if (conn->input_rate == 0)
+      die("conn->input_rate is zero!");
     time_difference = time_difference / conn->input_rate;
     uint64_t ltime = anchor_local_time + time_difference;
     *time = ltime;
@@ -2246,6 +2256,10 @@ void *rtp_buffered_audio_processor(void *arg) {
   double requested_lead_time = 0.3; // normal lead time minimum
   reset_buffer(conn);               // in case there is any garbage in the player
   // int not_first_time_out = 0;
+
+  // quick check of parameters
+  if (conn->input_bytes_per_frame == 0)
+    die("conn->input_bytes_per_frame is zero!");
   do {
     int flush_is_delayed = 0;
     int flush_newly_requested = 0;

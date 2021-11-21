@@ -235,7 +235,10 @@ int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_c
     reply = -1; // output packet is the wrong size
   }
 
-  *destlen = outsize / conn->input_bytes_per_frame;
+  if (conn->input_bytes_per_frame != 0)
+    *destlen = outsize / conn->input_bytes_per_frame;
+  else
+    die("Unexpectedly, conn->input_bytes_per_frame is zero.");
   if ((outsize % conn->input_bytes_per_frame) != 0)
     debug(1,
           "Number of audio frames (%d) does not correspond exactly to the number of bytes (%d) "
@@ -1354,6 +1357,8 @@ static inline int32_t mean_32(int32_t a, int32_t b) {
 // stuff: 1 means add 1; 0 means do nothing; -1 means remove 1
 static int stuff_buffer_basic_32(int32_t *inptr, int length, sps_format_t l_output_format,
                                  char *outptr, int stuff, int dither, rtsp_conn_info *conn) {
+  if (length < 3)
+    die("buffer length expected to be 3 or more, but is %d!", length);
   int tstuff = stuff;
   char *l_outptr = outptr;
   if ((stuff > 1) || (stuff < -1) || (length < 100)) {
@@ -1465,7 +1470,10 @@ int stuff_buffer_soxr_32(int32_t *inptr, int32_t *scratchBuffer, int length,
       longest_soxr_execution_time = soxr_execution_time;
     stat_n += 1;
     double stat_delta = soxr_execution_time - stat_mean;
-    stat_mean += stat_delta / stat_n;
+    if (stat_n != 0)
+      stat_mean += stat_delta / stat_n;
+    else
+      warn("calculation error for stat_n");
     stat_M2 += stat_delta * (soxr_execution_time - stat_mean);
 
     int i;
@@ -2071,6 +2079,17 @@ void *player_thread_func(void *arg) {
 
   debug(2, "Play begin");
   while (1) {
+
+    // check a few parameters to ensure they are non-zero
+    if (config.output_rate == 0)
+      debug(1, "config.output_rate is zero!");
+    if (conn->output_sample_ratio == 0)
+      debug(1, "conn->output_sample_ratio is zero!");
+    if (conn->input_rate == 0)
+      debug(1, "conn->input_rate is zero!");
+    if (conn->input_bytes_per_frame == 0)
+      debug(1, "conn->input_bytes_per_frame is zero!");
+
     pthread_testcancel();                     // allow a pthread_cancel request to take effect.
     abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not
                                               // guaranteed that they'll always be executed
@@ -2290,50 +2309,56 @@ void *player_thread_func(void *arg) {
 
           if (conn->buffer_occupancy > maximum_buffer_occupancy)
             maximum_buffer_occupancy = conn->buffer_occupancy;
-            
-            
+
           // now, before outputting anything to the output device, check the stats
-          
-                  if (play_number % print_interval == 0) {
 
-          // here, calculate the input and output frame rates, where possible, even if statistics
-          // have not been requested
-          // this is to calculate them in case they are needed by the D-Bus interface or elsewhere.
+          if (play_number % print_interval == 0) {
 
-          if (conn->input_frame_rate_starting_point_is_valid) {
-            uint64_t elapsed_reception_time, frames_received;
-            elapsed_reception_time =
-                conn->frames_inward_measurement_time - conn->frames_inward_measurement_start_time;
-            frames_received = conn->frames_inward_frames_received_at_measurement_time -
-                              conn->frames_inward_frames_received_at_measurement_start_time;
-            conn->input_frame_rate =
-                (1.0E9 * frames_received) /
-                elapsed_reception_time; // an IEEE double calculation with two 64-bit integers
-          } else {
-            conn->input_frame_rate = 0.0;
-          }
+            // here, calculate the input and output frame rates, where possible, even if statistics
+            // have not been requested
+            // this is to calculate them in case they are needed by the D-Bus interface or
+            // elsewhere.
 
-          int stats_status = -1;
-          if ((config.output->delay) && (config.no_sync == 0) && (config.output->stats)) {
-            uint64_t frames_sent_for_play;
-            uint64_t measurement_time;
-            uint64_t actual_delay;
-            stats_status = config.output->stats(&measurement_time, &actual_delay, &frames_sent_for_play);
-            // debug(1,"actual_delay: %" PRIu64 ", frames_sent_for_play: %" PRIu64 ", frames_played: %" PRIu64 ".", actual_delay, frames_sent_for_play, frames_sent_for_play - actual_delay);
-            uint64_t frames_played = frames_sent_for_play - actual_delay;
-            // If the status is zero, it means that there were no output problems since the
-            // last time the stats call was made. Thus, the frame rate should be valid.
-            if ((stats_status == 0) && (previous_frames_played_valid)) {
-              uint64_t frames_played_in_this_interval = frames_played - previous_frames_played;
-              uint64_t interval = measurement_time - previous_frames_played_time;
-              // debug(1,"frames_played_in_this_interval: %" PRIu64 ", interval: %" PRIu64 ".", frames_played_in_this_interval, interval);
-              conn->frame_rate = (1e9 * frames_played_in_this_interval) / interval;
-              conn->frame_rate_valid = 1;
+            if (conn->input_frame_rate_starting_point_is_valid) {
+              uint64_t elapsed_reception_time, frames_received;
+              elapsed_reception_time =
+                  conn->frames_inward_measurement_time - conn->frames_inward_measurement_start_time;
+              frames_received = conn->frames_inward_frames_received_at_measurement_time -
+                                conn->frames_inward_frames_received_at_measurement_start_time;
+              conn->input_frame_rate =
+                  (1.0E9 * frames_received) /
+                  elapsed_reception_time; // an IEEE double calculation with two 64-bit integers
+            } else {
+              conn->input_frame_rate = 0.0;
             }
 
-            // uncomment the if statement if your want to get as long a period for
-            // calculating the frame rate as possible without an output break or error
-            // if ((status != 0) || (previous_frames_played_valid == 0)) {
+            int stats_status = -1;
+            if ((config.output->delay) && (config.no_sync == 0) && (config.output->stats)) {
+              uint64_t frames_sent_for_play;
+              uint64_t measurement_time;
+              uint64_t actual_delay;
+              stats_status =
+                  config.output->stats(&measurement_time, &actual_delay, &frames_sent_for_play);
+              // debug(1,"actual_delay: %" PRIu64 ", frames_sent_for_play: %" PRIu64 ",
+              // frames_played: %" PRIu64 ".", actual_delay, frames_sent_for_play,
+              // frames_sent_for_play - actual_delay);
+              uint64_t frames_played = frames_sent_for_play - actual_delay;
+              // If the status is zero, it means that there were no output problems since the
+              // last time the stats call was made. Thus, the frame rate should be valid.
+              if ((stats_status == 0) && (previous_frames_played_valid)) {
+                uint64_t frames_played_in_this_interval = frames_played - previous_frames_played;
+                uint64_t interval = measurement_time - previous_frames_played_time;
+                // debug(1,"frames_played_in_this_interval: %" PRIu64 ", interval: %" PRIu64 ".",
+                // frames_played_in_this_interval, interval);
+                if (interval != 0) {
+                  conn->frame_rate = (1e9 * frames_played_in_this_interval) / interval;
+                  conn->frame_rate_valid = 1;
+                }
+              }
+
+              // uncomment the if statement if your want to get as long a period for
+              // calculating the frame rate as possible without an output break or error
+              // if ((status != 0) || (previous_frames_played_valid == 0)) {
               // if we have just detected an outputting error, or if we have no
               // starting information
               if (stats_status != 0)
@@ -2341,73 +2366,80 @@ void *player_thread_func(void *arg) {
               previous_frames_played = frames_played;
               previous_frames_played_time = measurement_time;
               previous_frames_played_valid = 1;
-            // }
-          }
-
-          // we can now calculate running averages for sync error (frames), corrections (ppm),
-          // insertions plus deletions (ppm), drift (ppm)
-          double moving_average_sync_error = (1.0 * tsum_of_sync_errors) / number_of_statistics;
-          double moving_average_correction = (1.0 * tsum_of_corrections) / number_of_statistics;
-          double moving_average_insertions_plus_deletions =
-              (1.0 * tsum_of_insertions_and_deletions) / number_of_statistics;
-          // double moving_average_drift = (1.0 * tsum_of_drifts) / number_of_statistics;
-          // if ((play_number/print_interval)%20==0)
-          // figure out which statistics profile to use, depending on the kind of stream
-
-          if (config.statistics_requested) {
-
-            if (at_least_one_frame_seen) {
-              do {
-                line_of_stats[0] = '\0';
-                statistics_column = 0;
-                was_a_previous_column = 0;
-                statistics_item("sync error ms", "%*.2f", 13,
-                                1000 * moving_average_sync_error / config.output_rate);
-                statistics_item("net sync ppm", "%*.1f", 12,
-                                moving_average_correction * 1000000 /
-                                    (352 * conn->output_sample_ratio));
-                statistics_item("all sync ppm", "%*.1f", 12,
-                                moving_average_insertions_plus_deletions * 1000000 /
-                                    (352 * conn->output_sample_ratio));
-                statistics_item("    packets", "%*d", 11, play_number);
-                statistics_item("missing", "%*" PRIu64 "", 7, conn->missing_packets);
-                statistics_item("  late", "%*" PRIu64 "", 6, conn->late_packets);
-                statistics_item("too late", "%*" PRIu64 "", 8, conn->too_late_packets);
-                statistics_item("resend reqs", "%*" PRIu64 "", 11, conn->resend_requests);
-                statistics_item("min DAC queue", "%*" PRIu64 "", 13, minimum_dac_queue_size);
-                statistics_item("min buffers", "%*" PRIu32 "", 11, minimum_buffer_occupancy);
-                statistics_item("max buffers", "%*" PRIu32 "", 11, maximum_buffer_occupancy);
-                statistics_item("nominal fps", "%*.2f", 11, conn->remote_frame_rate);
-                statistics_item(" actual fps", "%*.2f", 11, conn->input_frame_rate);
-                if (conn->frame_rate_valid)
-                  statistics_item(" output fps", "%*.2f", 11, conn->frame_rate);
-                else
-                  statistics_item(" output fps", "        N/A");
-                statistics_item("source drift ppm", "%*.2f", 16,
-                                (conn->local_to_remote_time_gradient - 1.0) * 1000000);
-                statistics_item("drift samples", "%*d", 13,
-                                conn->local_to_remote_time_gradient_sample_count);
-                statistics_item(
-                    "estimated (unused) correction ppm", "%*.2f",
-                    strlen("estimated (unused) correction ppm"),
-                    (conn->frame_rate_valid != 0)
-                        ? ((conn->frame_rate - conn->remote_frame_rate * conn->output_sample_ratio *
-                                                   conn->local_to_remote_time_gradient) *
-                           1000000) /
-                              conn->frame_rate
-                        : 0.0);
-                statistics_row++;
-                inform(line_of_stats);
-              } while (statistics_row < 2);
-            } else {
-              inform("No frames received in the last sampling interval.");
+              // }
             }
+
+            // we can now calculate running averages for sync error (frames), corrections (ppm),
+            // insertions plus deletions (ppm), drift (ppm)
+            double moving_average_sync_error = 0.0;
+            double moving_average_correction = 0.0;
+            double moving_average_insertions_plus_deletions = 0.0;
+            if (number_of_statistics == 0) {
+              debug(1, "number_of_statistics is zero!");
+            } else {
+              moving_average_sync_error = (1.0 * tsum_of_sync_errors) / number_of_statistics;
+              moving_average_correction = (1.0 * tsum_of_corrections) / number_of_statistics;
+              moving_average_insertions_plus_deletions =
+                  (1.0 * tsum_of_insertions_and_deletions) / number_of_statistics;
+              // double moving_average_drift = (1.0 * tsum_of_drifts) / number_of_statistics;
+            }
+            // if ((play_number/print_interval)%20==0)
+            // figure out which statistics profile to use, depending on the kind of stream
+
+            if (config.statistics_requested) {
+
+              if (at_least_one_frame_seen) {
+                do {
+                  line_of_stats[0] = '\0';
+                  statistics_column = 0;
+                  was_a_previous_column = 0;
+                  statistics_item("sync error ms", "%*.2f", 13,
+                                  1000 * moving_average_sync_error / config.output_rate);
+                  statistics_item("net sync ppm", "%*.1f", 12,
+                                  moving_average_correction * 1000000 /
+                                      (352 * conn->output_sample_ratio));
+                  statistics_item("all sync ppm", "%*.1f", 12,
+                                  moving_average_insertions_plus_deletions * 1000000 /
+                                      (352 * conn->output_sample_ratio));
+                  statistics_item("    packets", "%*d", 11, play_number);
+                  statistics_item("missing", "%*" PRIu64 "", 7, conn->missing_packets);
+                  statistics_item("  late", "%*" PRIu64 "", 6, conn->late_packets);
+                  statistics_item("too late", "%*" PRIu64 "", 8, conn->too_late_packets);
+                  statistics_item("resend reqs", "%*" PRIu64 "", 11, conn->resend_requests);
+                  statistics_item("min DAC queue", "%*" PRIu64 "", 13, minimum_dac_queue_size);
+                  statistics_item("min buffers", "%*" PRIu32 "", 11, minimum_buffer_occupancy);
+                  statistics_item("max buffers", "%*" PRIu32 "", 11, maximum_buffer_occupancy);
+                  statistics_item("nominal fps", "%*.2f", 11, conn->remote_frame_rate);
+                  statistics_item(" actual fps", "%*.2f", 11, conn->input_frame_rate);
+                  if (conn->frame_rate_valid)
+                    statistics_item(" output fps", "%*.2f", 11, conn->frame_rate);
+                  else
+                    statistics_item(" output fps", "        N/A");
+                  statistics_item("source drift ppm", "%*.2f", 16,
+                                  (conn->local_to_remote_time_gradient - 1.0) * 1000000);
+                  statistics_item("drift samples", "%*d", 13,
+                                  conn->local_to_remote_time_gradient_sample_count);
+                  statistics_item("estimated (unused) correction ppm", "%*.2f",
+                                  strlen("estimated (unused) correction ppm"),
+                                  (conn->frame_rate_valid != 0)
+                                      ? ((conn->frame_rate -
+                                          conn->remote_frame_rate * conn->output_sample_ratio *
+                                              conn->local_to_remote_time_gradient) *
+                                         1000000) /
+                                            conn->frame_rate
+                                      : 0.0);
+                  statistics_row++;
+                  inform(line_of_stats);
+                } while (statistics_row < 2);
+              } else {
+                inform("No frames received in the last sampling interval.");
+              }
+            }
+            minimum_dac_queue_size = UINT64_MAX;  // hack reset
+            maximum_buffer_occupancy = INT32_MIN; // can't be less than this
+            minimum_buffer_occupancy = INT32_MAX; // can't be more than this
+            at_least_one_frame_seen = 0;
           }
-          minimum_dac_queue_size = UINT64_MAX;  // hack reset
-          maximum_buffer_occupancy = INT32_MIN; // can't be less than this
-          minimum_buffer_occupancy = INT32_MAX; // can't be more than this
-          at_least_one_frame_seen = 0;
-        }
 
           // here, we want to check (a) if we are meant to do synchronisation,
           // (b) if we have a delay procedure, (c) if we can get the delay.
@@ -2737,7 +2769,7 @@ void *player_thread_func(void *arg) {
 #ifdef CONFIG_SOXR
               if ((current_delay < conn->dac_buffer_queue_minimum_length) ||
                   (config.packet_stuffing == ST_basic) ||
-                  (config.soxr_delay_index == 0) || // not computed yet
+                  (config.soxr_delay_index == 0) || // not computed
                   ((config.packet_stuffing == ST_auto) &&
                    (config.soxr_delay_index >
                     config.soxr_delay_threshold)) // if the CPU is deemed too slow

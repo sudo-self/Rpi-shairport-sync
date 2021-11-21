@@ -89,9 +89,9 @@ audio_output audio_alsa = {
     .flush = &flush,
     .delay = &delay,
     .play = &play,
-    .stats = &stats, // will also include frames of silence sent to stop
-                                              // standby mode
-                                              //    .rate_info = NULL,
+    .stats = &stats,     // will also include frames of silence sent to stop
+                         // standby mode
+                         //    .rate_info = NULL,
     .mute = NULL,        // a function will be provided if it can, and is allowed to,
                          // do hardware mute
     .volume = NULL,      // a function will be provided if it can do hardware volume
@@ -781,8 +781,8 @@ int actual_open_alsa_device(int do_auto_setup) {
     if ((snd_pcm_hw_params_get_rate_numden(alsa_params, &uval, &uval2) == 0) && (uval2 != 0))
       // watch for a divide by zero too!
       debug(log_level, "  precise (rational) rate = %.3f frames per second (i.e. %u/%u).", uval,
-            uval2, ((double)uval) / uval2);        
-     else
+            uval2, ((double)uval) / uval2);
+    else
       debug(log_level, "  precise (rational) rate information unavailable.");
 
     snd_pcm_hw_params_get_period_time(alsa_params, &uval, &dir);
@@ -1570,7 +1570,7 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
               ((uint64_t)frames_played_since_last_interrupt_sized !=
                frames_played_since_last_interrupt))
             debug(1,
-                  "overflow resizing frames_played_since_last_interrupt % " PRIx64
+                  "overflow resizing frames_played_since_last_interrupt %" PRIx64
                   " to frames_played_since_last_interrupt %lx.",
                   frames_played_since_last_interrupt, frames_played_since_last_interrupt_sized);
           delay_temp = delay_temp - frames_played_since_last_interrupt_sized;

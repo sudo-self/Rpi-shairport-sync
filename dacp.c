@@ -1351,12 +1351,14 @@ int dacp_set_volume(int32_t vo) {
                     machine_number,
                     highest_other_volume); // set the overall volume to the highest one
               }
-              int32_t desired_relative_volume =
-                  (vo * 100 + (highest_other_volume / 2)) / highest_other_volume;
-              debug(2, "Set our speaker volume relative to the highest volume.");
-              http_response = dacp_set_speaker_volume(
-                  machine_number,
-                  desired_relative_volume); // set the overall volume to the highest one
+              if (highest_other_volume != 0) {
+                int32_t desired_relative_volume =
+                    (vo * 100 + (highest_other_volume / 2)) / highest_other_volume;
+                debug(2, "Set our speaker volume relative to the highest volume.");
+                http_response = dacp_set_speaker_volume(
+                    machine_number,
+                    desired_relative_volume); // set the overall volume to the highest one
+              }
             }
           }
         }

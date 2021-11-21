@@ -1187,6 +1187,8 @@ double vol2attn(double vol, long max_db, long min_db) {
     int i;
     for (i = 0; i < order; i++) {
       if (vol <= lines[i][0]) {
+        if ((-30 - lines[i][0]) == 0.0)
+          die("(-30 - lines[%d][0]) == 0.0!", i);
         double tvol = lines[i][1] * (vol - lines[i][0]) / (-30 - lines[i][0]);
         // debug(1,"On line %d, end point of %f, input vol %f yields output vol
         // %f.",i,lines[i][1],vol,tvol);
@@ -1246,8 +1248,10 @@ uint64_t get_absolute_time_in_fp() {
   // Do the maths. We hope that the multiplication doesn't
   // overflow; the price you pay for working in fixed point.
 
-  // this gives us nanoseconds
-  uint64_t time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
+  if (sTimebaseInfo.denom == 0)
+    die("could not initialise Mac timebase info in get_absolute_time_in_fp().")
+        // this gives us nanoseconds
+        uint64_t time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
 
   // take the units and shift them to the upper half of the fp, and take the nanoseconds, shift them
   // to the upper half and then divide the result to 1000000000
@@ -1291,11 +1295,14 @@ uint64_t get_monotonic_time_in_ns() {
     (void)mach_timebase_info(&sTimebaseInfo);
   }
 
-  // Do the maths. We hope that the multiplication doesn't
-  // overflow; the price you pay for working in fixed point.
+  if (sTimebaseInfo.denom == 0)
+    die("could not initialise Mac timebase info in get_monotonic_time_in_ns().")
 
-  // this gives us nanoseconds
-  time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
+        // Do the maths. We hope that the multiplication doesn't
+        // overflow; the price you pay for working in fixed point.
+
+        // this gives us nanoseconds
+        time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
 #endif
 
   return time_now_ns;
@@ -1336,8 +1343,11 @@ uint64_t get_absolute_time_in_ns() {
   // Do the maths. We hope that the multiplication doesn't
   // overflow; the price you pay for working in fixed point.
 
-  // this gives us nanoseconds
-  time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
+  if (sTimebaseInfo.denom == 0)
+    die("could not initialise Mac timebase info in get_absolute_time_in_ns().")
+
+        // this gives us nanoseconds
+        time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
 #endif
 
   return time_now_ns;
