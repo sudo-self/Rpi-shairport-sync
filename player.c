@@ -1555,7 +1555,7 @@ int *statistics_print_profile;
 // be printed -- 1 means print, 0 means skip
 
 // don't display output fps -- not sure how accurate it is (change item 14 and 17 to 1 to restore)
-int ap1_synced_statistics_print_profile[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0};
+int ap1_synced_statistics_print_profile[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 int ap1_nosync_statistics_print_profile[] = {1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0};
 int ap1_nodelay_statistics_print_profile[] = {0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0};
 
@@ -1568,7 +1568,7 @@ int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 1, 1, 
 
 // don't display output fps -- not sure how accurate it is (change item 14 1 to restore)
 int ap2_buffered_synced_stream_statistics_print_profile[] = {1, 1, 1, 1, 0, 0, 0, 0, 1,
-                                                             1, 1, 0, 0, 0, 0, 0, 0};
+                                                             1, 1, 0, 0, 1, 0, 0, 0};
 int ap2_buffered_nosync_stream_statistics_print_profile[] = {1, 0, 0, 1, 0, 0, 0, 0, 1,
                                                              1, 1, 0, 0, 0, 0, 0, 0};
 int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 0, 0, 0, 0, 0,
@@ -1577,7 +1577,7 @@ int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 0, 0, 
 void statistics_item(const char *heading, const char *format, ...) {
   if (statistics_print_profile[statistics_column] == 1) { // include this column?
     if (was_a_previous_column != 0)
-      strcat(line_of_stats, ", ");
+      strcat(line_of_stats, " ");
     if (statistics_row == 0) {
       strcat(line_of_stats, heading);
     } else {
@@ -2358,15 +2358,15 @@ void *player_thread_func(void *arg) {
 
               // uncomment the if statement if your want to get as long a period for
               // calculating the frame rate as possible without an output break or error
-              // if ((status != 0) || (previous_frames_played_valid == 0)) {
-              // if we have just detected an outputting error, or if we have no
-              // starting information
-              if (stats_status != 0)
-                conn->frame_rate_valid = 0;
-              previous_frames_played = frames_played;
-              previous_frames_played_time = measurement_time;
-              previous_frames_played_valid = 1;
-              // }
+              if ((stats_status != 0) || (previous_frames_played_valid == 0)) {
+                // if we have just detected an outputting error, or if we have no
+                // starting information
+                if (stats_status != 0)
+                  conn->frame_rate_valid = 0;
+                previous_frames_played = frames_played;
+                previous_frames_played_time = measurement_time;
+                previous_frames_played_valid = 1;
+              }
             }
 
             // we can now calculate running averages for sync error (frames), corrections (ppm),
