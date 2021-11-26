@@ -2332,27 +2332,25 @@ void *player_thread_func(void *arg) {
               conn->input_frame_rate = 0.0;
             }
 
-            int stats_status = -1;
+            int stats_status = 0;
             if ((config.output->delay) && (config.no_sync == 0) && (config.output->stats)) {
               uint64_t frames_sent_for_play;
               uint64_t measurement_time;
               uint64_t actual_delay;
               stats_status =
                   config.output->stats(&measurement_time, &actual_delay, &frames_sent_for_play);
-              // debug(1,"actual_delay: %" PRIu64 ", frames_sent_for_play: %" PRIu64 ",
-              // frames_played: %" PRIu64 ".", actual_delay, frames_sent_for_play,
-              // frames_sent_for_play - actual_delay);
+              debug(1,"status: %d, actual_delay: %" PRIu64 ", frames_sent_for_play: %" PRIu64 ", frames_played: %" PRIu64 ".", stats_status, actual_delay, frames_sent_for_play, frames_sent_for_play - actual_delay);
               uint64_t frames_played = frames_sent_for_play - actual_delay;
               // If the status is zero, it means that there were no output problems since the
               // last time the stats call was made. Thus, the frame rate should be valid.
-              if ((stats_status == 0) && (previous_frames_played_valid)) {
+              if ((stats_status == 0) && (previous_frames_played_valid != 0)) {
                 uint64_t frames_played_in_this_interval = frames_played - previous_frames_played;
-                uint64_t interval = measurement_time - previous_frames_played_time;
-                // debug(1,"frames_played_in_this_interval: %" PRIu64 ", interval: %" PRIu64 ".",
-                // frames_played_in_this_interval, interval);
+                int64_t interval = measurement_time - previous_frames_played_time;
                 if (interval != 0) {
                   conn->frame_rate = (1e9 * frames_played_in_this_interval) / interval;
                   conn->frame_rate_valid = 1;
+                  debug(1,"frames_played_in_this_interval: %" PRIu64 ", interval: %" PRId64 ", rate: %f.",
+                    frames_played_in_this_interval, interval, conn->frame_rate);
                 }
               }
 
