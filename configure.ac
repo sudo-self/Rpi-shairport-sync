@@ -403,12 +403,11 @@ AC_ARG_WITH(airplay-2, [AS_HELP_STRING([--with-airplay-2],[Build for AirPlay 2])
 if test "x$with_airplay_2" = "xyes" ; then
   AC_DEFINE([CONFIG_AIRPLAY_2], 1, [Build for AirPlay 2])
   AC_MSG_RESULT(>>Include libraries required for AirPlay 2)
-  if test "x${with_os}" = xlinux  ; then
-      PKG_CHECK_MODULES([libplist], [libplist >= 2.0.0],[CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],[AC_MSG_ERROR(AirPlay 2 support requires libplist 2.0.0 or later -- libplist-dev suggested!)])
-  fi
-  if test "x${with_os}" = xfreebsd  ; then
-      PKG_CHECK_MODULES([libplist], [libplist-2.0 >= 2.0.0],[CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],[AC_MSG_ERROR(AirPlay 2 support requires libplist 2.0.0 or later -- search for pkg libplist-2.2.0 or later!)])
-  fi
+  PKG_CHECK_MODULES([libplist], [libplist >= 2.0.0],[CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],[
+    PKG_CHECK_MODULES([libplist], [libplist-2.0 >= 2.0.0],[CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],[
+      AC_MSG_ERROR(AirPlay 2 support requires libplist 2.0.0 or later -- search for pkg libplist-dev on Debian or libplist-2.2.0 or later on FreeBSD!)
+    ])
+  ])
   PKG_CHECK_MODULES([libsodium], [libsodium],[CFLAGS="${libsodium_CFLAGS} ${CFLAGS}" LIBS="${libsodium_LIBS} ${LIBS}"],[AC_MSG_ERROR(AirPlay 2 support requires libsodium -- libsodium-dev suggested)])
   AC_CHECK_LIB([gcrypt], [gcry_control], [], [AC_MSG_ERROR([Airplay 2 support requires libgcrypt -- libgcrypt-dev suggested])])
 #  PKG_CHECK_MODULES([libgcrypt], [libgcrypt],[CFLAGS="${libgcrypt_CFLAGS} ${CFLAGS}" LIBS="${libgcrypt_LIBS} ${LIBS}"],[AC_MSG_ERROR(AirPlay 2 support requires libgcrypt -- libgcrypt-dev suggested)])
