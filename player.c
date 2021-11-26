@@ -2339,7 +2339,7 @@ void *player_thread_func(void *arg) {
               uint64_t actual_delay;
               stats_status =
                   config.output->stats(&measurement_time, &actual_delay, &frames_sent_for_play);
-              debug(1,"status: %d, actual_delay: %" PRIu64 ", frames_sent_for_play: %" PRIu64 ", frames_played: %" PRIu64 ".", stats_status, actual_delay, frames_sent_for_play, frames_sent_for_play - actual_delay);
+              // debug(1,"status: %d, actual_delay: %" PRIu64 ", frames_sent_for_play: %" PRIu64 ", frames_played: %" PRIu64 ".", stats_status, actual_delay, frames_sent_for_play, frames_sent_for_play - actual_delay);
               uint64_t frames_played = frames_sent_for_play - actual_delay;
               // If the status is zero, it means that there were no output problems since the
               // last time the stats call was made. Thus, the frame rate should be valid.
@@ -2349,8 +2349,8 @@ void *player_thread_func(void *arg) {
                 if (interval != 0) {
                   conn->frame_rate = (1e9 * frames_played_in_this_interval) / interval;
                   conn->frame_rate_valid = 1;
-                  debug(1,"frames_played_in_this_interval: %" PRIu64 ", interval: %" PRId64 ", rate: %f.",
-                    frames_played_in_this_interval, interval, conn->frame_rate);
+                  //debug(1,"frames_played_in_this_interval: %" PRIu64 ", interval: %" PRId64 ", rate: %f.",
+                  //  frames_played_in_this_interval, interval, conn->frame_rate);
                 }
               }
 
