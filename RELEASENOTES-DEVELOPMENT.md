@@ -1,3 +1,8 @@
+Version 4.1-dev-TBA-TBA
+====
+#### Bug Fix
+- This fixes [#1345](https://github.com/mikebrady/shairport-sync/issues/1345) by checking for the `libplist` library both under the name `libplist` and `libplist-2.0` using the fallback strategy [as described in the autotools docs](https://autotools.io/pkgconfig/pkg_check_modules.html). Since we now try both names, we no longer need the FreeBSD/Linux check. Many thanks to [FW](https://github.com/fwcd) for the bug report, the fix and this documentation!
+
 Version 4.1-dev-21-g1032cad6
 ===
 #### Enhancement
