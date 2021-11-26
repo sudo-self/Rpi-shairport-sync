@@ -249,10 +249,10 @@ static int set_period_size_request, set_buffer_size_request;
 
 static uint64_t frames_sent_for_playing;
 
- // set to true if there has been a discontinuity between the last reported frames_sent_for_playing
- // and the present reported frames_sent_for_playing
- // Not that it will be set when the device is opened, as any previous figures for frames_sent_for_playing
- // (which Shairport Sync might hold) would be invalid.
+// set to true if there has been a discontinuity between the last reported frames_sent_for_playing
+// and the present reported frames_sent_for_playing
+// Not that it will be set when the device is opened, as any previous figures for
+// frames_sent_for_playing (which Shairport Sync might hold) would be invalid.
 static int frames_sent_break_occurred;
 
 static void help(void) {
@@ -1660,8 +1660,8 @@ int stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac)
   if (ret == 0)
     ret = frames_sent_break_occurred; // will be zero unless an error like an underrun occurred
   else
-    ret = 1; // just indicate there was some kind of a break
-  frames_sent_break_occurred = 0;     // reset it.
+    ret = 1;                      // just indicate there was some kind of a break
+  frames_sent_break_occurred = 0; // reset it.
   if (frames_sent_to_dac != NULL)
     *frames_sent_to_dac = frames_sent_for_playing;
   debug_mutex_unlock(&alsa_mutex, 0);
@@ -1716,7 +1716,7 @@ int do_play(void *buf, int samples) {
         frames_sent_for_playing += samples;
       } else {
         frames_sent_break_occurred = 1; // note than an output error has occurred
-        if (ret == -EPIPE) {          /* underrun */
+        if (ret == -EPIPE) {            /* underrun */
 
           // It could be that the DAC was in the SND_PCM_STATE_XRUN state before
           // sending the samples to be output. If so, it will still be in
@@ -1790,7 +1790,7 @@ int do_open(int do_auto_setup) {
         // do_mute(0); // complete unmute
       }
       frames_sent_break_occurred = 1; // there is a discontinuity with
-      // any previously-reported frame count      
+      // any previously-reported frame count
       frames_sent_for_playing = 0;
       alsa_backend_state = abm_connected; // only do this if it really opened it.
     }
