@@ -60,8 +60,9 @@ static int play(void *buf, int samples);
 static void stop(void);
 static void flush(void);
 int delay(long *the_delay);
-int stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac);
-// int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
+int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, uint64_t *the_delay,
+          uint64_t *frames_sent_to_dac);
+
 void *alsa_buffer_monitor_thread_code(void *arg);
 
 static void volume(double vol);
@@ -1633,7 +1634,8 @@ int delay(long *the_delay) {
   return ret;
 }
 
-int stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac) {
+int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, uint64_t *the_delay,
+          uint64_t *frames_sent_to_dac) {
   // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or
   // SND_PCM_STATE_PREPARED
   // or SND_PCM_STATE_DRAINING.
@@ -1654,7 +1656,9 @@ int stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac)
   if (alsa_handle == NULL) {
     ret = ENODEV;
   } else {
-    *the_time = get_absolute_time_in_ns();
+    *raw_measurement_time =
+        get_absolute_time_in_ns(); // this is not conditioned ("disciplined") by NTP
+    *corrected_measurement_time = get_monotonic_time_in_ns(); // this is ("disciplined") by NTP
     ret = delay_and_status(&state, &my_delay, NULL);
   }
   if (ret == 0)

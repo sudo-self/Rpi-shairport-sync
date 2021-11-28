@@ -1299,7 +1299,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       time_to_wait_for_wakeup_ns /= 3;       // two thirds of a packet time
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-      uint64_t time_of_wakeup_ns = local_time_now + time_to_wait_for_wakeup_ns;
+      uint64_t time_of_wakeup_ns = get_realtime_in_ns() + time_to_wait_for_wakeup_ns;
       uint64_t sec = time_of_wakeup_ns / 1000000000;
       uint64_t nsec = time_of_wakeup_ns % 1000000000;
 
@@ -1552,30 +1552,31 @@ int was_a_previous_column;
 int *statistics_print_profile;
 
 // these arrays specify which of the statistics specified by the statistics_item calls will actually
-// be printed -- 1 means print, 0 means skip
+// be printed -- 2 means print, 1 means print only in a debug mode, 0 means skip
 
 // don't display output fps -- not sure how accurate it is (change item 14 and 17 to 1 to restore)
-int ap1_synced_statistics_print_profile[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-int ap1_nosync_statistics_print_profile[] = {1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0};
-int ap1_nodelay_statistics_print_profile[] = {0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 0};
+int ap1_synced_statistics_print_profile[] = {2, 2, 2, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 1, 1};
+int ap1_nosync_statistics_print_profile[] = {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 1, 0};
+int ap1_nodelay_statistics_print_profile[] = {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 1, 1, 0, 0, 1, 0};
 
-int ap2_realtime_synced_stream_statistics_print_profile[] = {1, 1, 1, 1, 1, 1, 1, 1, 1,
-                                                             1, 1, 0, 0, 1, 0, 0, 0};
-int ap2_realtime_nosync_stream_statistics_print_profile[] = {1, 0, 0, 1, 1, 1, 1, 1, 1,
-                                                             1, 1, 0, 0, 0, 0, 0, 0};
-int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 1, 1, 1, 1, 0,
-                                                              1, 1, 0, 0, 0, 0, 0, 0};
+int ap2_realtime_synced_stream_statistics_print_profile[] = {2, 2, 2, 1, 2, 1, 1, 2, 1,
+                                                             1, 1, 1, 1, 2, 2, 0, 0};
+int ap2_realtime_nosync_stream_statistics_print_profile[] = {2, 0, 0, 1, 2, 1, 1, 2, 1,
+                                                             1, 1, 1, 1, 0, 0, 0, 0};
+int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 2, 1, 1, 2, 0,
+                                                              1, 1, 1, 1, 0, 0, 0, 0};
 
 // don't display output fps -- not sure how accurate it is (change item 14 1 to restore)
-int ap2_buffered_synced_stream_statistics_print_profile[] = {1, 1, 1, 1, 0, 0, 0, 0, 1,
-                                                             1, 1, 0, 0, 1, 0, 0, 0};
-int ap2_buffered_nosync_stream_statistics_print_profile[] = {1, 0, 0, 1, 0, 0, 0, 0, 1,
+int ap2_buffered_synced_stream_statistics_print_profile[] = {2, 2, 2, 1, 0, 0, 0, 0, 1,
+                                                             1, 1, 0, 0, 2, 2, 0, 0};
+int ap2_buffered_nosync_stream_statistics_print_profile[] = {2, 0, 0, 1, 0, 0, 0, 0, 1,
                                                              1, 1, 0, 0, 0, 0, 0, 0};
 int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 0, 0, 0, 0, 0,
                                                               1, 1, 0, 0, 0, 0, 0, 0};
 
 void statistics_item(const char *heading, const char *format, ...) {
-  if (statistics_print_profile[statistics_column] == 1) { // include this column?
+  if (((statistics_print_profile[statistics_column] == 1) && (debuglev != 0)) ||
+      (statistics_print_profile[statistics_column] == 2)) { // include this column?
     if (was_a_previous_column != 0)
       strcat(line_of_stats, " ");
     if (statistics_row == 0) {
@@ -1624,10 +1625,10 @@ void player_thread_cleanup_handler(void *arg) {
     int elapsedSec = rawSeconds % 60;
     if (conn->frame_rate_valid)
       inform("Connection %d: Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, "
-             "output: %0.2f "
+             " Output: %0.2f (raw), %0.2f (corrected) "
              "frames per second.",
              conn->connection_number, elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate,
-             conn->frame_rate);
+             conn->raw_frame_rate, conn->corrected_frame_rate);
     else
       inform("Connection %d: Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f "
              "frames per second.",
@@ -1727,7 +1728,8 @@ void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
   uint64_t previous_frames_played;
-  uint64_t previous_frames_played_time;
+  uint64_t previous_raw_measurement_time;
+  uint64_t previous_corrected_measurement_time;
   int previous_frames_played_valid = 0;
 
   // pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
@@ -1888,7 +1890,8 @@ void *player_thread_func(void *arg) {
 
   conn->playstart = time(NULL);
 
-  conn->frame_rate = 0.0;
+  conn->raw_frame_rate = 0.0;
+  conn->corrected_frame_rate = 0.0;
   conn->frame_rate_valid = 0;
 
   conn->input_frame_rate = 0.0;
@@ -2335,10 +2338,12 @@ void *player_thread_func(void *arg) {
             int stats_status = 0;
             if ((config.output->delay) && (config.no_sync == 0) && (config.output->stats)) {
               uint64_t frames_sent_for_play;
-              uint64_t measurement_time;
+              uint64_t raw_measurement_time;
+              uint64_t corrected_measurement_time;
               uint64_t actual_delay;
               stats_status =
-                  config.output->stats(&measurement_time, &actual_delay, &frames_sent_for_play);
+                  config.output->stats(&raw_measurement_time, &corrected_measurement_time,
+                                       &actual_delay, &frames_sent_for_play);
               // debug(1,"status: %d, actual_delay: %" PRIu64 ", frames_sent_for_play: %" PRIu64 ",
               // frames_played: %" PRIu64 ".", stats_status, actual_delay, frames_sent_for_play,
               // frames_sent_for_play - actual_delay);
@@ -2347,9 +2352,13 @@ void *player_thread_func(void *arg) {
               // last time the stats call was made. Thus, the frame rate should be valid.
               if ((stats_status == 0) && (previous_frames_played_valid != 0)) {
                 uint64_t frames_played_in_this_interval = frames_played - previous_frames_played;
-                int64_t interval = measurement_time - previous_frames_played_time;
-                if (interval != 0) {
-                  conn->frame_rate = (1e9 * frames_played_in_this_interval) / interval;
+                int64_t raw_interval = raw_measurement_time - previous_raw_measurement_time;
+                int64_t corrected_interval =
+                    corrected_measurement_time - previous_corrected_measurement_time;
+                if (raw_interval != 0) {
+                  conn->raw_frame_rate = (1e9 * frames_played_in_this_interval) / raw_interval;
+                  conn->corrected_frame_rate =
+                      (1e9 * frames_played_in_this_interval) / corrected_interval;
                   conn->frame_rate_valid = 1;
                   // debug(1,"frames_played_in_this_interval: %" PRIu64 ", interval: %" PRId64 ",
                   // rate: %f.",
@@ -2365,7 +2374,8 @@ void *player_thread_func(void *arg) {
                 if (stats_status != 0)
                   conn->frame_rate_valid = 0;
                 previous_frames_played = frames_played;
-                previous_frames_played_time = measurement_time;
+                previous_raw_measurement_time = raw_measurement_time;
+                previous_corrected_measurement_time = corrected_measurement_time;
                 previous_frames_played_valid = 1;
               }
             }
@@ -2411,15 +2421,19 @@ void *player_thread_func(void *arg) {
                   statistics_item("min buffers", "%*" PRIu32 "", 11, minimum_buffer_occupancy);
                   statistics_item("max buffers", "%*" PRIu32 "", 11, maximum_buffer_occupancy);
                   statistics_item("nominal fps", "%*.2f", 11, conn->remote_frame_rate);
-                  statistics_item(" actual fps", "%*.2f", 11, conn->input_frame_rate);
-                  if (conn->frame_rate_valid)
-                    statistics_item(" output fps", "%*.2f", 11, conn->frame_rate);
-                  else
-                    statistics_item(" output fps", "        N/A");
+                  statistics_item("received fps", "%*.2f", 12, conn->input_frame_rate);
+                  if (conn->frame_rate_valid) {
+                    statistics_item("output fps (r)", "%*.2f", 14, conn->raw_frame_rate);
+                    statistics_item("output fps (c)", "%*.2f", 14, conn->corrected_frame_rate);
+                  } else {
+                    statistics_item("output fps (r)", "           N/A");
+                    statistics_item("output fps (c)", "           N/A");
+                  }
                   statistics_item("source drift ppm", "%*.2f", 16,
                                   (conn->local_to_remote_time_gradient - 1.0) * 1000000);
                   statistics_item("drift samples", "%*d", 13,
                                   conn->local_to_remote_time_gradient_sample_count);
+                  /*
                   statistics_item("estimated (unused) correction ppm", "%*.2f",
                                   strlen("estimated (unused) correction ppm"),
                                   (conn->frame_rate_valid != 0)
@@ -2429,6 +2443,7 @@ void *player_thread_func(void *arg) {
                                          1000000) /
                                             conn->frame_rate
                                       : 0.0);
+                  */
                   statistics_row++;
                   inform(line_of_stats);
                 } while (statistics_row < 2);

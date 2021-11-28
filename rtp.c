@@ -1762,7 +1762,7 @@ void rtp_realtime_audio_cleanup_handler(__attribute__((unused)) void *arg) {
   debug(2, "Realtime Audio Receiver Cleanup Start.");
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   close(conn->realtime_audio_socket);
-  debug(1, "Connection %d: closing realtime audio port %u", conn->local_realtime_audio_port);
+  debug(2, "Connection %d: closing realtime audio port %u", conn->local_realtime_audio_port);
   conn->realtime_audio_socket = 0;
   debug(2, "Realtime Audio Receiver Cleanup Done.");
 }

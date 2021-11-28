@@ -1210,58 +1210,6 @@ double vol2attn(double vol, long max_db, long min_db) {
   return vol_setting;
 }
 
-uint64_t get_absolute_time_in_fp() {
-  uint64_t time_now_fp;
-#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-  struct timespec tn;
-  // can't use CLOCK_MONOTONIC_RAW as it's not implemented in OpenWrt
-  clock_gettime(CLOCK_MONOTONIC, &tn);
-  uint64_t tnfpsec = tn.tv_sec;
-  if (tnfpsec > 0x100000000)
-    warn("clock_gettime seconds overflow!");
-  uint64_t tnfpnsec = tn.tv_nsec;
-  if (tnfpnsec > 0x100000000)
-    warn("clock_gettime nanoseconds seconds overflow!");
-  tnfpsec = tnfpsec << 32;
-  tnfpnsec = tnfpnsec << 32;
-  tnfpnsec = tnfpnsec / 1000000000;
-
-  time_now_fp = tnfpsec + tnfpnsec; // types okay
-#endif
-#ifdef COMPILE_FOR_OSX
-  uint64_t time_now_mach;
-  uint64_t elapsedNano;
-  static mach_timebase_info_data_t sTimebaseInfo = {0, 0};
-
-  time_now_mach = mach_absolute_time();
-
-  // If this is the first time we've run, get the timebase.
-  // We can use denom == 0 to indicate that sTimebaseInfo is
-  // uninitialised because it makes no sense to have a zero
-  // denominator in a fraction.
-
-  if (sTimebaseInfo.denom == 0) {
-    debug(1, "Mac initialise timebase info.");
-    (void)mach_timebase_info(&sTimebaseInfo);
-  }
-
-  // Do the maths. We hope that the multiplication doesn't
-  // overflow; the price you pay for working in fixed point.
-
-  if (sTimebaseInfo.denom == 0)
-    die("could not initialise Mac timebase info in get_absolute_time_in_fp().")
-        // this gives us nanoseconds
-        uint64_t time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
-
-  // take the units and shift them to the upper half of the fp, and take the nanoseconds, shift them
-  // to the upper half and then divide the result to 1000000000
-  time_now_fp =
-      ((time_now_ns / 1000000000) << 32) + (((time_now_ns % 1000000000) << 32) / 1000000000);
-
-#endif
-  return time_now_fp;
-}
-
 uint64_t get_monotonic_time_in_ns() {
   uint64_t time_now_ns;
 
@@ -1308,14 +1256,76 @@ uint64_t get_monotonic_time_in_ns() {
   return time_now_ns;
 }
 
-uint64_t get_absolute_time_in_ns() {
+// all these clock things are now in macOS now since 10.13 (September 2017). Must update...
+uint64_t get_monotonic_raw_time_in_ns() {
+  // CLOCK_MONOTONIC_RAW in FreeBSD etc, monotonic in MacOSX
   uint64_t time_now_ns;
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
   struct timespec tn;
+  clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
+  uint64_t tnnsec = tn.tv_sec;
+  tnnsec = tnnsec * 1000000000;
+  uint64_t tnjnsec = tn.tv_nsec;
+  time_now_ns = tnnsec + tnjnsec;
+#endif
+
+#ifdef COMPILE_FOR_OSX
+  uint64_t time_now_mach;
+  uint64_t elapsedNano;
+  static mach_timebase_info_data_t sTimebaseInfo = {0, 0};
+
+  // this actually give you a monotonic clock
+  // see https://news.ycombinator.com/item?id=6303755
+  time_now_mach = mach_absolute_time();
+
+  // If this is the first time we've run, get the timebase.
+  // We can use denom == 0 to indicate that sTimebaseInfo is
+  // uninitialised because it makes no sense to have a zero
+  // denominator in a fraction.
+
+  if (sTimebaseInfo.denom == 0) {
+    debug(1, "Mac initialise timebase info.");
+    (void)mach_timebase_info(&sTimebaseInfo);
+  }
+
+  if (sTimebaseInfo.denom == 0)
+    die("could not initialise Mac timebase info in get_monotonic_time_in_ns().")
+
+        // Do the maths. We hope that the multiplication doesn't
+        // overflow; the price you pay for working in fixed point.
+
+        // this gives us nanoseconds
+        time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
+#endif
+
+  return time_now_ns;
+}
+
+#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
+// Not defined for macOS
+uint64_t get_realtime_in_ns() {
+  uint64_t time_now_ns;
+
+  struct timespec tn;
   // can't use CLOCK_MONOTONIC_RAW as it's not implemented in OpenWrt
   // CLOCK_REALTIME because PTP uses it.
   clock_gettime(CLOCK_REALTIME, &tn);
+  uint64_t tnnsec = tn.tv_sec;
+  tnnsec = tnnsec * 1000000000;
+  uint64_t tnjnsec = tn.tv_nsec;
+  time_now_ns = tnnsec + tnjnsec;
+  return time_now_ns;
+}
+#endif
+
+uint64_t get_absolute_time_in_ns() {
+  // CLOCK_MONOTONIC_RAW in FreeBSD etc, monotonic in MacOSX
+  uint64_t time_now_ns;
+
+#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
+  struct timespec tn;
+  clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
   uint64_t tnnsec = tn.tv_sec;
   tnnsec = tnnsec * 1000000000;
   uint64_t tnjnsec = tn.tv_nsec;
@@ -1521,8 +1531,8 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
 
   struct timespec timeoutTime;
-  uint64_t wait_until_time = dally_time * 1000;    // to nanoseconds
-  uint64_t start_time = get_absolute_time_in_ns(); // this is from CLOCK_REALTIME
+  uint64_t wait_until_time = dally_time * 1000; // to nanoseconds
+  uint64_t start_time = get_realtime_in_ns();   // this is from CLOCK_REALTIME
   wait_until_time = wait_until_time + start_time;
   uint64_t wait_until_sec = wait_until_time / 1000000000;
   uint64_t wait_until_nsec = wait_until_time % 1000000000;
@@ -1530,7 +1540,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
   timeoutTime.tv_nsec = wait_until_nsec;
 
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
-  uint64_t et = get_absolute_time_in_ns() - start_time;
+  uint64_t et = get_realtime_in_ns() - start_time;
 
   if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
     char errstr[1000];

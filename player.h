@@ -180,7 +180,8 @@ typedef struct {
   stats_t *statistics;
 
   // for holding the output rate information until printed out at the end of a session
-  double frame_rate;
+  double raw_frame_rate;
+  double corrected_frame_rate;
   int frame_rate_valid;
 
   // for holding input rate information until printed out at the end of a session
