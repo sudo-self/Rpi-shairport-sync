@@ -39,7 +39,8 @@ typedef struct {
   // will change dynamically, so keep watching it. Implemented in ALSA only.
   // returns a negative error code if there's a problem
   int (*delay)(long *the_delay); // snd_pcm_sframes_t is a signed long
-  int (*stats)(uint64_t *measurement_time, uint64_t *delay,
+  int (*stats)(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time,
+               uint64_t *delay,
                uint64_t *frames_sent_to_dac); // use this to get the true rate of the DAC
 
   // may be NULL, in which case soft volume is applied

@@ -60,8 +60,9 @@ static int play(void *buf, int samples);
 static void stop(void);
 static void flush(void);
 int delay(long *the_delay);
-int stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac);
-// int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
+int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, uint64_t *the_delay,
+          uint64_t *frames_sent_to_dac);
+
 void *alsa_buffer_monitor_thread_code(void *arg);
 
 static void volume(double vol);
@@ -248,8 +249,12 @@ static snd_pcm_uframes_t period_size_requested, buffer_size_requested;
 static int set_period_size_request, set_buffer_size_request;
 
 static uint64_t frames_sent_for_playing;
-static int output_error_occurred; // set to true if an underrun or similar has occurred since last
-                                  // requested
+
+// set to true if there has been a discontinuity between the last reported frames_sent_for_playing
+// and the present reported frames_sent_for_playing
+// Not that it will be set when the device is opened, as any previous figures for
+// frames_sent_for_playing (which Shairport Sync might hold) would be invalid.
+static int frames_sent_break_occurred;
 
 static void help(void) {
   printf("    -d output-device    set the output device, default is \"default\".\n"
@@ -1629,16 +1634,14 @@ int delay(long *the_delay) {
   return ret;
 }
 
-int stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac) {
+int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, uint64_t *the_delay,
+          uint64_t *frames_sent_to_dac) {
   // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or
   // SND_PCM_STATE_PREPARED
-  // or SND_PCM_STATE_DRAINING
-  // and returns the actual delay if running or 0 if prepared in *the_delay
-
-  // otherwise return an error code
-  // the error code could be a Unix errno code or a snderror code, or
-  // the sps_extra_code_output_stalled or the
-  // sps_extra_code_output_state_cannot_make_ready codes
+  // or SND_PCM_STATE_DRAINING.
+  // returns the actual delay if running or 0 if prepared in *the_delay
+  // returns the present value of frames_sent_for_playing
+  // otherwise return a non-zero value
   int ret = 0;
   *the_delay = 0;
 
@@ -1653,12 +1656,16 @@ int stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac)
   if (alsa_handle == NULL) {
     ret = ENODEV;
   } else {
-    *the_time = get_absolute_time_in_ns();
+    *raw_measurement_time =
+        get_absolute_time_in_ns(); // this is not conditioned ("disciplined") by NTP
+    *corrected_measurement_time = get_monotonic_time_in_ns(); // this is ("disciplined") by NTP
     ret = delay_and_status(&state, &my_delay, NULL);
   }
   if (ret == 0)
-    ret = output_error_occurred; // will be zero unless an error like an underrun occurred
-  output_error_occurred = 0;     // reset it.
+    ret = frames_sent_break_occurred; // will be zero unless an error like an underrun occurred
+  else
+    ret = 1;                      // just indicate there was some kind of a break
+  frames_sent_break_occurred = 0; // reset it.
   if (frames_sent_to_dac != NULL)
     *frames_sent_to_dac = frames_sent_for_playing;
   debug_mutex_unlock(&alsa_mutex, 0);
@@ -1668,22 +1675,6 @@ int stats(uint64_t *the_time, uint64_t *the_delay, uint64_t *frames_sent_to_dac)
   *the_delay = hd;
   return ret;
 }
-
-int get_frames_sent_for_output(__attribute__((unused)) uint64_t *elapsed_time,
-                               uint64_t *frames_sent_to_dac) {
-  int ret = 0;
-  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
-  *frames_sent_to_dac = frames_sent_for_playing;
-  if (alsa_handle == NULL)
-    ret = ENODEV;
-  else
-    ret = output_error_occurred; // will be zero unless an error occurred
-  output_error_occurred = 0;     // reset it.
-  debug_mutex_unlock(&alsa_mutex, 0);
-  pthread_cleanup_pop(0);
-  return ret;
-}
-
 /*
 int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
   // elapsed_time is in nanoseconds
@@ -1728,8 +1719,8 @@ int do_play(void *buf, int samples) {
         stall_monitor_frame_count += samples;
         frames_sent_for_playing += samples;
       } else {
-        output_error_occurred = -ret; // note than an output error has occurred
-        if (ret == -EPIPE) {          /* underrun */
+        frames_sent_break_occurred = 1; // note than an output error has occurred
+        if (ret == -EPIPE) {            /* underrun */
 
           // It could be that the DAC was in the SND_PCM_STATE_XRUN state before
           // sending the samples to be output. If so, it will still be in
@@ -1802,7 +1793,8 @@ int do_open(int do_auto_setup) {
                           // set accordingly
         // do_mute(0); // complete unmute
       }
-      output_error_occurred = 0;
+      frames_sent_break_occurred = 1; // there is a discontinuity with
+      // any previously-reported frame count
       frames_sent_for_playing = 0;
       alsa_backend_state = abm_connected; // only do this if it really opened it.
     }

@@ -583,7 +583,11 @@ void *player_watchdog_thread_code(void *arg) {
   do {
     usleep(2000000); // check every two seconds
     // debug(3, "Connection %d: Check the thread is doing something...", conn->connection_number);
+#ifdef CONFIG_AIRPLAY_2
+    if ((config.dont_check_timeout == 0) && (config.timeout != 0) && (conn->airplay_type == ap_1)) {
+#else
     if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
+#endif
       debug_mutex_lock(&conn->watchdog_mutex, 1000, 0);
       uint64_t last_watchdog_bark_time = conn->watchdog_bark_time;
       debug_mutex_unlock(&conn->watchdog_mutex, 0);

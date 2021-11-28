@@ -529,7 +529,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
           (uint64_t)(1000000000 * config.missing_port_dacp_scan_interval_seconds);
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-      uint64_t time_of_wakeup_ns = get_absolute_time_in_ns() + time_to_wait_for_wakeup_ns;
+      uint64_t time_of_wakeup_ns = get_realtime_in_ns() + time_to_wait_for_wakeup_ns;
       uint64_t sec = time_of_wakeup_ns / 1000000000;
       uint64_t nsec = time_of_wakeup_ns % 1000000000;
 #endif

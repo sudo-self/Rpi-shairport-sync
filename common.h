@@ -379,9 +379,12 @@ double flat_vol2attn(double vol, long max_db, long min_db);
 double vol2attn(double vol, long max_db, long min_db);
 
 // return a time in nanoseconds
-// uint64_t get_absolute_time_in_fp(void); // obselete
-uint64_t get_absolute_time_in_ns(void);
-uint64_t get_monotonic_time_in_ns(void); // to try and get precise FPS values
+#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
+// Not defined for macOS
+uint64_t get_realtime_in_ns(void);
+#endif
+uint64_t get_absolute_time_in_ns(void);  // monotonic_raw or monotonic
+uint64_t get_monotonic_time_in_ns(void); // NTP-disciplined
 
 // time at startup for debugging timing
 extern uint64_t ns_time_at_startup, ns_time_at_last_debug_message;

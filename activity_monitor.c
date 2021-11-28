@@ -187,7 +187,7 @@ void *activity_monitor_thread_code(void *arg) {
         uint64_t time_to_wait_for_wakeup_ns = (uint64_t)(config.active_state_timeout * 1000000000);
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-        uint64_t time_of_wakeup_ns = get_absolute_time_in_ns() + time_to_wait_for_wakeup_ns;
+        uint64_t time_of_wakeup_ns = get_realtime_in_ns() + time_to_wait_for_wakeup_ns;
         sec = time_of_wakeup_ns / 1000000000;
         nsec = time_of_wakeup_ns % 1000000000;
         time_for_wait.tv_sec = sec;
