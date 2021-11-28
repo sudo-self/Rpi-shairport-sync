@@ -423,6 +423,8 @@ gboolean notify_statistics_callback(ShairportSyncDiagnostics *skeleton,
   // debug(1, "\"notify_statistics_callback\" called.");
   if (shairport_sync_diagnostics_get_statistics(skeleton)) {
     debug(1, ">> start logging statistics");
+    if (config.statistics_requested == 0)
+      statistics_row = 0; // redraw the header line
     config.statistics_requested = 1;
   } else {
     debug(1, ">> stop logging statistics");
@@ -437,6 +439,8 @@ gboolean notify_verbosity_callback(ShairportSyncDiagnostics *skeleton,
   if ((th >= 0) && (th <= 3)) {
     if (th == 0)
       debug(1, ">> log verbosity set to %d.", th);
+    if (((debuglev == 0) && (th != 0)) || ((debuglev != 0) && (th == 0)))
+      statistics_row = 0; // if the debug level changes, redraw the header line
     debuglev = th;
     debug(1, ">> log verbosity set to %d.", th);
   } else {
