@@ -1756,7 +1756,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       if ((rate & 1) != 0) {
         // keep this outside the flush_mutex lock
         if (conn->ap2_timing_peer_list_message) {
-          ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
+          // ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
         } else {
           debug(1, "Connection %d: No timing peer list!", conn->connection_number);
         }
@@ -2290,10 +2290,10 @@ void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp
       free(conn->ap2_timing_peer_list_message);
     conn->ap2_timing_peer_list_message = strdup(timing_list_message);
     // if this rtsp thread is playing...
-    if (try_to_hold_play_lock(conn) == 0) {
+    // if (try_to_hold_play_lock(conn) == 0) {
       ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-      release_hold_on_play_lock(conn);
-    }
+      // release_hold_on_play_lock(conn);
+    // }
   }
   plist_free(addresses_array);
   resp->respcode = 200;
@@ -2876,10 +2876,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         conn->input_bit_depth = conn->stream.fmtp[3];
         conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
         debug(2, "Realtime Stream Play");
-        if (conn->ap2_timing_peer_list_message)
-          ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-        else
+        if (conn->ap2_timing_peer_list_message) {
+          // ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
+        } else {
           debug(1, "No timing peer list!");
+        }
         activity_monitor_signify_activity(1);
         player_prepare_to_play(conn);
         player_play(conn);
