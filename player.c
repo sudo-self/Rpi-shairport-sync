@@ -1169,8 +1169,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                             command_execute(config.cmd_unfixable, "output_device_stalled", 1);
                           } else {
                             die("an unrecoverable error, \"output_device_stalled\", has been "
-                                 "detected.",
-                                 conn->connection_number);
+                                "detected.",
+                                conn->connection_number);
                           }
                         }
                       } else {

@@ -612,7 +612,7 @@ void *player_watchdog_thread_code(void *arg) {
               command_execute(config.cmd_unfixable, "unable_to_cancel_play_session", 1);
             } else {
               die("an unrecoverable error, \"unable_to_cancel_play_session\", has been detected.",
-                   conn->connection_number);
+                  conn->connection_number);
             }
           }
         }
@@ -2291,8 +2291,8 @@ void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp
     conn->ap2_timing_peer_list_message = strdup(timing_list_message);
     // if this rtsp thread is playing...
     // if (try_to_hold_play_lock(conn) == 0) {
-      ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-      // release_hold_on_play_lock(conn);
+    ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
+    // release_hold_on_play_lock(conn);
     // }
   }
   plist_free(addresses_array);
