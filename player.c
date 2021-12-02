@@ -1554,25 +1554,19 @@ int *statistics_print_profile;
 // these arrays specify which of the statistics specified by the statistics_item calls will actually
 // be printed -- 2 means print, 1 means print only in a debug mode, 0 means skip
 
-// don't display output fps -- not sure how accurate it is (change item 14 and 17 to 1 to restore)
-int ap1_synced_statistics_print_profile[] = {2, 2, 2, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 1, 1};
-int ap1_nosync_statistics_print_profile[] = {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 1, 0};
-int ap1_nodelay_statistics_print_profile[] = {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 1, 1, 0, 0, 1, 0};
+// clang-format off
+int ap1_synced_statistics_print_profile[] =                  {2, 2, 2, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 1, 1};
+int ap1_nosync_statistics_print_profile[] =                  {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 1, 0};
+int ap1_nodelay_statistics_print_profile[] =                 {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 1, 1, 0, 0, 1, 0};
 
-int ap2_realtime_synced_stream_statistics_print_profile[] = {2, 2, 2, 1, 2, 1, 1, 2, 1,
-                                                             1, 1, 1, 1, 2, 2, 0, 0};
-int ap2_realtime_nosync_stream_statistics_print_profile[] = {2, 0, 0, 1, 2, 1, 1, 2, 1,
-                                                             1, 1, 1, 1, 0, 0, 0, 0};
-int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 2, 1, 1, 2, 0,
-                                                              1, 1, 1, 1, 0, 0, 0, 0};
+int ap2_realtime_synced_stream_statistics_print_profile[] =  {2, 2, 2, 1, 2, 1, 1, 2, 1, 1, 1, 0, 1, 2, 2, 0, 0};
+int ap2_realtime_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 0, 1, 0, 0, 0, 0};
+int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 0, 1, 0, 0, 0, 0};
 
-// don't display output fps -- not sure how accurate it is (change item 14 1 to restore)
-int ap2_buffered_synced_stream_statistics_print_profile[] = {2, 2, 2, 1, 0, 0, 0, 0, 1,
-                                                             1, 1, 0, 0, 2, 2, 0, 0};
-int ap2_buffered_nosync_stream_statistics_print_profile[] = {2, 0, 0, 1, 0, 0, 0, 0, 1,
-                                                             1, 1, 0, 0, 0, 0, 0, 0};
-int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 0, 0, 0, 0, 0,
-                                                              1, 1, 0, 0, 0, 0, 0, 0};
+int ap2_buffered_synced_stream_statistics_print_profile[] =  {2, 2, 2, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 2, 2, 0, 0};
+int ap2_buffered_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0};
+int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0};
+// clang-format on
 
 void statistics_item(const char *heading, const char *format, ...) {
   if (((statistics_print_profile[statistics_column] == 1) && (debuglev != 0)) ||
