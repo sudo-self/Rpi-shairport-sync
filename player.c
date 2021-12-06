@@ -383,6 +383,10 @@ void reset_buffer(rtsp_conn_info *conn) {
   debug_mutex_lock(&conn->ab_mutex, 30000, 0);
   ab_resync(conn);
   debug_mutex_unlock(&conn->ab_mutex, 0);
+  if (config.output->flush) {
+            config.output->flush(); // no cancellation points
+//            debug(1, "reset_buffer: flush output device.");
+  }
 }
 
 void get_audio_buffer_size_and_occupancy(unsigned int *size, unsigned int *occupancy,
@@ -1687,7 +1691,7 @@ void player_thread_cleanup_handler(void *arg) {
     debug(3, "Audio thread terminated.");
 #ifdef CONFIG_AIRPLAY_2
   }
-  ptp_send_control_message_string("T"); // remove all timing peers to force the master to 0
+  // ptp_send_control_message_string("T"); // remove all timing peers to force the master to 0
 #endif
 
   if (conn->outbuf) {
@@ -1711,7 +1715,7 @@ void player_thread_cleanup_handler(void *arg) {
   if (conn->stream.type == ast_apple_lossless)
     terminate_decoders(conn);
 
-  reset_anchor_info(conn);
+  // reset_anchor_info(conn);
   release_play_lock(conn);
   conn->rtp_running = 0;
   pthread_setcancelstate(oldState, NULL);
@@ -1747,7 +1751,7 @@ void *player_thread_func(void *arg) {
   conn->ap2_play_enabled = 0;
 #endif
 
-  reset_anchor_info(conn);
+  // reset_anchor_info(conn);
 
   if (conn->stream.type == ast_apple_lossless)
     init_alac_decoder((int32_t *)&conn->stream.fmtp,
