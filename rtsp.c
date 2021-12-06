@@ -185,6 +185,39 @@ typedef struct {
 
 #ifdef CONFIG_AIRPLAY_2
 
+int add_pstring_to_malloc(const char *s, void **allocation, size_t *size) {
+  int response = 0;
+  void *p = *allocation;
+  if (p == NULL) {
+    p = malloc(strlen(s) + 1);
+    if (p == NULL) {
+      debug(1, "error allocating memory");
+    } else {
+      *allocation = p;
+      *size = *size + strlen(s) + 1;
+      uint8_t *b = (uint8_t *)p;
+      *b = strlen(s);
+      p = p+1;
+      memcpy(p,s,strlen(s));
+      response = 1;
+    }
+  } else {
+    p = realloc(p, *size + strlen(s) + 1);
+    if (p == NULL) { // assuming we never allocate a zero byte space
+      debug(1, "error reallocating memory");
+    } else {
+      *allocation = p;
+      uint8_t *b = (uint8_t *)p + *size;
+      *b = strlen(s);
+      p = p + *size + 1;
+      memcpy(p,s,strlen(s));
+      *size = *size + strlen(s) + 1;
+      response = 1;
+    }
+  }
+  return response;
+}
+
 static void pkString_make(char *str, size_t str_size, const char *device_id) {
   uint8_t public_key[32];
   if (str_size < 2 * sizeof(public_key) + 1) {
@@ -1139,6 +1172,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
+  if ((config.metadata_enabled != 0) && (config.get_coverart != 0))
+    buflen = 1024 * 256;    // big enough for typical picture data, which will be base64 encoded
   int release_buffer = 0;         // on exit, don't deallocate the buffer if everything was okay
   char *buf = malloc(buflen + 1); // add a NUL at the end
   if (!buf) {
@@ -1228,7 +1263,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       get_absolute_time_in_ns() + ((uint64_t)15000000000); // i.e. fifteen seconds from now
   int warning_message_sent = 0;
 
-  const size_t max_read_chunk = 1024 * 1024 / 16;
+  // const size_t max_read_chunk = 1024 * 1024 / 16;
   while (inbuf < msg_size) {
 
     // we are going to read the stream in chunks and time how long it takes to
@@ -1255,9 +1290,9 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       goto shutdown;
     }
     size_t read_chunk = msg_size - inbuf;
-    if (read_chunk > max_read_chunk)
-      read_chunk = max_read_chunk;
-    usleep(80000); // wait about 80 milliseconds between reads of up to max_read_chunk
+    //if (read_chunk > max_read_chunk)
+    //  read_chunk = max_read_chunk;
+    // usleep(80000); // wait about 80 milliseconds between reads of up to max_read_chunk
     nread = read_from_rtsp_connection(conn, buf + inbuf, read_chunk);
     if (!nread) {
       reply = rtsp_read_request_response_error;
@@ -1476,7 +1511,7 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
 
 void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *req,
                      rtsp_message *resp) {
-
+  debug_log_rtsp_message(2, "GET /info:", req);
   if (rtsp_message_contains_plist(req)) { // it's stage one
     // get version of AirPlay -- it might be too old. Not using it yet.
     char *hdr = msg_get_header(req, "User-Agent");
@@ -1519,6 +1554,43 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
     if (response_plist == NULL) {
       debug(1, "GET /info Stage 1: response plist not created from XML!");
     } else {
+      void *qualifier_response_data = NULL;
+      size_t qualifier_response_data_length = 0;
+      if (add_pstring_to_malloc("acl=0", &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc(deviceIdString, &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc(featuresString, &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("rsf=0x0", &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("flags=0x4", &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("model=Shairport Sync", &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("manufacturer=", &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("serialNumber=", &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("protovers=1.1", &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("srcvers=366.0", &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc(piString, &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc(gidString, &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("gcgl=0", &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      snprintf(pkString, sizeof(pkString), "pk=");
+      pkString_make(pkString + strlen("pk="), sizeof(pkString) - strlen("pk="),
+                    config.airplay_device_id);
+      if (add_pstring_to_malloc(pkString, &qualifier_response_data, &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      // debug(1,"qualifier_response_data_length: %u.", qualifier_response_data_length);
+      
+      plist_dict_set_item(response_plist, "txtAirPlay", plist_new_data(qualifier_response_data, qualifier_response_data_length));
+         
       plist_dict_set_item(response_plist, "features", plist_new_uint(config.airplay_features));
       plist_dict_set_item(response_plist, "statusFlags",
                           plist_new_uint(config.airplay_statusflags));
@@ -1526,15 +1598,16 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
       plist_dict_set_item(response_plist, "pi", plist_new_string(config.airplay_pi));
       plist_dict_set_item(response_plist, "name", plist_new_string(config.service_name));
       char *vs = get_version_string();
-      plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+//      plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+      plist_dict_set_item(response_plist, "model", plist_new_string("Shairport Sync"));
       free(vs);
-      char pkString[128];
-      pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
-      plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
+      //pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
+      //plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
       plist_to_bin(response_plist, &resp->content, &resp->contentlength);
       if (resp->contentlength == 0)
         debug(1, "GET /info Stage 1: response bplist not created!");
       plist_free(response_plist);
+      free(qualifier_response_data);
     }
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
     debug_log_rtsp_message(2, "GET /info Stage 1 Response:", resp);
@@ -1554,11 +1627,11 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
     plist_dict_set_item(response_plist, "pi", plist_new_string(config.airplay_pi));
     plist_dict_set_item(response_plist, "name", plist_new_string(config.service_name));
     char *vs = get_version_string();
-    plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+    // plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+    plist_dict_set_item(response_plist, "model", plist_new_string("Shairport Sync"));
     free(vs);
-    char pkString[128];
-    pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
-    plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
+    // pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
+    // plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
     plist_to_bin(response_plist, &resp->content, &resp->contentlength);
     plist_free(response_plist);
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
@@ -1702,12 +1775,12 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       }
       uint64_t networkTimeSecs;
       plist_get_uint_val(item, &networkTimeSecs);
-      debug(2, "anchor networkTimeSecs is 0x%" PRIx64 ".", networkTimeSecs);
+      debug(2, "anchor networkTimeSecs is %" PRIu64 ".", networkTimeSecs);
 
       item = plist_dict_get_item(messagePlist, "networkTimeFrac");
       uint64_t networkTimeFrac;
       plist_get_uint_val(item, &networkTimeFrac);
-      debug(2, "anchor networkTimeFrac is 0x%" PRIx64 ".", networkTimeFrac);
+      debug(2, "anchor networkTimeFrac is 0%" PRIu64 ".", networkTimeFrac);
       // it looks like the networkTimeFrac is a fraction where the msb is work 1/2, the
       // next 1/4 and so on
       // now, convert the network time and fraction into nanoseconds
@@ -1718,7 +1791,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       networkTimeSecs = networkTimeSecs * 1000000000; // turn the whole seconds into ns
       uint64_t anchorTimeNanoseconds = networkTimeSecs + networkTimeFrac;
 
-      debug(2, "anchorTimeNanoseconds looks like 0x%" PRIx64 ".", anchorTimeNanoseconds);
+      debug(2, "anchorTimeNanoseconds looks like %" PRIu64 ".", anchorTimeNanoseconds);
 
       item = plist_dict_get_item(messagePlist, "rtpTime");
       uint64_t rtpTime;
@@ -2158,7 +2231,27 @@ void handle_configure(rtsp_conn_info *conn __attribute__((unused)),
 
 void handle_feedback(__attribute__((unused)) rtsp_conn_info *conn,
                      __attribute__((unused)) rtsp_message *req,
-                     __attribute__((unused)) rtsp_message *resp) {}
+                     __attribute__((unused)) rtsp_message *resp) {
+  /* not finished yet
+  plist_t payload_plist = plist_new_dict();
+  plist_dict_set_item(payload_plist, "type", plist_new_uint(103));
+  plist_dict_set_item(payload_plist, "sr", plist_new_real(44100.0));
+  
+  plist_t array_plist = plist_new_array();
+  plist_array_append_item(array_plist, payload_plist);
+  
+  plist_t response_plist = plist_new_dict();
+  plist_dict_set_item(response_plist, "streams",array_plist);
+  
+  plist_to_bin(response_plist, &resp->content, &resp->contentlength);  
+  plist_free(response_plist);
+  // plist_free(array_plist);
+  // plist_free(payload_plist);
+
+  msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
+  debug_log_rtsp_message(2, "FEEDBACK response:", resp);
+  */
+}
 
 void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *req,
                     __attribute__((unused)) rtsp_message *resp) {
