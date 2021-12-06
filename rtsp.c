@@ -197,8 +197,8 @@ int add_pstring_to_malloc(const char *s, void **allocation, size_t *size) {
       *size = *size + strlen(s) + 1;
       uint8_t *b = (uint8_t *)p;
       *b = strlen(s);
-      p = p+1;
-      memcpy(p,s,strlen(s));
+      p = p + 1;
+      memcpy(p, s, strlen(s));
       response = 1;
     }
   } else {
@@ -210,7 +210,7 @@ int add_pstring_to_malloc(const char *s, void **allocation, size_t *size) {
       uint8_t *b = (uint8_t *)p + *size;
       *b = strlen(s);
       p = p + *size + 1;
-      memcpy(p,s,strlen(s));
+      memcpy(p, s, strlen(s));
       *size = *size + strlen(s) + 1;
       response = 1;
     }
@@ -1173,8 +1173,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
   if ((config.metadata_enabled != 0) && (config.get_coverart != 0))
-    buflen = 1024 * 256;    // big enough for typical picture data, which will be base64 encoded
-  int release_buffer = 0;         // on exit, don't deallocate the buffer if everything was okay
+    buflen = 1024 * 256;  // big enough for typical picture data, which will be base64 encoded
+  int release_buffer = 0; // on exit, don't deallocate the buffer if everything was okay
   char *buf = malloc(buflen + 1); // add a NUL at the end
   if (!buf) {
     warn("Connection %d: rtsp_read_request: can't get a buffer.", conn->connection_number);
@@ -1290,7 +1290,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       goto shutdown;
     }
     size_t read_chunk = msg_size - inbuf;
-    //if (read_chunk > max_read_chunk)
+    // if (read_chunk > max_read_chunk)
     //  read_chunk = max_read_chunk;
     // usleep(80000); // wait about 80 milliseconds between reads of up to max_read_chunk
     nread = read_from_rtsp_connection(conn, buf + inbuf, read_chunk);
@@ -1556,41 +1556,56 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
     } else {
       void *qualifier_response_data = NULL;
       size_t qualifier_response_data_length = 0;
-      if (add_pstring_to_malloc("acl=0", &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc("acl=0", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc(deviceIdString, &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc(deviceIdString, &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc(featuresString, &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc(featuresString, &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc("rsf=0x0", &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc("rsf=0x0", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc("flags=0x4", &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc("flags=0x4", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc("model=Shairport Sync", &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc("model=Shairport Sync", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc("manufacturer=", &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc("manufacturer=", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc("serialNumber=", &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc("serialNumber=", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc("protovers=1.1", &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc("protovers=1.1", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc("srcvers=366.0", &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc("srcvers=366.0", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc(piString, &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc(piString, &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc(gidString, &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc(gidString, &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
-      if (add_pstring_to_malloc("gcgl=0", &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc("gcgl=0", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
       snprintf(pkString, sizeof(pkString), "pk=");
       pkString_make(pkString + strlen("pk="), sizeof(pkString) - strlen("pk="),
                     config.airplay_device_id);
-      if (add_pstring_to_malloc(pkString, &qualifier_response_data, &qualifier_response_data_length) == 0)
+      if (add_pstring_to_malloc(pkString, &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
         debug(1, "Problem");
       // debug(1,"qualifier_response_data_length: %u.", qualifier_response_data_length);
-      
-      plist_dict_set_item(response_plist, "txtAirPlay", plist_new_data(qualifier_response_data, qualifier_response_data_length));
-         
+
+      plist_dict_set_item(response_plist, "txtAirPlay",
+                          plist_new_data(qualifier_response_data, qualifier_response_data_length));
+
       plist_dict_set_item(response_plist, "features", plist_new_uint(config.airplay_features));
       plist_dict_set_item(response_plist, "statusFlags",
                           plist_new_uint(config.airplay_statusflags));
@@ -1598,11 +1613,11 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
       plist_dict_set_item(response_plist, "pi", plist_new_string(config.airplay_pi));
       plist_dict_set_item(response_plist, "name", plist_new_string(config.service_name));
       char *vs = get_version_string();
-//      plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+      //      plist_dict_set_item(response_plist, "model", plist_new_string(vs));
       plist_dict_set_item(response_plist, "model", plist_new_string("Shairport Sync"));
       free(vs);
-      //pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
-      //plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
+      // pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
+      // plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
       plist_to_bin(response_plist, &resp->content, &resp->contentlength);
       if (resp->contentlength == 0)
         debug(1, "GET /info Stage 1: response bplist not created!");
@@ -2236,14 +2251,14 @@ void handle_feedback(__attribute__((unused)) rtsp_conn_info *conn,
   plist_t payload_plist = plist_new_dict();
   plist_dict_set_item(payload_plist, "type", plist_new_uint(103));
   plist_dict_set_item(payload_plist, "sr", plist_new_real(44100.0));
-  
+
   plist_t array_plist = plist_new_array();
   plist_array_append_item(array_plist, payload_plist);
-  
+
   plist_t response_plist = plist_new_dict();
   plist_dict_set_item(response_plist, "streams",array_plist);
-  
-  plist_to_bin(response_plist, &resp->content, &resp->contentlength);  
+
+  plist_to_bin(response_plist, &resp->content, &resp->contentlength);
   plist_free(response_plist);
   // plist_free(array_plist);
   // plist_free(payload_plist);

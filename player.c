@@ -384,8 +384,8 @@ void reset_buffer(rtsp_conn_info *conn) {
   ab_resync(conn);
   debug_mutex_unlock(&conn->ab_mutex, 0);
   if (config.output->flush) {
-            config.output->flush(); // no cancellation points
-//            debug(1, "reset_buffer: flush output device.");
+    config.output->flush(); // no cancellation points
+                            //            debug(1, "reset_buffer: flush output device.");
   }
 }
 
