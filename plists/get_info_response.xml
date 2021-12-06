@@ -60,7 +60,8 @@
 	<string>366.0</string>
 	<key>statusFlags</key>
 	<integer>4</integer>
-	<key>txtAirPlay</key>
-	<!-- key values for deviceID, features, pi, name and model are added programatically -->
+	<!-- key values for deviceID, features, pi, name, model and a txtAirPlay data field are added programatically -->
+	<!-- key values for firmwareBuildDate (string), build (string) and PTPInfo (string)
+	 should be added programatically -->
 </dict>
 </plist>
