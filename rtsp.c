@@ -2529,6 +2529,10 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     free(conn->dacp_active_remote);
     conn->dacp_active_remote = NULL;
   }
+  if (conn->ap2_timing_peer_list_message) {
+    free(conn->ap2_timing_peer_list_message);
+    conn->ap2_timing_peer_list_message = NULL;
+  }
   debug(1,"Bogus exit for valgrind.");
   exit(EXIT_SUCCESS); // 
 }
