@@ -481,7 +481,7 @@ void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
       //    metadata_store.dacp_server_active = dacp_server.scan_enable;
       //    metadata_hub_modify_epilog(ch);
     } else {
-      debug(1, "dacp port monitor reporting on an out-of-use remote.");
+      debug(2, "dacp port monitor reporting on an out-of-use remote.");
     }
   }
   pthread_cond_signal(&dacp_server_information_cv);
