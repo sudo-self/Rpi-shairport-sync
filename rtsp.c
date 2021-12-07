@@ -2533,7 +2533,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     free(conn->ap2_timing_peer_list_message);
     conn->ap2_timing_peer_list_message = NULL;
   }
-  debug(1,"Bogus exit for valgrind.");
+  debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
   exit(EXIT_SUCCESS); // 
 }
 #endif
@@ -2559,6 +2559,8 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
          conn->connection_number);
     resp->respcode = 451;
   }
+  debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
+  exit(EXIT_SUCCESS);
 }
 
 void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
