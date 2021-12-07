@@ -1717,7 +1717,7 @@ void player_thread_cleanup_handler(void *arg) {
     terminate_decoders(conn);
 
   // reset_anchor_info(conn);
-  release_play_lock(conn);
+  // release_play_lock(conn);
   conn->rtp_running = 0;
   pthread_setcancelstate(oldState, NULL);
   debug(2, "Connection %d: player terminated.", conn->connection_number);
