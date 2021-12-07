@@ -2559,6 +2559,10 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
          conn->connection_number);
     resp->respcode = 451;
   }
+  if (conn->dacp_active_remote != NULL) {
+    free(conn->dacp_active_remote);
+    conn->dacp_active_remote = NULL;
+  }
   debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
   exit(EXIT_SUCCESS);
 }
