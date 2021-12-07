@@ -697,7 +697,7 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
       pthread_cancel(conns[i]->thread);
-      debug(1, "Connection %d: cancelled.", conns[i]->connection_number);
+      debug(2, "Connection %d: cancelled.", conns[i]->connection_number);
     }
   }
   for (i = 0; i < nconns; i++) {
@@ -706,7 +706,7 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
       pthread_join(conns[i]->thread, NULL);
-      debug(1, "Connection %d: joined.", conns[i]->connection_number);
+      debug(2, "Connection %d: joined.", conns[i]->connection_number);
       free(conns[i]);
       conns[i] = NULL;
     }
@@ -2625,7 +2625,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(1, "Connection %d: SETUP: Remote Control setup detected.",
+              debug(2, "Connection %d: SETUP: Remote Control setup detected.",
                     conn->connection_number);
               conn->airplay_stream_category = remote_control_stream;
             } else {
@@ -2825,7 +2825,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 conn->connection_number, err);
           }
 
-          debug(1, "Connection %d: TCP Remote Control event port opened: %u.",
+          debug(2, "Connection %d: TCP Remote Control event port opened: %u.",
                 conn->connection_number, conn->local_event_port);
           if (conn->rtp_event_thread != NULL)
             debug(1, "previous rtp_event_thread allocation not freed, it seems.");
@@ -3056,7 +3056,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       resp->respcode = 200;
     } else if (conn->airplay_stream_category == remote_control_stream) {
       debug(2, "Connection %d: SETUP: Remote Control Stream received.", conn->connection_number);
-      debug_log_rtsp_message(1, "Remote Control Stream stream (second) message", req);
+      debug_log_rtsp_message(2, "Remote Control Stream stream (second) message", req);
 
       resp->respcode = 200;
     } else {
