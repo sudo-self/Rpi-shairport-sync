@@ -1062,8 +1062,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               conn->first_packet_time_to_play = should_be_time;
 
               int64_t lt = conn->first_packet_time_to_play - local_time_now;
-
-              debug(1, "Connection %d: Lead time for first frame %" PRId64 ": %f seconds.",
+              
+              if (lt < 100000000)
+                debug(1, "Connection %d: Short lead time for first frame %" PRId64 ": %f seconds.",
                     conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
 
               int64_t lateness = local_time_now - conn->first_packet_time_to_play;
@@ -1716,7 +1717,7 @@ void player_thread_cleanup_handler(void *arg) {
     terminate_decoders(conn);
 
   // reset_anchor_info(conn);
-  release_play_lock(conn);
+  // release_play_lock(conn);
   conn->rtp_running = 0;
   pthread_setcancelstate(oldState, NULL);
   debug(2, "Connection %d: player terminated.", conn->connection_number);

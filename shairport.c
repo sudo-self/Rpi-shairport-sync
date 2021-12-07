@@ -1459,10 +1459,10 @@ void exit_function() {
       if (config.daemonise)
         debug(1, "libdaemon parent exit");
       else
-        debug(1, "exit");
+        debug(1, "exit_function libdaemon exit");
     }
 #else
-    debug(1, "exit");
+    debug(1, "exit_function exit");
 #endif
   } else {
     debug(1, "emergency exit");

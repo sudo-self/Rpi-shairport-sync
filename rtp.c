@@ -1310,7 +1310,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
         // if the master clock and the anchor clock are the same
         // wait at least this time before using the new master clock
         // note that mastershipo may be backdated
-        if (duration_of_mastership < 100000000) {
+        if (duration_of_mastership < 275000000) {
           debug(3, "master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
           response = clock_not_ready;
         } else if ((duration_of_mastership > 5000000000) ||
@@ -2254,7 +2254,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   int streaming_has_started = 0;
   int play_enabled = 0;
   uint32_t flush_from_timestamp;
-  double requested_lead_time = 0.0; // normal lead time minimum -- maybe  it should be about 0.1
+  double requested_lead_time = 0.1; // normal lead time minimum -- maybe  it should be about 0.1
 
   // wait until our timing information is valid
 
@@ -2642,7 +2642,7 @@ void *rtp_buffered_audio_processor(void *arg) {
                   if (pkt->size) {
                     // if (0) {
                     if (pkt->size <= 7) { // no idea about this...
-                      debug(1, "malformed AAC packet skipped.");
+                      debug(2, "malformed AAC packet skipped.");
                     } else {
                       ret = avcodec_send_packet(codec_context, pkt);
 

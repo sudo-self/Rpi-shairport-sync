@@ -697,7 +697,7 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
       pthread_cancel(conns[i]->thread);
-      debug(1, "Connection %d: cancelled.", conns[i]->connection_number);
+      debug(2, "Connection %d: cancelled.", conns[i]->connection_number);
     }
   }
   for (i = 0; i < nconns; i++) {
@@ -706,7 +706,7 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
       pthread_join(conns[i]->thread, NULL);
-      debug(1, "Connection %d: joined.", conns[i]->connection_number);
+      debug(2, "Connection %d: joined.", conns[i]->connection_number);
       free(conns[i]);
       conns[i] = NULL;
     }
@@ -1345,7 +1345,8 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
   };
 
   struct response_t responses[] = {
-      {200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}, {501, "Not Implemented"}};
+      {200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}, {451, "Unavailable"}, {501, "Not Implemented"}};
+      // 451 is really "Unavailable For Legal Reasons"!
   int found = 0;
   char *respcode_text = "Unauthorized";
   for (i = 0; i < sizeof(responses) / sizeof(struct response_t); i++) {
@@ -1879,6 +1880,7 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
         req->contentlength);
   resp->respcode = 500;
 }
+
 void handle_post(__attribute((unused)) rtsp_conn_info *conn,
                  __attribute((unused)) rtsp_message *req,
                  __attribute((unused)) rtsp_message *resp) {
@@ -2480,6 +2482,7 @@ void teardown_phase_two(rtsp_conn_info *conn) {
     debug(2, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
           get_category_string(conn->airplay_stream_category));
     mdns_update(NULL, secondary_txt_records);
+    release_play_lock(conn);
   }
 }
 
@@ -2533,6 +2536,7 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
         "TEARDOWN: synchronously terminating the player thread of RTSP conversation thread %d (2).",
         conn->connection_number);
     player_stop(conn);
+    release_play_lock(conn);
     activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
     debug(3, "TEARDOWN: successful termination of playing thread of RTSP conversation thread %d.",
           conn->connection_number);
@@ -2625,7 +2629,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(1, "Connection %d: SETUP: Remote Control setup detected.",
+              debug(2, "Connection %d: SETUP: Remote Control setup detected.",
                     conn->connection_number);
               conn->airplay_stream_category = remote_control_stream;
             } else {
@@ -2721,10 +2725,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                         char buf[32];
                         memset(buf, 0, sizeof(buf));
                         inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf, sizeof(buf));
-                        if (!different) {
+                        // don't insist there are in the same subnet...
+                        //if (!different) {
                           // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
                           plist_array_append_item(addresses, plist_new_string(buf));
-                        }
+                        //}
                       }
                     }
                   } else if (inet_pton(AF_INET, ip_address, &pa4->sin_addr) == 1) {
@@ -2734,15 +2739,17 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                           ((iap->ifa_flags & IFF_LOOPBACK) == 0) &&
                           (iap->ifa_addr->sa_family == AF_INET)) {
                         struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
-                        struct sockaddr_in *mask = (struct sockaddr_in *)(iap->ifa_netmask);
-                        if ((addr->sin_addr.s_addr & mask->sin_addr.s_addr) ==
-                            (pa4->sin_addr.s_addr & mask->sin_addr.s_addr)) {
+                        // not needed if not checking for same subnet
+                        // struct sockaddr_in *mask = (struct sockaddr_in *)(iap->ifa_netmask);
+                        // if ((addr->sin_addr.s_addr & mask->sin_addr.s_addr) ==
+                        //    (pa4->sin_addr.s_addr & mask->sin_addr.s_addr)) {
                           char buf[32];
                           memset(buf, 0, sizeof(buf));
                           inet_ntop(AF_INET, (void *)&addr->sin_addr, buf, sizeof(buf));
+                          // no longer insisting they are in the same subnet
                           // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
                           plist_array_append_item(addresses, plist_new_string(buf));
-                        }
+                        // }
                       }
                     }
                   } else {
@@ -2800,6 +2807,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             debug(2, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
                   get_category_string(conn->airplay_stream_category));
             mdns_update(NULL, secondary_txt_records);
+            
+            
 
             resp->respcode = 200;
           } else {
@@ -2825,7 +2834,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 conn->connection_number, err);
           }
 
-          debug(1, "Connection %d: TCP Remote Control event port opened: %u.",
+          debug(2, "Connection %d: TCP Remote Control event port opened: %u.",
                 conn->connection_number, conn->local_event_port);
           if (conn->rtp_event_thread != NULL)
             debug(1, "previous rtp_event_thread allocation not freed, it seems.");
@@ -2862,6 +2871,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     debug(2, "Connection %d: SETUP on %s. A \"streams\" array has been found",
           conn->connection_number, get_category_string(conn->airplay_stream_category));
     if (conn->airplay_stream_category == ptp_stream) {
+      get_play_lock(conn);
       // get stream[0]
       plist_t stream0 = plist_array_get_item(streams, 0);
 
@@ -2939,7 +2949,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       case 96: {
         debug(1, "Connection %d. Realtime Audio Stream Detected.", conn->connection_number);
         debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
-        get_play_lock(conn);
+        // get_play_lock(conn);
         conn->airplay_stream_type = realtime_stream;
         // bind a new UDP port and get a socket
         conn->local_realtime_audio_port = 0; // any port
@@ -2999,7 +3009,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         debug(1, "SETUP on Connection %d. Buffered Audio Stream Detected.",
               conn->connection_number);
         debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
-        get_play_lock(conn);
+        // get_play_lock(conn);
         conn->airplay_stream_type = buffered_stream;
         // get needed stuff
 
@@ -3056,7 +3066,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       resp->respcode = 200;
     } else if (conn->airplay_stream_category == remote_control_stream) {
       debug(2, "Connection %d: SETUP: Remote Control Stream received.", conn->connection_number);
-      debug_log_rtsp_message(1, "Remote Control Stream stream (second) message", req);
+      debug_log_rtsp_message(2, "Remote Control Stream stream (second) message", req);
 
       resp->respcode = 200;
     } else {
