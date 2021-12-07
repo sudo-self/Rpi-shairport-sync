@@ -383,6 +383,10 @@ void reset_buffer(rtsp_conn_info *conn) {
   debug_mutex_lock(&conn->ab_mutex, 30000, 0);
   ab_resync(conn);
   debug_mutex_unlock(&conn->ab_mutex, 0);
+  if (config.output->flush) {
+    config.output->flush(); // no cancellation points
+                            //            debug(1, "reset_buffer: flush output device.");
+  }
 }
 
 void get_audio_buffer_size_and_occupancy(unsigned int *size, unsigned int *occupancy,
@@ -1168,9 +1172,9 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                           if (config.cmd_unfixable) {
                             command_execute(config.cmd_unfixable, "output_device_stalled", 1);
                           } else {
-                            warn("an unrecoverable error, \"output_device_stalled\", has been "
-                                 "detected.",
-                                 conn->connection_number);
+                            die("an unrecoverable error, \"output_device_stalled\", has been "
+                                "detected.",
+                                conn->connection_number);
                           }
                         }
                       } else {
@@ -1554,25 +1558,19 @@ int *statistics_print_profile;
 // these arrays specify which of the statistics specified by the statistics_item calls will actually
 // be printed -- 2 means print, 1 means print only in a debug mode, 0 means skip
 
-// don't display output fps -- not sure how accurate it is (change item 14 and 17 to 1 to restore)
-int ap1_synced_statistics_print_profile[] = {2, 2, 2, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 1, 1};
-int ap1_nosync_statistics_print_profile[] = {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 1, 0};
-int ap1_nodelay_statistics_print_profile[] = {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 1, 1, 0, 0, 1, 0};
+// clang-format off
+int ap1_synced_statistics_print_profile[] =                  {2, 2, 2, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 1, 1};
+int ap1_nosync_statistics_print_profile[] =                  {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 1, 0};
+int ap1_nodelay_statistics_print_profile[] =                 {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 1, 1, 0, 0, 1, 0};
 
-int ap2_realtime_synced_stream_statistics_print_profile[] = {2, 2, 2, 1, 2, 1, 1, 2, 1,
-                                                             1, 1, 1, 1, 2, 2, 0, 0};
-int ap2_realtime_nosync_stream_statistics_print_profile[] = {2, 0, 0, 1, 2, 1, 1, 2, 1,
-                                                             1, 1, 1, 1, 0, 0, 0, 0};
-int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 2, 1, 1, 2, 0,
-                                                              1, 1, 1, 1, 0, 0, 0, 0};
+int ap2_realtime_synced_stream_statistics_print_profile[] =  {2, 2, 2, 1, 2, 1, 1, 2, 1, 1, 1, 0, 1, 2, 2, 0, 0};
+int ap2_realtime_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 0, 1, 0, 0, 0, 0};
+int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 0, 1, 0, 0, 0, 0};
 
-// don't display output fps -- not sure how accurate it is (change item 14 1 to restore)
-int ap2_buffered_synced_stream_statistics_print_profile[] = {2, 2, 2, 1, 0, 0, 0, 0, 1,
-                                                             1, 1, 0, 0, 2, 2, 0, 0};
-int ap2_buffered_nosync_stream_statistics_print_profile[] = {2, 0, 0, 1, 0, 0, 0, 0, 1,
-                                                             1, 1, 0, 0, 0, 0, 0, 0};
-int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 0, 0, 0, 0, 0,
-                                                              1, 1, 0, 0, 0, 0, 0, 0};
+int ap2_buffered_synced_stream_statistics_print_profile[] =  {2, 2, 2, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 2, 2, 0, 0};
+int ap2_buffered_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0};
+int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0};
+// clang-format on
 
 void statistics_item(const char *heading, const char *format, ...) {
   if (((statistics_print_profile[statistics_column] == 1) && (debuglev != 0)) ||
@@ -1693,7 +1691,7 @@ void player_thread_cleanup_handler(void *arg) {
     debug(3, "Audio thread terminated.");
 #ifdef CONFIG_AIRPLAY_2
   }
-  ptp_send_control_message_string("T"); // remove all timing peers to force the master to 0
+  // ptp_send_control_message_string("T"); // remove all timing peers to force the master to 0
 #endif
 
   if (conn->outbuf) {
@@ -1717,7 +1715,7 @@ void player_thread_cleanup_handler(void *arg) {
   if (conn->stream.type == ast_apple_lossless)
     terminate_decoders(conn);
 
-  reset_anchor_info(conn);
+  // reset_anchor_info(conn);
   release_play_lock(conn);
   conn->rtp_running = 0;
   pthread_setcancelstate(oldState, NULL);
@@ -1753,7 +1751,7 @@ void *player_thread_func(void *arg) {
   conn->ap2_play_enabled = 0;
 #endif
 
-  reset_anchor_info(conn);
+  // reset_anchor_info(conn);
 
   if (conn->stream.type == ast_apple_lossless)
     init_alac_decoder((int32_t *)&conn->stream.fmtp,

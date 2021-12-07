@@ -410,6 +410,7 @@ typedef struct {
 } rtsp_conn_info;
 
 extern pthread_mutex_t playing_conn_lock;
+extern int statistics_row; // will be reset to zero when debug level changes or statistics enabled
 
 void reset_buffer(rtsp_conn_info *conn);
 

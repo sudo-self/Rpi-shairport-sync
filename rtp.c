@@ -1310,7 +1310,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
         // if the master clock and the anchor clock are the same
         // wait at least this time before using the new master clock
         // note that mastershipo may be backdated
-        if (duration_of_mastership < 1500000000) {
+        if (duration_of_mastership < 100000000) {
           debug(3, "master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
           response = clock_not_ready;
         } else if ((duration_of_mastership > 5000000000) ||
@@ -1400,6 +1400,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
         }
       }
     } else {
+      // debug(1, "anchor_remote_info_is_valid not valid");
       response = clock_no_anchor_info; // no anchor information
     }
   }
@@ -2253,8 +2254,15 @@ void *rtp_buffered_audio_processor(void *arg) {
   int streaming_has_started = 0;
   int play_enabled = 0;
   uint32_t flush_from_timestamp;
-  double requested_lead_time = 0.3; // normal lead time minimum
-  reset_buffer(conn);               // in case there is any garbage in the player
+  double requested_lead_time = 0.0; // normal lead time minimum -- maybe  it should be about 0.1
+
+  // wait until our timing information is valid
+
+  // debug(1,"rtp_buffered_audio_processor ready.");
+  while (have_ptp_timing_information(conn) == 0)
+    usleep(1000);
+
+  reset_buffer(conn); // in case there is any garbage in the player
   // int not_first_time_out = 0;
 
   // quick check of parameters
@@ -2519,42 +2527,59 @@ void *rtp_buffered_audio_processor(void *arg) {
         // to decipher it first
         // debug(1,"seq_no %u, timestamp %u", seq_no, timestamp);
 
+        uint64_t local_should_be_time = 0;
+        int have_time_information = frame_to_local_time(timestamp, &local_should_be_time, conn);
+        int64_t local_lead_time = 0;
+        int64_t requested_lead_time_ns = (int64_t)(requested_lead_time * 1000000000);
+        requested_lead_time_ns = (int64_t)(-300000000);
+        int outdated = 0;
+        if (have_time_information == 0) {
+          local_lead_time = local_should_be_time - get_absolute_time_in_ns();
+          outdated = (local_lead_time < requested_lead_time_ns);
+          // if (outdated != 0)
+          // debug(1,"Frame is outdated %d if lead_time %" PRId64 " is less than requested lead time
+          // %" PRId64 " ns.", outdated, local_lead_time, requested_lead_time_ns);
+        } else {
+          debug(1, "Timing information not valid");
+          // outdated = 1;
+        }
+
         if ((flush_requested) && (seq_no >= flushUntilSeq)) {
-          uint64_t should_be_time;
-          if ((frame_to_local_time(timestamp, &should_be_time, conn) == 0) && (play_enabled)) {
+          if ((have_time_information == 0) && (play_enabled)) {
             // play enabled will be off when this is a full flush and the anchor information is not
             // valid
-            int64_t lead_time = should_be_time - get_absolute_time_in_ns();
-            debug(1,
+            debug(2,
                   "flush completed to seq: %u, flushUntilTS; %u with rtptime: %u, lead time: "
                   "0x%" PRIx64 " nanoseconds, i.e. %f sec.",
-                  seq_no, flushUntilTS, timestamp, lead_time, lead_time * 0.000000001);
+                  seq_no, flushUntilTS, timestamp, local_lead_time, local_lead_time * 0.000000001);
           } else {
             debug(2, "flush completed to seq: %u with rtptime: %u.", seq_no, timestamp);
           }
         }
 
+        // if we are here because of a flush request, it must be the case that
+        // flushing the pcm buffer wasn't enough, as the request would have been turned off by now
+        // so we better indicate that the pcm buffer is empty and its contents invalid
+
+        // also, if the incomgin frame is outdated, set pcm_buffer_occupancy to 0;
+        if ((flush_requested) || (outdated)) {
+          pcm_buffer_occupancy = 0;
+        }
+
+        // decode the block and add it to or put it in the pcm buffer
+
+        if (pcm_buffer_occupancy == 0) {
+          // they should match and the read point should be zero
+          // if ((blocks_read != 0) && (pcm_buffer_read_point_rtptime != timestamp)) {
+          //  debug(2, "set pcm_buffer_read_point_rtptime from %u to %u.",
+          //        pcm_buffer_read_point_rtptime, timestamp);
+          pcm_buffer_read_point_rtptime = timestamp;
+          pcm_buffer_read_point = 0;
+          //}
+        }
+
         if (((flush_requested != 0) && (seq_no == flushUntilSeq)) ||
             ((flush_requested == 0) && (new_buffer_needed))) {
-
-          // if we are here because of a flush request, it must be the case that
-          // flushing the pcm buffer wasn't enough, as the request would have been turned off by now
-          // so we better indicate that the pcm buffer is empty and its contents invalid
-          if (flush_requested) {
-            pcm_buffer_occupancy = 0;
-          }
-
-          // decode the block and add it to or put it in the pcm buffer
-
-          if (pcm_buffer_occupancy == 0) {
-            // they should match and the read point should be zero
-            // if ((blocks_read != 0) && (pcm_buffer_read_point_rtptime != timestamp)) {
-            //  debug(2, "set pcm_buffer_read_point_rtptime from %u to %u.",
-            //        pcm_buffer_read_point_rtptime, timestamp);
-            pcm_buffer_read_point_rtptime = timestamp;
-            pcm_buffer_read_point = 0;
-            //}
-          }
 
           unsigned char nonce[12];
           memset(nonce, 0, sizeof(nonce));
@@ -2596,6 +2621,7 @@ void *rtp_buffered_audio_processor(void *arg) {
             data_remaining = aac_packet_length;
             int ret = 0;
             // there can be more than one av packet (? terminology) in a block
+            int frame_within_block = 0;
             while (data_remaining > 0) {
               if (decoded_frame == NULL) {
                 decoded_frame = av_frame_alloc();
@@ -2608,66 +2634,77 @@ void *rtp_buffered_audio_processor(void *arg) {
                 if (ret < 0) {
                   debug(1, "error while parsing deciphered audio packet.");
                 } else {
+                  frame_within_block++;
                   data_to_process += ret;
                   data_remaining -= ret;
                   // debug(1, "frame found");
                   // now pass each packet to be decoded
                   if (pkt->size) {
-                    ret = avcodec_send_packet(codec_context, pkt);
-                    if (ret < 0) {
-                      debug(1, "error sending  packet to decoder");
+                    // if (0) {
+                    if (pkt->size <= 7) { // no idea about this...
+                      debug(1, "malformed AAC packet skipped.");
                     } else {
-                      while (ret >= 0) {
-                        ret = avcodec_receive_frame(codec_context, decoded_frame);
-                        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-                          break;
-                        else if (ret < 0) {
-                          debug(1, "error %d during decoding", ret);
-                        } else {
-                          av_samples_alloc(&pcm_audio, &dst_linesize, codec_context->channels,
-                                           decoded_frame->nb_samples, av_format, 1);
-                          // remember to free pcm_audio
-                          ret = swr_convert(swr, &pcm_audio, decoded_frame->nb_samples,
-                                            (const uint8_t **)decoded_frame->extended_data,
-                                            decoded_frame->nb_samples);
-                          dst_bufsize = av_samples_get_buffer_size(
-                              &dst_linesize, codec_context->channels, ret, av_format, 1);
-                          // debug(1,"generated %d bytes of PCM", dst_bufsize);
-                          // copy the PCM audio into the PCM buffer.
-                          // make sure it's big enough first
+                      ret = avcodec_send_packet(codec_context, pkt);
 
-                          // also, check it if needs to be truncated but to an impending delayed
-                          // flush_is_delayed
-                          if (flush_is_delayed) {
-                            // see if the flush_from_timestamp is in the buffer
-                            int32_t samples_remaining =
-                                (flush_from_timestamp - pcm_buffer_read_point_rtptime);
-                            if ((samples_remaining > 0) &&
-                                ((samples_remaining * conn->input_bytes_per_frame) < dst_bufsize)) {
-                              debug(2,
-                                    "samples remaining before flush: %d, number of samples %d. "
-                                    "flushFromTS: %u, pcm_buffer_read_point_rtptime: %u.",
-                                    samples_remaining, dst_bufsize / conn->input_bytes_per_frame,
-                                    flush_from_timestamp, pcm_buffer_read_point_rtptime);
-                              dst_bufsize = samples_remaining * conn->input_bytes_per_frame;
-                            }
-                          }
-                          if ((pcm_buffer_size - pcm_buffer_occupancy) < dst_bufsize) {
-                            debug(1,
-                                  "pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy "
-                                  "(frames): %u",
-                                  pcm_buffer_read_point / conn->input_bytes_per_frame,
-                                  pcm_buffer_occupancy / conn->input_bytes_per_frame);
-                            pcm_buffer_size = dst_bufsize + pcm_buffer_occupancy;
-                            debug(1, "fatal error! pcm buffer too small at %d bytes.",
-                                  pcm_buffer_size);
+                      if (ret < 0) {
+                        debug(1,
+                              "error sending frame %d of size %d to decoder, blocks_read: %u, "
+                              "blocks_read_since_flush: %u.",
+                              frame_within_block, pkt->size, blocks_read, blocks_read_since_flush);
+                      } else {
+                        while (ret >= 0) {
+                          ret = avcodec_receive_frame(codec_context, decoded_frame);
+                          if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+                            break;
+                          else if (ret < 0) {
+                            debug(1, "error %d during decoding", ret);
                           } else {
-                            memcpy(pcm_buffer + pcm_buffer_occupancy, pcm_audio, dst_bufsize);
-                            pcm_buffer_occupancy += dst_bufsize;
+                            av_samples_alloc(&pcm_audio, &dst_linesize, codec_context->channels,
+                                             decoded_frame->nb_samples, av_format, 1);
+                            // remember to free pcm_audio
+                            ret = swr_convert(swr, &pcm_audio, decoded_frame->nb_samples,
+                                              (const uint8_t **)decoded_frame->extended_data,
+                                              decoded_frame->nb_samples);
+                            dst_bufsize = av_samples_get_buffer_size(
+                                &dst_linesize, codec_context->channels, ret, av_format, 1);
+                            // debug(1,"generated %d bytes of PCM", dst_bufsize);
+                            // copy the PCM audio into the PCM buffer.
+                            // make sure it's big enough first
+
+                            // also, check it if needs to be truncated but to an impending delayed
+                            // flush_is_delayed
+                            if (flush_is_delayed) {
+                              // see if the flush_from_timestamp is in the buffer
+                              int32_t samples_remaining =
+                                  (flush_from_timestamp - pcm_buffer_read_point_rtptime);
+                              if ((samples_remaining > 0) &&
+                                  ((samples_remaining * conn->input_bytes_per_frame) <
+                                   dst_bufsize)) {
+                                debug(2,
+                                      "samples remaining before flush: %d, number of samples %d. "
+                                      "flushFromTS: %u, pcm_buffer_read_point_rtptime: %u.",
+                                      samples_remaining, dst_bufsize / conn->input_bytes_per_frame,
+                                      flush_from_timestamp, pcm_buffer_read_point_rtptime);
+                                dst_bufsize = samples_remaining * conn->input_bytes_per_frame;
+                              }
+                            }
+                            if ((pcm_buffer_size - pcm_buffer_occupancy) < dst_bufsize) {
+                              debug(1,
+                                    "pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy "
+                                    "(frames): %u",
+                                    pcm_buffer_read_point / conn->input_bytes_per_frame,
+                                    pcm_buffer_occupancy / conn->input_bytes_per_frame);
+                              pcm_buffer_size = dst_bufsize + pcm_buffer_occupancy;
+                              debug(1, "fatal error! pcm buffer too small at %d bytes.",
+                                    pcm_buffer_size);
+                            } else {
+                              memcpy(pcm_buffer + pcm_buffer_occupancy, pcm_audio, dst_bufsize);
+                              pcm_buffer_occupancy += dst_bufsize;
+                            }
+                            // debug(1,"decoded %d samples", decoded_frame->nb_samples);
+                            // memcpy(sampleBuffer,outputBuffer16,dst_bufsize);
+                            av_freep(&pcm_audio);
                           }
-                          // debug(1,"decoded %d samples", decoded_frame->nb_samples);
-                          // memcpy(sampleBuffer,outputBuffer16,dst_bufsize);
-                          av_freep(&pcm_audio);
                         }
                       }
                     }

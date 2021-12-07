@@ -1807,11 +1807,12 @@ int main(int argc, char **argv) {
 
 #ifdef CONFIG_METADATA
   // If we are asking for metadata, turn on the relevant bits
-  if (config.metadata_enabled != 0)
+  if (config.metadata_enabled != 0) {
     config.airplay_features |= (1 << 17) | (1 << 16); // 16 is progress, 17 is text
-  // If we are asking for artwork, turn on the relevant bit
-  if (config.get_coverart)
-    config.airplay_features |= (1 << 15); // 15 is artwork
+    // If we are asking for artwork, turn on the relevant bit
+    if (config.get_coverart)
+      config.airplay_features |= (1 << 15); // 15 is artwork
+  }
 #endif
 
   debug(1, "Features: 0x%" PRIx64 ".", config.airplay_features);
