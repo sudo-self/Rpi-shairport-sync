@@ -247,11 +247,19 @@ static int play(void *buf, int frames) {
 }
 
 static void stop() {
-  pthread_mutex_lock(&sndio_mutex);
+  int gotlock = 1;
+
+  // The player thread could already be waiting in sio_write() during
+  // termination implying that the same thread already have acquired the mutex.
+  if (pthread_mutex_trylock(&sndio_mutex))
+    gotlock = 0;
+
   if (!sio_stop(hdl))
     die("sndio: unable to stop");
   written = played = 0;
-  pthread_mutex_unlock(&sndio_mutex);
+
+  if (gotlock)
+    pthread_mutex_unlock(&sndio_mutex);
 }
 
 static void onmove_cb(__attribute__((unused)) void *arg, int delta) {
