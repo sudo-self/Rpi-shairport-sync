@@ -2298,7 +2298,7 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
                   uint64_t length = 0;
                   plist_get_data_val(the_item, &buff, &length);
                   // debug(1,"Item %d, length: %" PRId64 " bytes", item_number, length);
-                  if ((length >= strlen("bplist00")) && (strstr(buff, "bplist00") == buff)) {
+                  if ((buff != NULL) && (length >= strlen("bplist00")) && (strstr(buff, "bplist00") == buff)) {
                     // debug(1,"Contains a plist.");
                     plist_t subsidiary_plist = NULL;
                     plist_from_memory(buff, length, &subsidiary_plist);
@@ -2315,6 +2315,8 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
                       debug(1, "Can't access the plist!");
                     }
                   }
+                  if (buff != NULL)
+                    free(buff);
                 }
               }
             } else {
@@ -2521,6 +2523,8 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     debug(1, "Connection %d: missing plist!", conn->connection_number);
     resp->respcode = 451; // don't know what to do here
   }
+  debug(1,"Bogus exit for valgrind.");
+  exit(EXIT_SUCCESS); // 
 }
 #endif
 
@@ -3080,6 +3084,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     plist_free(setupResponsePlist);
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
   }
+  plist_free(messagePlist);
   debug_log_rtsp_message(2, " SETUP response", resp);
 }
 #endif
