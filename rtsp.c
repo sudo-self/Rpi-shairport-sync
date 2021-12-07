@@ -2725,10 +2725,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                         char buf[32];
                         memset(buf, 0, sizeof(buf));
                         inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf, sizeof(buf));
-                        if (!different) {
+                        // don't insist there are in the same subnet...
+                        //if (!different) {
                           // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
                           plist_array_append_item(addresses, plist_new_string(buf));
-                        }
+                        //}
                       }
                     }
                   } else if (inet_pton(AF_INET, ip_address, &pa4->sin_addr) == 1) {
@@ -2738,15 +2739,17 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                           ((iap->ifa_flags & IFF_LOOPBACK) == 0) &&
                           (iap->ifa_addr->sa_family == AF_INET)) {
                         struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
-                        struct sockaddr_in *mask = (struct sockaddr_in *)(iap->ifa_netmask);
-                        if ((addr->sin_addr.s_addr & mask->sin_addr.s_addr) ==
-                            (pa4->sin_addr.s_addr & mask->sin_addr.s_addr)) {
+                        // not needed if not checking for same subnet
+                        // struct sockaddr_in *mask = (struct sockaddr_in *)(iap->ifa_netmask);
+                        // if ((addr->sin_addr.s_addr & mask->sin_addr.s_addr) ==
+                        //    (pa4->sin_addr.s_addr & mask->sin_addr.s_addr)) {
                           char buf[32];
                           memset(buf, 0, sizeof(buf));
                           inet_ntop(AF_INET, (void *)&addr->sin_addr, buf, sizeof(buf));
+                          // no longer insisting they are in the same subnet
                           // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
                           plist_array_append_item(addresses, plist_new_string(buf));
-                        }
+                        // }
                       }
                     }
                   } else {
