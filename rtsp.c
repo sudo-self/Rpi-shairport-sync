@@ -526,6 +526,7 @@ void release_hold_on_play_lock(__attribute__((unused)) rtsp_conn_info *conn) {
 }
 
 void release_play_lock(rtsp_conn_info *conn) {
+  debug(1, "Connection %d: release play lock.", conn->connection_number);
   debug_mutex_lock(&playing_conn_lock, 1000000, 3);
   if (playing_conn == conn) { // if we have the player
     playing_conn = NULL;      // let it go
@@ -535,6 +536,7 @@ void release_play_lock(rtsp_conn_info *conn) {
 }
 
 int get_play_lock(rtsp_conn_info *conn) {
+    debug(1, "Connection %d: request play lock.", conn->connection_number);
   // returns -1 if it failed, 0 if it succeeded and 1 if it succeeded but
   // interrupted an existing session
   int response = 0;
@@ -590,7 +592,7 @@ int get_play_lock(rtsp_conn_info *conn) {
     }
 
     if ((have_the_player == 1) && (interrupting_current_session == 1)) {
-      debug(2, "Connection %d: Got player lock", conn->connection_number);
+      debug(1, "Connection %d: Got player lock", conn->connection_number);
       response = 1;
     } else {
       debug(1, "Connection %d: failed to get player lock", conn->connection_number);
@@ -599,7 +601,7 @@ int get_play_lock(rtsp_conn_info *conn) {
   }
 
   if ((have_the_player) && (interrupting_current_session == 0)) {
-    debug(2, "Connection %d: got player lock.", conn->connection_number);
+    debug(1, "Connection %d: Got player lock.", conn->connection_number);
     response = 0;
   }
   return response;
@@ -2486,6 +2488,14 @@ void teardown_phase_two(rtsp_conn_info *conn) {
     debug(2, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
           get_category_string(conn->airplay_stream_category));
     mdns_update(NULL, secondary_txt_records);
+    if (conn->dacp_active_remote != NULL) {
+      free(conn->dacp_active_remote);
+      conn->dacp_active_remote = NULL;
+    }
+    if (conn->ap2_timing_peer_list_message) {
+      free(conn->ap2_timing_peer_list_message);
+      conn->ap2_timing_peer_list_message = NULL;
+    }
     release_play_lock(conn);
   }
 }
@@ -2509,10 +2519,10 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       // we are being asked to close a stream
       teardown_phase_one(conn);
       plist_free(streams);
-      debug(2, "Connection %d: Stream TEARDOWN complete", conn->connection_number);
+      debug(1, "Connection %d: TEARDOWN phase one complete", conn->connection_number);
     } else {
       teardown_phase_two(conn);
-      debug(2, "Connection %d: non-stream TEARDOWN complete", conn->connection_number);
+      debug(1, "Connection %d: TEARDOWN phase two complete", conn->connection_number);
     }
     //} else {
     //  warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
@@ -2525,16 +2535,8 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     debug(1, "Connection %d: missing plist!", conn->connection_number);
     resp->respcode = 451; // don't know what to do here
   }
-  if (conn->dacp_active_remote != NULL) {
-    free(conn->dacp_active_remote);
-    conn->dacp_active_remote = NULL;
-  }
-  if (conn->ap2_timing_peer_list_message) {
-    free(conn->ap2_timing_peer_list_message);
-    conn->ap2_timing_peer_list_message = NULL;
-  }
-  debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
-  exit(EXIT_SUCCESS); // 
+  // debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
+  // exit(EXIT_SUCCESS); // 
 }
 #endif
 
@@ -2563,8 +2565,8 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
     free(conn->dacp_active_remote);
     conn->dacp_active_remote = NULL;
   }
-  debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
-  exit(EXIT_SUCCESS);
+  // debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
+  // exit(EXIT_SUCCESS);
 }
 
 void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
@@ -2637,6 +2639,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           debug(2, "Connection %d: SETUP: PTP setup detected.", conn->connection_number);
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
+          get_play_lock(conn);
+#ifdef CONFIG_METADATA
+          send_ssnc_metadata('clip', conn->client_ip_string, strlen(conn->client_ip_string), 1);
+          send_ssnc_metadata('svip', conn->self_ip_string, strlen(conn->self_ip_string), 1);
+#endif
         } else if (strcmp(timingProtocolString, "NTP") == 0) {
           debug(1, "Connection %d: SETUP: NTP setup detected.", conn->connection_number);
           conn->airplay_stream_category = ntp_stream;
@@ -2891,7 +2898,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     debug(2, "Connection %d: SETUP on %s. A \"streams\" array has been found",
           conn->connection_number, get_category_string(conn->airplay_stream_category));
     if (conn->airplay_stream_category == ptp_stream) {
-      get_play_lock(conn);
       // get stream[0]
       plist_t stream0 = plist_array_get_item(streams, 0);
 
@@ -3214,7 +3220,12 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     } else {
       debug(1, "Connection %d: SETUP doesn't contain a Transport header.", conn->connection_number);
     }
-    if (resp->respcode != 200) {
+    if (resp->respcode == 200) {
+#ifdef CONFIG_METADATA
+      send_ssnc_metadata('clip', conn->client_ip_string, strlen(conn->client_ip_string), 1);
+      send_ssnc_metadata('svip', conn->self_ip_string, strlen(conn->self_ip_string), 1);
+#endif
+    } else {
       debug(1, "Connection %d: SETUP error -- releasing the player lock.", conn->connection_number);
       release_play_lock(conn);
     }
