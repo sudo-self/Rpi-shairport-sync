@@ -1345,7 +1345,8 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
   };
 
   struct response_t responses[] = {
-      {200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}, {501, "Not Implemented"}};
+      {200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}, {451, "Unavailable"}, {501, "Not Implemented"}};
+      // 451 is really "Unavailable For Legal Reasons"!
   int found = 0;
   char *respcode_text = "Unauthorized";
   for (i = 0; i < sizeof(responses) / sizeof(struct response_t); i++) {
@@ -2481,8 +2482,6 @@ void teardown_phase_two(rtsp_conn_info *conn) {
     debug(2, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
           get_category_string(conn->airplay_stream_category));
     mdns_update(NULL, secondary_txt_records);
-    debug(1, "Connection %d: TEARDOWN (AP2) release play lock on %s.", conn->connection_number,
-          get_category_string(conn->airplay_stream_category));
     release_play_lock(conn);
   }
 }
@@ -2538,8 +2537,6 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
         conn->connection_number);
     player_stop(conn);
     release_play_lock(conn);
-    debug(1, "TEARDOWN: release play lock on RTSP conversation thread %d.",
-          conn->connection_number);
     activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
     debug(3, "TEARDOWN: successful termination of playing thread of RTSP conversation thread %d.",
           conn->connection_number);
@@ -2871,8 +2868,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     debug(2, "Connection %d: SETUP on %s. A \"streams\" array has been found",
           conn->connection_number, get_category_string(conn->airplay_stream_category));
     if (conn->airplay_stream_category == ptp_stream) {
-    debug(1, "Connection %d: SETUP get_play_lock.",
-          conn->connection_number);    
       get_play_lock(conn);
       // get stream[0]
       plist_t stream0 = plist_array_get_item(streams, 0);
@@ -3241,7 +3236,7 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 
     if (!strncmp(cp, "volume: ", strlen("volume: "))) {
       float volume = atof(cp + strlen("volume: "));
-      debug(1, "Connection %d: request to set AirPlay Volume to: %f.", conn->connection_number,
+      debug(2, "Connection %d: request to set AirPlay Volume to: %f.", conn->connection_number,
             volume);
       // if we are playing, go ahead and change the volume
       if (try_to_hold_play_lock(conn) == 0) {
@@ -3981,7 +3976,7 @@ static void handle_get_parameter(__attribute__((unused)) rtsp_conn_info *conn, r
 
   if ((req->content) && (req->contentlength == strlen("volume\r\n")) &&
       strstr(req->content, "volume") == req->content) {
-    debug(1, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
+    debug(2, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
           config.airplay_volume);
     char *p = malloc(128); // will be automatically deallocated with the response is deleted
     if (p) {
@@ -4090,7 +4085,6 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
 
 static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: ANNOUNCE", conn->connection_number);
-  debug(1, "Connection %d: ANNOUNCE get_play_lock()", conn->connection_number);
   int get_play_status = get_play_lock(conn);
   if (get_play_status != -1) {
     debug(3, "Connection %d: ANNOUNCE has acquired play lock.", conn->connection_number);
