@@ -2282,7 +2282,7 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
       if (item != NULL) {
         char *typeValue = NULL;
         plist_get_string_val(item, &typeValue);
-        if (strcmp(typeValue, "updateMRSupportedCommands") == 0) {
+        if ((typeValue != NULL) && (strcmp(typeValue, "updateMRSupportedCommands") == 0)) {
           item = plist_dict_get_item(command_dict, "params");
           if (item != NULL) {
             // the item should be a dict
@@ -2331,6 +2331,8 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
                 "POST /command plist type is \"%s\", but \"updateMRSupportedCommands\" expected.",
                 typeValue);
         }
+        if (typeValue != NULL)
+          free(typeValue);
       } else {
         debug(1, "Could not get the \"type\" item.");
       }
@@ -2522,6 +2524,10 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
   } else {
     debug(1, "Connection %d: missing plist!", conn->connection_number);
     resp->respcode = 451; // don't know what to do here
+  }
+  if (conn->dacp_active_remote != NULL) {
+    free(conn->dacp_active_remote);
+    conn->dacp_active_remote = NULL;
   }
   debug(1,"Bogus exit for valgrind.");
   exit(EXIT_SUCCESS); // 

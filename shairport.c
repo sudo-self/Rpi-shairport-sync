@@ -1843,7 +1843,7 @@ int main(int argc, char **argv) {
   char *uuid = malloc(UUID_STR_LEN);
   // Produces a UUID string at uuid consisting of lower-case letters
   uuid_unparse_lower(binuuid, uuid);
-  config.airplay_pi = strdup(uuid);
+  config.airplay_pi = uuid;
   debug(1, "Started in Airplay 2 mode on device \"%s\"!", config.airplay_device_id);
 #else
   debug(1, "Started in Airplay 1 mode!");

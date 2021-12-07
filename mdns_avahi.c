@@ -112,7 +112,7 @@ static void resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIn
           char portstring[20];
           memset(portstring, 0, sizeof(portstring));
           snprintf(portstring, sizeof(portstring), "%u", port);
-          send_ssnc_metadata('dapo', strdup(portstring), strlen(portstring), 0);
+          send_ssnc_metadata('dapo', portstring, strlen(portstring), 0);
 #endif
         }
       } else {
