@@ -481,7 +481,7 @@ void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
       //    metadata_store.dacp_server_active = dacp_server.scan_enable;
       //    metadata_hub_modify_epilog(ch);
     } else {
-      debug(1, "dacp port monitor reporting on an out-of-use remote.");
+      debug(2, "dacp port monitor reporting on an out-of-use remote.");
     }
   }
   pthread_cond_signal(&dacp_server_information_cv);
@@ -529,7 +529,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
           (uint64_t)(1000000000 * config.missing_port_dacp_scan_interval_seconds);
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-      uint64_t time_of_wakeup_ns = get_absolute_time_in_ns() + time_to_wait_for_wakeup_ns;
+      uint64_t time_of_wakeup_ns = get_realtime_in_ns() + time_to_wait_for_wakeup_ns;
       uint64_t sec = time_of_wakeup_ns / 1000000000;
       uint64_t nsec = time_of_wakeup_ns % 1000000000;
 #endif
@@ -1351,12 +1351,14 @@ int dacp_set_volume(int32_t vo) {
                     machine_number,
                     highest_other_volume); // set the overall volume to the highest one
               }
-              int32_t desired_relative_volume =
-                  (vo * 100 + (highest_other_volume / 2)) / highest_other_volume;
-              debug(2, "Set our speaker volume relative to the highest volume.");
-              http_response = dacp_set_speaker_volume(
-                  machine_number,
-                  desired_relative_volume); // set the overall volume to the highest one
+              if (highest_other_volume != 0) {
+                int32_t desired_relative_volume =
+                    (vo * 100 + (highest_other_volume / 2)) / highest_other_volume;
+                debug(2, "Set our speaker volume relative to the highest volume.");
+                http_response = dacp_set_speaker_volume(
+                    machine_number,
+                    desired_relative_volume); // set the overall volume to the highest one
+              }
             }
           }
         }

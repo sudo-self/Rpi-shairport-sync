@@ -185,6 +185,39 @@ typedef struct {
 
 #ifdef CONFIG_AIRPLAY_2
 
+int add_pstring_to_malloc(const char *s, void **allocation, size_t *size) {
+  int response = 0;
+  void *p = *allocation;
+  if (p == NULL) {
+    p = malloc(strlen(s) + 1);
+    if (p == NULL) {
+      debug(1, "error allocating memory");
+    } else {
+      *allocation = p;
+      *size = *size + strlen(s) + 1;
+      uint8_t *b = (uint8_t *)p;
+      *b = strlen(s);
+      p = p + 1;
+      memcpy(p, s, strlen(s));
+      response = 1;
+    }
+  } else {
+    p = realloc(p, *size + strlen(s) + 1);
+    if (p == NULL) { // assuming we never allocate a zero byte space
+      debug(1, "error reallocating memory");
+    } else {
+      *allocation = p;
+      uint8_t *b = (uint8_t *)p + *size;
+      *b = strlen(s);
+      p = p + *size + 1;
+      memcpy(p, s, strlen(s));
+      *size = *size + strlen(s) + 1;
+      response = 1;
+    }
+  }
+  return response;
+}
+
 static void pkString_make(char *str, size_t str_size, const char *device_id) {
   uint8_t public_key[32];
   if (str_size < 2 * sizeof(public_key) + 1) {
@@ -493,6 +526,7 @@ void release_hold_on_play_lock(__attribute__((unused)) rtsp_conn_info *conn) {
 }
 
 void release_play_lock(rtsp_conn_info *conn) {
+  debug(1, "Connection %d: release play lock.", conn->connection_number);
   debug_mutex_lock(&playing_conn_lock, 1000000, 3);
   if (playing_conn == conn) { // if we have the player
     playing_conn = NULL;      // let it go
@@ -502,6 +536,7 @@ void release_play_lock(rtsp_conn_info *conn) {
 }
 
 int get_play_lock(rtsp_conn_info *conn) {
+    debug(1, "Connection %d: request play lock.", conn->connection_number);
   // returns -1 if it failed, 0 if it succeeded and 1 if it succeeded but
   // interrupted an existing session
   int response = 0;
@@ -557,7 +592,7 @@ int get_play_lock(rtsp_conn_info *conn) {
     }
 
     if ((have_the_player == 1) && (interrupting_current_session == 1)) {
-      debug(2, "Connection %d: Got player lock", conn->connection_number);
+      debug(1, "Connection %d: Got player lock", conn->connection_number);
       response = 1;
     } else {
       debug(1, "Connection %d: failed to get player lock", conn->connection_number);
@@ -566,7 +601,7 @@ int get_play_lock(rtsp_conn_info *conn) {
   }
 
   if ((have_the_player) && (interrupting_current_session == 0)) {
-    debug(2, "Connection %d: got player lock.", conn->connection_number);
+    debug(1, "Connection %d: Got player lock.", conn->connection_number);
     response = 0;
   }
   return response;
@@ -583,7 +618,11 @@ void *player_watchdog_thread_code(void *arg) {
   do {
     usleep(2000000); // check every two seconds
     // debug(3, "Connection %d: Check the thread is doing something...", conn->connection_number);
+#ifdef CONFIG_AIRPLAY_2
+    if ((config.dont_check_timeout == 0) && (config.timeout != 0) && (conn->airplay_type == ap_1)) {
+#else
     if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
+#endif
       debug_mutex_lock(&conn->watchdog_mutex, 1000, 0);
       uint64_t last_watchdog_bark_time = conn->watchdog_bark_time;
       debug_mutex_unlock(&conn->watchdog_mutex, 0);
@@ -607,8 +646,8 @@ void *player_watchdog_thread_code(void *arg) {
               conn->unfixable_error_reported = 1;
               command_execute(config.cmd_unfixable, "unable_to_cancel_play_session", 1);
             } else {
-              warn("an unrecoverable error, \"unable_to_cancel_play_session\", has been detected.",
-                   conn->connection_number);
+              die("an unrecoverable error, \"unable_to_cancel_play_session\", has been detected.",
+                  conn->connection_number);
             }
           }
         }
@@ -655,19 +694,21 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
   debug_mutex_lock(&conns_lock, 1000000, 3);
   int i;
   for (i = 0; i < nconns; i++) {
-    if ((conns[i] != NULL) && (conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
+    if ((conns[i] != NULL) && (conns[i]->running != 0) &&
+        (conns[i]->connection_number != except_this_one) &&
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
       pthread_cancel(conns[i]->thread);
-      debug(1, "Connection %d: cancelled.", conns[i]->connection_number);
+      debug(2, "Connection %d: cancelled.", conns[i]->connection_number);
     }
   }
   for (i = 0; i < nconns; i++) {
-    if ((conns[i] != NULL) && (conns[i]->running != 0) && (conns[i]->connection_number != except_this_one) &&
+    if ((conns[i] != NULL) && (conns[i]->running != 0) &&
+        (conns[i]->connection_number != except_this_one) &&
         ((stream_category == unspecified_stream_category) ||
          (stream_category == conns[i]->airplay_stream_category))) {
       pthread_join(conns[i]->thread, NULL);
-      debug(1, "Connection %d: joined.", conns[i]->connection_number);
+      debug(2, "Connection %d: joined.", conns[i]->connection_number);
       free(conns[i]);
       conns[i] = NULL;
     }
@@ -1133,7 +1174,9 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
-  int release_buffer = 0;         // on exit, don't deallocate the buffer if everything was okay
+  if ((config.metadata_enabled != 0) && (config.get_coverart != 0))
+    buflen = 1024 * 256;  // big enough for typical picture data, which will be base64 encoded
+  int release_buffer = 0; // on exit, don't deallocate the buffer if everything was okay
   char *buf = malloc(buflen + 1); // add a NUL at the end
   if (!buf) {
     warn("Connection %d: rtsp_read_request: can't get a buffer.", conn->connection_number);
@@ -1222,7 +1265,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       get_absolute_time_in_ns() + ((uint64_t)15000000000); // i.e. fifteen seconds from now
   int warning_message_sent = 0;
 
-  const size_t max_read_chunk = 1024 * 1024 / 16;
+  // const size_t max_read_chunk = 1024 * 1024 / 16;
   while (inbuf < msg_size) {
 
     // we are going to read the stream in chunks and time how long it takes to
@@ -1249,9 +1292,9 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       goto shutdown;
     }
     size_t read_chunk = msg_size - inbuf;
-    if (read_chunk > max_read_chunk)
-      read_chunk = max_read_chunk;
-    usleep(80000); // wait about 80 milliseconds between reads of up to max_read_chunk
+    // if (read_chunk > max_read_chunk)
+    //  read_chunk = max_read_chunk;
+    // usleep(80000); // wait about 80 milliseconds between reads of up to max_read_chunk
     nread = read_from_rtsp_connection(conn, buf + inbuf, read_chunk);
     if (!nread) {
       reply = rtsp_read_request_response_error;
@@ -1303,7 +1346,9 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
     char *string;
   };
 
-  struct response_t responses[] = {{200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}, {501, "Not Implemented"}};
+  struct response_t responses[] = {
+      {200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}, {451, "Unavailable"}, {501, "Not Implemented"}};
+      // 451 is really "Unavailable For Legal Reasons"!
   int found = 0;
   char *respcode_text = "Unauthorized";
   for (i = 0; i < sizeof(responses) / sizeof(struct response_t); i++) {
@@ -1469,7 +1514,7 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
 
 void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *req,
                      rtsp_message *resp) {
-
+  debug_log_rtsp_message(2, "GET /info:", req);
   if (rtsp_message_contains_plist(req)) { // it's stage one
     // get version of AirPlay -- it might be too old. Not using it yet.
     char *hdr = msg_get_header(req, "User-Agent");
@@ -1512,6 +1557,58 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
     if (response_plist == NULL) {
       debug(1, "GET /info Stage 1: response plist not created from XML!");
     } else {
+      void *qualifier_response_data = NULL;
+      size_t qualifier_response_data_length = 0;
+      if (add_pstring_to_malloc("acl=0", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc(deviceIdString, &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc(featuresString, &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("rsf=0x0", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("flags=0x4", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("model=Shairport Sync", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("manufacturer=", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("serialNumber=", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("protovers=1.1", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("srcvers=366.0", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc(piString, &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc(gidString, &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      if (add_pstring_to_malloc("gcgl=0", &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      snprintf(pkString, sizeof(pkString), "pk=");
+      pkString_make(pkString + strlen("pk="), sizeof(pkString) - strlen("pk="),
+                    config.airplay_device_id);
+      if (add_pstring_to_malloc(pkString, &qualifier_response_data,
+                                &qualifier_response_data_length) == 0)
+        debug(1, "Problem");
+      // debug(1,"qualifier_response_data_length: %u.", qualifier_response_data_length);
+
+      plist_dict_set_item(response_plist, "txtAirPlay",
+                          plist_new_data(qualifier_response_data, qualifier_response_data_length));
+
       plist_dict_set_item(response_plist, "features", plist_new_uint(config.airplay_features));
       plist_dict_set_item(response_plist, "statusFlags",
                           plist_new_uint(config.airplay_statusflags));
@@ -1519,15 +1616,16 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
       plist_dict_set_item(response_plist, "pi", plist_new_string(config.airplay_pi));
       plist_dict_set_item(response_plist, "name", plist_new_string(config.service_name));
       char *vs = get_version_string();
-      plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+      //      plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+      plist_dict_set_item(response_plist, "model", plist_new_string("Shairport Sync"));
       free(vs);
-      char pkString[128];
-      pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
-      plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
+      // pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
+      // plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
       plist_to_bin(response_plist, &resp->content, &resp->contentlength);
       if (resp->contentlength == 0)
         debug(1, "GET /info Stage 1: response bplist not created!");
       plist_free(response_plist);
+      free(qualifier_response_data);
     }
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
     debug_log_rtsp_message(2, "GET /info Stage 1 Response:", resp);
@@ -1547,11 +1645,11 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
     plist_dict_set_item(response_plist, "pi", plist_new_string(config.airplay_pi));
     plist_dict_set_item(response_plist, "name", plist_new_string(config.service_name));
     char *vs = get_version_string();
-    plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+    // plist_dict_set_item(response_plist, "model", plist_new_string(vs));
+    plist_dict_set_item(response_plist, "model", plist_new_string("Shairport Sync"));
     free(vs);
-    char pkString[128];
-    pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
-    plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
+    // pkString_make(pkString, sizeof(pkString), config.airplay_device_id);
+    // plist_dict_set_item(response_plist, "pk", plist_new_string(pkString));
     plist_to_bin(response_plist, &resp->content, &resp->contentlength);
     plist_free(response_plist);
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
@@ -1662,13 +1760,14 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
 }
 
 void handle_setrate(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
-  debug(3, "Connection %d: SETRATE %s : Content-Length %d", conn->connection_number,
-        req->path, req->contentlength);
+  debug(3, "Connection %d: SETRATE %s : Content-Length %d", conn->connection_number, req->path,
+        req->contentlength);
   debug_log_rtsp_message(2, "SETRATE request -- unimplemented", req);
   resp->respcode = 501; // Not Implemented
 }
 
-void handle_unimplemented_ap1(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
+void handle_unimplemented_ap1(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *req,
+                              rtsp_message *resp) {
   debug_log_rtsp_message(1, "request not recognised for AirPlay 1 operation", req);
   resp->respcode = 501;
 }
@@ -1694,12 +1793,12 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       }
       uint64_t networkTimeSecs;
       plist_get_uint_val(item, &networkTimeSecs);
-      debug(2, "anchor networkTimeSecs is 0x%" PRIx64 ".", networkTimeSecs);
+      debug(2, "anchor networkTimeSecs is %" PRIu64 ".", networkTimeSecs);
 
       item = plist_dict_get_item(messagePlist, "networkTimeFrac");
       uint64_t networkTimeFrac;
       plist_get_uint_val(item, &networkTimeFrac);
-      debug(2, "anchor networkTimeFrac is 0x%" PRIx64 ".", networkTimeFrac);
+      debug(2, "anchor networkTimeFrac is 0%" PRIu64 ".", networkTimeFrac);
       // it looks like the networkTimeFrac is a fraction where the msb is work 1/2, the
       // next 1/4 and so on
       // now, convert the network time and fraction into nanoseconds
@@ -1710,7 +1809,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       networkTimeSecs = networkTimeSecs * 1000000000; // turn the whole seconds into ns
       uint64_t anchorTimeNanoseconds = networkTimeSecs + networkTimeFrac;
 
-      debug(2, "anchorTimeNanoseconds looks like 0x%" PRIx64 ".", anchorTimeNanoseconds);
+      debug(2, "anchorTimeNanoseconds looks like %" PRIu64 ".", anchorTimeNanoseconds);
 
       item = plist_dict_get_item(messagePlist, "rtpTime");
       uint64_t rtpTime;
@@ -1748,7 +1847,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       if ((rate & 1) != 0) {
         // keep this outside the flush_mutex lock
         if (conn->ap2_timing_peer_list_message) {
-          ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
+          // ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
         } else {
           debug(1, "Connection %d: No timing peer list!", conn->connection_number);
         }
@@ -1783,8 +1882,10 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
         req->contentlength);
   resp->respcode = 500;
 }
-void handle_post(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)) rtsp_message *req,
-                __attribute((unused)) rtsp_message *resp) {
+
+void handle_post(__attribute((unused)) rtsp_conn_info *conn,
+                 __attribute((unused)) rtsp_message *req,
+                 __attribute((unused)) rtsp_message *resp) {
   debug(1, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
         req->contentlength);
   resp->respcode = 500;
@@ -2149,7 +2250,27 @@ void handle_configure(rtsp_conn_info *conn __attribute__((unused)),
 
 void handle_feedback(__attribute__((unused)) rtsp_conn_info *conn,
                      __attribute__((unused)) rtsp_message *req,
-                     __attribute__((unused)) rtsp_message *resp) {}
+                     __attribute__((unused)) rtsp_message *resp) {
+  /* not finished yet
+  plist_t payload_plist = plist_new_dict();
+  plist_dict_set_item(payload_plist, "type", plist_new_uint(103));
+  plist_dict_set_item(payload_plist, "sr", plist_new_real(44100.0));
+
+  plist_t array_plist = plist_new_array();
+  plist_array_append_item(array_plist, payload_plist);
+
+  plist_t response_plist = plist_new_dict();
+  plist_dict_set_item(response_plist, "streams",array_plist);
+
+  plist_to_bin(response_plist, &resp->content, &resp->contentlength);
+  plist_free(response_plist);
+  // plist_free(array_plist);
+  // plist_free(payload_plist);
+
+  msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
+  debug_log_rtsp_message(2, "FEEDBACK response:", resp);
+  */
+}
 
 void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *req,
                     __attribute__((unused)) rtsp_message *resp) {
@@ -2163,7 +2284,7 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
       if (item != NULL) {
         char *typeValue = NULL;
         plist_get_string_val(item, &typeValue);
-        if (strcmp(typeValue, "updateMRSupportedCommands") == 0) {
+        if ((typeValue != NULL) && (strcmp(typeValue, "updateMRSupportedCommands") == 0)) {
           item = plist_dict_get_item(command_dict, "params");
           if (item != NULL) {
             // the item should be a dict
@@ -2179,7 +2300,7 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
                   uint64_t length = 0;
                   plist_get_data_val(the_item, &buff, &length);
                   // debug(1,"Item %d, length: %" PRId64 " bytes", item_number, length);
-                  if ((length >= strlen("bplist00")) && (strstr(buff, "bplist00") == buff)) {
+                  if ((buff != NULL) && (length >= strlen("bplist00")) && (strstr(buff, "bplist00") == buff)) {
                     // debug(1,"Contains a plist.");
                     plist_t subsidiary_plist = NULL;
                     plist_from_memory(buff, length, &subsidiary_plist);
@@ -2196,6 +2317,8 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
                       debug(1, "Can't access the plist!");
                     }
                   }
+                  if (buff != NULL)
+                    free(buff);
                 }
               }
             } else {
@@ -2210,6 +2333,8 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
                 "POST /command plist type is \"%s\", but \"updateMRSupportedCommands\" expected.",
                 typeValue);
         }
+        if (typeValue != NULL)
+          free(typeValue);
       } else {
         debug(1, "Could not get the \"type\" item.");
       }
@@ -2281,10 +2406,10 @@ void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp
       free(conn->ap2_timing_peer_list_message);
     conn->ap2_timing_peer_list_message = strdup(timing_list_message);
     // if this rtsp thread is playing...
-    if (try_to_hold_play_lock(conn) == 0) {
-      ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-      release_hold_on_play_lock(conn);
-    }
+    // if (try_to_hold_play_lock(conn) == 0) {
+    ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
+    // release_hold_on_play_lock(conn);
+    // }
   }
   plist_free(addresses_array);
   resp->respcode = 200;
@@ -2321,7 +2446,7 @@ void teardown_phase_one(rtsp_conn_info *conn) {
   // this can be called more than once on the same connection --
   // by the player itself but also by the play seesion being killed
   if (conn->player_thread) {
-    player_stop(conn); // this nulls the player_thread
+    player_stop(conn);                    // this nulls the player_thread
     activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
   }
   if (conn->session_key) {
@@ -2347,7 +2472,8 @@ void teardown_phase_two(rtsp_conn_info *conn) {
   if (conn->event_socket) {
     close(conn->event_socket);
     conn->event_socket = 0;
-    debug(2, "Connection %d: closing TCP event port %u.", conn->connection_number, conn->local_event_port);
+    debug(2, "Connection %d: closing TCP event port %u.", conn->connection_number,
+          conn->local_event_port);
   }
 
   // if we are closing a PTP stream only, do this
@@ -2362,9 +2488,17 @@ void teardown_phase_two(rtsp_conn_info *conn) {
     debug(2, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
           get_category_string(conn->airplay_stream_category));
     mdns_update(NULL, secondary_txt_records);
+    if (conn->dacp_active_remote != NULL) {
+      free(conn->dacp_active_remote);
+      conn->dacp_active_remote = NULL;
+    }
+    if (conn->ap2_timing_peer_list_message) {
+      free(conn->ap2_timing_peer_list_message);
+      conn->ap2_timing_peer_list_message = NULL;
+    }
+    release_play_lock(conn);
   }
 }
-
 
 void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                        rtsp_message *resp) {
@@ -2385,10 +2519,10 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       // we are being asked to close a stream
       teardown_phase_one(conn);
       plist_free(streams);
-      debug(2, "Connection %d: Stream TEARDOWN complete", conn->connection_number);
+      debug(1, "Connection %d: TEARDOWN phase one complete", conn->connection_number);
     } else {
       teardown_phase_two(conn);
-      debug(2, "Connection %d: non-stream TEARDOWN complete", conn->connection_number);
+      debug(1, "Connection %d: TEARDOWN phase two complete", conn->connection_number);
     }
     //} else {
     //  warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
@@ -2401,6 +2535,8 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     debug(1, "Connection %d: missing plist!", conn->connection_number);
     resp->respcode = 451; // don't know what to do here
   }
+  // debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
+  // exit(EXIT_SUCCESS); // 
 }
 #endif
 
@@ -2416,6 +2552,7 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
         "TEARDOWN: synchronously terminating the player thread of RTSP conversation thread %d (2).",
         conn->connection_number);
     player_stop(conn);
+    release_play_lock(conn);
     activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
     debug(3, "TEARDOWN: successful termination of playing thread of RTSP conversation thread %d.",
           conn->connection_number);
@@ -2424,6 +2561,12 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
          conn->connection_number);
     resp->respcode = 451;
   }
+  if (conn->dacp_active_remote != NULL) {
+    free(conn->dacp_active_remote);
+    conn->dacp_active_remote = NULL;
+  }
+  // debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
+  // exit(EXIT_SUCCESS);
 }
 
 void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
@@ -2496,6 +2639,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           debug(2, "Connection %d: SETUP: PTP setup detected.", conn->connection_number);
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
+          get_play_lock(conn);
+#ifdef CONFIG_METADATA
+          send_ssnc_metadata('clip', conn->client_ip_string, strlen(conn->client_ip_string), 1);
+          send_ssnc_metadata('svip', conn->self_ip_string, strlen(conn->self_ip_string), 1);
+#endif
         } else if (strcmp(timingProtocolString, "NTP") == 0) {
           debug(1, "Connection %d: SETUP: NTP setup detected.", conn->connection_number);
           conn->airplay_stream_category = ntp_stream;
@@ -2508,7 +2656,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(1, "Connection %d: SETUP: Remote Control setup detected.",
+              debug(2, "Connection %d: SETUP: Remote Control setup detected.",
                     conn->connection_number);
               conn->airplay_stream_category = remote_control_stream;
             } else {
@@ -2604,10 +2752,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                         char buf[32];
                         memset(buf, 0, sizeof(buf));
                         inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf, sizeof(buf));
-                        if (!different) {
+                        // don't insist there are in the same subnet...
+                        //if (!different) {
                           // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
                           plist_array_append_item(addresses, plist_new_string(buf));
-                        }
+                        //}
                       }
                     }
                   } else if (inet_pton(AF_INET, ip_address, &pa4->sin_addr) == 1) {
@@ -2617,15 +2766,17 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                           ((iap->ifa_flags & IFF_LOOPBACK) == 0) &&
                           (iap->ifa_addr->sa_family == AF_INET)) {
                         struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
-                        struct sockaddr_in *mask = (struct sockaddr_in *)(iap->ifa_netmask);
-                        if ((addr->sin_addr.s_addr & mask->sin_addr.s_addr) ==
-                            (pa4->sin_addr.s_addr & mask->sin_addr.s_addr)) {
+                        // not needed if not checking for same subnet
+                        // struct sockaddr_in *mask = (struct sockaddr_in *)(iap->ifa_netmask);
+                        // if ((addr->sin_addr.s_addr & mask->sin_addr.s_addr) ==
+                        //    (pa4->sin_addr.s_addr & mask->sin_addr.s_addr)) {
                           char buf[32];
                           memset(buf, 0, sizeof(buf));
                           inet_ntop(AF_INET, (void *)&addr->sin_addr, buf, sizeof(buf));
+                          // no longer insisting they are in the same subnet
                           // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
                           plist_array_append_item(addresses, plist_new_string(buf));
-                        }
+                        // }
                       }
                     }
                   } else {
@@ -2661,7 +2812,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                   conn->connection_number, err);
             }
 
-            debug(2, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number, conn->local_event_port);
+            debug(2, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number,
+                  conn->local_event_port);
 
             if (conn->rtp_event_thread != NULL)
               debug(1, "previous rtp_event_thread allocation not freed, it seems.");
@@ -2682,6 +2834,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             debug(2, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
                   get_category_string(conn->airplay_stream_category));
             mdns_update(NULL, secondary_txt_records);
+            
+            
 
             resp->respcode = 200;
           } else {
@@ -2707,7 +2861,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 conn->connection_number, err);
           }
 
-          debug(1, "Connection %d: TCP Remote Control event port opened: %u.", conn->connection_number, conn->local_event_port);
+          debug(2, "Connection %d: TCP Remote Control event port opened: %u.",
+                conn->connection_number, conn->local_event_port);
           if (conn->rtp_event_thread != NULL)
             debug(1, "previous rtp_event_thread allocation not freed, it seems.");
           conn->rtp_event_thread = malloc(sizeof(pthread_t));
@@ -2759,7 +2914,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       if (err) {
         die("Error %d: could not find a UDP port to use as an ap2_control port", err);
       }
-      debug(2, "Connection %d: UDP control port opened: %u.", conn->connection_number, conn->local_ap2_control_port);
+      debug(2, "Connection %d: UDP control port opened: %u.", conn->connection_number,
+            conn->local_ap2_control_port);
 
       pthread_create(&conn->rtp_ap2_control_thread, NULL, &rtp_ap2_control_receiver, (void *)conn);
 
@@ -2819,7 +2975,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       case 96: {
         debug(1, "Connection %d. Realtime Audio Stream Detected.", conn->connection_number);
         debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
-        get_play_lock(conn);
+        // get_play_lock(conn);
         conn->airplay_stream_type = realtime_stream;
         // bind a new UDP port and get a socket
         conn->local_realtime_audio_port = 0; // any port
@@ -2829,7 +2985,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         if (err) {
           die("Error %d: could not find a UDP port to use as a realtime_audio port", err);
         }
-        debug(2, "Connection %d: UDP realtime audio port opened: %u.", conn->connection_number, conn->local_realtime_audio_port);
+        debug(2, "Connection %d: UDP realtime audio port opened: %u.", conn->connection_number,
+              conn->local_realtime_audio_port);
 
         pthread_create(&conn->rtp_realtime_audio_thread, NULL, &rtp_realtime_audio_receiver,
                        (void *)conn);
@@ -2863,10 +3020,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         conn->input_bit_depth = conn->stream.fmtp[3];
         conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
         debug(2, "Realtime Stream Play");
-        if (conn->ap2_timing_peer_list_message)
-          ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-        else
+        if (conn->ap2_timing_peer_list_message) {
+          // ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
+        } else {
           debug(1, "No timing peer list!");
+        }
         activity_monitor_signify_activity(1);
         player_prepare_to_play(conn);
         player_play(conn);
@@ -2877,7 +3035,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         debug(1, "SETUP on Connection %d. Buffered Audio Stream Detected.",
               conn->connection_number);
         debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
-        get_play_lock(conn);
+        // get_play_lock(conn);
         conn->airplay_stream_type = buffered_stream;
         // get needed stuff
 
@@ -2892,7 +3050,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
               conn->connection_number, err);
         }
 
-        debug(2, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number, conn->local_buffered_audio_port);
+        debug(2, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number,
+              conn->local_buffered_audio_port);
 
         // hack.
         conn->max_frames_per_packet = 352; // number of audio frames per packet.
@@ -2933,7 +3092,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       resp->respcode = 200;
     } else if (conn->airplay_stream_category == remote_control_stream) {
       debug(2, "Connection %d: SETUP: Remote Control Stream received.", conn->connection_number);
-      debug_log_rtsp_message(1, "Remote Control Stream stream (second) message", req);
+      debug_log_rtsp_message(2, "Remote Control Stream stream (second) message", req);
 
       resp->respcode = 200;
     } else {
@@ -2947,6 +3106,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     plist_free(setupResponsePlist);
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
   }
+  plist_free(messagePlist);
   debug_log_rtsp_message(2, " SETUP response", resp);
 }
 #endif
@@ -3060,7 +3220,12 @@ void handle_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     } else {
       debug(1, "Connection %d: SETUP doesn't contain a Transport header.", conn->connection_number);
     }
-    if (resp->respcode != 200) {
+    if (resp->respcode == 200) {
+#ifdef CONFIG_METADATA
+      send_ssnc_metadata('clip', conn->client_ip_string, strlen(conn->client_ip_string), 1);
+      send_ssnc_metadata('svip', conn->self_ip_string, strlen(conn->self_ip_string), 1);
+#endif
+    } else {
       debug(1, "Connection %d: SETUP error -- releasing the player lock.", conn->connection_number);
       release_play_lock(conn);
     }
@@ -3117,7 +3282,8 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
         conn->initial_airplay_volume = volume;
         conn->initial_airplay_volume_set = 1;
       }
-    } else if (strncmp(cp, "progress: ", strlen("progress: ")) == 0) { // this can be sent even when metadata is not solicited
+    } else if (strncmp(cp, "progress: ", strlen("progress: ")) ==
+               0) { // this can be sent even when metadata is not solicited
 
 #ifdef CONFIG_METADATA
       char *progress = cp + strlen("progress: ");
@@ -3126,8 +3292,7 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
       send_ssnc_metadata('prgr', progress, strlen(progress), 1);
 #endif
 
-    } else
-    {
+    } else {
       debug(1, "Connection %d, unrecognised parameter: \"%s\" (%d)\n", conn->connection_number, cp,
             strlen(cp));
     }
@@ -3381,6 +3546,8 @@ void metadata_multicast_process(uint32_t type, uint32_t code, char *data, uint32
     // ("ssnc", "chnk", packet_ix, packet_counts, packet_tag, packet_type, chunked_data)
 
     uint32_t chunk_ix = 0;
+    if (config.metadata_sockmsglength == 24)
+      die("A divide by zero almost occurred (config.metadata_sockmsglength = 24).");
     uint32_t chunk_total = length / (config.metadata_sockmsglength - 24);
     if (chunk_total * (config.metadata_sockmsglength - 24) < length) {
       chunk_total++;
@@ -3673,7 +3840,8 @@ void metadata_init(void) {
     if (pthread_create(&metadata_thread, NULL, metadata_thread_function, NULL) != 0)
       debug(1, "Failed to create metadata thread!");
 
-    if (pthread_create(&metadata_multicast_thread, NULL, metadata_multicast_thread_function, NULL) != 0)
+    if (pthread_create(&metadata_multicast_thread, NULL, metadata_multicast_thread_function,
+                       NULL) != 0)
       debug(1, "Failed to create metadata multicast thread!");
   }
 #ifdef CONFIG_METADATA_HUB
@@ -3784,7 +3952,7 @@ int send_metadata_to_queue(pc_queue *queue, uint32_t type, uint32_t code, char *
 
 int send_metadata(uint32_t type, uint32_t code, char *data, uint32_t length, rtsp_message *carrier,
                   int block) {
-  int rc;
+  int rc = 0;
   if (config.metadata_enabled) {
     rc = send_metadata_to_queue(&metadata_queue, type, code, data, length, carrier, block);
     rc =
@@ -4513,8 +4681,6 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     close(conn->audio_socket);
   }
 
-
-
   if (conn->fd > 0) {
     debug(3, "Connection %d terminating: closing fd %d.", conn->connection_number, conn->fd);
     close(conn->fd);
@@ -4674,7 +4840,9 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         }
         if (method_selected == 0) {
-          debug(1, "Connection %d: Unrecognised and unhandled rtsp request \"%s\". HTTP Response Code 501 (\"Not Implemented\") returned.",
+          debug(1,
+                "Connection %d: Unrecognised and unhandled rtsp request \"%s\". HTTP Response Code "
+                "501 (\"Not Implemented\") returned.",
                 conn->connection_number, req->method);
 
           int y = req->contentlength;
@@ -4693,7 +4861,6 @@ static void *rtsp_conversation_thread_func(void *pconn) {
             *obfp = 0;
             debug(1, "Content: \"%s\".", obf);
           }
-
         }
       }
       debug(debug_level, "Connection %d: RTSP Response:", conn->connection_number);

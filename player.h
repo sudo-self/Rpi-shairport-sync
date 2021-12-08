@@ -30,6 +30,7 @@
 #include "audio.h"
 
 #define time_ping_history_power_of_two 7
+// this must now be zero, otherwise bad things will happen
 #define time_ping_history                                                                          \
   (1 << time_ping_history_power_of_two) // 2^7 is 128. At 1 per three seconds, approximately six
                                         // minutes of records
@@ -109,7 +110,6 @@ typedef enum {
   remote_control_stream
 } airplay_stream_c; // "c" for category
 
-
 #ifdef CONFIG_AIRPLAY_2
 typedef enum { ts_ntp, ts_ptp } timing_t;
 typedef enum { ap_1, ap_2 } airplay_t;
@@ -171,7 +171,7 @@ typedef struct {
       player_watchdog_thread;
 
   // buffers to delete on exit
-  signed short *tbuf;
+  int32_t *tbuf;
   int32_t *sbuf;
   char *outbuf;
 
@@ -180,8 +180,9 @@ typedef struct {
   stats_t *statistics;
 
   // for holding the output rate information until printed out at the end of a session
-  double frame_rate;
-  int frame_rate_status;
+  double raw_frame_rate;
+  double corrected_frame_rate;
+  int frame_rate_valid;
 
   // for holding input rate information until printed out at the end of a session
 
@@ -296,7 +297,8 @@ typedef struct {
   clock_status_t clock_status;
 
   airplay_stream_c
-      airplay_stream_category; // is it a remote control stream or a normal "full service" stream? (will be unspecified if not build for AirPlay 2)
+      airplay_stream_category; // is it a remote control stream or a normal "full service" stream?
+                               // (will be unspecified if not build for AirPlay 2)
 
 #ifdef CONFIG_AIRPLAY_2
   char *airplay_gid; // UUID in the Bonjour advertisement -- if NULL, the group UUID is the same as
@@ -408,6 +410,7 @@ typedef struct {
 } rtsp_conn_info;
 
 extern pthread_mutex_t playing_conn_lock;
+extern int statistics_row; // will be reset to zero when debug level changes or statistics enabled
 
 void reset_buffer(rtsp_conn_info *conn);
 

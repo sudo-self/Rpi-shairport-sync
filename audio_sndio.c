@@ -49,6 +49,7 @@ audio_output audio_sndio = {.name = "sndio",
                             .is_running = NULL,
                             .flush = &flush,
                             .delay = &delay,
+                            .stats = NULL,
                             .play = &play,
                             .volume = NULL,
                             .parameters = NULL,
@@ -203,12 +204,19 @@ static int init(int argc, char **argv) {
 
   framesize = par.bps * par.pchan;
   config.output_rate = par.rate;
+  if (par.rate == 0) {
+    die("sndio: par.rate set to zero.");
+  }
+
   config.audio_backend_buffer_desired_length = 1.0 * par.bufsz / par.rate;
   config.audio_backend_latency_offset = 0;
 
   sio_onmove(hdl, onmove_cb, NULL);
 
   pthread_mutex_unlock(&sndio_mutex);
+  if (framesize == 0) {
+    die("sndio: framesize set to zero.");
+  }
   return 0;
 }
 

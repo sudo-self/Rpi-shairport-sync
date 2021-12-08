@@ -202,15 +202,24 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
   double soxr_execution_time_ns = (get_absolute_time_in_ns() - soxr_start_time) * 1.0;
   // free(outbuffer);
   // free(inbuffer);
-  config.soxr_delay_index = (int)(0.9 + soxr_execution_time_ns / (number_of_iterations * 1000000));
+  if (number_of_iterations != 0) {
+    config.soxr_delay_index =
+        (int)(0.9 + soxr_execution_time_ns / (number_of_iterations * 1000000));
+  } else {
+    debug(1, "No soxr-timing iterations performed, so \"basic\" iteration will be used.");
+    config.soxr_delay_index = 0; // used as a flag
+  }
   debug(2, "soxr_delay_index: %d.", config.soxr_delay_index);
   if ((config.packet_stuffing == ST_soxr) &&
       (config.soxr_delay_index > config.soxr_delay_threshold))
     inform("Note: this device may be too slow for \"soxr\" interpolation. Consider choosing the "
            "\"basic\" or \"auto\" interpolation setting.");
   if (config.packet_stuffing == ST_auto)
-    debug(1, "\"%s\" interpolation has been chosen.",
-          config.soxr_delay_index <= config.soxr_delay_threshold ? "soxr" : "basic");
+    debug(
+        1, "\"%s\" interpolation has been chosen.",
+        ((config.soxr_delay_index != 0) && (config.soxr_delay_index <= config.soxr_delay_threshold))
+            ? "soxr"
+            : "basic");
   pthread_exit(NULL);
 }
 
@@ -1450,10 +1459,10 @@ void exit_function() {
       if (config.daemonise)
         debug(1, "libdaemon parent exit");
       else
-        debug(1, "exit");
+        debug(1, "exit_function libdaemon exit");
     }
 #else
-    debug(1, "exit");
+    debug(1, "exit_function exit");
 #endif
   } else {
     debug(1, "emergency exit");
@@ -1798,11 +1807,12 @@ int main(int argc, char **argv) {
 
 #ifdef CONFIG_METADATA
   // If we are asking for metadata, turn on the relevant bits
-  if (config.metadata_enabled != 0)
+  if (config.metadata_enabled != 0) {
     config.airplay_features |= (1 << 17) | (1 << 16); // 16 is progress, 17 is text
-  // If we are asking for artwork, turn on the relevant bit
-  if (config.get_coverart)
-    config.airplay_features |= (1 << 15); // 15 is artwork
+    // If we are asking for artwork, turn on the relevant bit
+    if (config.get_coverart)
+      config.airplay_features |= (1 << 15); // 15 is artwork
+  }
 #endif
 
   debug(1, "Features: 0x%" PRIx64 ".", config.airplay_features);
@@ -1833,7 +1843,7 @@ int main(int argc, char **argv) {
   char *uuid = malloc(UUID_STR_LEN);
   // Produces a UUID string at uuid consisting of lower-case letters
   uuid_unparse_lower(binuuid, uuid);
-  config.airplay_pi = strdup(uuid);
+  config.airplay_pi = uuid;
   debug(1, "Started in Airplay 2 mode on device \"%s\"!", config.airplay_device_id);
 #else
   debug(1, "Started in Airplay 1 mode!");
@@ -1920,7 +1930,7 @@ int main(int argc, char **argv) {
   /* Version check should be the very first call because it
     makes sure that important subsystems are initialized.
     #define NEED_LIBGCRYPT_VERSION to the minimum required version. */
-    
+
 #define NEED_LIBGCRYPT_VERSION "1.5.4"
 
   if (!gcry_check_version(NEED_LIBGCRYPT_VERSION)) {
