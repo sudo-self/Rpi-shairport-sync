@@ -3,7 +3,7 @@ Version 4.1-dev-81-g24a5bbbe
 This is a pretty big under-the-hood update.
 
 #### Significant Changes 
-* Change clock base to improve stability. You need to use the updated `nqptp` that has also been changed.
+* Change clock base to improve stability. You need to use the updated `nqptp` that has also been changed. If you forget, Shairport Sync will not work properly and will leave a message in the log.
 * Avoid skipping the first 100 milliseconds or so of a newly-selected track.
 * Clean up the output of statistics — shorter when log verbosity is zero.
 * Change behaviour after an unrecoverable error -- if not handled, exit Shairport Sync.
