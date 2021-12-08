@@ -1,7 +1,7 @@
 AirPlay 2
 ===
 
-Shairport Sync offers limited AirPlay 2 support for audio sources on iOS devices, Macs and HomePod minis. It does not work for iTunes on Windows. 
+Shairport Sync offers limited AirPlay 2 support for audio sources on iOS devices, Macs, HomePod minis and Apple TVs. It does not work for iTunes on Windows. 
 
 The focus of the development effort has been on getting good audio performance for iOS and Mac. Features outside this focus may be missing or broken. So, for example, remote control doesn't work.
 
@@ -14,15 +14,14 @@ The AirPlay 2 version of Shairport Sync will not work if installed on macOS. Thi
 The AirPlay 2 build requires a good deal of extra library support and may not fit into smaller devices. It also requires more CPU power and more RAM.
 
 ### What Works
-- AirPlay 2 for iOS, HomePod mini and Mac players.
+- AirPlay 2 for iOS, HomePod mini, AppleTV and Mac players.
 
 ### What Does Not Work
 - No Remote Control
 - No AirPlay 2 for Windows iTunes
 
 ### What Partly Works
-- Incomplete functionality using AppleTV?. (Reports of usage welcome!)
-- Lossless or High Definition Lossless material over AirPlay 2 (ALAC decoder must be installed in config step). 
+- Lossless or High Definition Lossless material over AirPlay 2 is automatically transcoded to ALAC or AAC before sending it via AirPlay 2 to Shairport Sync. 
 
 ### Limitations
 - Only a single instance of Shairport Sync can run on a device.
