@@ -1,5 +1,11 @@
 Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
 
+Version 3.3.9
+====
+**Bug Fix**
+* Version 3.3.9 fixes a build failure with convolution raised since `automake 1.16.5` and https://git.savannah.gnu.org/cgit/automake.git/commit/?id=f4a3a70f69e1dbccb6578f39ef47835098a04624.
+Further details in [Fabrice Fontaine's original PR](https://github.com/mikebrady/shairport-sync/pull/1314) to the `development` branch. Many thanks to [Fabrice Fontaine](https://github.com/ffontaine) for the bug report and for the fix.
+
 Version 3.3.8
 ====
 **Enhancements**
