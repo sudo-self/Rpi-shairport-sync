@@ -526,7 +526,7 @@ void release_hold_on_play_lock(__attribute__((unused)) rtsp_conn_info *conn) {
 }
 
 void release_play_lock(rtsp_conn_info *conn) {
-  debug(1, "Connection %d: release play lock.", conn->connection_number);
+  debug(2, "Connection %d: release play lock.", conn->connection_number);
   debug_mutex_lock(&playing_conn_lock, 1000000, 3);
   if (playing_conn == conn) { // if we have the player
     playing_conn = NULL;      // let it go
@@ -536,7 +536,7 @@ void release_play_lock(rtsp_conn_info *conn) {
 }
 
 int get_play_lock(rtsp_conn_info *conn) {
-    debug(1, "Connection %d: request play lock.", conn->connection_number);
+    debug(2, "Connection %d: request play lock.", conn->connection_number);
   // returns -1 if it failed, 0 if it succeeded and 1 if it succeeded but
   // interrupted an existing session
   int response = 0;
@@ -592,16 +592,16 @@ int get_play_lock(rtsp_conn_info *conn) {
     }
 
     if ((have_the_player == 1) && (interrupting_current_session == 1)) {
-      debug(1, "Connection %d: Got player lock", conn->connection_number);
+      debug(2, "Connection %d: Got player lock", conn->connection_number);
       response = 1;
     } else {
-      debug(1, "Connection %d: failed to get player lock", conn->connection_number);
+      debug(1, "Connection %d: failed to get player lock after waiting.", conn->connection_number);
       response = -1;
     }
   }
 
-  if ((have_the_player) && (interrupting_current_session == 0)) {
-    debug(1, "Connection %d: Got player lock.", conn->connection_number);
+  if ((have_the_player == 1) && (interrupting_current_session == 0)) {
+    debug(2, "Connection %d: Got player lock.", conn->connection_number);
     response = 0;
   }
   return response;
