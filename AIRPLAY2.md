@@ -17,12 +17,12 @@ The AirPlay 2 build requires a good deal of extra library support and may not fi
 - AirPlay 2 for iOS, HomePod mini and Mac players.
 
 ### What Does Not Work
-- Lossless or High Definition Lossless material is transcoded to AAC before transmission over AirPlay 2. 
 - No Remote Control
 - No AirPlay 2 for Windows iTunes
 
 ### What Partly Works
 - Incomplete functionality using AppleTV?. (Reports of usage welcome!)
+- Lossless or High Definition Lossless material over AirPlay 2 (ALAC decoder must be installed in config step). 
 
 ### Limitations
 - Only a single instance of Shairport Sync can run on a device.
