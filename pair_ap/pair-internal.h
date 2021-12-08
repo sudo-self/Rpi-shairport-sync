@@ -367,7 +367,7 @@ int
 hash_ab(enum hash_alg alg, unsigned char *md, const unsigned char *m1, int m1_len, const unsigned char *m2, int m2_len);
 
 bnum
-H_nn_pad(enum hash_alg alg, const bnum n1, const bnum n2);
+H_nn_pad(enum hash_alg alg, const bnum n1, const bnum n2, int padded_len);
 
 bnum
 H_ns(enum hash_alg alg, const bnum n, const unsigned char *bytes, int len_bytes);
@@ -384,4 +384,7 @@ hash_num(enum hash_alg alg, const bnum n, unsigned char *dest);
 #ifdef DEBUG_PAIR
 void
 hexdump(const char *msg, uint8_t *mem, size_t len);
+
+void
+bnum_dump(const char *msg, bnum n);
 #endif

@@ -55,6 +55,8 @@
 #define REQUEST_BUFSIZE 4096
 #define ENCRYPTED_LEN_MAX 0x400
 
+// #define DEBUG_SHORT_A 1
+
 enum pair_keys
 {
   PAIR_SETUP_MSG01 = 0,
@@ -140,6 +142,7 @@ typedef enum
 
 typedef struct
 {
+  int N_len;
   bnum N;
   bnum g;
 } NGConstant;
@@ -184,6 +187,7 @@ struct SRPVerifier
 
 struct NGHex
 {
+  int N_len;
   const char *n_hex;
   const char *g_hex;
 };
@@ -192,6 +196,7 @@ struct NGHex
 static struct NGHex global_Ng_constants[] =
 {
   { /* 2048 */
+    256,
     "AC6BDB41324A9A9BF166DE5E1389582FAF72B6651987EE07FC3192943DB56050A37329CBB4"
     "A099ED8193E0757767A13DD52312AB4B03310DCD7F48A9DA04FD50E8083969EDB767B0CF60"
     "95179A163AB3661A05FBD5FAAAE82918A9962F0B93B855F97993EC975EEAA80D740ADBF4FF"
@@ -202,6 +207,7 @@ static struct NGHex global_Ng_constants[] =
     "2"
   },
   { /* 3072 */
+    384,
     "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B"
     "139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485"
     "B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1F"
@@ -215,7 +221,7 @@ static struct NGHex global_Ng_constants[] =
     "D120A93AD2CAFFFFFFFFFFFFFFFF",
     "5"
   },
-  {0,0} /* null sentinel */
+  {0} /* null sentinel */
 };
 
 
@@ -226,12 +232,16 @@ new_ng(SRP_NGType ng_type, const char *n_hex, const char *g_hex)
 
   if ( ng_type != SRP_NG_CUSTOM )
     {
-      n_hex = global_Ng_constants[ ng_type ].n_hex;
-      g_hex = global_Ng_constants[ ng_type ].g_hex;
+      n_hex = global_Ng_constants[ng_type].n_hex;
+      g_hex = global_Ng_constants[ng_type].g_hex;
     }
 
   bnum_hex2bn(ng->N, n_hex);
   bnum_hex2bn(ng->g, g_hex);
+
+  ng->N_len = bnum_num_bytes(ng->N);
+
+  assert(ng_type == SRP_NG_CUSTOM || ng->N_len == global_Ng_constants[ng_type].N_len);
 
   return ng;
 }
@@ -245,6 +255,15 @@ free_ng(NGConstant * ng)
   bnum_free(ng->N);
   bnum_free(ng->g);
   free(ng);
+}
+
+static int
+N_len(SRP_NGType ng_type)
+{
+  if (ng_type == SRP_NG_CUSTOM)
+    return -1;
+
+  return global_Ng_constants[ng_type].N_len;
 }
 
 static bnum
@@ -401,13 +420,27 @@ srp_user_get_session_key(struct SRPUser *usr, int *key_length)
   return usr->session_key;
 }
 
+#ifdef DEBUG_SHORT_A
+// This value of "a" will yield a 383 byte A
+static uint8_t short_a[] = {
+ 0xef, 0xb5, 0x93, 0xf5, 0x03, 0x97, 0x69, 0x8e, 0x15, 0xed, 0xee, 0x5b, 0xf2, 0xf9, 0x23, 0x6c,
+ 0xf0, 0x59, 0x6c, 0xe2, 0x77, 0xf2, 0x14, 0x16, 0xac, 0x99, 0xfa, 0x31, 0xae, 0x2b, 0xd3, 0x41,
+};
+#endif
+
 /* Output: username, bytes_A, len_A */
 static void
 srp_user_start_authentication(struct SRPUser *usr, const char **username,
                               const unsigned char **bytes_A, int *len_A)
 {
-  bnum_random(usr->a, 256);
 //  BN_hex2bn(&(usr->a), "D929DFB605687233C9E9030C2280156D03BDB9FDCF3CCE3BC27D9CCFCB5FF6A1");
+  bnum_random(usr->a, 256);
+#ifdef DEBUG_SHORT_A
+  bnum_bin2bn(usr->a, short_a, sizeof(short_a));
+#endif
+#ifdef DEBUG_PAIR
+  bnum_dump("Random value of usr->a:\n", usr->a);
+#endif
 
   bnum_modexp(usr->A, usr->ng->g, usr->a, usr->ng->N);
     
@@ -443,7 +476,8 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
 
   bnum_bin2bn(s, bytes_s, len_s);
   bnum_bin2bn(B, bytes_B, len_B);
-  k    = H_nn_pad(usr->alg, usr->ng->N, usr->ng->g);
+
+  k = H_nn_pad(usr->alg, usr->ng->N, usr->ng->g, usr->ng->N_len);
 
   bnum_new(v);
   bnum_new(tmp1);
@@ -453,7 +487,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
   if (!s || !B || !k || !v || !tmp1 || !tmp2 || !tmp3)
     goto cleanup1;
 
-  u = H_nn_pad(usr->alg, usr->A, B);
+  u = H_nn_pad(usr->alg, usr->A, B, usr->ng->N_len);
   x = calculate_x(usr->alg, s, usr->username, usr->password, usr->password_len);
   if (!u || !x)
     goto cleanup2;
@@ -535,6 +569,9 @@ srp_create_salted_verification_key(enum hash_alg alg,
     goto error;
 
   bnum_random(s, 128); // MODIFIED from csrp's BN_rand(s, 32, -1, 0)
+#ifdef DEBUG_PAIR
+  bnum_dump("Random value of s:\n", s);
+#endif
 
   x = calculate_x(alg, s, username, password, len_password);
   if (!x)
@@ -599,8 +636,11 @@ srp_verifier_start_authentication(enum hash_alg alg, SRP_NGType ng_type,
   bnum_bin2bn(v, bytes_v, len_v);
 
   bnum_random(b, 256); // MODIFIED from BN_rand(b, 256, -1, 0)
+#ifdef DEBUG_PAIR
+  bnum_dump("Random value of b:\n", b);
+#endif
 
-  k = H_nn_pad(alg, ng->N, ng->g); // MODIFIED from H_nn(alg, ng->N, ng->g)
+  k = H_nn_pad(alg, ng->N, ng->g, ng->N_len); // MODIFIED from H_nn(alg, ng->N, ng->g)
   if (!k)
     goto error;
 
@@ -708,8 +748,8 @@ srp_verifier_new(enum hash_alg alg, SRP_NGType ng_type, const char *username,
   if (bnum_is_zero(tmp1))
     goto error;
 
-  k = H_nn_pad(alg, ng->N, ng->g); // MODIFIED from H_nn(alg, ng->N, ng->g)
-  u = H_nn_pad(alg, A, B); // MODIFIED from H_nn(alg, A, B)
+  k = H_nn_pad(alg, ng->N, ng->g, ng->N_len); // MODIFIED from H_nn(alg, ng->N, ng->g)
+  u = H_nn_pad(alg, A, B, ng->N_len); // MODIFIED from H_nn(alg, A, B)
 
   // S = (A *(v^u)) ^ b
   bnum_modexp(tmp1, v, u, ng->N);
@@ -1163,6 +1203,11 @@ client_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add
 
   crypto_sign_keypair(sctx->public_key, sctx->private_key);
 
+#ifdef DEBUG_PAIR
+  hexdump("Client public key:\n", sctx->public_key, sizeof(sctx->public_key));
+  hexdump("Client private key:\n", sctx->private_key, sizeof(sctx->private_key));
+#endif
+
   return 0;
 }
 
@@ -1397,18 +1442,24 @@ client_setup_response1(struct pair_setup_context *handle, const uint8_t *data, s
     }
 
   pk = pair_tlv_get_value(response, TLVType_PublicKey);
-  salt = pair_tlv_get_value(response, TLVType_Salt);
-  if (!pk || !salt)
+  if (!pk || pk->size > N_len(SRP_NG_3072)) // max 384 bytes
     {
-      handle->errmsg = "Setup response 1: Missing or invalid pk/salt";
+      handle->errmsg = "Setup response 1: Missing or invalid public key";
       goto error;
     }
 
-  sctx->pkB_len = pk->size; // 384
+  salt = pair_tlv_get_value(response, TLVType_Salt);
+  if (!salt || salt->size != 16)
+    {
+      handle->errmsg = "Setup response 1: Missing or invalid salt";
+      goto error;
+    }
+
+  sctx->pkB_len = pk->size;
   sctx->pkB = malloc(sctx->pkB_len);
   memcpy(sctx->pkB, pk->value, sctx->pkB_len);
 
-  sctx->salt_len = salt->size; // 16
+  sctx->salt_len = salt->size;
   sctx->salt = malloc(sctx->salt_len);
   memcpy(sctx->salt, salt->value, sctx->salt_len);
 
@@ -1436,13 +1487,13 @@ client_setup_response2(struct pair_setup_context *handle, const uint8_t *data, s
     }
 
   proof = pair_tlv_get_value(response, TLVType_Proof);
-  if (!proof)
+  if (!proof || proof->size != SHA512_DIGEST_LENGTH)
     {
-      handle->errmsg = "Setup response 2: Missing proof";
+      handle->errmsg = "Setup response 2: Missing or invalid proof";
       goto error;
     }
 
-  sctx->M2_len = proof->size; // 64
+  sctx->M2_len = proof->size;
   sctx->M2 = malloc(sctx->M2_len);
   memcpy(sctx->M2, proof->value, sctx->M2_len);
 
@@ -2050,17 +2101,22 @@ server_setup_request2(struct pair_setup_context *handle, const uint8_t *data, si
     }
 
   pk = pair_tlv_get_value(request, TLVType_PublicKey);
-  proof = pair_tlv_get_value(request, TLVType_Proof);
-  if (!pk || !proof)
+  if (!pk || pk->size > N_len(SRP_NG_3072)) // 384 bytes or less
     {
-      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 2: Missing pkA or proof");
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 2: Missing og invalid public key");
     }
 
-  sctx->pkA_len = pk->size; // 384
+  proof = pair_tlv_get_value(request, TLVType_Proof);
+  if (!proof || proof->size != SHA512_DIGEST_LENGTH)
+    {
+      RETURN_ERROR(PAIR_STATUS_INVALID, "Setup request 2: Missing or invalid proof");
+    }
+
+  sctx->pkA_len = pk->size;
   sctx->pkA = malloc(sctx->pkA_len);
   memcpy(sctx->pkA, pk->value, sctx->pkA_len);
 
-  sctx->M1_len = proof->size; // 64
+  sctx->M1_len = proof->size;
   sctx->M1 = malloc(sctx->M1_len);
   memcpy(sctx->M1, proof->value, sctx->M1_len);
 
@@ -2072,7 +2128,7 @@ server_setup_request2(struct pair_setup_context *handle, const uint8_t *data, si
       goto out;
     }
 
-  sctx->M2_len = 64; // 512 bit hash
+  sctx->M2_len = SHA512_DIGEST_LENGTH;
   srp_verifier_verify_session(sctx->verifier, sctx->M1, &sctx->M2);
   if (!sctx->M2)
     {
