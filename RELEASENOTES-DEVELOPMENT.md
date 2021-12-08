@@ -1,5 +1,41 @@
-Version 4.1-dev-TBA-TBA
+Version 4.1-dev-81-g24a5bbbe
 ====
+This is a pretty big under-the-hood update.
+
+#### Significant Changes 
+* Change clock base to improve stability. You need to use the updated `nqptp` that has also been changed.
+* Avoid skipping the first 100 milliseconds or so of a newly-selected track.
+* Clean up the output of statistics — shorter when log verbosity is zero.
+* Change behaviour after an unrecoverable error -- if not handled, exit Shairport Sync.
+* Add client and server ip metadata for AP2 Buffered Audio Stream.
+
+#### Changes
+* Add client and server ip metadata for AP2. Remove timing peer list and DACP code only for a full AP2 teardown.
+* Fix a few memory leaks. Add bogus exits to allow SPS to quit at the end of a play session, to make it easier to use `valgrind`.
+* Stop checking that the timing peers are within the same subnet.
+* Look for at least 0.1 seconds of leadtime, ensure a master clock is at least 0.275 seconds old before use, quieten a few debug messages.
+* Add txtAirPlay data to the get info response.
+* Don't pause reception of long RTSP messages.
+* Don't ask for cover art if not asking for metadata too, duh.
+* Skip some types of invalid AAC packets.
+* Don't decode outdated frames.
+* Wait for timing information to be valid in AP2 Buffered Audio Streams processing.
+* Set the timing peer list as soon as a SETPEERS message is received -- don't wait until play is about to begin. Not sure if it works universally yet.
+* Tidy up the statistics printout table and stop outputting (non existent) nominal fps for AP2 Realtime Streams.
+* Use PKG_CHECK_MODULES to find libavcodec, to make it work with Fedora 35 (?)
+* Change behaviour after an unrecoverable error -- if not handled, exit Shairport Sync.
+* log statistics headers whenever verbosity goes on or off or whenever statistics are requested
+* Clean up statistics.
+* Stop watchdog timing out AP2 sessions.
+* Remove the commas in the statistics logs -- easier to get into a spreadsheet.
+* Don't overwrite service files if they already exist.
+* Try finding libplist as libplist-2.0 on Linux too.
+* Move to using CLOCK_MONOLITHIC_RAW to avoid NTP effects. Bump interface version.
+* Add code to check divisions and mods for a potential divide by zero problem. This may cause SPS to terminate but it will leave a log message.
+* Add a 'stats' function to the audio back ends to replace the 'rate_info' function. Zero all except the alsa back end.
+* Attempt to increase the precision of the FPS timing
+* Update to the latest version of ejurgensen's pair_ap library. With thanks.
+
 #### Bug Fix
 - This fixes [#1345](https://github.com/mikebrady/shairport-sync/issues/1345) by checking for the `libplist` library both under the name `libplist` and `libplist-2.0` using the fallback strategy [as described in the autotools docs](https://autotools.io/pkgconfig/pkg_check_modules.html). Since we now try both names, we no longer need the FreeBSD/Linux check. Many thanks to [FW](https://github.com/fwcd) for the bug report, the fix and this documentation!
 
