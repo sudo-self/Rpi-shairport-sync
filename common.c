@@ -35,6 +35,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h> // PRIdPTR
 #include <libgen.h>
 #include <memory.h>
 #include <poll.h>
@@ -54,7 +55,7 @@
 #include <netpacket/packet.h>
 #endif
 
-#ifdef COMPILE_FOR_FREEBSD
+#ifdef COMPILE_FOR_BSD
 #include <net/if_dl.h>
 #include <net/if_types.h>
 #include <netinet/in.h>
