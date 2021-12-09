@@ -17,15 +17,18 @@ AM_CONDITIONAL([USE_GIT_VERSION], [test -n "$GIT" && test -e ".git/index" ])
 # Derived from the Avahi configure.ac file
 # Specifying the OS type, defaulting to linux.
 #
-AC_ARG_WITH(os, AS_HELP_STRING([--with-os=OSType],[Specify the distribution to target: One of linux freebsd or darwin]))
+AC_ARG_WITH(os, AS_HELP_STRING([--with-os=OSType],[Specify the distribution to target: One of linux, freebsd, openbsd or darwin]))
 if test "z$with_os" = "z"; then
   with_os="linux"
 fi
 with_os=`echo ${with_os} | tr '[[:upper:]]' '[[:lower:]]' `
-
-if test "x${with_os}" != xlinux && "x${with_os}" != xfreebsd && "x${with_os}" != xdarwin ; then
-	AC_MSG_ERROR(--with-os=<arg> argument must linux freebsd openbsd or darwin)
-fi
+case "x${with_os}" in
+xlinux|xfreebsd|xopenbsd|xdarwin)
+  ;;
+*)
+  AC_MSG_ERROR([--with-os=<arg> argument must be one of linux, freebsd, openbsd or darwin])
+  ;;
+esac
 
 # Checks for programs.
 AC_PROG_CC

@@ -120,6 +120,8 @@ int this_is_the_daemon_process = 0;
 #define UUID_STR_LEN 36
 #endif
 
+#define strnull(s) ((s) ? (s) : "(null)")
+
 pthread_t rtsp_listener_thread;
 
 int killOption = 0;
@@ -1986,15 +1988,15 @@ int main(int argc, char **argv) {
   debug(1, "udp port range is %d.", config.udp_port_range);
   debug(1, "player name is \"%s\".", config.service_name);
   debug(1, "backend is \"%s\".", config.output_name);
-  debug(1, "run_this_before_play_begins action is \"%s\".", config.cmd_start);
-  debug(1, "run_this_after_play_ends action is \"%s\".", config.cmd_stop);
+  debug(1, "run_this_before_play_begins action is \"%s\".", strnull(config.cmd_start));
+  debug(1, "run_this_after_play_ends action is \"%s\".", strnull(config.cmd_stop));
   debug(1, "wait-cmd status is %d.", config.cmd_blocking);
   debug(1, "run_this_before_play_begins may return output is %d.", config.cmd_start_returns_output);
-  debug(1, "run_this_if_an_unfixable_error_is_detected action is \"%s\".", config.cmd_unfixable);
-  debug(1, "run_this_before_entering_active_state action is  \"%s\".", config.cmd_active_start);
-  debug(1, "run_this_after_exiting_active_state action is  \"%s\".", config.cmd_active_stop);
+  debug(1, "run_this_if_an_unfixable_error_is_detected action is \"%s\".", strnull(config.cmd_unfixable));
+  debug(1, "run_this_before_entering_active_state action is  \"%s\".", strnull(config.cmd_active_start));
+  debug(1, "run_this_after_exiting_active_state action is  \"%s\".", strnull(config.cmd_active_stop));
   debug(1, "active_state_timeout is  %f seconds.", config.active_state_timeout);
-  debug(1, "mdns backend \"%s\".", config.mdns_name);
+  debug(1, "mdns backend \"%s\".", strnull(config.mdns_name));
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
   debug(1, "interpolation setting is \"%s\".",
         config.packet_stuffing == ST_basic  ? "basic"
@@ -2005,7 +2007,7 @@ int main(int argc, char **argv) {
   debug(1, "allow a session to be interrupted: %d.", config.allow_session_interruption);
   debug(1, "busy timeout time is %d.", config.timeout);
   debug(1, "drift tolerance is %f seconds.", config.tolerance);
-  debug(1, "password is \"%s\".", config.password);
+  debug(1, "password is \"%s\".", strnull(config.password));
   debug(1, "ignore_volume_control is %d.", config.ignore_volume_control);
   if (config.volume_max_db_set)
     debug(1, "volume_max_db is %d.", config.volume_max_db);
