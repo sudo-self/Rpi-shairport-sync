@@ -1,3 +1,12 @@
+Version 4.1-dev-92-g3ab16b5d
+====
+#### Enhancement
+* Thanks to [Anton Lindqvist](https://github.com/mptre) for updates and bug fixes to building for OpenBSD.
+
+#### Other Updates
+* Thanks to [tekdude](https://github.com/tecdude) for a documentation update.
+* Various documentation updates.
+
 Version 4.1-dev-81-g24a5bbbe
 ====
 This is a pretty big under-the-hood update.
