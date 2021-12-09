@@ -43,8 +43,8 @@ Remove it as follows:
 ```
 Do this until no more copies of `shairport-sync` are found.
 
-### Remove Old Startup Scripts
-You should also remove the startup script files `/etc/systemd/system/shairport-sync.service` and `/etc/init.d/shairport-sync` if they exist – new ones will be installed in necessary.
+### Remove Old Service Files
+You should also remove any of the following service files that may be present: `/etc/systemd/system/shairport-sync.service`, `/lib/systemd/system/shairport-sync.service`, `/etc/dbus-1/system.d/shairport-sync-dbus.conf`, `/etc/dbus-1/system.d/shairport-sync-mpris.conf`, and `/etc/init.d/shairport-sync`. New ones will be installed if necessary at the `# make install` stage.
 
 ### Reboot after Cleaning Up
 If you removed any installations of Shairport Sync or any of its startup script files in the last two steps, you should reboot.
@@ -150,4 +150,6 @@ Connect and enjoy...
 
 ### Restart Your Mac!
 
-At the time of writing, there seems to be a bug in the Mac Music app, particularly on Apple silicon Macs. It appears that, if the Mac has been sleeping, the AirPlay 2 infrastructure is not fully reenabled, and it will be unable to drive AirPlay 2 devices for more than a few seconds. The only known solution is to reboot.
+At the time of writing, there seems to be a bug in AirPlay 2 on Apple Silicon Macs and on the Apple TV. It appears that, if the Mac/ATV has been sleeping, the AirPlay 2 infrastructure is not fully reenabled when it wakens up. The `nqptp` program incorporates a workaround which fixes this issue for ATVs and mostly fixes it for macOS. However, it does not completely fix macOS Music on Apple Silicon Macs. The only known solution is to reboot the Mac.
+
+Hopefully, this bug, which is [widely known](https://discussions.apple.com/thread/253041243) and which doesn't just affect Shairport Sync, will be rectified by Apple soon.
