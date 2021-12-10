@@ -1174,8 +1174,10 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
   enum rtsp_read_request_response reply = rtsp_read_request_response_ok;
   ssize_t buflen = 4096;
+#ifdef CONFIG_METADATA
   if ((config.metadata_enabled != 0) && (config.get_coverart != 0))
     buflen = 1024 * 256;  // big enough for typical picture data, which will be base64 encoded
+#endif
   int release_buffer = 0; // on exit, don't deallocate the buffer if everything was okay
   char *buf = malloc(buflen + 1); // add a NUL at the end
   if (!buf) {
