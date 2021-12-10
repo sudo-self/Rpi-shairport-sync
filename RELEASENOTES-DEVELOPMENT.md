@@ -1,3 +1,8 @@
+Version-4.1-dev-100-g8330f30b
+====
+#### Enhancement
+* Updated information on the statistics provided -- see [MOREINFO.md](https://github.com/mikebrady/shairport-sync/blob/development/MOREINFO.md#statistics).
+
 Version 4.1-dev-95-ga7a02083
 ====
 #### Bug Fix
