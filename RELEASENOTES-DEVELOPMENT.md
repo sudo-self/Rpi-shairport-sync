@@ -1,3 +1,8 @@
+Version 4.1-dev-95-ga7a02083
+====
+#### Bug Fix
+* Fixed a compilation bug that occurs if metadata support is not included in the build configuration. The fix was to add the appropriate conditional code statements. Thanks to [Daniel Gooß](https://github.com/Dangoo) and [winstonsetiawan](https://github.com/winstonsetiawan) for reporting.
+
 Version 4.1-dev-92-g3ab16b5d
 ====
 #### Enhancement
