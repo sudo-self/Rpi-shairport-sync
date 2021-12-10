@@ -223,7 +223,10 @@ The "corrected" figure is the rate at which the output device accepts data relat
 
 Here is a brief description of the figures that might be provided.
 
-
+| Title | Description |
+-----------------------
+| All Sync PPM | See above |
+| Net Sync PPM | See above |
 
 ```
 sync error in milliseconds, net correction in ppm, corrections in ppm, total packets, missing packets, late packets, too late packets, resend requests, min DAC queue size, min buffer occupancy, max buffer occupancy, source nominal frames per second, source actual frames per second, output frames per second, source clock drift in ppm, source clock drift sample count, rough calculated correction in ppm
