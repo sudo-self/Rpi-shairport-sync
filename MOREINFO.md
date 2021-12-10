@@ -207,110 +207,109 @@ Tolerance
 Playback synchronisation is allowed to wander — to "drift" — a small amount before attempting to correct it. The default is 0.002 seconds, i.e. 2 ms. The smaller the tolerance, the  more  likely it is that overcorrection will occur. Overcorrection is when more corrections (insertions and deletions) are made than are strictly necessary to keep the stream in sync. Use the `statistics` setting to monitor correction levels. Corrections should not greatly exceed net corrections.
 * You can vary the tolerance with the `general` `drift_tolerance_in_seconds` setting.
 
-Some Statistics
+Statistics
 ---------------
 If you set the `statistics` setting in the `diagnostics` section of the configuration file to `"YES"`, some statistics will be logged at regular intervals. The items logged will depend on the type of stream being processed: AirPlay 1, AirPlay 2 Buffered Audio or AirPlay 2 Realtime Audio. If the `log_verbosity` is set to 1, 2 or 3, additional items will be logged.
 
-From an audio enthusiast's point of view, the most important figure is probably the `all sync ppm` figure. This is the total amount of interpolation done by Shairport Sync to keep the audio stream in sync. The number represents is the total number of frames added or removed from the audio stream, expressed in parts per million (ppm) in the last interval. For reference, adding or removing one frame per second into a 44,100 frames per second stream is 22.68 ppm. The lower the `all sync ppm` number is, the higher the fidelity of the audio signal passed to the output device. On a well sorted system, this figure can be 0.0 for considerable periods, but it can't really be zero forever. You may also find that the number might be higher at the start while the sysstem settles down.
+From an audio enthusiast's point of view, the most important figure is possibly the `all sync ppm` figure. This is the total amount of interpolation needed by Shairport Sync to keep the audio stream in sync. The number represents is the ratio of frames added and removed from the audio stream relative to all the frames output in the last interval, expressed in parts per million (ppm). For reference, adding or removing one frame per second into a 44,100 frames per second stream is ± 22.68 ppm. The lower this number number is, the higher the fidelity of the audio signal passed to the output device. On a well sorted system, this figure can be 0.0 for considerable periods, but it can't really be zero forever. You may also find that the number might be higher at the start while the system settles down.
 
-The second most important figure is probably the `sync error ms` is the average synchronisation error in milliseconds in the last interval. Ideally it should be 0.0. By default, Shairport Sync will allow a sync error of ± 2.0 milliseconds without any interpolation. 
+The second most important figure is possibly the `sync error ms`. This is the average synchronisation error in milliseconds in the last interval. Ideally it should be 0.0. By default, Shairport Sync has a tolerance of a sync error of ± 2.0 milliseconds without triggering interpolation. 
 
-Two possibly interesting measurements of the output rate may be available -- `output fps (r)` and `output fps (c)`. The `(r)` means "raw" and the `(c)` means "corrected".
+Two other interesting measurements of the output rate may be available -- `output fps (r)` and `output fps (c)`, where `(r)` means "raw" and the `(c)` means "corrected".
 
 The "raw" figure is the rate at which the output device (typically a DAC) accepts data measured relative to the computer's own system clock (specifically the `CLOCK_MONOTONIC_RAW` clock). The accuracy of the number depends on the accuracy of the clock, which will typically be accurate to within anything from 20 to 100 ppm.
 
-The "corrected" figure is the rate at which the output device accepts data relative to the computer's network-time-disciplined clock (specifically the `CLOCK_MONOTONIC` clock). This clock is normally adjusted ("disciplined") to keep time with network time and should be accurate to with a few tens of milliseconds over a long period. So (1) if you could run a play session for a long period -- say a day -- and (2) if network time synchronisation is enabled and (3) if the network connection to the network time service is fast and stable, then you should get an accurate absolute measure of exact frame rate of the output device. If your internet connection is not good, the corrected figure will be very inaccurate.
+The "corrected" figure is the rate at which the output device accepts data relative to the computer's network-time-disciplined clock (specifically the `CLOCK_MONOTONIC` clock). This clock is normally adjusted ("disciplined") to keep time with network time and should be accurate to with a few tens of milliseconds over a long period. So (1) if you could run a play session for a long period -- say a day -- and (2) if network time synchronisation is enabled and (3) if the network connection to the network time service is fast and stable, then you should get an accurate absolute measure of exact frame rate of the output device. If your internet connection is not good, the corrected figure will be very inaccurate indeed.
 
 Here is a brief description of the figures that might be provided.
-
-| Title | Description |
------------------------
-| All Sync PPM | See above |
-| Net Sync PPM | See above |
+##### sync error ms
+Average playback synchronisation error in milliseconds in the last interval. By default, Shairport Sync will allow a sync error of ± 2.0 milliseconds without any interpolation.
+##### net sync ppm
+This is the total amount of interpolation done by Shairport Sync to keep the audio stream in sync. The number represents is the total number of frames added and removed from the audio stream, expressed in parts per million (ppm) in the last interval. For reference, adding or removing one frame per second into a 44,100 frames per second stream is 22.68 ppm. 
+##### all sync ppm
+This is the net amount of interpolation done by Shairport Sync to keep the audio stream in sync. The number represents is the number of frames added less the number removed from the audio stream, expressed in parts per million (ppm) in the last interval.
+##### packets
+This is the number of packets of audio frames received since the start of the session. A packet normally contains 352 ± 1 audio frames.
+##### missing
+This is the number of packets of audio frames that were not received in the last interval. It should be zero, and if not it can indicate a problem with the network. Only relevant in AirPlay 1 or AirPlay 2 Realtime Streams.
+##### late
+This is the number of packets of audio frames that were received late -- but still in time to be used -- in the last interval. Only relevant in AirPlay 1 or AirPlay 2 Realtime Streams.
+##### too late
+This is the number of packets of audio frames that were received too late to be used in the last interval. It is possible that these packets may already have been received, so those frames might not actually be missing when the time comes to play them. Only relevant in AirPlay 1 or AirPlay 2 Realtime Streams.
+##### resend reqs
+This is the number of times Shairport Sync requests the resending of missing frames. Requests can be for one or more frames. Only relevant in AirPlay 1 or AirPlay 2 Realtime Streams.
+##### min DAC queue
+The is the smallest number of frames of audio in the DAC's hardware queue. If it goes too low, the DAC may begin to underrun.
+##### min buffers
+The is the smallest number of packets of audio in the queue to be processed in the last interval. It is related to the overall latency in AirPlay 1 and AirPlay 2 Realtime Streams. If it comes close to zero it's often a sign that the network is poor.
+##### max buffers
+The is the largest number of packets of audio in the queue to be processed in the last interval. 
+##### nominal fps
+This is the rate specified in the AirPlay stream itself. Only available for AirPlay 1 streams.
+##### received fps
+This is the rate at which frames are received from the network averaged since the start of the play session. Only available for AirPlay 1.
+##### output fps (r)
+Output rate measured relative to the computer system's clock since the start of the play session. See above for a discussion.
+##### output fps (c)
+Output rate measured relative to the network-clock-disciplined computer system's clock since the start of the play session. See above for a discussion.
+##### source drift ppm
+This is a measure of the difference between the source clock and Shairport Sync's clock expressed in parts per million. Only valid when 10 or more drift samples have been received. Only available for AirPlay 1.
+##### drift samples
+This is the number drift samples have been accepted for calculating the source drift. Only available for AirPlay 1.
+#### Example
+The following example is of an AirPlay 2 Buffered Audio stream from a HomePod mini to a Raspberry Pi 3 equipped with a [Pimoroni Audio DAC SHIM (Line-Out)](https://shop.pimoroni.com/products/audio-dac-shim-line-out) with `log_verbosity` set to `1`.
 
 ```
-sync error in milliseconds, net correction in ppm, corrections in ppm, total packets, missing packets, late packets, too late packets, resend requests, min DAC queue size, min buffer occupancy, max buffer occupancy, source nominal frames per second, source actual frames per second, output frames per second, source clock drift in ppm, source clock drift sample count, rough calculated correction in ppm
+ sync error ms net sync ppm all sync ppm     packets min DAC queue min buffers max buffers output fps (r) output fps (c)
+         -1.88          8.5          8.5      526575          8455          62          63       44099.98       44099.92
+         -1.92         31.2         31.2      527578          8460          62          63       44099.98       44099.92
+         -1.87          2.8          2.8      528581          8467          62          63       44099.98       44099.93
+         -1.98         22.7         22.7      529584          8466          62          63       44099.98       44099.93
+         -2.01         73.6         73.6      530587          8468          62          63       44099.98       44099.93
+         -1.99         93.5         93.5      531590          8463          62          62       44099.98       44099.94
+         -1.77          5.7          5.7      532593          8466          62          63       44099.98       44099.94
+         -1.84          2.8          2.8      533596          8456          62          62       44099.98       44099.95
+         -1.54          0.0          0.0      534599          8477          62          63       44099.98       44099.95
+         -1.19          0.0          0.0      535602          8501          62          62       44099.98       44099.95
+         -1.03          0.0          0.0      536605          8505          62          62       44099.98       44099.96
+         -1.10          0.0          0.0      537608          8497          62          63       44099.98       44099.96
+         -1.39          0.0          0.0      538611          8485          62          63       44099.98       44099.97
+         -1.43          0.0          0.0      539614          8485          62          63       44099.98       44099.97
+         -1.75          0.0          0.0      540617          8481          62          62       44099.98       44099.97
+         -1.52          0.0          0.0      541620          8474          62          63       44099.98       44099.98
+         -1.37          0.0          0.0      542623          8488          62          62       44099.98       44099.98
+         -1.63          0.0          0.0      543626          8481          62          62       44099.98       44099.98
+         -2.01        102.0        102.0      544629          8465          62          62       44099.98       44099.99
+         -1.88         14.2         14.2      545632          8474          62          62       44099.98       44099.99
+         -1.42          0.0          0.0      546635          8486          62          63       44099.98       44099.99
+         -1.92         17.0         17.0      547638          8435          62          63       44099.98       44100.00
+         -1.27          0.0          0.0      548641          8479          62          62       44099.98       44100.00
+         -0.64          0.0          0.0      549644          8528          62          62       44099.98       44100.00
+         -1.12          0.0          0.0      550647          8476          62          62       44099.98       44100.01
+         -1.88         25.5         25.5      551650          8471          62          62       44099.98       44100.01
+         -1.79          0.0          0.0      552653          8477          62          62       44099.98       44100.01
+         -1.79          0.0          0.0      553656          8477          62          63       44099.98       44100.02
+         -1.81         19.8         19.8      554659          8467          62          62       44099.98       44100.02
+         -2.04        110.5        110.5      555662          8468          62          63       44099.98       44100.02
+         -1.64          2.8          2.8      556665          8476          62          62       44099.98       44100.02
+         -1.29          0.0          0.0      557668          8496          62          63       44099.98       44100.03
+         -1.20          0.0          0.0      558671          8500          62          63       44099.98       44100.03
+         -1.33          0.0          0.0      559674          8483          62          63       44099.98       44100.03
+         -1.43          0.0          0.0      560677          8468          62          63       44099.98       44100.03
+         -1.47          0.0          0.0      561680          8484          62          62       44099.98       44100.04
+         -0.88          0.0          0.0      562683          8512          62          62       44099.98       44100.04
+         -1.16          0.0          0.0      563686          8500          62          63       44099.98       44100.04
+         -1.42          0.0          0.0      564689          8488          62          62       44099.98       44100.05
+         -1.58          0.0          0.0      565692          8476          62          63       44099.98       44100.05
+         -1.50          0.0          0.0      566695          8488          62          63       44099.98       44100.05
+         -1.79          0.0          0.0      567698          8471          62          63       44099.98       44100.05
+         -1.82          8.5          8.5      568701          8473          62          62       44099.98       44100.06
+         -1.87         19.8         19.8      569704          8468          62          63       44099.98       44100.06
+         -1.96         85.0         85.0      570707          8456          62          63       44099.98       44100.06
+         -1.80          2.8          2.8      571710          8452          62          63       44099.98       44100.06
+         -1.66          0.0          0.0      572713          8477          62          62       44099.98       44100.07
 ```
-This will be followed by the statistics themselves at regular intervals, for example:
-```
-      0.15,       0.0,       0.0,        1003,      0,      0,      0,      0,   8539,  208,  225,   44099.95,   44274.21,   44099.68,      0.00,     0,     -6.12
-      0.34,       0.0,       0.0,        2006,      0,      0,      0,      0,   8591,  206,  225,   44099.99,   44169.96,   44099.76,      0.00,     0,     -5.27
-      0.89,       0.0,       0.0,        3009,      0,      0,      0,      0,   8571,  218,  225,   44100.01,   44152.81,   44099.85,      0.00,     0,     -3.66
-      0.85,       0.0,       0.0,        4012,      0,      0,      0,      0,   8619,  218,  225,   44100.00,   44142.80,   44099.80,      0.00,     0,     -4.62
-      1.29,       0.0,       0.0,        5015,      0,      0,      0,      0,   8623,  218,  225,   44100.00,   44129.39,   44099.83,      0.00,     0,     -3.85
-      1.41,       0.0,       0.0,        6018,      0,      0,      0,      0,   8619,  216,  225,   44099.99,   44127.74,   44099.86,      0.00,     0,     -2.76
-      1.53,       0.0,       0.0,        7021,      0,      0,      0,      0,   8603,  218,  225,   44100.00,   44109.60,   44099.81,      0.00,     0,     -4.21
-      1.81,       0.0,       0.0,        8024,      0,      0,      0,      0,   8655,  215,  225,   44100.00,   44110.01,   44099.82,      0.00,     0,     -4.16
-      2.00,     -82.1,      82.1,        9027,      0,      0,      0,      0,   8481,  208,  225,   44100.00,   44110.69,   44099.83,      0.00,     0,     -3.97
-      1.96,      -8.5,       8.5,       10030,      0,      0,      0,      0,   8599,  209,  225,   44099.99,   44108.84,   44099.86,      0.00,     0,     -3.02
-      1.94,       0.0,       0.0,       11033,      0,      0,      0,      0,   8583,  217,  225,   44100.00,   44109.33,   44099.87,      0.00,     0,     -2.93
-      1.90,      -5.7,       5.7,       12036,      0,      0,      0,      0,   8601,  219,  225,   44100.00,   44110.01,   44099.85,     20.47,    10,    -23.88
-      2.02,     -36.8,      36.8,       13039,      0,      0,      0,      0,   8488,  216,  225,   44100.00,   44107.18,   44099.85,     20.39,    12,    -23.83
-      1.96,     -17.0,      17.0,       14042,      0,      0,      0,      0,   8554,  218,  226,   44100.00,   44108.80,   44099.84,     20.63,    15,    -24.13
-      1.99,     -31.2,      31.2,       15045,      0,      0,      0,      0,   8592,  216,  225,   44100.00,   44106.85,   44099.85,     20.95,    18,    -24.39
-      1.98,     -28.3,      28.3,       16048,      0,      0,      0,      0,   8627,  219,  225,   44099.99,   44109.01,   44099.88,     21.23,    20,    -23.90
-      2.01,     -31.2,      31.2,       17051,      0,      0,      0,      0,   8582,  217,  225,   44100.00,   44108.86,   44099.84,     21.57,    22,    -25.10
-      1.96,     -19.8,      19.8,       18054,      0,      0,      0,      0,   8556,  215,  226,   44100.00,   44103.79,   44099.86,     21.59,    24,    -24.85
-      1.98,     -25.5,      25.5,       19057,      0,      0,      0,      0,   8563,  219,  225,   44100.00,   44102.62,   44099.86,     22.26,    25,    -25.47
-      2.00,     -28.3,      28.3,       20060,      0,      0,      0,      0,   8569,  214,  225,   44100.00,   44103.22,   44099.88,     22.57,    27,    -25.41
-      1.98,     -42.5,      42.5,       21063,      0,      0,      0,      0,   8570,  216,  225,   44100.00,   44104.14,   44099.85,     22.74,    28,    -26.08
-      1.89,     -31.2,      31.2,       22066,      0,      0,      0,      0,   8524,  218,  225,   44100.00,   44104.66,   44099.87,     22.89,    30,    -25.89
-      1.96,       0.0,       0.0,       23069,      0,      0,      0,      0,   8650,  218,  225,   44100.00,   44105.36,   44099.88,     22.92,    32,    -25.73
-      1.98,     -34.0,      34.0,       24072,      0,      0,      0,      0,   8475,  219,  225,   44100.00,   44106.04,   44099.88,     22.90,    34,    -25.70
-      2.07,    -138.8,     138.8,       25075,      0,      0,      0,      0,   8490,  218,  226,   44100.00,   44104.93,   44099.87,     23.87,    35,    -26.92
-      1.33,       0.0,       0.0,       26078,      0,      0,      0,      0,   8617,  216,  225,   44100.00,   44104.66,   44099.88,     23.68,    38,    -26.43
-      1.67,     -22.7,      22.7,       27081,      0,      0,      0,      0,   8562,  217,  225,   44100.00,   44106.16,   44099.87,     25.06,    40,    -27.93
-      1.98,     -28.3,      28.3,       28084,      0,      0,      0,      0,   8544,  218,  225,   44100.00,   44105.21,   44099.87,     25.91,    41,    -28.84
-      1.99,     -22.7,      22.7,       29087,      0,      0,      0,      0,   8569,  219,  225,   44100.00,   44102.30,   44099.87,     25.91,    41,    -28.74
-      1.66,     -56.6,      56.6,       30090,      0,      0,      0,      0,   8554,  218,  225,   44100.00,   44103.07,   44099.86,     26.38,    44,    -29.46
-      1.44,       0.0,       0.0,       31093,      0,      0,      0,      0,   8642,  218,  225,   44100.00,   44102.18,   44099.87,     26.08,    46,    -28.98
-      1.56,       0.0,       0.0,       32096,      0,      0,      0,      0,   8647,  218,  225,   44100.00,   44102.76,   44099.87,     25.79,    48,    -28.64
-      1.68,       0.0,       0.0,       33099,      0,      0,      0,      0,   8647,  217,  225,   44100.00,   44103.41,   44099.88,     25.66,    49,    -28.51
-      1.92,     -14.2,      14.2,       34102,      0,      0,      0,      0,   8639,  217,  225,   44100.00,   44102.38,   44099.87,     25.45,    51,    -28.40
-      2.00,     -45.3,      45.3,       35105,      0,      0,      0,      0,   8593,  216,  225,   44100.00,   44103.23,   44099.86,     25.35,    53,    -28.61
-      1.98,     -17.0,      17.0,       36108,      0,      0,      0,      0,   8609,  218,  225,   44100.00,   44102.54,   44099.87,     25.21,    55,    -28.12
-      1.99,     -31.2,      31.2,       37111,      0,      0,      0,      0,   8575,  217,  225,   44100.00,   44101.98,   44099.88,     25.11,    57,    -27.88
-      1.99,     -14.2,      14.2,       38114,      0,      0,      0,      0,   8624,  218,  225,   44100.00,   44104.44,   44099.87,     24.95,    60,    -27.97
-      1.99,     -28.3,      28.3,       39117,      0,      0,      0,      0,   8582,  209,  225,   44100.00,   44104.91,   44099.86,     24.88,    62,    -27.98
-      1.86,     -17.0,      17.0,       40120,      0,      0,      0,      0,   8504,  207,  225,   44100.00,   44104.52,   44099.88,     24.66,    63,    -27.39
-      1.96,     -56.6,      56.6,       41123,      0,      0,      0,      0,   8517,  212,  226,   44100.00,   44102.29,   44099.88,     24.54,    66,    -27.34
-      1.90,     -36.8,      36.8,       42126,      0,      0,      0,      0,   8363,  218,  240,   44100.00,   44116.79,   44099.87,     24.55,    68,    -27.48
-      1.89,       0.0,       0.0,       43129,      0,      0,      0,      0,   8487,  227,  241,   44100.00,   44117.57,   44099.88,     24.56,    69,    -27.32
-      1.99,     -22.7,      22.7,       44132,      0,      0,      0,      0,   8576,  227,  240,   44100.00,   44118.53,   44099.87,     24.57,    70,    -27.44
-      1.98,     -39.7,      39.7,       45135,      0,      0,      0,      0,   8593,  228,  240,   44100.00,   44113.88,   44099.87,     24.60,    73,    -27.43
-      2.00,     -34.0,      34.0,       46138,      0,      0,      0,      0,   8577,  227,  240,   44100.00,   44117.10,   44099.88,     24.65,    75,    -27.46
-      1.98,     -22.7,      22.7,       47141,      0,      0,      0,      0,   8591,  204,  240,   44100.00,   44102.78,   44099.87,     24.67,    77,    -27.59
-      1.98,     -17.0,      17.0,       48144,      0,      0,      0,      0,   8587,  216,  225,   44100.00,   44102.38,   44099.88,     24.67,    79,    -27.42
-      1.99,     -28.3,      28.3,       49147,      0,      0,      0,      0,   8590,  214,  225,   44100.00,   44102.70,   44099.87,     24.66,    80,    -27.57
-      1.85,     -62.3,      62.3,       50150,      0,      0,      0,      0,   8518,  217,  226,   44100.00,   44103.16,   44099.87,     24.70,    83,    -27.55
-      1.90,     -28.3,      28.3,       51153,      0,      0,      0,      0,   8617,  216,  225,   44100.00,   44102.60,   44099.88,     24.66,    85,    -27.42
-      1.89,      -5.7,       5.7,       52156,      0,      0,      0,      0,   8615,  218,  225,   44100.00,   44103.37,   44099.88,     24.65,    86,    -27.39
-      1.96,     -19.8,      19.8,       53159,      0,      0,      0,      0,   8600,  219,  225,   44100.00,   44103.77,   44099.87,     24.62,    89,    -27.53
-      1.99,     -22.7,      22.7,       54162,      0,      0,      0,      0,   8567,  216,  225,   44100.00,   44103.12,   44099.87,     24.57,    92,    -27.45
-```
-
-"Sync error in milliseconds" is the average deviation from exact synchronisation. The first line of the example above indicates that the output is on average 0.15 milliseconds behind exact synchronisation. Sync is allowed to drift by the `general` `drift_tolerance_in_seconds` setting — (± 0.002 seconds) by default — before a correction will be made.
-
-"Net correction in ppm" is actually the net sum of corrections — the number of frame insertions less the number of frame deletions — given as a moving average in parts per million. After an initial settling period, it represents the drift — the divergence between the rate at which frames are generated at the source and the rate at which the output device consumes them. In this case, the drift is negligible, but it can routinely be up to 150 ppm, especially with older machines.
-
-"Corrections in ppm" is the number of frame insertions plus the number of frame deletions (i.e. the total number of corrections), given as a moving average in parts per million. The closer this is to the net corrections, the fewer "unnecessary" corrections are being made. Third party programs tend to have much larger levels of corrections.
-
-"Min DAC queue size" is the minimum size the queue of samples in the output device's hardware buffer was measured at. It is meant to stand at 0.2 seconds = 8,820 frames at 44,100 frames per second, and will go low if the processor is very busy. If it goes below about 2,000 then it's an indication that the processor can't really keep up.
-
-"Source nominal frames per second" is the rate at which audio is being sent to Shairport Sync according to information supplied by the source itself.
-
-"Source actual frames per second" is the rate at which frames of audio are actually received by Shairport Sync. This can vary a great deal due to network conditions, but over a long time (more than 30 minutes) it should settle down to an accurate value. It does not account for retransmitted packets.
-
-"Output frames per second" is the actual rate at which frames of audio are taken by the output device. On a system with a well-conditioned `ntp`-based clock (and without output underruns) this figure should be very accurate after playing material continuously for a period.
-
-"Source clock drift in ppm" is an estimate of the difference in timekeeping between the audio source and the Shairport Sync device. It is calculated from a linear regression of drift sample data. The number of samples the estimate is based on is given in the next column, "Source clock drift sample count".
-
-"Rough calculated correction in ppm" is a very crude estimate of the amount of interpolation that needs to applied, on average, to keep sync. It is not really to be relied on at this time.
-
-For reference, a drift of one second per day is approximately 11.57 ppm. Left uncorrected, even a drift this small between two audio outputs will be audible after a short time. The above sample is from an iPhone XS Max to Shairport Sync running on a WiFi-connected Raspberry Pi 3 using an [IQaudIO Pi-DigiAMP+](http://iqaudio.co.uk/hats/9-pi-digiamp.html).
-
-It's not unusual to have resend requests, late packets and even missing packets if some part of the connection to the Shairport Sync device is over WiFi. Late packets can sometimes be asked for and received multiple times. Sometimes late packets are sent and arrive too late, but have already been sent and received in time, so weren't needed anyway...
-
+For reference, a drift of one second per day is approximately 11.57 ppm. Left uncorrected, even a drift this small between two audio outputs will be audible after a short time.
 
 WiFi Issues
 ---------
