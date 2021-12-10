@@ -223,21 +223,21 @@ The "corrected" figure is the rate at which the output device accepts data relat
 
 Here is a brief description of the figures that might be provided.
 ##### sync error ms
-Average playback synchronisation error in milliseconds in the last interval. By default, Shairport Sync will allow a sync error of ± 2.0 milliseconds without any interpolation.
+Average playback synchronisation error in milliseconds in the last interval. By default, Shairport Sync will allow a sync error of ± 2.0 milliseconds without any interpolation. Positive means late, negative means early.
 ##### net sync ppm
 This is the total amount of interpolation done by Shairport Sync to keep the audio stream in sync. The number represents is the total number of frames added and removed from the audio stream, expressed in parts per million (ppm) in the last interval. For reference, adding or removing one frame per second into a 44,100 frames per second stream is 22.68 ppm. 
 ##### all sync ppm
-This is the net amount of interpolation done by Shairport Sync to keep the audio stream in sync. The number represents is the number of frames added less the number removed from the audio stream, expressed in parts per million (ppm) in the last interval.
+This is the net amount of interpolation done by Shairport Sync to keep the audio stream in sync. The number represents is the number of frames added plus the number removed from the audio stream, expressed in parts per million (ppm) in the last interval. The magnitude of this should be the same as the `net sync ppm'. If it is much larger it means that Shairport Sync is overcorrecting for sync errors -- try increasing the drift tolerance to reduce it.
 ##### packets
 This is the number of packets of audio frames received since the start of the session. A packet normally contains 352 ± 1 audio frames.
 ##### missing
-This is the number of packets of audio frames that were not received in the last interval. It should be zero, and if not it can indicate a problem with the network. Only relevant in AirPlay 1 or AirPlay 2 Realtime Streams.
+This is the number of packets of audio frames that were not received in the last interval. It should be zero, and if not it can indicate a problem with the network. AirPlay 1 and AirPlay 2 Realtime Streams only.
 ##### late
-This is the number of packets of audio frames that were received late -- but still in time to be used -- in the last interval. Only relevant in AirPlay 1 or AirPlay 2 Realtime Streams.
+This is the number of packets of audio frames that were received late -- but still in time to be used -- in the last interval. AirPlay 1 and AirPlay 2 Realtime Streams only.
 ##### too late
-This is the number of packets of audio frames that were received too late to be used in the last interval. It is possible that these packets may already have been received, so those frames might not actually be missing when the time comes to play them. Only relevant in AirPlay 1 or AirPlay 2 Realtime Streams.
+This is the number of packets of audio frames that were received too late to be used in the last interval. It is possible that these packets may already have been received, so those frames might not actually be missing when the time comes to play them. AirPlay 1 and AirPlay 2 Realtime Streams only.
 ##### resend reqs
-This is the number of times Shairport Sync requests the resending of missing frames. Requests can be for one or more frames. Only relevant in AirPlay 1 or AirPlay 2 Realtime Streams.
+This is the number of times Shairport Sync requests the resending of missing frames. Requests can be for one or more frames. AirPlay 1 and AirPlay 2 Realtime Streams only.
 ##### min DAC queue
 The is the smallest number of frames of audio in the DAC's hardware queue. If it goes too low, the DAC may begin to underrun.
 ##### min buffers
@@ -245,19 +245,19 @@ The is the smallest number of packets of audio in the queue to be processed in t
 ##### max buffers
 The is the largest number of packets of audio in the queue to be processed in the last interval. 
 ##### nominal fps
-This is the rate specified in the AirPlay stream itself. Only available for AirPlay 1 streams.
+This is the rate specified in the AirPlay stream itself. AirPlay 1 only.
 ##### received fps
-This is the rate at which frames are received from the network averaged since the start of the play session. Only available for AirPlay 1.
+This is the rate at which frames are received from the network averaged since the start of the play session. AirPlay 1 only.
 ##### output fps (r)
 Output rate measured relative to the computer system's clock since the start of the play session. See above for a discussion.
 ##### output fps (c)
 Output rate measured relative to the network-clock-disciplined computer system's clock since the start of the play session. See above for a discussion.
 ##### source drift ppm
-This is a measure of the difference between the source clock and Shairport Sync's clock expressed in parts per million. Only valid when 10 or more drift samples have been received. Only available for AirPlay 1.
+This is a measure of the difference between the source clock and Shairport Sync's clock expressed in parts per million. Only valid when 10 or more drift samples have been received. AirPlay 1 only.
 ##### drift samples
-This is the number drift samples have been accepted for calculating the source drift. Only available for AirPlay 1.
+This is the number drift samples have been accepted for calculating the source drift. AirPlay 1 only.
 #### Example
-The following example is of an AirPlay 2 Buffered Audio stream from a HomePod mini to a Raspberry Pi 3 equipped with a [Pimoroni Audio DAC SHIM (Line-Out)](https://shop.pimoroni.com/products/audio-dac-shim-line-out) with `log_verbosity` set to `1`.
+The following example is of an AirPlay 2 Buffered Audio Stream from a HomePod mini to a WiFi-connected Raspberry Pi 3 equipped with a Pimoroni "Audio DAC SHIM (Line-Out)" with `log_verbosity` set to `1`.
 
 ```
  sync error ms net sync ppm all sync ppm     packets min DAC queue min buffers max buffers output fps (r) output fps (c)
