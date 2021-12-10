@@ -209,7 +209,22 @@ Playback synchronisation is allowed to wander — to "drift" — a small amount 
 
 Some Statistics
 ---------------
-If you turn on the `general`  `statistics` setting, a heading like this will be output to the log file (or to `STDERR` if the `-u` command line option is chosen):
+If you set the `statistics` setting in the `diagnostics` section of the configuration file to `"YES"`, some statistics will be logged at regular intervals. The items logged will depend on the type of stream being processed: AirPlay 1, AirPlay 2 Buffered Audio or AirPlay 2 Realtime Audio. If the `log_verbosity` is set to 1, 2 or 3, additional items will be logged.
+
+From an audio enthusiast's point of view, the most important figure is probably the `all sync ppm` figure. This is the total amount of interpolation done by Shairport Sync to keep the audio stream in sync. The number represents is the total number of frames added or removed from the audio stream, expressed in parts per million (ppm) in the last interval. For reference, adding or removing one frame per second into a 44,100 frames per second stream is 22.68 ppm. The lower the `all sync ppm` number is, the higher the fidelity of the audio signal passed to the output device. On a well sorted system, this figure can be 0.0 for considerable periods, but it can't really be zero forever. You may also find that the number might be higher at the start while the sysstem settles down.
+
+The second most important figure is probably the `sync error ms` is the average synchronisation error in milliseconds in the last interval. Ideally it should be 0.0. By default, Shairport Sync will allow a sync error of ± 2.0 milliseconds without any interpolation. 
+
+Two possibly interesting measurements of the output rate may be available -- `output fps (r)` and `output fps (c)`. The `(r)` means "raw" and the `(c)` means "corrected".
+
+The "raw" figure is the rate at which the output device (typically a DAC) accepts data measured relative to the computer's own system clock (specifically the `CLOCK_MONOTONIC_RAW` clock). The accuracy of the number depends on the accuracy of the clock, which will typically be accurate to within anything from 20 to 100 ppm.
+
+The "corrected" figure is the rate at which the output device accepts data relative to the computer's network-time-disciplined clock (specifically the `CLOCK_MONOTONIC` clock). This clock is normally adjusted ("disciplined") to keep time with network time and should be accurate to with a few tens of milliseconds over a long period. So (1) if you could run a play session for a long period -- say a day -- and (2) if network time synchronisation is enabled and (3) if the network connection to the network time service is fast and stable, then you should get an accurate absolute measure of exact frame rate of the output device. If your internet connection is not good, the corrected figure will be very inaccurate.
+
+Here is a brief description of the figures that might be provided.
+
+
+
 ```
 sync error in milliseconds, net correction in ppm, corrections in ppm, total packets, missing packets, late packets, too late packets, resend requests, min DAC queue size, min buffer occupancy, max buffer occupancy, source nominal frames per second, source actual frames per second, output frames per second, source clock drift in ppm, source clock drift sample count, rough calculated correction in ppm
 ```
