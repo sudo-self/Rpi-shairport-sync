@@ -1,3 +1,7 @@
+Version-4.1-dev-104-g84dd2dc4
+====
+* Begin to explore some more connection types.
+
 Version-4.1-dev-102-g9bf45574
 ====
 #### Enhancement
