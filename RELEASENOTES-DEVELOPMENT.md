@@ -1,3 +1,8 @@
+Version-4.1-dev-102-g9bf45574
+====
+#### Enhancement
+* Make debug messages in the system log easier to see on macOS Terminal (!) by outputting them at LOG_INFO level rather than LOG_DEBUG level.
+
 Version-4.1-dev-100-g8330f30b
 ====
 #### Enhancement
