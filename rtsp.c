@@ -2338,7 +2338,7 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
         if (typeValue != NULL)
           free(typeValue);
       } else {
-        debug(1, "Could not get the \"type\" item.");
+        debug(2, "Could not find a \"type\" item.");
       }
 
       plist_free(command_dict);
@@ -2521,10 +2521,10 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       // we are being asked to close a stream
       teardown_phase_one(conn);
       plist_free(streams);
-      debug(1, "Connection %d: TEARDOWN phase one complete", conn->connection_number);
+      debug(2, "Connection %d: TEARDOWN phase one complete", conn->connection_number);
     } else {
       teardown_phase_two(conn);
-      debug(1, "Connection %d: TEARDOWN phase two complete", conn->connection_number);
+      debug(2, "Connection %d: TEARDOWN phase two complete", conn->connection_number);
     }
     //} else {
     //  warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
@@ -2874,6 +2874,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
           plist_dict_set_item(setupResponsePlist, "eventPort",
                               plist_new_uint(conn->local_event_port));
+          plist_dict_set_item(setupResponsePlist, "timingPort",
+                              plist_new_uint(0));
           cancel_all_RTSP_threads(
               remote_control_stream,
               conn->connection_number); // kill all the other remote control listeners
@@ -3095,7 +3097,12 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     } else if (conn->airplay_stream_category == remote_control_stream) {
       debug(2, "Connection %d: SETUP: Remote Control Stream received.", conn->connection_number);
       debug_log_rtsp_message(2, "Remote Control Stream stream (second) message", req);
-
+      plist_t coreResponseDict = plist_new_dict();
+      plist_dict_set_item(coreResponseDict, "streamID", plist_new_uint(1));
+      plist_dict_set_item(coreResponseDict, "type", plist_new_uint(130));
+      plist_t coreResponseArray = plist_new_array();
+      plist_array_append_item(coreResponseArray, coreResponseDict);
+      plist_dict_set_item(setupResponsePlist, "streams", coreResponseArray);
       resp->respcode = 200;
     } else {
       debug(1, "Connection %d: SETUP: Stream received but no airplay category set. Nothing done.",
