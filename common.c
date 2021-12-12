@@ -535,7 +535,7 @@ void _debug(const char *filename, const int linenumber, int level, const char *f
   va_start(args, format);
   vsnprintf(s, sizeof(b) - (s - b), format, args);
   va_end(args);
-  sps_log(LOG_DEBUG, "%s", b);
+  sps_log(LOG_INFO, b); // LOG_DEBUG is hard to read on macOS terminal
   pthread_setcancelstate(oldState, NULL);
 }
 
