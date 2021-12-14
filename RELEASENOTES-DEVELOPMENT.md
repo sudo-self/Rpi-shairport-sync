@@ -1,3 +1,8 @@
+Version-4.1-dev-106-ge98111fb
+====
+#### Enhancement
+* Try to improve the reliability of restarting a "silent clock" device.
+
 Version-4.1-dev-104-g84dd2dc4
 ====
 * Begin to explore some more connection types.
