@@ -373,7 +373,7 @@ AC_ARG_WITH(mpris-test-client, [AS_HELP_STRING([--with-mpris-test-client],[compi
 AM_CONDITIONAL([USE_MPRIS_CLIENT], [test "x$with_mpris_test_client" = "xyes"])
 
 if test "x$with_mpris_test_client" = "xyes" || test "x$with_dbus_test_client" = "xyes" || test "x$with_mpris_interface" = "xyes" || test "x$with_dbus_interface" = "xyes" ; then
-  PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(MPRIS client support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
+  PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(the glib 2.0 library is required -- libglib2.0-dev suggested!)])
 fi
 
 # Look for mqtt flag

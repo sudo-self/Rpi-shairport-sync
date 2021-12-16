@@ -432,27 +432,22 @@ void set_requested_connection_state_to_output(int v) { requested_connection_stat
 
 char *generate_preliminary_string(char *buffer, size_t buffer_length, double tss, double tsl,
                                   const char *filename, const int linenumber, const char *prefix) {
-  size_t space_remaining = buffer_length;
   char *insertion_point = buffer;
   if (config.debugger_show_elapsed_time) {
-    snprintf(insertion_point, space_remaining, "% 20.9f", tss);
+    snprintf(insertion_point, buffer_length, "% 20.9f", tss);
     insertion_point = insertion_point + strlen(insertion_point);
-    space_remaining = space_remaining - strlen(insertion_point);
   }
   if (config.debugger_show_relative_time) {
-    snprintf(insertion_point, space_remaining, "% 20.9f", tsl);
+    snprintf(insertion_point, buffer_length, "% 20.9f", tsl);
     insertion_point = insertion_point + strlen(insertion_point);
-    space_remaining = space_remaining - strlen(insertion_point);
   }
   if (config.debugger_show_file_and_line) {
-    snprintf(insertion_point, space_remaining, " \"%s:%d\"", filename, linenumber);
+    snprintf(insertion_point, buffer_length, " \"%s:%d\"", filename, linenumber);
     insertion_point = insertion_point + strlen(insertion_point);
-    space_remaining = space_remaining - strlen(insertion_point);
   }
   if (prefix) {
-    snprintf(insertion_point, space_remaining, "%s", prefix);
+    snprintf(insertion_point, buffer_length, "%s", prefix);
     insertion_point = insertion_point + strlen(insertion_point);
-    space_remaining = space_remaining - strlen(insertion_point);
   }
   return insertion_point;
 }
