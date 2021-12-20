@@ -148,7 +148,7 @@ int ptp_shm_interface_close() {
 }
 
 void ptp_send_control_message_string(const char *msg) {
-  debug(2, "Send control message to NQPTP: \"%s\"", msg);
+  debug(1, "Send control message to NQPTP: \"%s\"", msg);
   int s;
   unsigned short port = htons(NQPTP_CONTROL_PORT);
   struct sockaddr_in server;
