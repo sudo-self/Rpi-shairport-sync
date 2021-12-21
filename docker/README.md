@@ -2,6 +2,13 @@
 
 Available at: https://hub.docker.com/r/mikebrady/shairport-sync
 
+Please note if you want the development version of the image including Airplay 2 support, please pull the image with the ```unstable development``` tag using the following command:
+```
+docker pull mikebrady/shairport-sync:unstable-development
+```
+
+When using the below commands, you should replace mikebrady/shairport-sync with mikbrady/shairport-sync:unstable-development.
+
 ## Example Docker Compose File
 See the `docker-compose.yaml` file in this folder for an example.
 
