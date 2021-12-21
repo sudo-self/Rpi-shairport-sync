@@ -2538,7 +2538,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     resp->respcode = 451; // don't know what to do here
   }
   // debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
-  // exit(EXIT_SUCCESS); // 
+  // exit(EXIT_SUCCESS); //
 }
 #endif
 
@@ -2679,6 +2679,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         // if it's a full service PTP stream, we get groupUUID, groupContainsGroupLeader and
         // timingPeerList
         if (conn->airplay_stream_category == ptp_stream) {
+          ptp_send_control_message_string("T"); // remove all previous history
           debug_log_rtsp_message(2, "SETUP \"PTP\" message", req);
           plist_t groupUUID = plist_dict_get_item(messagePlist, "groupUUID");
           if (groupUUID) {
@@ -2836,8 +2837,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             debug(2, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
                   get_category_string(conn->airplay_stream_category));
             mdns_update(NULL, secondary_txt_records);
-            
-            
+
+
 
             resp->respcode = 200;
           } else {
