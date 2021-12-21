@@ -1280,7 +1280,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   if (response == clock_ok) {
     uint64_t time_now = get_absolute_time_in_ns();
     int64_t time_since_sample = time_now - actual_time_of_sample;
-    if (time_since_sample > 10000000000) {
+    if (time_since_sample > 300000000000) {
       if (long_time_notifcation_done == 0) {
         debug(1, "The last PTP timing sample is pretty old: %f seconds.",
               0.000000001 * time_since_sample);
