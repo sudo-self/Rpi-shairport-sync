@@ -1,3 +1,7 @@
+Version-4.1-dev-115-g8656149d
+====
+* Simplify and improve timing when a play session from a new device is started.
+
 Version-4.1-dev-106-ge98111fb
 ====
 #### Enhancement
