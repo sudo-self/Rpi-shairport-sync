@@ -1280,7 +1280,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   if (response == clock_ok) {
     uint64_t time_now = get_absolute_time_in_ns();
     int64_t time_since_sample = time_now - actual_time_of_sample;
-    if (time_since_sample > 10000000000) {
+    if (time_since_sample > 300000000000) {
       if (long_time_notifcation_done == 0) {
         debug(1, "The last PTP timing sample is pretty old: %f seconds.",
               0.000000001 * time_since_sample);
@@ -1305,7 +1305,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
         // if the master clock and the anchor clock are the same
         // wait at least this time before using the new master clock
         // note that mastershipo may be backdated
-        if (duration_of_mastership < 2000000000) {
+        if (duration_of_mastership < 1500000000) {
           debug(3, "master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
           response = clock_not_ready;
         } else if ((duration_of_mastership > 5000000000) ||
