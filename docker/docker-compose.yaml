@@ -9,3 +9,7 @@ services:
       - "/dev/snd"
     # volumes:
     #   - ./volumes/shairport-sync/shairport-sync.conf:/etc/shairport-sync.conf # Customised Shairport Sync configuration file.
+    logging:
+      options:
+        max-size: "200k"
+        max-file: "10"
