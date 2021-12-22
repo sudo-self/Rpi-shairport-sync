@@ -1,3 +1,8 @@
+Version-4.1-dev-??
+====
+#### Enhancement
+* Update the Docker workflow to automatically do Docker tagging and to use an s6-overlay implementation. Many thanks to [Robert Casties](https://github.com/robcast) for his s6-overlay Pull Request [#1349](https://github.com/mikebrady/shairport-sync/pull/1349) which formed the basis of this work.
+
 Version-4.1-dev-115-g8656149d
 ====
 * Simplify and improve timing when a play session from a new device is started.
