@@ -1,0 +1,57 @@
+# Builds & pushes a docker image when a tag occurs.
+# It seems this yaml has to exist on the branch the tag refers to.
+
+# The following tags are created & pushed:
+# [RELEASE TAG] and latest
+
+name: Build and push docker images on releases.
+
+on:
+  push:
+    tags:
+      - '*' # Push events to every tag (not containing '/')
+
+env:
+  DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set SHAIRPORT_SYNC_BRANCH env.
+        run: |
+          raw=$(git branch -r --contains ${{ github.ref }})
+          branch=${raw##*/}
+          echo "SHAIRPORT_SYNC_BRANCH=${branch}" >> $GITHUB_ENV
+
+      - name: Set tag env
+        run: echo "GIT_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+        
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Docker Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ secrets.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_REGISTRY_USER }}
+          password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: ./
+          file: ./docker/airplay1/Dockerfile
+          platforms: ${{ env.DOCKER_PLATFORMS }}
+          push: true
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:latest, ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}
+          build-args: |
+            SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
