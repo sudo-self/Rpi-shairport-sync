@@ -1,7 +1,9 @@
 Version-4.1-dev-??
 ====
 #### Enhancement
-* Update the Docker workflow to automatically do Docker tagging and to use an s6-overlay implementation. Many thanks to [Robert Casties](https://github.com/robcast) for his s6-overlay Pull Request [#1349](https://github.com/mikebrady/shairport-sync/pull/1349) which formed the basis of this work.
+* Update the Docker workflow to automatically do Docker tagging and to use an s6-overlay implementation. Thanks to [Charles Omer](https://github.com/charlesomer) for all this work, and to [Robert Casties](https://github.com/robcast) for his s6-overlay Pull Request [#1349](https://github.com/mikebrady/shairport-sync/pull/1349) which formed the basis of the s6-overlay work.
+* Slight documentation update, thanks to [michaeldeborst](https://github.com/michaeldeborst).
+
 
 Version-4.1-dev-115-g8656149d
 ====
