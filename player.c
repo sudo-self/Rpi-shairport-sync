@@ -1063,12 +1063,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               int64_t lt = conn->first_packet_time_to_play - local_time_now;
 
-              if (lt < 150000000) {
+              if (lt < 130000000) {
                 debug(1, "Connection %d: Short lead time for first frame %" PRId64 ": %f seconds. Flushing 0.5 seconds",
                     conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
                 do_flush(conn->first_packet_timestamp + 5 * 4410, conn);
               } else {
-                debug(1, "Connection %d: Lead time for first frame %" PRId64 ": %f seconds.",
+                debug(2, "Connection %d: Lead time for first frame %" PRId64 ": %f seconds.",
                     conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
               }
 /*
