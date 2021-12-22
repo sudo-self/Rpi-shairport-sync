@@ -1,12 +1,15 @@
-# Builds & pushes a docker image when a commit is made to one of the branches specified below.
-# Tag pattern: 'unstable-[BRANCH NAME]' & 'unstable-[BRANCH NAME]-airplay1'
-# See docker-build-releases.yaml for release build process.
+# Builds & pushes a docker image when a tag occurs.
+# It seems this yaml has to exist on the branch the tag refers to.
 
-name: Build and push docker image based on commit to specified branches.
+# The following docker tags are created & pushed:
+# [RELEASE TAG], [RELEASE TAG]-airplay1,
+
+name: Build and push docker images on releases.
 
 on:
   push:
-    branches: [ development ]
+    tags:
+      - '*' # Push events to every tag (not containing '/')
 
 env:
   DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
@@ -21,16 +24,22 @@ jobs:
           fetch-depth: 0
 
       - name: Set SHAIRPORT_SYNC_BRANCH env.
-        run: echo "SHAIRPORT_SYNC_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
+        run: |
+          raw=$(git branch -r --contains ${{ github.ref }})
+          branch=${raw##*/}
+          echo "SHAIRPORT_SYNC_BRANCH=${branch}" >> $GITHUB_ENV
+
+      - name: Set tag env
+        run: echo "GIT_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
       - name: Determine NQPTP env (part 1).
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
         run: echo "NQPTP_BRANCH=development" >> $GITHUB_ENV
-
+      
       - name: Determine NQPTP env (part 2).
         if: ${{ env.SHAIRPORT_SYNC_BRANCH != 'development' }}
         run: echo "NQPTP_BRANCH=main" >> $GITHUB_ENV
-
+        
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
 
@@ -51,7 +60,7 @@ jobs:
           file: ./docker/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
           push: true
-          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
             NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
@@ -63,6 +72,6 @@ jobs:
           file: ./docker/airplay1/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
           push: true
-          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}-airplay1
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}-airplay1
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}

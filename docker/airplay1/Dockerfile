@@ -1,4 +1,4 @@
-FROM alpine:3.12 AS builder-base
+FROM alpine AS builder-base
 # General Build System:
 RUN apk -U add \
         git \
@@ -63,7 +63,7 @@ RUN make -j $(nproc)
 RUN make install
 
 # Shairport Sync Runtime System:
-FROM alpine:3.12
+FROM alpine
 
 RUN apk -U add \
         alsa-lib \
