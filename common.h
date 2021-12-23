@@ -152,7 +152,7 @@ typedef struct {
   int mqtt_publish_cover;
   int mqtt_enable_remote;
 #endif
-  uint8_t hw_addr[6];
+  uint8_t hw_addr[8];    // only needs 6 but 8 is handy when converting this to a number
   int port;
   int udp_port_base;
   int udp_port_range;
