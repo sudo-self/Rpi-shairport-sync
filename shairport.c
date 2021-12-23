@@ -111,8 +111,8 @@
 #include <FFTConvolver/convolver.h>
 #endif
 
-#ifdef CONFIG_LIBDAEMON
 pid_t pid;
+#ifdef CONFIG_LIBDAEMON
 int this_is_the_daemon_process = 0;
 #endif
 
@@ -289,8 +289,8 @@ void usage(char *progname) {
 #ifdef CONFIG_METADATA
   printf("    -M, --metadata-enable   ask for metadata from the source and process it.\n");
   printf("    --metadata-pipename=PIPE send metadata to PIPE, e.g. "
-         "--metadata-pipename=/tmp/shairport-sync-metadata.\n");
-  printf("                            The default is /tmp/shairport-sync-metadata.\n");
+         "--metadata-pipename=/tmp/%s-metadata.\n", config.appName);
+  printf("                            The default is /tmp/%s-metadata.\n", config.appName);
   printf("    -g, --get-coverart      send cover art through the metadata pipe.\n");
 #endif
   printf("    -u, --use-stderr        log messages through STDERR rather than the system log.\n");
@@ -1256,8 +1256,14 @@ int parse_options(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_METADATA
-  if ((config.metadata_enabled == 1) && (config.metadata_pipename == NULL))
-    config.metadata_pipename = strdup("/tmp/shairport-sync-metadata");
+  if ((config.metadata_enabled == 1) && (config.metadata_pipename == NULL)) {
+    char temp_metadata_pipe_name[4096];
+    strcpy(temp_metadata_pipe_name, "/tmp/");
+    strcat(temp_metadata_pipe_name, config.appName);
+    strcat(temp_metadata_pipe_name, "-metadata");
+    config.metadata_pipename = strdup(temp_metadata_pipe_name);
+    debug(1,"default metadata_pipename is \"%s\".", temp_metadata_pipe_name);
+  }
 #endif
 
   /* if the regtype hasn't been set, do it now */
@@ -1311,7 +1317,11 @@ int parse_options(int argc, char **argv) {
 #ifdef DEFINED_CUSTOM_PID_DIR
   char *use_this_pid_dir = PIDDIR;
 #else
-  char *use_this_pid_dir = "/var/run/shairport-sync";
+  char temp_pid_dir[4096];
+  strcpy(temp_pid_dir, "/var/run/");
+  strcat(temp_pid_dir, config.appName);
+  debug(1,"default pid filename is \"%s\".", temp_pid_dir);
+  char *use_this_pid_dir = temp_pid_dir;
 #endif
   // debug(1,"config.piddir \"%s\".",config.piddir);
   if (config.piddir)
@@ -1508,9 +1518,7 @@ int main(int argc, char **argv) {
 
   log_to_syslog();
 
-#ifdef CONFIG_LIBDAEMON
   pid = getpid();
-#endif
   config.log_fd = -1;
   conns = NULL; // no connections active
   memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
@@ -1539,6 +1547,8 @@ int main(int argc, char **argv) {
 
   // get a device id -- the first non-local MAC address
   get_device_id((uint8_t *)&config.hw_addr, 6);
+  // hack add the PID to get something unique
+  config.hw_addr[5] += pid & 0xff;
 
   // get the endianness
   union {
@@ -1822,19 +1832,23 @@ int main(int argc, char **argv) {
   // Set to NULL to work with transient pairing
   config.airplay_pin = NULL;
 
-  // use the config.hw_addr to generated an airplay_device_id
-  {
-    char obf[256] = {0};
-    char *obfp = obf;
-    int i;
-    for (i = 0; i < 6; i++) {
-      snprintf(obfp, 4, "%02X:", config.hw_addr[i]);
-      obfp += 3;
-    }
-    obfp -= 1;
-    *obfp = 0;
-    config.airplay_device_id = strdup(obf);
+  // use the start of the config.hw_addr and the PID to generate the airplay_device_id
+  uint64_t apid = nctoh64(config.hw_addr);
+  apid = apid >> 16; // we only use the first 6 bytes but have imported 8.
+  apid = apid + pid;
+  char apids[6*2+5+1]; // six pairs of digits, 5 colons and a NUL
+  apids[6*2+5] = 0; // NUL termination
+  int i;
+  char hexchar[] = "0123456789abcdef";
+  for (i = 5; i >= 0; i--) {
+    apids[i*3+1] = hexchar[apid & 0xF];
+    apid = apid >> 4;
+    apids[i*3] = hexchar[apid & 0xF];
+    apid = apid >> 4;
+    if (i != 0)
+      apids[i*3-1] = ':';
   }
+  config.airplay_device_id = strdup(apids);
 
   // now generate a UUID
   // from https://stackoverflow.com/questions/51053568/generating-a-random-uuid-in-c
