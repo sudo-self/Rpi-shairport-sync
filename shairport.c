@@ -1830,10 +1830,22 @@ int main(int argc, char **argv) {
   // Set to NULL to work with transient pairing
   config.airplay_pin = NULL;
 
-  // use the start of the config.hw_addr and the PID to generate the airplay_device_id
+  // use the start of the config.hw_addr and the PID to generate the default airplay_device_id
   uint64_t apid = nctoh64(config.hw_addr);
   apid = apid >> 16; // we only use the first 6 bytes but have imported 8.
-  // apid = apid + pid;
+  
+  int64_t aid;
+ 
+  // add the airplay_device_id_offset if provided
+  if (config_lookup_int64(config.cfg, "general.airplay_device_id_offset", &aid)) {
+    apid += aid;
+  } 
+  
+  // replace the airplay_device_id with this, if provided
+  if (config_lookup_int64(config.cfg, "general.airplay_device_id", &aid)) {
+    apid = aid;
+  }
+  
   char apids[6*2+5+1]; // six pairs of digits, 5 colons and a NUL
   apids[6*2+5] = 0; // NUL termination
   int i;
@@ -1846,6 +1858,7 @@ int main(int argc, char **argv) {
     if (i != 0)
       apids[i*3-1] = ':';
   }
+  
   config.airplay_device_id = strdup(apids);
 
   // now generate a UUID
