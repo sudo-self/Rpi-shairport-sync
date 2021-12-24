@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +12,7 @@
 #include "rtp.h"
 
 #include "dacp.h"
+#include "metadata_hub.h"
 #include "mqtt.h"
 #include <mosquitto.h>
 
@@ -129,6 +131,10 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
   }
   if (config.mqtt_publish_parsed) {
     if (type == 'core') {
+      int32_t r;
+      uint64_t trackid;
+      char trackidstring[32];
+
       switch (code) {
       case 'asar':
         mqtt_publish("artist", data, length);
@@ -136,32 +142,39 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
       case 'asal':
         mqtt_publish("album", data, length);
         break;
-      case 'minm':
-        mqtt_publish("title", data, length);
+      case 'asfm':
+        mqtt_publish("format", data, length);
         break;
       case 'asgn':
         mqtt_publish("genre", data, length);
         break;
-      case 'asfm':
-        mqtt_publish("format", data, length);
+      case 'minm':
+        mqtt_publish("title", data, length);
         break;
+      case 'mper':
+        trackid = *(uint64_t *)(data);
+        r = snprintf(trackidstring, sizeof(trackidstring), "%" PRIX64 "", trackid);
+        mqtt_publish("track_id", trackidstring, r);
       }
     } else if (type == 'ssnc') {
       switch (code) {
+      case 'abeg':
+        mqtt_publish("active_start", data, length);
+        break;
+      case 'acre':
+        mqtt_publish("active_remote_id", data, length);
+        break;
+      case 'aend':
+        mqtt_publish("active_end", data, length);
+        break;
       case 'asal':
         mqtt_publish("songalbum", data, length);
-        break;
-      case 'pvol':
-        mqtt_publish("volume", data, length);
         break;
       case 'clip':
         mqtt_publish("client_ip", data, length);
         break;
-      case 'abeg':
-        mqtt_publish("active_start", data, length);
-        break;
-      case 'aend':
-        mqtt_publish("active_end", data, length);
+      case 'daid':
+        mqtt_publish("dacp_id", data, length);
         break;
       case 'pbeg':
         mqtt_publish("play_start", data, length);
@@ -172,14 +185,21 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
       case 'pfls':
         mqtt_publish("play_flush", data, length);
         break;
-      case 'prsm':
-        mqtt_publish("play_resume", data, length);
-        break;
       case 'PICT':
         if (config.mqtt_publish_cover) {
           mqtt_publish("cover", data, length);
         }
         break;
+      case 'prsm':
+        mqtt_publish("play_resume", data, length);
+        break;
+      case 'pvol':
+        mqtt_publish("volume", data, length);
+        break;
+      case 'svip':
+        mqtt_publish("server_ip", data, length);
+        break;
+
       }
     }
   }
