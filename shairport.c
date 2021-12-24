@@ -1547,8 +1547,6 @@ int main(int argc, char **argv) {
 
   // get a device id -- the first non-local MAC address
   get_device_id((uint8_t *)&config.hw_addr, 6);
-  // hack add the PID to get something unique
-  config.hw_addr[5] += pid & 0xff;
 
   // get the endianness
   union {
@@ -1835,7 +1833,7 @@ int main(int argc, char **argv) {
   // use the start of the config.hw_addr and the PID to generate the airplay_device_id
   uint64_t apid = nctoh64(config.hw_addr);
   apid = apid >> 16; // we only use the first 6 bytes but have imported 8.
-  apid = apid + pid;
+  // apid = apid + pid;
   char apids[6*2+5+1]; // six pairs of digits, 5 colons and a NUL
   apids[6*2+5] = 0; // NUL termination
   int i;
