@@ -67,7 +67,7 @@ RUN make install
 ##### SPS END #####
 
 # Shairport Sync Runtime System
-FROM crazymax/alpine-s6:3.12
+FROM crazymax/alpine-s6:3.12-edge
 
 RUN apk -U add \
         alsa-lib \
