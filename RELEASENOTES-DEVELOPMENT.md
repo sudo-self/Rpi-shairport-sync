@@ -1,6 +1,12 @@
+Version-4.1-dev-146-g42e508b4
+====
+#### Enhancements
+* Extract several very useful extra pieces of client metadata for AP2. Many thanks to [Cody Cutrer](https://github.com/ccutrer).
+* Enable a cleaner restart of the D-Bus daemon in a Docker image. Thanks again to [Charles Omer](https://github.com/charlesomer).
+
 Version-4.1-dev-138-g5617f40e
 ====
-### Minor Internal Changes
+#### Minor Internal Changes
 * A small number of internal chages made.
 
 Version-4.1-dev-127-g4d0460b9

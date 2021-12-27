@@ -2618,6 +2618,8 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 
 #ifdef CONFIG_AIRPLAY_2
 
+
+#ifdef CONFIG_METADATA
 static void check_and_send_plist_metadata(plist_t messagePlist, const char *plist_key, uint32_t metadata_code)
 {
   plist_t item = plist_dict_get_item(messagePlist, plist_key);
@@ -2629,6 +2631,7 @@ static void check_and_send_plist_metadata(plist_t messagePlist, const char *plis
     }
   }
 }
+#endif
 
 void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int err;
