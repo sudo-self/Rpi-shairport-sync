@@ -173,6 +173,15 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
       case 'clip':
         mqtt_publish("client_ip", data, length);
         break;
+      case 'cdid':
+        mqtt_publish("client_device_id", data, length);
+        break;
+      case 'cmac':
+        mqtt_publish("client_mac_address", data, length);
+        break;
+      case 'cmod':
+        mqtt_publish("client_model", data, length);
+        break;
       case 'daid':
         mqtt_publish("dacp_id", data, length);
         break;
@@ -195,6 +204,9 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
         break;
       case 'pvol':
         mqtt_publish("volume", data, length);
+        break;
+      case 'snam':
+        mqtt_publish("client_name", data, length);
         break;
       case 'svip':
         mqtt_publish("server_ip", data, length);
