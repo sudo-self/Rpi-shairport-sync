@@ -1,4 +1,4 @@
-FROM alpine:3.12 AS builder
+FROM alpine:3.15 AS builder
 
 # Check required arguments exist. These will be provided by the Github Action
 # Workflow and are required to ensure the correct branches are being used.
@@ -67,7 +67,7 @@ RUN make install
 ##### SPS END #####
 
 # Shairport Sync Runtime System
-FROM crazymax/alpine-s6:3.12-edge
+FROM crazymax/alpine-s6:3.15-edge
 
 RUN apk -U add \
         alsa-lib \
