@@ -20,14 +20,12 @@
 #ifndef NQPTP_SHM_STRUCTURES_H
 #define NQPTP_SHM_STRUCTURES_H
 
-#define STORAGE_ID "/nqptp"
-#define MAX_CLOCKS 32
-#define NQPTP_SHM_STRUCTURES_VERSION 6
+#define NQPTP_SHM_STRUCTURES_VERSION 7
 #define NQPTP_CONTROL_PORT 9000
 
-// the control port will accept a UDP packet with the first letter being:
-// "T", followed by a space and then a space-delimited
-// list of ip numbers, either IPv4 or IPv6
+// The control port will accept a UDP packet with the first letter being:
+// "T", followed by the name of the shared memory interface, followed by
+// a space and then a space-delimited list of ip numbers, either IPv4 or IPv6
 // the whole not to exceed 4096 characters in total
 // The IPs will become the new list of timing peers, replacing any previous
 
@@ -37,7 +35,6 @@
 struct shm_structure {
   pthread_mutex_t shm_mutex;            // for safely accessing the structure
   uint16_t version;                     // check this is equal to NQPTP_SHM_STRUCTURES_VERSION
-  uint32_t flags;                       // unused
   uint64_t master_clock_id;             // the current master clock
   char master_clock_ip[64];             // where it's coming from
   uint64_t local_time;                  // the time when the offset was calculated

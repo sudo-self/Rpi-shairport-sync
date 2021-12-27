@@ -152,7 +152,7 @@ typedef struct {
   int mqtt_publish_cover;
   int mqtt_enable_remote;
 #endif
-  uint8_t hw_addr[8];    // only needs 6 but 8 is handy when converting this to a number
+  uint8_t hw_addr[8]; // only needs 6 but 8 is handy when converting this to a number
   int port;
   int udp_port_base;
   int udp_port_range;
@@ -302,6 +302,7 @@ typedef struct {
   char *airplay_device_id; // for the Bonjour advertisement and the GETINFO PList
   char *airplay_pin;       // non-NULL, 4 char PIN, if required for pairing
   char *airplay_pi;        // UUID in the Bonjour advertisement and the GETINFO Plist
+  char *nqptp_shared_memory_interface_name; // client name for nqptp service
 #endif
 } shairport_cfg;
 

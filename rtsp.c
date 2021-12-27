@@ -536,7 +536,7 @@ void release_play_lock(rtsp_conn_info *conn) {
 }
 
 int get_play_lock(rtsp_conn_info *conn) {
-    debug(2, "Connection %d: request play lock.", conn->connection_number);
+  debug(2, "Connection %d: request play lock.", conn->connection_number);
   // returns -1 if it failed, 0 if it succeeded and 1 if it succeeded but
   // interrupted an existing session
   int response = 0;
@@ -1176,9 +1176,9 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
   ssize_t buflen = 4096;
 #ifdef CONFIG_METADATA
   if ((config.metadata_enabled != 0) && (config.get_coverart != 0))
-    buflen = 1024 * 256;  // big enough for typical picture data, which will be base64 encoded
+    buflen = 1024 * 256; // big enough for typical picture data, which will be base64 encoded
 #endif
-  int release_buffer = 0; // on exit, don't deallocate the buffer if everything was okay
+  int release_buffer = 0;         // on exit, don't deallocate the buffer if everything was okay
   char *buf = malloc(buflen + 1); // add a NUL at the end
   if (!buf) {
     warn("Connection %d: rtsp_read_request: can't get a buffer.", conn->connection_number);
@@ -1348,9 +1348,12 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
     char *string;
   };
 
-  struct response_t responses[] = {
-      {200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}, {451, "Unavailable"}, {501, "Not Implemented"}};
-      // 451 is really "Unavailable For Legal Reasons"!
+  struct response_t responses[] = {{200, "OK"},
+                                   {400, "Bad Request"},
+                                   {403, "Unauthorized"},
+                                   {451, "Unavailable"},
+                                   {501, "Not Implemented"}};
+  // 451 is really "Unavailable For Legal Reasons"!
   int found = 0;
   char *respcode_text = "Unauthorized";
   for (i = 0; i < sizeof(responses) / sizeof(struct response_t); i++) {
@@ -2302,7 +2305,8 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
                   uint64_t length = 0;
                   plist_get_data_val(the_item, &buff, &length);
                   // debug(1,"Item %d, length: %" PRId64 " bytes", item_number, length);
-                  if ((buff != NULL) && (length >= strlen("bplist00")) && (strstr(buff, "bplist00") == buff)) {
+                  if ((buff != NULL) && (length >= strlen("bplist00")) &&
+                      (strstr(buff, "bplist00") == buff)) {
                     // debug(1,"Contains a plist.");
                     plist_t subsidiary_plist = NULL;
                     plist_from_memory(buff, length, &subsidiary_plist);
@@ -2756,9 +2760,9 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                         memset(buf, 0, sizeof(buf));
                         inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf, sizeof(buf));
                         // don't insist there are in the same subnet...
-                        //if (!different) {
-                          // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
-                          plist_array_append_item(addresses, plist_new_string(buf));
+                        // if (!different) {
+                        // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
+                        plist_array_append_item(addresses, plist_new_string(buf));
                         //}
                       }
                     }
@@ -2773,12 +2777,12 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                         // struct sockaddr_in *mask = (struct sockaddr_in *)(iap->ifa_netmask);
                         // if ((addr->sin_addr.s_addr & mask->sin_addr.s_addr) ==
                         //    (pa4->sin_addr.s_addr & mask->sin_addr.s_addr)) {
-                          char buf[32];
-                          memset(buf, 0, sizeof(buf));
-                          inet_ntop(AF_INET, (void *)&addr->sin_addr, buf, sizeof(buf));
-                          // no longer insisting they are in the same subnet
-                          // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
-                          plist_array_append_item(addresses, plist_new_string(buf));
+                        char buf[32];
+                        memset(buf, 0, sizeof(buf));
+                        inet_ntop(AF_INET, (void *)&addr->sin_addr, buf, sizeof(buf));
+                        // no longer insisting they are in the same subnet
+                        // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
+                        plist_array_append_item(addresses, plist_new_string(buf));
                         // }
                       }
                     }
@@ -2838,8 +2842,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                   get_category_string(conn->airplay_stream_category));
             mdns_update(NULL, secondary_txt_records);
 
-
-
             resp->respcode = 200;
           } else {
             debug(1, "SETUP on Connection %d: PTP setup -- no timingPeerInfo plist.",
@@ -2875,8 +2877,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
           plist_dict_set_item(setupResponsePlist, "eventPort",
                               plist_new_uint(conn->local_event_port));
-          plist_dict_set_item(setupResponsePlist, "timingPort",
-                              plist_new_uint(0));
+          plist_dict_set_item(setupResponsePlist, "timingPort", plist_new_uint(0));
           cancel_all_RTSP_threads(
               remote_control_stream,
               conn->connection_number); // kill all the other remote control listeners
