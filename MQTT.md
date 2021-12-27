@@ -107,7 +107,10 @@ Here are some of the `core` codes commonly passed from the source:
 Here are the 'ssnc' codes defined so far:
  * `PICT` -- the payload is a picture, either a JPEG or a PNG. Check the first few bytes to see which.
  * `acre` -- Active Remote
+ * `cdid` -- Client advertised Device ID
  * `clip` -- the payload is the IP address of the client, i.e. the sender of audio. Can be an IPv4 or an IPv6 address.
+ * `cmac` -- Client advertised MAC address
+ * `cmod` -- Client advertised model ("iPhone14,2")
  * `daid` -- DACP ID
  * `dapo` -- DACP Port
  * `mden` -- a sequence of metadata has ended. The RTP timestamp associated with the metadata sequence is included as data, if available.
@@ -120,7 +123,7 @@ Here are the 'ssnc' codes defined so far:
  * `prsm` -- play stream resume. No arguments
  * `prgr` -- progress -- this is metadata from AirPlay consisting of RTP timestamps for the start of the current play sequence, the current play point and the end of the play sequence.
  * `pvol` -- play volume. The volume is sent as a string -- "airplay_volume,volume,lowest_volume,highest_volume", where "volume", "lowest_volume" and "highest_volume" are given in dB. The "airplay_volume" is what's sent by the source (e.g. iTunes) to the player, and is from 0.00 down to -30.00, with -144.00 meaning "mute". This is linear on the volume control slider of iTunes or iOS AirPlay. If the volume setting is being ignored by Shairport Sync itself, the volume, lowest_volume and highest_volume values are zero.
- * `snam` -- a device e.g. "Joe's iPhone" has started a play session. Specifically, it's the "X-Apple-Client-Name" string.
+ * `snam` -- a device e.g. "Joe's iPhone" has started a play session. Specifically, it's the "X-Apple-Client-Name" string for AP1, or direct from the configuration Plist for AP2.
  * `snua` -- a "user agent" e.g. "iTunes/12..." has started a play session. Specifically, it's the "User-Agent" string.
  * `stal` -- this is an error message meaning that reception of a large piece of metadata, usually a large picture, has stalled; bad things may happen.
  * `svip` -- the payload is the IP address of the server, i.e. shairport-sync. Can be an IPv4 or an IPv6 address.
@@ -135,6 +138,10 @@ The MQTT service can parse the above raw messages into a subset of human-readabl
 * `artist` -- text of artist name 
 * `album` -- text of album name
 * `client_ip` -- IP address of the connected client
+* `client_device_id` -- Client advertised Device ID
+* `client_mac_address` -- Client advertised MAC address
+* `client_model` -- Client advertised model ("iPhone14,2")
+* `client_name` -- Client advertised name ("Joe's iPhone")
 * `dacp_id` -- DACP ID
 * `format` -- ??
 * `genre` -- text of genre
