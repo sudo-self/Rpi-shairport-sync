@@ -2617,6 +2617,19 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 }
 
 #ifdef CONFIG_AIRPLAY_2
+
+static void check_and_send_plist_metadata(plist_t messagePlist, const char *plist_key, uint32_t metadata_code)
+{
+  plist_t item = plist_dict_get_item(messagePlist, plist_key);
+  if (item) {
+    char *value;
+    plist_get_string_val(item, &value);
+    if (value != NULL) {
+      send_metadata('ssnc', metadata_code, value, strlen(value), NULL, 0);
+    }
+  }
+}
+
 void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   int err;
   debug(2, "Connection %d: SETUP (AirPlay 2)", conn->connection_number);
@@ -2847,6 +2860,13 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             debug(1, "SETUP on Connection %d: PTP setup -- no timingPeerInfo plist.",
                   conn->connection_number);
           }
+
+#ifdef CONFIG_METADATA
+          check_and_send_plist_metadata(messagePlist, "name", 'snam');
+          check_and_send_plist_metadata(messagePlist, "deviceID", 'cdid');
+          check_and_send_plist_metadata(messagePlist, "model", 'cmod');
+          check_and_send_plist_metadata(messagePlist, "macAddress", 'cmac');
+#endif
         } else if (conn->airplay_stream_category == ntp_stream) {
           debug(1, "SETUP on Connection %d: ntp stream handling is not implemented!",
                 conn->connection_number, req);
