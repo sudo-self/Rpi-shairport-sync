@@ -1,2 +1,3 @@
-#!/usr/bin/execlineb -P
+#!/bin/sh
+rm -rf /var/run/dbus.pid
 dbus-daemon --system --nofork
