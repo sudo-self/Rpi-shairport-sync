@@ -350,9 +350,6 @@ typedef struct {
   uint64_t type;
   uint64_t networkTimeTimelineID;   // the clock ID used by the player
   uint8_t groupContainsGroupLeader; // information coming from the SETUP
-
-  char *ap2_timing_peer_list_message;
-
 #endif
 
   // used as the initials values for calculating the rate at which the source thinks it's sending

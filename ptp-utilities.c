@@ -118,9 +118,10 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *time_of_sample, uint
 int ptp_shm_interface_open() {
   mapped_addr = NULL;
   int response = -1;
-  if (strcmp(config.nqptp_shared_memory_interface_name,"") != 0) {
+  if (strcmp(config.nqptp_shared_memory_interface_name, "") != 0) {
     response = 0;
-    int shared_memory_file_descriptor = shm_open(config.nqptp_shared_memory_interface_name, O_RDWR, 0);
+    int shared_memory_file_descriptor =
+        shm_open(config.nqptp_shared_memory_interface_name, O_RDWR, 0);
     if (shared_memory_file_descriptor >= 0) {
       mapped_addr =
           // needs to be PROT_READ | PROT_WRITE to allow the mapped memory to be writable for the
@@ -137,7 +138,7 @@ int ptp_shm_interface_open() {
       response = -1;
     }
   } else {
-    debug(1,"No config.nqptp_shared_memory_interface_name");
+    debug(1, "No config.nqptp_shared_memory_interface_name");
   }
   return response;
 }
@@ -161,7 +162,7 @@ void ptp_send_control_message_string(const char *msg) {
     *full_message = '\0';
     snprintf(full_message, full_message_size, "%s %s", config.nqptp_shared_memory_interface_name,
              msg);
-    debug(1, "Send control message to NQPTP: \"%s\"", full_message);
+    debug(2, "Send control message to NQPTP: \"%s\"", full_message);
     int s;
     unsigned short port = htons(NQPTP_CONTROL_PORT);
     struct sockaddr_in server;

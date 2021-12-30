@@ -1848,18 +1848,6 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         // reset_anchor_info(conn); // needed if the player resumes
       }
       pthread_cleanup_pop(1); // unlock the conn->flush_mutex
-
-      if ((rate & 1) != 0) {
-        // keep this outside the flush_mutex lock
-        if (conn->ap2_timing_peer_list_message) {
-          // ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-        } else {
-          debug(1, "Connection %d: No timing peer list!", conn->connection_number);
-        }
-      } else {
-        // player_full_flush(conn);
-        // ptp_send_control_message_string("T"); // ensure an obsolete clock isn't picked up later.
-      }
     }
     pthread_cleanup_pop(1); // plist_free the messagePlist;
   } else {
@@ -2407,15 +2395,7 @@ void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp
       if (ip_address != NULL)
         free(ip_address);
     }
-
-    if (conn->ap2_timing_peer_list_message != NULL)
-      free(conn->ap2_timing_peer_list_message);
-    conn->ap2_timing_peer_list_message = strdup(timing_list_message);
-    // if this rtsp thread is playing...
-    // if (try_to_hold_play_lock(conn) == 0) {
-    ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-    // release_hold_on_play_lock(conn);
-    // }
+    ptp_send_control_message_string(timing_list_message);
   }
   plist_free(addresses_array);
   resp->respcode = 200;
@@ -2497,10 +2477,6 @@ void teardown_phase_two(rtsp_conn_info *conn) {
     if (conn->dacp_active_remote != NULL) {
       free(conn->dacp_active_remote);
       conn->dacp_active_remote = NULL;
-    }
-    if (conn->ap2_timing_peer_list_message) {
-      free(conn->ap2_timing_peer_list_message);
-      conn->ap2_timing_peer_list_message = NULL;
     }
     release_play_lock(conn);
   }
@@ -2677,7 +2653,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(2, "Connection %d: SETUP: Remote Control setup detected.",
+              debug(1, "Connection %d: SETUP: Remote Control setup detected.",
                     conn->connection_number);
               conn->airplay_stream_category = remote_control_stream;
             } else {
@@ -2727,87 +2703,30 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             debug(1, "No groupContainsGroupLeader in SETUP");
           }
 
+          char timing_list_message[4096];
+          timing_list_message[0] = 'T';
+          timing_list_message[1] = 0;
+
           plist_t timing_peer_info = plist_dict_get_item(messagePlist, "timingPeerInfo");
           if (timing_peer_info) {
-            // first, get and retain the incoming plist.
-            plist_t addresses = plist_new_array(); // to hold the device's peer interfaces
+            // first, get the incoming plist.
             plist_t addresses_array = plist_dict_get_item(timing_peer_info, "Addresses");
             if (addresses_array) {
               // iterate through the array of items
               uint32_t items = plist_array_get_size(addresses_array);
               if (items) {
-
                 uint32_t item;
-                struct ifaddrs *addrs, *iap;
-                getifaddrs(&addrs);
                 for (item = 0; item < items; item++) {
                   plist_t n = plist_array_get_item(addresses_array, item);
                   char *ip_address = NULL;
                   plist_get_string_val(n, &ip_address);
                   // debug(1, "Timing peer: %s", ip_address);
-                  // find its family and convert it into an IPv4/6 address
-
-                  struct sockaddr_storage peer_address;
-                  struct sockaddr_in6 *pa6 = (struct sockaddr_in6 *)&peer_address;
-                  struct sockaddr_in *pa4 = (struct sockaddr_in *)&peer_address;
-
-                  if (inet_pton(AF_INET6, ip_address, &pa6->sin6_addr) ==
-                      1) { // is an IPv6 address...
-                    peer_address.ss_family = AF_INET6;
-                    for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
-                      if ((iap->ifa_addr) && (iap->ifa_netmask) && (iap->ifa_flags & IFF_UP) &&
-                          ((iap->ifa_flags & IFF_LOOPBACK) == 0) &&
-                          (iap->ifa_addr->sa_family == AF_INET6)) {
-                        struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
-                        struct sockaddr_in6 *mask6 = (struct sockaddr_in6 *)(iap->ifa_netmask);
-                        unsigned int i;
-                        int different = 0;
-                        for (i = 0; ((i < 16) && (different == 0)); i++) {
-                          unsigned char host_byte =
-                              (addr6->sin6_addr.s6_addr[i] & mask6->sin6_addr.s6_addr[i]);
-                          unsigned char peer_byte =
-                              (pa6->sin6_addr.s6_addr[i] & mask6->sin6_addr.s6_addr[i]);
-                          if (host_byte != peer_byte)
-                            different = 1;
-                        }
-
-                        char buf[32];
-                        memset(buf, 0, sizeof(buf));
-                        inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf, sizeof(buf));
-                        // don't insist there are in the same subnet...
-                        // if (!different) {
-                        // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
-                        plist_array_append_item(addresses, plist_new_string(buf));
-                        //}
-                      }
-                    }
-                  } else if (inet_pton(AF_INET, ip_address, &pa4->sin_addr) == 1) {
-                    peer_address.ss_family = AF_INET;
-                    for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
-                      if ((iap->ifa_addr) && (iap->ifa_netmask) && (iap->ifa_flags & IFF_UP) &&
-                          ((iap->ifa_flags & IFF_LOOPBACK) == 0) &&
-                          (iap->ifa_addr->sa_family == AF_INET)) {
-                        struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
-                        // not needed if not checking for same subnet
-                        // struct sockaddr_in *mask = (struct sockaddr_in *)(iap->ifa_netmask);
-                        // if ((addr->sin_addr.s_addr & mask->sin_addr.s_addr) ==
-                        //    (pa4->sin_addr.s_addr & mask->sin_addr.s_addr)) {
-                        char buf[32];
-                        memset(buf, 0, sizeof(buf));
-                        inet_ntop(AF_INET, (void *)&addr->sin_addr, buf, sizeof(buf));
-                        // no longer insisting they are in the same subnet
-                        // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
-                        plist_array_append_item(addresses, plist_new_string(buf));
-                        // }
-                      }
-                    }
-                  } else {
-                    debug(1, "SETUP on Connection %d: Don't recognise this as an IP address.",
-                          conn->connection_number);
-                  }
+                  strncat(timing_list_message, " ",
+                          sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                  strncat(timing_list_message, ip_address,
+                          sizeof(timing_list_message) - 1 - strlen(timing_list_message));                  
                   free(ip_address);
                 }
-                freeifaddrs(addrs);
               } else {
                 debug(1, "SETUP on Connection %d: No timingPeerInfo addresses in the array.",
                       conn->connection_number);
@@ -2819,6 +2738,49 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             // make up the timing peer info list part of the response...
             // debug(1,"Create timingPeerInfoPlist");
             plist_t timingPeerInfoPlist = plist_new_dict();
+            plist_t addresses = plist_new_array(); // to hold the device's interfaces
+            plist_array_append_item(addresses, plist_new_string(conn->self_ip_string));
+//            debug(1,"self ip: \"%s\"", conn->self_ip_string);
+
+            struct ifaddrs *addrs, *iap;
+            getifaddrs(&addrs);
+            for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
+              // debug(1, "Interface index %d, name: \"%s\"",if_nametoindex(iap->ifa_name), iap->ifa_name);
+              if ((iap->ifa_addr) && (iap->ifa_netmask) && (iap->ifa_flags & IFF_UP) &&
+                  ((iap->ifa_flags & IFF_LOOPBACK) == 0)) {
+                char buf[INET6_ADDRSTRLEN + 1]; // +1 for a NUL
+                memset(buf, 0, sizeof(buf));
+                if (iap->ifa_addr->sa_family == AF_INET6) {
+                  struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
+                  inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf, sizeof(buf));
+                  plist_array_append_item(addresses, plist_new_string(buf));
+                  // debug(1, "Own address IPv6: %s", buf);
+
+                  // strncat(timing_list_message, " ",
+                          // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                  // strncat(timing_list_message, buf,
+                          // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+
+                                   
+                } else {
+                  struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
+                  inet_ntop(AF_INET, (void *)&addr->sin_addr, buf, sizeof(buf));
+                  plist_array_append_item(addresses, plist_new_string(buf));
+                  // debug(1, "Own address IPv4: %s", buf);
+                  
+                  // strncat(timing_list_message, " ",
+                          // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                  // strncat(timing_list_message, buf,
+                          // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                                    
+                }
+              }
+            }
+            freeifaddrs(addrs);
+            
+            // debug(1,"initial timing peer command: \"%s\".", timing_list_message);
+            ptp_send_control_message_string(timing_list_message);            
+            
             plist_dict_set_item(timingPeerInfoPlist, "Addresses", addresses);
             plist_dict_set_item(timingPeerInfoPlist, "ID", plist_new_string(conn->self_ip_string));
             plist_dict_set_item(setupResponsePlist, "timingPeerInfo", timingPeerInfoPlist);
@@ -3048,11 +3010,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         conn->input_bit_depth = conn->stream.fmtp[3];
         conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
         debug(2, "Realtime Stream Play");
-        if (conn->ap2_timing_peer_list_message) {
-          // ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-        } else {
-          debug(1, "No timing peer list!");
-        }
         activity_monitor_signify_activity(1);
         player_prepare_to_play(conn);
         player_play(conn);
