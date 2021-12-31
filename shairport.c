@@ -777,32 +777,15 @@ int parse_options(int argc, char **argv) {
         config.interface = strdup(str);
 
       if (config_lookup_string(config.cfg, "general.interface", &str)) {
-        int specified_interface_found = 0;
-
-        struct if_nameindex *if_ni, *i;
-
-        if_ni = if_nameindex();
-        if (if_ni == NULL) {
-          debug(1, "Can't get a list of interface names.");
-        } else {
-          for (i = if_ni; !(i->if_index == 0 && i->if_name == NULL); i++) {
-            // printf("%u: %s\n", i->if_index, i->if_name);
-            if (strcmp(i->if_name, str) == 0) {
-              config.interface_index = i->if_index;
-              specified_interface_found = 1;
-            }
-          }
-        }
-
-        if_freenameindex(if_ni);
-
-        if (specified_interface_found == 0) {
+      
+        config.interface_index = if_nametoindex(config.interface);
+        
+        if (config.interface_index == 0) {
           inform(
               "The mdns service interface \"%s\" was not found, so the setting has been ignored.",
               config.interface);
           free(config.interface);
           config.interface = NULL;
-          config.interface_index = 0;
         }
       }
 
@@ -1859,7 +1842,7 @@ int main(int argc, char **argv) {
   char shared_memory_interface_name[256] = "";
   snprintf(shared_memory_interface_name, sizeof(shared_memory_interface_name), "/%s-%" PRIx64 "",
            config.appName, apid);
-  debug(1, "smi name: \"%s\"", shared_memory_interface_name);
+  // debug(1, "smi name: \"%s\"", shared_memory_interface_name);
 
   config.nqptp_shared_memory_interface_name = strdup(shared_memory_interface_name);
 
