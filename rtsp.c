@@ -2724,7 +2724,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                   strncat(timing_list_message, " ",
                           sizeof(timing_list_message) - 1 - strlen(timing_list_message));
                   strncat(timing_list_message, ip_address,
-                          sizeof(timing_list_message) - 1 - strlen(timing_list_message));                  
+                          sizeof(timing_list_message) - 1 - strlen(timing_list_message));
                   free(ip_address);
                 }
               } else {
@@ -2740,12 +2740,13 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             plist_t timingPeerInfoPlist = plist_new_dict();
             plist_t addresses = plist_new_array(); // to hold the device's interfaces
             plist_array_append_item(addresses, plist_new_string(conn->self_ip_string));
-//            debug(1,"self ip: \"%s\"", conn->self_ip_string);
+            //            debug(1,"self ip: \"%s\"", conn->self_ip_string);
 
             struct ifaddrs *addrs, *iap;
             getifaddrs(&addrs);
             for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
-              // debug(1, "Interface index %d, name: \"%s\"",if_nametoindex(iap->ifa_name), iap->ifa_name);
+              // debug(1, "Interface index %d, name: \"%s\"",if_nametoindex(iap->ifa_name),
+              // iap->ifa_name);
               if ((iap->ifa_addr) && (iap->ifa_netmask) && (iap->ifa_flags & IFF_UP) &&
                   ((iap->ifa_flags & IFF_LOOPBACK) == 0)) {
                 char buf[INET6_ADDRSTRLEN + 1]; // +1 for a NUL
@@ -2757,30 +2758,28 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                   // debug(1, "Own address IPv6: %s", buf);
 
                   // strncat(timing_list_message, " ",
-                          // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                  // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
                   // strncat(timing_list_message, buf,
-                          // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                  // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
 
-                                   
                 } else {
                   struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
                   inet_ntop(AF_INET, (void *)&addr->sin_addr, buf, sizeof(buf));
                   plist_array_append_item(addresses, plist_new_string(buf));
                   // debug(1, "Own address IPv4: %s", buf);
-                  
+
                   // strncat(timing_list_message, " ",
-                          // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                  // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
                   // strncat(timing_list_message, buf,
-                          // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
-                                    
+                  // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
                 }
               }
             }
             freeifaddrs(addrs);
-            
+
             // debug(1,"initial timing peer command: \"%s\".", timing_list_message);
-            ptp_send_control_message_string(timing_list_message);            
-            
+            ptp_send_control_message_string(timing_list_message);
+
             plist_dict_set_item(timingPeerInfoPlist, "Addresses", addresses);
             plist_dict_set_item(timingPeerInfoPlist, "ID", plist_new_string(conn->self_ip_string));
             plist_dict_set_item(setupResponsePlist, "timingPeerInfo", timingPeerInfoPlist);

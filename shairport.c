@@ -777,9 +777,9 @@ int parse_options(int argc, char **argv) {
         config.interface = strdup(str);
 
       if (config_lookup_string(config.cfg, "general.interface", &str)) {
-      
+
         config.interface_index = if_nametoindex(config.interface);
-        
+
         if (config.interface_index == 0) {
           inform(
               "The mdns service interface \"%s\" was not found, so the setting has been ignored.",
