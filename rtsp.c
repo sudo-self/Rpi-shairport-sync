@@ -2633,7 +2633,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_get_string_val(timingProtocol, &timingProtocolString);
       if (timingProtocolString) {
         if (strcmp(timingProtocolString, "PTP") == 0) {
-          debug(2, "Connection %d: SETUP: PTP setup detected.", conn->connection_number);
+          debug(1, "Connection %d: PTP connection from %s:%u to self at %s:%u.", conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+                conn->self_ip_string, conn->self_rtsp_port);
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
           get_play_lock(conn);
@@ -2653,8 +2654,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(1, "Connection %d: SETUP: Remote Control setup detected.",
-                    conn->connection_number);
+              debug(1, "Connection %d: Remote Control connection from %s:%u to self at %s:%u.", conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+                    conn->self_ip_string, conn->self_rtsp_port);
               conn->airplay_stream_category = remote_control_stream;
             } else {
               debug(1,
@@ -2962,7 +2963,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       switch (item_value) {
       case 96: {
-        debug(1, "Connection %d. Realtime Audio Stream Detected.", conn->connection_number);
+        debug(1, "Connection %d. Realtime Audio Stream.", conn->connection_number);
         debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
         // get_play_lock(conn);
         conn->airplay_stream_type = realtime_stream;
@@ -3016,7 +3017,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         conn->rtp_running = 1; // hack!
       } break;
       case 103: {
-        debug(1, "SETUP on Connection %d. Buffered Audio Stream Detected.",
+        debug(1, "Connection %d. Buffered Audio Stream.",
               conn->connection_number);
         debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
         // get_play_lock(conn);
@@ -5170,7 +5171,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
           inet_ntop(conn->connection_ip_family, self_addr, conn->self_ip_string,
                     sizeof(conn->self_ip_string));
 
-          debug(1, "Connection %d: new connection from %s:%u to self at %s:%u.",
+          debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
                 conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                 conn->self_ip_string, conn->self_rtsp_port);
         } else {

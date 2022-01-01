@@ -1063,7 +1063,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               int64_t lt = conn->first_packet_time_to_play - local_time_now;
 
-              if (lt < 130000000) {
+              if (lt < 100000000) {
                 debug(1,
                       "Connection %d: Short lead time for first frame %" PRId64
                       ": %f seconds. Flushing 0.5 seconds",

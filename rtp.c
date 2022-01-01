@@ -1452,9 +1452,8 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       *anchorRTP = conn->last_anchor_rtptime;
     if (anchorLocalTime != NULL)
       *anchorLocalTime = conn->last_anchor_local_time;
-
-    response = clock_ok;
   }
+  
   return response;
 }
 
