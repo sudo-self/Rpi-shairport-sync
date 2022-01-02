@@ -1473,6 +1473,9 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
     if (conn->player_thread)
       warn("Connection %d: RECORD: Duplicate RECORD message -- ignored", conn->connection_number);
     else {
+      debug(1, "Connection %d: AP1 ALAC Stream, from %s:%u to self at %s:%u.",
+            conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+            conn->self_ip_string, conn->self_rtsp_port);
       activity_monitor_signify_activity(1);
       player_prepare_to_play(conn);
       player_play(conn); // the thread better be 0
@@ -2522,30 +2525,34 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
 }
 #endif
 
+void teardown(rtsp_conn_info *conn) {
+  player_stop(conn);
+  activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
+  if (conn->dacp_active_remote != NULL) {
+    free(conn->dacp_active_remote);
+    conn->dacp_active_remote = NULL;
+  }
+}
+
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                      rtsp_message *resp) {
   debug_log_rtsp_message(2, "TEARDOWN request", req);
   debug(2, "Connection %d: TEARDOWN", conn->connection_number);
   if (have_play_lock(conn)) {
-    resp->respcode = 200;
-    msg_add_header(resp, "Connection", "close");
     debug(
         3,
         "TEARDOWN: synchronously terminating the player thread of RTSP conversation thread %d (2).",
         conn->connection_number);
-    player_stop(conn);
+    teardown(conn);
     release_play_lock(conn);
-    activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
+    resp->respcode = 200;
+    msg_add_header(resp, "Connection", "close");
     debug(3, "TEARDOWN: successful termination of playing thread of RTSP conversation thread %d.",
           conn->connection_number);
   } else {
     warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
          conn->connection_number);
     resp->respcode = 451;
-  }
-  if (conn->dacp_active_remote != NULL) {
-    free(conn->dacp_active_remote);
-    conn->dacp_active_remote = NULL;
   }
   // debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
   // exit(EXIT_SUCCESS);
@@ -2633,7 +2640,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_get_string_val(timingProtocol, &timingProtocolString);
       if (timingProtocolString) {
         if (strcmp(timingProtocolString, "PTP") == 0) {
-          debug(1, "Connection %d: PTP connection from %s:%u to self at %s:%u.", conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+          debug(1, "Connection %d: AP2 PTP connection from %s:%u to self at %s:%u.",
+                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                 conn->self_ip_string, conn->self_rtsp_port);
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
@@ -2654,7 +2662,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(1, "Connection %d: Remote Control connection from %s:%u to self at %s:%u.", conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+              debug(1, "Connection %d: Remote Control connection from %s:%u to self at %s:%u.",
+                    conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                     conn->self_ip_string, conn->self_rtsp_port);
               conn->airplay_stream_category = remote_control_stream;
             } else {
@@ -2963,7 +2972,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       switch (item_value) {
       case 96: {
-        debug(1, "Connection %d. Realtime Audio Stream.", conn->connection_number);
+        debug(1, "Connection %d. AP2 Realtime Audio Stream.", conn->connection_number);
         debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
         // get_play_lock(conn);
         conn->airplay_stream_type = realtime_stream;
@@ -3017,8 +3026,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         conn->rtp_running = 1; // hack!
       } break;
       case 103: {
-        debug(1, "Connection %d. Buffered Audio Stream.",
-              conn->connection_number);
+        debug(1, "Connection %d. AP2 Buffered Audio Stream.", conn->connection_number);
         debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
         // get_play_lock(conn);
         conn->airplay_stream_type = buffered_stream;
@@ -4655,8 +4663,15 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   debug(2, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
         conn->connection_number);
 #ifdef CONFIG_AIRPLAY_2
+  // AP2
   teardown_phase_one(conn);
   teardown_phase_two(conn);
+#else
+  // AP1
+  if (have_play_lock(conn)) {
+    teardown(conn);
+    release_play_lock(conn);
+  }
 #endif
 
   debug(3, "Connection %d terminating:Closing timing, control and audio sockets...",
