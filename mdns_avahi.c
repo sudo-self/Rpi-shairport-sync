@@ -242,14 +242,21 @@ static void register_service(AvahiClient *c) {
     else
       selected_interface = AVAHI_IF_UNSPEC;
     if (ap2_text_record_string_list) {
-      ret = avahi_entry_group_add_service_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
+        ret = avahi_entry_group_add_service_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
                                                  ap2_service_name, config.regtype2, NULL, NULL,
                                                  port, ap2_text_record_string_list);
+        if (ret == AVAHI_ERR_COLLISION) {
+          die("Error: AirPlay 2 name \"%s\" is already in use.", ap2_service_name);
+        }
+        
     }
     if ((ret == 0) && (text_record_string_list)) {
       ret = avahi_entry_group_add_service_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
                                                  service_name, config.regtype, NULL, NULL, port,
                                                  text_record_string_list);
+        if (ret == AVAHI_ERR_COLLISION) {
+          die("Error: AirPlay 1 name \"%s\" is already in use.", service_name);
+        }
     }
     if (ret == 0) {
       ret = avahi_entry_group_commit(group);
