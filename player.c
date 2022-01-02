@@ -1306,6 +1306,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       wait = 1; // keep waiting until the timing information becomes available
     }
     if (wait) {
+      if (conn->input_rate == 0)
+        die("input_rate is zero -- should never happen!");
       uint64_t time_to_wait_for_wakeup_ns =
           1000000000 / conn->input_rate;     // this is time period of one frame
       time_to_wait_for_wakeup_ns *= 2 * 352; // two full 352-frame packets

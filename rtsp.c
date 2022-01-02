@@ -2506,6 +2506,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       plist_free(streams);
       debug(2, "Connection %d: TEARDOWN phase one complete", conn->connection_number);
     } else {
+      teardown_phase_one(conn); // try to do phase one anyway
       teardown_phase_two(conn);
       debug(2, "Connection %d: TEARDOWN phase two complete", conn->connection_number);
     }
