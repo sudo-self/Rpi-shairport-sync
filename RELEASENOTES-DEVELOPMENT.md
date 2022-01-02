@@ -1,3 +1,8 @@
+Version-4.1-dev-160-g9c2f9f7a
+====
+#### Bugfix
+* Fix a crashing bug in AirPlay 1 ("Classic") mode, whereby if a session was abruptly interrupted, e.g. by the sudden loss of a network, Shairport Sync would crash. The problem was that the interrupted session was not correctly terminated. Thanks to [th0u](https://github.com/th0u) for reporting issue [#1398](https://github.com/mikebrady/shairport-sync/issues/1398).
+
 Version-4.1-dev-158-gb5860fc4
 ====
 #### Enhancements
