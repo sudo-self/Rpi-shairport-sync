@@ -1063,22 +1063,24 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
 
               int64_t lt = conn->first_packet_time_to_play - local_time_now;
 
-              if (lt < 130000000) {
-                debug(1, "Connection %d: Short lead time for first frame %" PRId64 ": %f seconds. Flushing 0.5 seconds",
-                    conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
+              if (lt < 100000000) {
+                debug(1,
+                      "Connection %d: Short lead time for first frame %" PRId64
+                      ": %f seconds. Flushing 0.5 seconds",
+                      conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
                 do_flush(conn->first_packet_timestamp + 5 * 4410, conn);
               } else {
                 debug(2, "Connection %d: Lead time for first frame %" PRId64 ": %f seconds.",
-                    conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
+                      conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
               }
-/*
-              int64_t lateness = local_time_now - conn->first_packet_time_to_play;
-              if (lateness > 0) {
-                debug(1, "First packet is %" PRId64 " nanoseconds late! Flushing 0.5 seconds",
-                      lateness);
+              /*
+                            int64_t lateness = local_time_now - conn->first_packet_time_to_play;
+                            if (lateness > 0) {
+                              debug(1, "First packet is %" PRId64 " nanoseconds late! Flushing 0.5
+                 seconds", lateness);
 
-              }
-*/
+                            }
+              */
             }
 
             if (conn->first_packet_time_to_play != 0) {
@@ -1304,6 +1306,8 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       wait = 1; // keep waiting until the timing information becomes available
     }
     if (wait) {
+      if (conn->input_rate == 0)
+        die("input_rate is zero -- should never happen!");
       uint64_t time_to_wait_for_wakeup_ns =
           1000000000 / conn->input_rate;     // this is time period of one frame
       time_to_wait_for_wakeup_ns *= 2 * 352; // two full 352-frame packets

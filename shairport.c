@@ -289,7 +289,8 @@ void usage(char *progname) {
 #ifdef CONFIG_METADATA
   printf("    -M, --metadata-enable   ask for metadata from the source and process it.\n");
   printf("    --metadata-pipename=PIPE send metadata to PIPE, e.g. "
-         "--metadata-pipename=/tmp/%s-metadata.\n", config.appName);
+         "--metadata-pipename=/tmp/%s-metadata.\n",
+         config.appName);
   printf("                            The default is /tmp/%s-metadata.\n", config.appName);
   printf("    -g, --get-coverart      send cover art through the metadata pipe.\n");
 #endif
@@ -776,32 +777,15 @@ int parse_options(int argc, char **argv) {
         config.interface = strdup(str);
 
       if (config_lookup_string(config.cfg, "general.interface", &str)) {
-        int specified_interface_found = 0;
 
-        struct if_nameindex *if_ni, *i;
+        config.interface_index = if_nametoindex(config.interface);
 
-        if_ni = if_nameindex();
-        if (if_ni == NULL) {
-          debug(1, "Can't get a list of interface names.");
-        } else {
-          for (i = if_ni; !(i->if_index == 0 && i->if_name == NULL); i++) {
-            // printf("%u: %s\n", i->if_index, i->if_name);
-            if (strcmp(i->if_name, str) == 0) {
-              config.interface_index = i->if_index;
-              specified_interface_found = 1;
-            }
-          }
-        }
-
-        if_freenameindex(if_ni);
-
-        if (specified_interface_found == 0) {
+        if (config.interface_index == 0) {
           inform(
               "The mdns service interface \"%s\" was not found, so the setting has been ignored.",
               config.interface);
           free(config.interface);
           config.interface = NULL;
-          config.interface_index = 0;
         }
       }
 
@@ -1262,7 +1246,7 @@ int parse_options(int argc, char **argv) {
     strcat(temp_metadata_pipe_name, config.appName);
     strcat(temp_metadata_pipe_name, "-metadata");
     config.metadata_pipename = strdup(temp_metadata_pipe_name);
-    debug(1,"default metadata_pipename is \"%s\".", temp_metadata_pipe_name);
+    debug(1, "default metadata_pipename is \"%s\".", temp_metadata_pipe_name);
   }
 #endif
 
@@ -1320,7 +1304,7 @@ int parse_options(int argc, char **argv) {
   char temp_pid_dir[4096];
   strcpy(temp_pid_dir, "/var/run/");
   strcat(temp_pid_dir, config.appName);
-  debug(1,"default pid filename is \"%s\".", temp_pid_dir);
+  debug(1, "default pid filename is \"%s\".", temp_pid_dir);
   char *use_this_pid_dir = temp_pid_dir;
 #endif
   // debug(1,"config.piddir \"%s\".",config.piddir);
@@ -1445,6 +1429,14 @@ void exit_function() {
 #ifdef CONFIG_AIRPLAY_2
       if (config.regtype2)
         free(config.regtype2);
+      if (config.nqptp_shared_memory_interface_name)
+        free(config.nqptp_shared_memory_interface_name);
+      if (config.airplay_device_id)
+        free(config.airplay_device_id);
+      if (config.airplay_pin)
+        free(config.airplay_pin);
+      if (config.airplay_pi)
+        free(config.airplay_pi);
 #endif
 
 #ifdef CONFIG_LIBDAEMON
@@ -1462,6 +1454,7 @@ void exit_function() {
       config_destroy(config.cfg);
     if (config.appName)
       free(config.appName);
+
       // probably should be freeing malloc'ed memory here, including strdup-created strings...
 
 #ifdef CONFIG_LIBDAEMON
@@ -1833,32 +1826,39 @@ int main(int argc, char **argv) {
   // use the start of the config.hw_addr and the PID to generate the default airplay_device_id
   uint64_t apid = nctoh64(config.hw_addr);
   apid = apid >> 16; // we only use the first 6 bytes but have imported 8.
-  
+
   int64_t aid;
- 
+
   // add the airplay_device_id_offset if provided
   if (config_lookup_int64(config.cfg, "general.airplay_device_id_offset", &aid)) {
     apid += aid;
-  } 
-  
+  }
+
   // replace the airplay_device_id with this, if provided
   if (config_lookup_int64(config.cfg, "general.airplay_device_id", &aid)) {
     apid = aid;
   }
-  
-  char apids[6*2+5+1]; // six pairs of digits, 5 colons and a NUL
-  apids[6*2+5] = 0; // NUL termination
+
+  char shared_memory_interface_name[256] = "";
+  snprintf(shared_memory_interface_name, sizeof(shared_memory_interface_name), "/%s-%" PRIx64 "",
+           config.appName, apid);
+  // debug(1, "smi name: \"%s\"", shared_memory_interface_name);
+
+  config.nqptp_shared_memory_interface_name = strdup(shared_memory_interface_name);
+
+  char apids[6 * 2 + 5 + 1]; // six pairs of digits, 5 colons and a NUL
+  apids[6 * 2 + 5] = 0;      // NUL termination
   int i;
   char hexchar[] = "0123456789abcdef";
   for (i = 5; i >= 0; i--) {
-    apids[i*3+1] = hexchar[apid & 0xF];
+    apids[i * 3 + 1] = hexchar[apid & 0xF];
     apid = apid >> 4;
-    apids[i*3] = hexchar[apid & 0xF];
+    apids[i * 3] = hexchar[apid & 0xF];
     apid = apid >> 4;
     if (i != 0)
-      apids[i*3-1] = ':';
+      apids[i * 3 - 1] = ':';
   }
-  
+
   config.airplay_device_id = strdup(apids);
 
   // now generate a UUID
@@ -2017,9 +2017,12 @@ int main(int argc, char **argv) {
   debug(1, "run_this_after_play_ends action is \"%s\".", strnull(config.cmd_stop));
   debug(1, "wait-cmd status is %d.", config.cmd_blocking);
   debug(1, "run_this_before_play_begins may return output is %d.", config.cmd_start_returns_output);
-  debug(1, "run_this_if_an_unfixable_error_is_detected action is \"%s\".", strnull(config.cmd_unfixable));
-  debug(1, "run_this_before_entering_active_state action is  \"%s\".", strnull(config.cmd_active_start));
-  debug(1, "run_this_after_exiting_active_state action is  \"%s\".", strnull(config.cmd_active_stop));
+  debug(1, "run_this_if_an_unfixable_error_is_detected action is \"%s\".",
+        strnull(config.cmd_unfixable));
+  debug(1, "run_this_before_entering_active_state action is  \"%s\".",
+        strnull(config.cmd_active_start));
+  debug(1, "run_this_after_exiting_active_state action is  \"%s\".",
+        strnull(config.cmd_active_stop));
   debug(1, "active_state_timeout is  %f seconds.", config.active_state_timeout);
   debug(1, "mdns backend \"%s\".", strnull(config.mdns_name));
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);

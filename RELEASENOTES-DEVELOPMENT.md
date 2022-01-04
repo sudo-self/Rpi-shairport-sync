@@ -1,3 +1,24 @@
+Version-4.1-dev-160-g9c2f9f7a
+====
+#### Bugfix
+* Fix a crashing bug in AirPlay 1 ("Classic") mode, whereby if a session was abruptly interrupted, e.g. by the sudden loss of a network, Shairport Sync would crash. The problem was that the interrupted session was not correctly terminated. Thanks to [th0u](https://github.com/th0u) for reporting issue [#1398](https://github.com/mikebrady/shairport-sync/issues/1398).
+
+Version-4.1-dev-158-gb5860fc4
+====
+#### Enhancements
+The following enhancements are mainly experimental, for advanced users only, and are intended to enable multiple instances of Shairport Sync (SPS) to run in one computer and provide multiple AirPlay 2 endpoints. At this point, multiple instances of SPS can indeed run on one machine and provide multiple AirPlay 2 endpoints, but unfortunately the presence of multiple services at the same address seems to confuse AirPlay 2 clients. So, it seems that while multiple instances of SPS can now run successfully on one device, they can't be used on the same network.
+* Use a uniquely-named named SMI interface to get dedicated access to NQPTP.
+* Simplify validation of the mDNS interface setting, if given.
+* Exit with a warning if the player is using a name that already exists.
+* Stop storing the timing peer list.
+* Generate an initial timing list during setup — don’t wait for the first timing peer list message. May gain around 50 ms.
+* Fix a bug and clean up generation of device's timing addresses.
+* Add some control to the generation of the Device ID:
+1. Revise how the Device ID is generated from the device’s MAC addresses
+2. Add a setting to add a fixed offset to the automatically-generated Device ID.
+3. Add a setting to specify a complete Device ID, replacing the automatically-generated Device ID.
+* Be more careful to create default file names based on the name of the app.
+
 Version-4.1-dev-146-g42e508b4
 ====
 #### Enhancements

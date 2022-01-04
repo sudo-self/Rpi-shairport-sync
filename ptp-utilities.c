@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #ifdef COMPILE_FOR_FREEBSD
@@ -116,22 +117,28 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *time_of_sample, uint
 
 int ptp_shm_interface_open() {
   mapped_addr = NULL;
-  int shared_memory_file_descriptor = shm_open("/nqptp", O_RDWR, 0);
-  int response = 0;
-  if (shared_memory_file_descriptor >= 0) {
-    mapped_addr =
-        // needs to be PROT_READ | PROT_WRITE to allow the mapped memory to be writable for the
-        // mutex to lock and unlock
-        mmap(NULL, sizeof(struct shm_structure), PROT_READ | PROT_WRITE, MAP_SHARED,
-             shared_memory_file_descriptor, 0);
-    if (mapped_addr == MAP_FAILED) {
-      response = -1;
-    }
-    if (close(shared_memory_file_descriptor) == -1) {
+  int response = -1;
+  if (strcmp(config.nqptp_shared_memory_interface_name, "") != 0) {
+    response = 0;
+    int shared_memory_file_descriptor =
+        shm_open(config.nqptp_shared_memory_interface_name, O_RDWR, 0);
+    if (shared_memory_file_descriptor >= 0) {
+      mapped_addr =
+          // needs to be PROT_READ | PROT_WRITE to allow the mapped memory to be writable for the
+          // mutex to lock and unlock
+          mmap(NULL, sizeof(struct shm_structure), PROT_READ | PROT_WRITE, MAP_SHARED,
+               shared_memory_file_descriptor, 0);
+      if (mapped_addr == MAP_FAILED) {
+        response = -1;
+      }
+      if (close(shared_memory_file_descriptor) == -1) {
+        response = -1;
+      }
+    } else {
       response = -1;
     }
   } else {
-    response = -1;
+    debug(1, "No config.nqptp_shared_memory_interface_name");
   }
   return response;
 }
@@ -148,27 +155,41 @@ int ptp_shm_interface_close() {
 }
 
 void ptp_send_control_message_string(const char *msg) {
-  debug(2, "Send control message to NQPTP: \"%s\"", msg);
-  int s;
-  unsigned short port = htons(NQPTP_CONTROL_PORT);
-  struct sockaddr_in server;
+  size_t full_message_size =
+      strlen(config.nqptp_shared_memory_interface_name) + strlen(" ") + strlen(msg) + 1;
+  char *full_message = malloc(full_message_size);
+  if (full_message != NULL) {
+    *full_message = '\0';
+    snprintf(full_message, full_message_size, "%s %s", config.nqptp_shared_memory_interface_name,
+             msg);
+    debug(2, "Send control message to NQPTP: \"%s\"", full_message);
+    int s;
+    unsigned short port = htons(NQPTP_CONTROL_PORT);
+    struct sockaddr_in server;
 
-  /* Create a datagram socket in the internet domain and use the
-   * default protocol (UDP).
-   */
-  if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-    die("Can't open a socket to NQPTP");
+    /* Create a datagram socket in the internet domain and use the
+     * default protocol (UDP).
+     */
+    if ((s = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+      die("Can't open a socket to NQPTP");
+    }
+
+    /* Set up the server name */
+    server.sin_family = AF_INET; /* Internet Domain    */
+    server.sin_port = port;      /* Server Port        */
+    server.sin_addr.s_addr = 0;  /* Server's Address   */
+
+    /* Send the message in buf to the server */
+    if (sendto(s, full_message, full_message_size, 0, (struct sockaddr *)&server, sizeof(server)) <
+        0) {
+      die("error sending timing_peer_list to NQPTP");
+    }
+    /* Deallocate the socket */
+    close(s);
+
+    /* deallocate the message string */
+    free(full_message);
+  } else {
+    debug(1, "Couldn't allocate memory to prepare a qualified ptp control message string.");
   }
-
-  /* Set up the server name */
-  server.sin_family = AF_INET; /* Internet Domain    */
-  server.sin_port = port;      /* Server Port        */
-  server.sin_addr.s_addr = 0;  /* Server's Address   */
-
-  /* Send the message in buf to the server */
-  if (sendto(s, msg, (strlen(msg) + 1), 0, (struct sockaddr *)&server, sizeof(server)) < 0) {
-    die("error sending timing_peer_list to NQPTP");
-  }
-  /* Deallocate the socket */
-  close(s);
 }

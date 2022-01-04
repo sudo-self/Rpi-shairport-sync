@@ -536,7 +536,7 @@ void release_play_lock(rtsp_conn_info *conn) {
 }
 
 int get_play_lock(rtsp_conn_info *conn) {
-    debug(2, "Connection %d: request play lock.", conn->connection_number);
+  debug(2, "Connection %d: request play lock.", conn->connection_number);
   // returns -1 if it failed, 0 if it succeeded and 1 if it succeeded but
   // interrupted an existing session
   int response = 0;
@@ -1176,9 +1176,9 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
   ssize_t buflen = 4096;
 #ifdef CONFIG_METADATA
   if ((config.metadata_enabled != 0) && (config.get_coverart != 0))
-    buflen = 1024 * 256;  // big enough for typical picture data, which will be base64 encoded
+    buflen = 1024 * 256; // big enough for typical picture data, which will be base64 encoded
 #endif
-  int release_buffer = 0; // on exit, don't deallocate the buffer if everything was okay
+  int release_buffer = 0;         // on exit, don't deallocate the buffer if everything was okay
   char *buf = malloc(buflen + 1); // add a NUL at the end
   if (!buf) {
     warn("Connection %d: rtsp_read_request: can't get a buffer.", conn->connection_number);
@@ -1348,9 +1348,12 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
     char *string;
   };
 
-  struct response_t responses[] = {
-      {200, "OK"}, {400, "Bad Request"}, {403, "Unauthorized"}, {451, "Unavailable"}, {501, "Not Implemented"}};
-      // 451 is really "Unavailable For Legal Reasons"!
+  struct response_t responses[] = {{200, "OK"},
+                                   {400, "Bad Request"},
+                                   {403, "Unauthorized"},
+                                   {451, "Unavailable"},
+                                   {501, "Not Implemented"}};
+  // 451 is really "Unavailable For Legal Reasons"!
   int found = 0;
   char *respcode_text = "Unauthorized";
   for (i = 0; i < sizeof(responses) / sizeof(struct response_t); i++) {
@@ -1470,6 +1473,9 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
     if (conn->player_thread)
       warn("Connection %d: RECORD: Duplicate RECORD message -- ignored", conn->connection_number);
     else {
+      debug(1, "Connection %d: AP1 ALAC Stream, from %s:%u to self at %s:%u.",
+            conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+            conn->self_ip_string, conn->self_rtsp_port);
       activity_monitor_signify_activity(1);
       player_prepare_to_play(conn);
       player_play(conn); // the thread better be 0
@@ -1845,18 +1851,6 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         // reset_anchor_info(conn); // needed if the player resumes
       }
       pthread_cleanup_pop(1); // unlock the conn->flush_mutex
-
-      if ((rate & 1) != 0) {
-        // keep this outside the flush_mutex lock
-        if (conn->ap2_timing_peer_list_message) {
-          // ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-        } else {
-          debug(1, "Connection %d: No timing peer list!", conn->connection_number);
-        }
-      } else {
-        // player_full_flush(conn);
-        // ptp_send_control_message_string("T"); // ensure an obsolete clock isn't picked up later.
-      }
     }
     pthread_cleanup_pop(1); // plist_free the messagePlist;
   } else {
@@ -2302,7 +2296,8 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
                   uint64_t length = 0;
                   plist_get_data_val(the_item, &buff, &length);
                   // debug(1,"Item %d, length: %" PRId64 " bytes", item_number, length);
-                  if ((buff != NULL) && (length >= strlen("bplist00")) && (strstr(buff, "bplist00") == buff)) {
+                  if ((buff != NULL) && (length >= strlen("bplist00")) &&
+                      (strstr(buff, "bplist00") == buff)) {
                     // debug(1,"Contains a plist.");
                     plist_t subsidiary_plist = NULL;
                     plist_from_memory(buff, length, &subsidiary_plist);
@@ -2403,15 +2398,7 @@ void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp
       if (ip_address != NULL)
         free(ip_address);
     }
-
-    if (conn->ap2_timing_peer_list_message != NULL)
-      free(conn->ap2_timing_peer_list_message);
-    conn->ap2_timing_peer_list_message = strdup(timing_list_message);
-    // if this rtsp thread is playing...
-    // if (try_to_hold_play_lock(conn) == 0) {
-    ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-    // release_hold_on_play_lock(conn);
-    // }
+    ptp_send_control_message_string(timing_list_message);
   }
   plist_free(addresses_array);
   resp->respcode = 200;
@@ -2494,10 +2481,6 @@ void teardown_phase_two(rtsp_conn_info *conn) {
       free(conn->dacp_active_remote);
       conn->dacp_active_remote = NULL;
     }
-    if (conn->ap2_timing_peer_list_message) {
-      free(conn->ap2_timing_peer_list_message);
-      conn->ap2_timing_peer_list_message = NULL;
-    }
     release_play_lock(conn);
   }
 }
@@ -2523,6 +2506,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       plist_free(streams);
       debug(2, "Connection %d: TEARDOWN phase one complete", conn->connection_number);
     } else {
+      teardown_phase_one(conn); // try to do phase one anyway
       teardown_phase_two(conn);
       debug(2, "Connection %d: TEARDOWN phase two complete", conn->connection_number);
     }
@@ -2542,30 +2526,34 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
 }
 #endif
 
+void teardown(rtsp_conn_info *conn) {
+  player_stop(conn);
+  activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
+  if (conn->dacp_active_remote != NULL) {
+    free(conn->dacp_active_remote);
+    conn->dacp_active_remote = NULL;
+  }
+}
+
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                      rtsp_message *resp) {
   debug_log_rtsp_message(2, "TEARDOWN request", req);
   debug(2, "Connection %d: TEARDOWN", conn->connection_number);
   if (have_play_lock(conn)) {
-    resp->respcode = 200;
-    msg_add_header(resp, "Connection", "close");
     debug(
         3,
         "TEARDOWN: synchronously terminating the player thread of RTSP conversation thread %d (2).",
         conn->connection_number);
-    player_stop(conn);
+    teardown(conn);
     release_play_lock(conn);
-    activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
+    resp->respcode = 200;
+    msg_add_header(resp, "Connection", "close");
     debug(3, "TEARDOWN: successful termination of playing thread of RTSP conversation thread %d.",
           conn->connection_number);
   } else {
     warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
          conn->connection_number);
     resp->respcode = 451;
-  }
-  if (conn->dacp_active_remote != NULL) {
-    free(conn->dacp_active_remote);
-    conn->dacp_active_remote = NULL;
   }
   // debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
   // exit(EXIT_SUCCESS);
@@ -2614,10 +2602,9 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
 
 #ifdef CONFIG_AIRPLAY_2
 
-
 #ifdef CONFIG_METADATA
-static void check_and_send_plist_metadata(plist_t messagePlist, const char *plist_key, uint32_t metadata_code)
-{
+static void check_and_send_plist_metadata(plist_t messagePlist, const char *plist_key,
+                                          uint32_t metadata_code) {
   plist_t item = plist_dict_get_item(messagePlist, plist_key);
   if (item) {
     char *value;
@@ -2654,7 +2641,9 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_get_string_val(timingProtocol, &timingProtocolString);
       if (timingProtocolString) {
         if (strcmp(timingProtocolString, "PTP") == 0) {
-          debug(2, "Connection %d: SETUP: PTP setup detected.", conn->connection_number);
+          debug(1, "Connection %d: AP2 PTP connection from %s:%u to self at %s:%u.",
+                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+                conn->self_ip_string, conn->self_rtsp_port);
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
           get_play_lock(conn);
@@ -2674,8 +2663,9 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(2, "Connection %d: SETUP: Remote Control setup detected.",
-                    conn->connection_number);
+              debug(1, "Connection %d: Remote Control connection from %s:%u to self at %s:%u.",
+                    conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+                    conn->self_ip_string, conn->self_rtsp_port);
               conn->airplay_stream_category = remote_control_stream;
             } else {
               debug(1,
@@ -2724,87 +2714,30 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             debug(1, "No groupContainsGroupLeader in SETUP");
           }
 
+          char timing_list_message[4096];
+          timing_list_message[0] = 'T';
+          timing_list_message[1] = 0;
+
           plist_t timing_peer_info = plist_dict_get_item(messagePlist, "timingPeerInfo");
           if (timing_peer_info) {
-            // first, get and retain the incoming plist.
-            plist_t addresses = plist_new_array(); // to hold the device's peer interfaces
+            // first, get the incoming plist.
             plist_t addresses_array = plist_dict_get_item(timing_peer_info, "Addresses");
             if (addresses_array) {
               // iterate through the array of items
               uint32_t items = plist_array_get_size(addresses_array);
               if (items) {
-
                 uint32_t item;
-                struct ifaddrs *addrs, *iap;
-                getifaddrs(&addrs);
                 for (item = 0; item < items; item++) {
                   plist_t n = plist_array_get_item(addresses_array, item);
                   char *ip_address = NULL;
                   plist_get_string_val(n, &ip_address);
                   // debug(1, "Timing peer: %s", ip_address);
-                  // find its family and convert it into an IPv4/6 address
-
-                  struct sockaddr_storage peer_address;
-                  struct sockaddr_in6 *pa6 = (struct sockaddr_in6 *)&peer_address;
-                  struct sockaddr_in *pa4 = (struct sockaddr_in *)&peer_address;
-
-                  if (inet_pton(AF_INET6, ip_address, &pa6->sin6_addr) ==
-                      1) { // is an IPv6 address...
-                    peer_address.ss_family = AF_INET6;
-                    for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
-                      if ((iap->ifa_addr) && (iap->ifa_netmask) && (iap->ifa_flags & IFF_UP) &&
-                          ((iap->ifa_flags & IFF_LOOPBACK) == 0) &&
-                          (iap->ifa_addr->sa_family == AF_INET6)) {
-                        struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
-                        struct sockaddr_in6 *mask6 = (struct sockaddr_in6 *)(iap->ifa_netmask);
-                        unsigned int i;
-                        int different = 0;
-                        for (i = 0; ((i < 16) && (different == 0)); i++) {
-                          unsigned char host_byte =
-                              (addr6->sin6_addr.s6_addr[i] & mask6->sin6_addr.s6_addr[i]);
-                          unsigned char peer_byte =
-                              (pa6->sin6_addr.s6_addr[i] & mask6->sin6_addr.s6_addr[i]);
-                          if (host_byte != peer_byte)
-                            different = 1;
-                        }
-
-                        char buf[32];
-                        memset(buf, 0, sizeof(buf));
-                        inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf, sizeof(buf));
-                        // don't insist there are in the same subnet...
-                        //if (!different) {
-                          // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
-                          plist_array_append_item(addresses, plist_new_string(buf));
-                        //}
-                      }
-                    }
-                  } else if (inet_pton(AF_INET, ip_address, &pa4->sin_addr) == 1) {
-                    peer_address.ss_family = AF_INET;
-                    for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
-                      if ((iap->ifa_addr) && (iap->ifa_netmask) && (iap->ifa_flags & IFF_UP) &&
-                          ((iap->ifa_flags & IFF_LOOPBACK) == 0) &&
-                          (iap->ifa_addr->sa_family == AF_INET)) {
-                        struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
-                        // not needed if not checking for same subnet
-                        // struct sockaddr_in *mask = (struct sockaddr_in *)(iap->ifa_netmask);
-                        // if ((addr->sin_addr.s_addr & mask->sin_addr.s_addr) ==
-                        //    (pa4->sin_addr.s_addr & mask->sin_addr.s_addr)) {
-                          char buf[32];
-                          memset(buf, 0, sizeof(buf));
-                          inet_ntop(AF_INET, (void *)&addr->sin_addr, buf, sizeof(buf));
-                          // no longer insisting they are in the same subnet
-                          // debug(1, "%s is in the same subnet as %s.", buf, ip_address);
-                          plist_array_append_item(addresses, plist_new_string(buf));
-                        // }
-                      }
-                    }
-                  } else {
-                    debug(1, "SETUP on Connection %d: Don't recognise this as an IP address.",
-                          conn->connection_number);
-                  }
+                  strncat(timing_list_message, " ",
+                          sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                  strncat(timing_list_message, ip_address,
+                          sizeof(timing_list_message) - 1 - strlen(timing_list_message));
                   free(ip_address);
                 }
-                freeifaddrs(addrs);
               } else {
                 debug(1, "SETUP on Connection %d: No timingPeerInfo addresses in the array.",
                       conn->connection_number);
@@ -2816,6 +2749,48 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             // make up the timing peer info list part of the response...
             // debug(1,"Create timingPeerInfoPlist");
             plist_t timingPeerInfoPlist = plist_new_dict();
+            plist_t addresses = plist_new_array(); // to hold the device's interfaces
+            plist_array_append_item(addresses, plist_new_string(conn->self_ip_string));
+            //            debug(1,"self ip: \"%s\"", conn->self_ip_string);
+
+            struct ifaddrs *addrs, *iap;
+            getifaddrs(&addrs);
+            for (iap = addrs; iap != NULL; iap = iap->ifa_next) {
+              // debug(1, "Interface index %d, name: \"%s\"",if_nametoindex(iap->ifa_name),
+              // iap->ifa_name);
+              if ((iap->ifa_addr) && (iap->ifa_netmask) && (iap->ifa_flags & IFF_UP) &&
+                  ((iap->ifa_flags & IFF_LOOPBACK) == 0)) {
+                char buf[INET6_ADDRSTRLEN + 1]; // +1 for a NUL
+                memset(buf, 0, sizeof(buf));
+                if (iap->ifa_addr->sa_family == AF_INET6) {
+                  struct sockaddr_in6 *addr6 = (struct sockaddr_in6 *)(iap->ifa_addr);
+                  inet_ntop(AF_INET6, (void *)&addr6->sin6_addr, buf, sizeof(buf));
+                  plist_array_append_item(addresses, plist_new_string(buf));
+                  // debug(1, "Own address IPv6: %s", buf);
+
+                  // strncat(timing_list_message, " ",
+                  // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                  // strncat(timing_list_message, buf,
+                  // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+
+                } else {
+                  struct sockaddr_in *addr = (struct sockaddr_in *)(iap->ifa_addr);
+                  inet_ntop(AF_INET, (void *)&addr->sin_addr, buf, sizeof(buf));
+                  plist_array_append_item(addresses, plist_new_string(buf));
+                  // debug(1, "Own address IPv4: %s", buf);
+
+                  // strncat(timing_list_message, " ",
+                  // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                  // strncat(timing_list_message, buf,
+                  // sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                }
+              }
+            }
+            freeifaddrs(addrs);
+
+            // debug(1,"initial timing peer command: \"%s\".", timing_list_message);
+            ptp_send_control_message_string(timing_list_message);
+
             plist_dict_set_item(timingPeerInfoPlist, "Addresses", addresses);
             plist_dict_set_item(timingPeerInfoPlist, "ID", plist_new_string(conn->self_ip_string));
             plist_dict_set_item(setupResponsePlist, "timingPeerInfo", timingPeerInfoPlist);
@@ -2853,8 +2828,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             debug(2, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
                   get_category_string(conn->airplay_stream_category));
             mdns_update(NULL, secondary_txt_records);
-
-
 
             resp->respcode = 200;
           } else {
@@ -2898,8 +2871,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
           plist_dict_set_item(setupResponsePlist, "eventPort",
                               plist_new_uint(conn->local_event_port));
-          plist_dict_set_item(setupResponsePlist, "timingPort",
-                              plist_new_uint(0));
+          plist_dict_set_item(setupResponsePlist, "timingPort", plist_new_uint(0));
           cancel_all_RTSP_threads(
               remote_control_stream,
               conn->connection_number); // kill all the other remote control listeners
@@ -3001,7 +2973,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       switch (item_value) {
       case 96: {
-        debug(1, "Connection %d. Realtime Audio Stream Detected.", conn->connection_number);
+        debug(1, "Connection %d. AP2 Realtime Audio Stream.", conn->connection_number);
         debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
         // get_play_lock(conn);
         conn->airplay_stream_type = realtime_stream;
@@ -3048,11 +3020,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         conn->input_bit_depth = conn->stream.fmtp[3];
         conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
         debug(2, "Realtime Stream Play");
-        if (conn->ap2_timing_peer_list_message) {
-          // ptp_send_control_message_string(conn->ap2_timing_peer_list_message);
-        } else {
-          debug(1, "No timing peer list!");
-        }
         activity_monitor_signify_activity(1);
         player_prepare_to_play(conn);
         player_play(conn);
@@ -3060,8 +3027,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         conn->rtp_running = 1; // hack!
       } break;
       case 103: {
-        debug(1, "SETUP on Connection %d. Buffered Audio Stream Detected.",
-              conn->connection_number);
+        debug(1, "Connection %d. AP2 Buffered Audio Stream.", conn->connection_number);
         debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
         // get_play_lock(conn);
         conn->airplay_stream_type = buffered_stream;
@@ -4698,8 +4664,15 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   debug(2, "Connection %d: rtsp_conversation_thread_func_cleanup_function called.",
         conn->connection_number);
 #ifdef CONFIG_AIRPLAY_2
+  // AP2
   teardown_phase_one(conn);
   teardown_phase_two(conn);
+#else
+  // AP1
+  if (have_play_lock(conn)) {
+    teardown(conn);
+    release_play_lock(conn);
+  }
 #endif
 
   debug(3, "Connection %d terminating:Closing timing, control and audio sockets...",
@@ -5214,7 +5187,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
           inet_ntop(conn->connection_ip_family, self_addr, conn->self_ip_string,
                     sizeof(conn->self_ip_string));
 
-          debug(1, "Connection %d: new connection from %s:%u to self at %s:%u.",
+          debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
                 conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                 conn->self_ip_string, conn->self_rtsp_port);
         } else {
