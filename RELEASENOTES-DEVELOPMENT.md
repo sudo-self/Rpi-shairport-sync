@@ -1,3 +1,8 @@
+Version-4.1-dev-164-gf79222f7
+====
+#### Bugfix
+* Fix a crashing bug in AirPlay 2 mode which occurs if no configuration file is found. This particularly affects the Docker image, as it contains no configuration file. Thanks to [Charles Omer](https://github.com/charlesomer) for reporting.
+
 Version-4.1-dev-160-g9c2f9f7a
 ====
 #### Bugfix
