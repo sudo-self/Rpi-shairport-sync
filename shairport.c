@@ -2,7 +2,7 @@
  * Shairport, an Apple Airplay receiver
  * Copyright (c) James Laird 2013
  * All rights reserved.
- * Modifications and additions (c) Mike Brady 2014--2021
+ * Modifications and additions (c) Mike Brady 2014--2022
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -467,6 +467,44 @@ int parse_options(int argc, char **argv) {
   //    (365 * 24 * 60 * 60) / config.scan_interval_when_inactive; // number of scans to do before
   //    stopping if
   // not made active again (not used)
+#endif
+
+#ifdef CONFIG_AIRPLAY_2
+  // the features code is a 64-bit number, but in the mDNS advertisement, the least significant 32
+  // bit are given first for example, if the features number is 0x1C340405F4A00, it will be given as
+  // features=0x405F4A00,0x1C340 in the mDNS string, and in a signed decimal number in the plist:
+  // 496155702020608 this setting here is the source of both the plist features response and the
+  // mDNS string.
+  // note: 0x300401F4A00 works but with weird delays and stuff
+  // config.airplay_features = 0x1C340405FCA00;
+  uint64_t mask =
+      ((uint64_t)1 << 17) | ((uint64_t)1 << 16) | ((uint64_t)1 << 15) | ((uint64_t)1 << 50);
+  config.airplay_features =
+      0x1C340405D4A00 & (~mask); // APX + Authentication4 (b14) with no metadata (see below)
+  // Advertised with mDNS and returned with GET /info, see
+  // https://openairplay.github.io/airplay-spec/status_flags.html 0x4: Audio cable attached, no PIN
+  // required (transient pairing), 0x204: Audio cable attached, OneTimePairingRequired 0x604: Audio
+  // cable attached, OneTimePairingRequired, device was setup for Homekit access control
+  config.airplay_statusflags = 0x04;
+  // Set to NULL to work with transient pairing
+  config.airplay_pin = NULL;
+
+  // use the start of the config.hw_addr and the PID to generate the default airplay_device_id
+  uint64_t temporary_airplay_id = nctoh64(config.hw_addr);
+  temporary_airplay_id =
+      temporary_airplay_id >> 16; // we only use the first 6 bytes but have imported 8.
+
+  // now generate a UUID
+  // from https://stackoverflow.com/questions/51053568/generating-a-random-uuid-in-c
+  // with thanks
+  uuid_t binuuid;
+  uuid_generate_random(binuuid);
+
+  char *uuid = malloc(UUID_STR_LEN);
+  // Produces a UUID string at uuid consisting of lower-case letters
+  uuid_unparse_lower(binuuid, uuid);
+  config.airplay_pi = uuid;
+
 #endif
 
   // config_setting_t *setting;
@@ -1151,6 +1189,21 @@ int parse_options(int argc, char **argv) {
     }
 #endif
 #endif
+
+#ifdef CONFIG_AIRPLAY_2
+    int64_t aid;
+
+    // replace the airplay_device_id with this, if provided
+    if (config_lookup_int64(config.cfg, "general.airplay_device_id", &aid)) {
+      temporary_airplay_id = aid;
+    }
+
+    // add the airplay_device_id_offset if provided
+    if (config_lookup_int64(config.cfg, "general.airplay_device_id_offset", &aid)) {
+      temporary_airplay_id += aid;
+    }
+
+#endif
   }
 
   // now, do the command line options again, but this time do them fully -- it's a unix convention
@@ -1217,6 +1270,44 @@ int parse_options(int argc, char **argv) {
   poptFreeContext(optCon);
 
   // here, we are finally finished reading the options
+
+  // finish the Airplay 2 options
+
+#ifdef CONFIG_AIRPLAY_2
+
+  char shared_memory_interface_name[256] = "";
+  snprintf(shared_memory_interface_name, sizeof(shared_memory_interface_name), "/%s-%" PRIx64 "",
+           config.appName, temporary_airplay_id);
+  // debug(1, "smi name: \"%s\"", shared_memory_interface_name);
+
+  config.nqptp_shared_memory_interface_name = strdup(shared_memory_interface_name);
+
+  char apids[6 * 2 + 5 + 1]; // six pairs of digits, 5 colons and a NUL
+  apids[6 * 2 + 5] = 0;      // NUL termination
+  int i;
+  char hexchar[] = "0123456789abcdef";
+  for (i = 5; i >= 0; i--) {
+    apids[i * 3 + 1] = hexchar[temporary_airplay_id & 0xF];
+    temporary_airplay_id = temporary_airplay_id >> 4;
+    apids[i * 3] = hexchar[temporary_airplay_id & 0xF];
+    temporary_airplay_id = temporary_airplay_id >> 4;
+    if (i != 0)
+      apids[i * 3 - 1] = ':';
+  }
+
+  config.airplay_device_id = strdup(apids);
+
+#ifdef CONFIG_METADATA
+  // If we are asking for metadata, turn on the relevant bits
+  if (config.metadata_enabled != 0) {
+    config.airplay_features |= (1 << 17) | (1 << 16); // 16 is progress, 17 is text
+    // If we are asking for artwork, turn on the relevant bit
+    if (config.get_coverart)
+      config.airplay_features |= (1 << 15); // 15 is artwork
+  }
+#endif
+
+#endif
 
 #ifdef CONFIG_LIBDAEMON
   if ((daemonisewith) && (daemonisewithout))
@@ -1792,86 +1883,13 @@ int main(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
-  // the features code is a 64-bit number, but in the mDNS advertisement, the least significant 32
-  // bit are given first for example, if the features number is 0x1C340405F4A00, it will be given as
-  // features=0x405F4A00,0x1C340 in the mDNS string, and in a signed decimal number in the plist:
-  // 496155702020608 this setting here is the source of both the plist features response and the
-  // mDNS string.
-  // note: 0x300401F4A00 works but with weird delays and stuff
-  // config.airplay_features = 0x1C340405FCA00;
-  uint64_t mask =
-      ((uint64_t)1 << 17) | ((uint64_t)1 << 16) | ((uint64_t)1 << 15) | ((uint64_t)1 << 50);
-  config.airplay_features =
-      0x1C340405D4A00 & (~mask); // APX + Authentication4 (b14) with no metadata (see below)
-  // Advertised with mDNS and returned with GET /info, see
-  // https://openairplay.github.io/airplay-spec/status_flags.html 0x4: Audio cable attached, no PIN
-  // required (transient pairing), 0x204: Audio cable attached, OneTimePairingRequired 0x604: Audio
-  // cable attached, OneTimePairingRequired, device was setup for Homekit access control
-
-#ifdef CONFIG_METADATA
-  // If we are asking for metadata, turn on the relevant bits
-  if (config.metadata_enabled != 0) {
-    config.airplay_features |= (1 << 17) | (1 << 16); // 16 is progress, 17 is text
-    // If we are asking for artwork, turn on the relevant bit
-    if (config.get_coverart)
-      config.airplay_features |= (1 << 15); // 15 is artwork
-  }
-#endif
-
-  debug(1, "Features: 0x%" PRIx64 ".", config.airplay_features);
-  config.airplay_statusflags = 0x04;
-  // Set to NULL to work with transient pairing
-  config.airplay_pin = NULL;
-
-  // use the start of the config.hw_addr and the PID to generate the default airplay_device_id
-  uint64_t apid = nctoh64(config.hw_addr);
-  apid = apid >> 16; // we only use the first 6 bytes but have imported 8.
-
-  int64_t aid;
-
-  // add the airplay_device_id_offset if provided
-  if (config_lookup_int64(config.cfg, "general.airplay_device_id_offset", &aid)) {
-    apid += aid;
-  }
-
-  // replace the airplay_device_id with this, if provided
-  if (config_lookup_int64(config.cfg, "general.airplay_device_id", &aid)) {
-    apid = aid;
-  }
-
-  char shared_memory_interface_name[256] = "";
-  snprintf(shared_memory_interface_name, sizeof(shared_memory_interface_name), "/%s-%" PRIx64 "",
-           config.appName, apid);
-  // debug(1, "smi name: \"%s\"", shared_memory_interface_name);
-
-  config.nqptp_shared_memory_interface_name = strdup(shared_memory_interface_name);
-
-  char apids[6 * 2 + 5 + 1]; // six pairs of digits, 5 colons and a NUL
-  apids[6 * 2 + 5] = 0;      // NUL termination
-  int i;
-  char hexchar[] = "0123456789abcdef";
-  for (i = 5; i >= 0; i--) {
-    apids[i * 3 + 1] = hexchar[apid & 0xF];
-    apid = apid >> 4;
-    apids[i * 3] = hexchar[apid & 0xF];
-    apid = apid >> 4;
-    if (i != 0)
-      apids[i * 3 - 1] = ':';
-  }
-
-  config.airplay_device_id = strdup(apids);
-
-  // now generate a UUID
-  // from https://stackoverflow.com/questions/51053568/generating-a-random-uuid-in-c
-  // with thanks
-  uuid_t binuuid;
-  uuid_generate_random(binuuid);
-
-  char *uuid = malloc(UUID_STR_LEN);
-  // Produces a UUID string at uuid consisting of lower-case letters
-  uuid_unparse_lower(binuuid, uuid);
-  config.airplay_pi = uuid;
-  debug(1, "Started in Airplay 2 mode on device \"%s\"!", config.airplay_device_id);
+  uint64_t apf = config.airplay_features;
+  uint64_t apfh = config.airplay_features;
+  apfh = apfh >> 32;
+  uint32_t apf32 = apf;
+  uint32_t apfh32 = apfh;
+  debug(1, "Started in Airplay 2 mode with features 0x%" PRIx32 ",0x%" PRIx32 " on device \"%s\"!",
+        apf32, apfh32, config.airplay_device_id);
 #else
   debug(1, "Started in Airplay 1 mode!");
 #endif
