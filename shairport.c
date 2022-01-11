@@ -416,7 +416,7 @@ int parse_options(int argc, char **argv) {
   config.tolerance = 1.0 * fTolerance / 44100;
   config.audio_backend_silent_lead_in_time_auto =
       1;                         // start outputting silence as soon as packets start arriving
-  config.airplay_volume = -18.0; // if no volume is ever set, default to initial default value if
+  config.airplay_volume = -24.0; // if no volume is ever set, default to initial default value if
                                  // nothing else comes in first.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
