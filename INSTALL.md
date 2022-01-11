@@ -58,7 +58,33 @@ $ sudo make install
 ```
 By the way, the `autoreconf` step may take quite a while on a Raspberry Pi -- be patient!
 
-Now to configure Shairport Sync. Here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`:
+### Configure
+If you don't set any configuration parameters, Shairport Sync will use the default `alsa` output device. 
+
+If you wish to configure Shairport Sync to use a specific output device (recommended), an experimental tool called [sps-alsa-explore](https://github.com/mikebrady/sps-alsa-explore) is available to search for all `alsa` hardware output devices that can be used by Shairport Sync. Here is the tool's output for a Raspberry Pi 4 running Buster:
+
+```
+> Device:              "hw:Headphones"
+  Short Name:          "hw:0"
+  This device seems suitable for use with Shairport Sync.
+  Possible mixers:     "Headphone"
+  Suggested rate and format:
+     Rate              Format
+     44100             S16_LE
+
+> Device:              "hw:vc4hdmi0"
+  Short Name:          "hw:2"
+  This device can not be accessed and so can not be checked.
+  (Does it need to be configured or connected?)
+
+> Device:              "hw:vc4hdmi1"
+  Short Name:          "hw:3"
+  This device can not be accessed and so can not be checked.
+  (Does it need to be configured or connected?)
+
+```
+
+To use the "Headphones" device, here are the options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`:
 ```
 // Sample Configuration File for Shairport Sync on a Raspberry Pi using the built-in audio DAC
 general =
@@ -68,12 +94,14 @@ general =
 
 alsa =
 {
-  output_device = "hw:0";
-  mixer_control_name = "PCM";
+  output_device = "hw:Headphones";
+  mixer_control_name = "Headphone";
 };
 
 ```
 The `volume_range_db = 60;` setting makes Shairport Sync use only the usable part of the built-in audio card mixer's attenuation range.
+
+(BTW, Shairport Sync will choose the suggested speed and format automatically.)
 
 The next step is to enable Shairport Sync to start automatically on boot up:
 ```
