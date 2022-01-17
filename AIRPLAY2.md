@@ -10,13 +10,9 @@ Shairport Sync offers AirPlay 2 support for audio sources on iOS devices, Macs, 
 - No AirPlay 2 for Windows iTunes
 
 ### General
-The focus of the development effort has been on getting good audio performance for iOS and Mac.
+Shairport Sync uses another application called [`nqptp`](https://github.com/mikebrady/nqptp) ("Not Quite PTP") for timing and synchronisation in AirPlay 2. `nqptp` must run as `root` and must have exclusive access to ports `319` and `320`.
 
-For AirPlay 2, Shairport Sync uses another application called [`nqptp`](https://github.com/mikebrady/nqptp) ("Not Quite PTP") for timing and synchronisation. `nqptp` must run as `root` and must have exclusive access to ports `319` and `320`.
-
-The AirPlay 2 version of Shairport Sync will not work if installed on macOS. This is because [`nqptp`](https://github.com/mikebrady/nqptp) uses ports `319` and `320` but these ports are unavailable because there are used by macOS to support its implementation of AirPlay 2.
-
-Shairport Sync does not support lossless playback of Lossless or High Definition Lossless material. Instead, this material is automatically transcoded to ALAC or AAC before sending it via AirPlay 2 to Shairport Sync. 
+Shairport Sync does not support lossless playback of Lossless or High Definition Lossless material. Instead, this material is automatically transcoded to AAC before sending it via AirPlay 2 to Shairport Sync. 
 
 AirPlay 2 -- What You Need
 ---
@@ -25,7 +21,7 @@ AirPlay 2 support needs a slightly more powerful CPU for decoding and synchronis
 Here are some guidelines: 
 * Full access, including `root` privileges, to a system at least as powerful as a Raspberry Pi 2 or a Raspberry Pi Zero 2 W.
 * A fully up-to-date Linux. This is important, as some of the libraries must be the latest available.
-* An audio output, for example an `alsa` device (or `sndio` in FreeBSD). You can use an application called [`sps-alsa-explore`](https://github.com/mikebrady/sps-alsa-explore) is available to test hardware `alsa` audio devices on your device for suitability. The `stdout` and `pipe` backends continue to work as before. 
+* An audio output, for example an `alsa` device (or `sndio` in FreeBSD). You can use an application called [`sps-alsa-explore`](https://github.com/mikebrady/sps-alsa-explore) to test the suitability of hardware `alsa` audio devices on your device. Other backends continue to work as with "classic" Shairport Sync.
 
 Guides
 ---
@@ -37,6 +33,10 @@ AirPlay 2 -- More About What Works
 * Two types of audio are received by Shairport Sync -- "Realtime" streams of CD quality ALAC (like AirPlay 1) and "Buffered Audio" streams of AAC stereo at 44,100 frames per second. The selection of stream type is made by the player.
 * Audio is synchronised with other AirPlay 2 devices, including AirPlay 2 devices that have their own master clocks.
 * Shairport Sync continues to support AirPlay 1, and offers an AirPlay 1 compatibility mode for situations where iTunes on macOS or macOS Music plays to multiple speakers and one of more of them is compatible with AirPlay 1 only.
+
+Note
+----
+The functionality offered by Shairport Sync is the result of lots of study and analysis of the AirPlay 1 and AirPlay 2 protocols by many people over the years. These protocols have not been officially published, and there is no assurance that Shairport Sync will continue to work with AirPlay in future.
 
 Acknowledgements
 ----
@@ -50,4 +50,4 @@ Much of Shairport Sync's AirPlay 2 functionality is based on ideas developed at 
 
 Finally
 ----
-Did we mention AirPlay 2 support is experimental?
+AirPlay 2 support is experimental.
