@@ -1,17 +1,6 @@
 AirPlay 2
 ===
-
-Shairport Sync offers limited AirPlay 2 support for audio sources on iOS devices, Macs, HomePod minis and Apple TVs. It does not work for iTunes on Windows. 
-
-The focus of the development effort has been on getting good audio performance for iOS and Mac. Features outside this focus may be missing or broken. So, for example, remote control doesn't work.
-
-For AirPlay 2, Shairport Sync uses another application called [`nqptp`](https://github.com/mikebrady/nqptp) ("Not Quite PTP") for timing and synchronisation. `nqptp` must run as `root` and must have exclusive access to ports `319` and `320`.
-
-AirPlay 2 functionality is available on recent Linux and FreeBSD builds. The FreeBSD implementation has not been extensively tested. OpenBSD and Cygwin are not supported.
-
-The AirPlay 2 version of Shairport Sync will not work if installed on macOS. This is because [`nqptp`](https://github.com/mikebrady/nqptp) uses ports `319` and `320` but these ports are unavailable because there are used by macOS to support its implementation of AirPlay 2.
-
-The AirPlay 2 build requires a good deal of extra library support and may not fit into smaller devices. It also requires more CPU power and more RAM.
+Shairport Sync offers AirPlay 2 support for audio sources on iOS devices, Macs, HomePod minis and Apple TVs.
 
 ### What Works
 - AirPlay 2 for iOS, HomePod mini, AppleTV and Mac players.
@@ -20,21 +9,23 @@ The AirPlay 2 build requires a good deal of extra library support and may not fi
 - No Remote Control
 - No AirPlay 2 for Windows iTunes
 
-### What Partly Works
-- Lossless or High Definition Lossless material over AirPlay 2 is automatically transcoded to ALAC or AAC before sending it via AirPlay 2 to Shairport Sync. 
+### General
+The focus of the development effort has been on getting good audio performance for iOS and Mac.
 
-### Limitations
-- Only a single instance of Shairport Sync can run on a device.
-- The AirPlay 2 version of Shairport Sync will not work if installed on macOS, since `nqptp` can not be installed on macOS.
+For AirPlay 2, Shairport Sync uses another application called [`nqptp`](https://github.com/mikebrady/nqptp) ("Not Quite PTP") for timing and synchronisation. `nqptp` must run as `root` and must have exclusive access to ports `319` and `320`.
+
+The AirPlay 2 version of Shairport Sync will not work if installed on macOS. This is because [`nqptp`](https://github.com/mikebrady/nqptp) uses ports `319` and `320` but these ports are unavailable because there are used by macOS to support its implementation of AirPlay 2.
+
+Shairport Sync does not support lossless playback of Lossless or High Definition Lossless material. Instead, this material is automatically transcoded to ALAC or AAC before sending it via AirPlay 2 to Shairport Sync. 
 
 AirPlay 2 -- What You Need
 ---
-AirPlay 2 support needs a more powerful CPU for decoding and synchronisation and more memory for bigger buffers and larger libraries. Raspberry Pi OS, Ubuntu 20.04 on a VM and Ubuntu 20.04.2 64-bit Server Edition have been used extensively in development, with Alpine Linux and FreeBSD 12.2 being used to a lesser extent.
+AirPlay 2 support needs a slightly more powerful CPU for decoding and synchronisation and more memory for bigger buffers and larger libraries. A Raspberry Pi 2 or Raspberry Pi Zero 2 W or better is required.
 
-So, here are some guideline requirements: 
-* Full access, including `root` privileges, to a system at least as powerful as a Raspberry Pi 2.
+Here are some guidelines: 
+* Full access, including `root` privileges, to a system at least as powerful as a Raspberry Pi 2 or a Raspberry Pi Zero 2 W.
 * A fully up-to-date Linux. This is important, as some of the libraries must be the latest available.
-* An audio output, for example an `alsa` device (or `sndio` in FreeBSD). The `stdout` and `pipe` backends continue to work as before. Other backends have not been tested.
+* An audio output, for example an `alsa` device (or `sndio` in FreeBSD). You can use an application called [`sps-alsa-explore`](https://github.com/mikebrady/sps-alsa-explore) is available to test hardware `alsa` audio devices on your device for suitability. The `stdout` and `pipe` backends continue to work as before. 
 
 Guides
 ---
