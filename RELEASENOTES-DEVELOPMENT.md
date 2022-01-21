@@ -1,3 +1,8 @@
+Version-4.1-dev-169-g6ced6bc6
+====
+#### Enhancement
+* Add a new `mixer_control_index` setting to the `alsa` section of the configuration file. A mixer is fully identified by a name and index. The index defaults to zero, and, until now, it could only be set using the `alsa` command-line argument `-i`. Thanks to [flipoidix](https://github.com/flipoidix) for bringing this issue to notice.
+
 Version-4.1-dev-164-gf79222f7
 ====
 #### Bugfix
