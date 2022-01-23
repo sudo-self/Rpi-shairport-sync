@@ -1213,7 +1213,7 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
 void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
                          uint64_t networktime) {
   if (conn->anchor_clock != clock_id) {
-    debug(2, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
+    debug(1, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
     conn->anchor_clock_is_new = 1;
   }
   // debug(1,"set anchor info clock: %" PRIx64", rtptime: %u, networktime: %" PRIx64 ".", clock_id,
@@ -1453,7 +1453,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
     if (anchorLocalTime != NULL)
       *anchorLocalTime = conn->last_anchor_local_time;
   }
-  
+
   return response;
 }
 
@@ -1651,6 +1651,8 @@ void *rtp_ap2_control_receiver(void *arg) {
   uint8_t packet[4096];
   ssize_t nread;
   int keep_going = 1;
+  uint64_t start_time = get_absolute_time_in_ns();
+  uint64_t packet_number = 0;
   while (keep_going) {
     SOCKADDR from_sock_addr;
     socklen_t from_sock_addr_length = sizeof(SOCKADDR);
@@ -1658,8 +1660,24 @@ void *rtp_ap2_control_receiver(void *arg) {
 
     nread = recvfrom(conn->ap2_control_socket, packet, sizeof(packet), 0,
                      (struct sockaddr *)&from_sock_addr, &from_sock_addr_length);
+    uint64_t time_now = get_absolute_time_in_ns();
 
-    if (nread > 0) {
+    int64_t time_since_start = time_now - start_time;
+
+    if (time_since_start <= 10000000) {
+      debug(1, "Discarding early timing packet.");
+    }
+
+    if ((nread > 0) && (time_since_start > 10000000)) {
+      packet_number++;
+
+      if (packet_number == 1) {
+        if ((packet[0] & 0x10) != 0) {
+          debug(2, "First packet is a sentinel packet.");
+        } else {
+          debug(1, "First packet is a not a sentinel packet!");
+        }
+      }
       // debug(1,"rtp_ap2_control_receiver coded: %u, %u", packet[0], packet[1]);
 
       if ((config.diagnostic_drop_packet_fraction == 0.0) ||

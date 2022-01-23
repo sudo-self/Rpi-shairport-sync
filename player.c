@@ -1703,6 +1703,7 @@ void player_thread_cleanup_handler(void *arg) {
 #ifdef CONFIG_AIRPLAY_2
   }
   // ptp_send_control_message_string("T"); // remove all timing peers to force the master to 0
+  reset_anchor_info(conn);
 #endif
 
   if (conn->outbuf) {
