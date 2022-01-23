@@ -1,3 +1,8 @@
+Version-4.1-dev-171-g703717a5
+====
+#### Bugfix
+* Clear PTP clock information when a Realtime stream stops playing. This _may_ address one of the issues reported in [#1404](https://github.com/mikebrady/shairport-sync/issues/1404).
+
 Version-4.1-dev-169-g6ced6bc6
 ====
 #### Enhancement
