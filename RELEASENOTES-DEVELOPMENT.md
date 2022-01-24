@@ -1,3 +1,9 @@
+Version-4.1-dev-173-gdeb11654
+====
+#### Enhancements
+* Add some sanity checking of the latency offset and buffer size to check if they can be accommodated.
+* Discard non-sentinel UDP timing packets that are received just when a timing thread starts -- they may relate to a prior session.
+
 Version-4.1-dev-171-g703717a5
 ====
 #### Bugfix
