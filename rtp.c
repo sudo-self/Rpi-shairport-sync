@@ -1668,95 +1668,118 @@ void *rtp_ap2_control_receiver(void *arg) {
       debug(1, "Discarding early timing packet.");
     }
 
-    if ((nread > 0) && (time_since_start > 10000000)) {
-      packet_number++;
+    if (nread > 0) {
+      if ((time_since_start < 10000000) && ((packet[0] & 0x10) == 0)) {
+        debug(1,
+              "Dropping what looks like a (non-sentinel) packet left over from a previous session "
+              "at %f ms.",
+              0.000001 * time_since_start);
+      } else {
+        packet_number++;
 
-      if (packet_number == 1) {
-        if ((packet[0] & 0x10) != 0) {
-          debug(2, "First packet is a sentinel packet.");
-        } else {
-          debug(1, "First packet is a not a sentinel packet!");
+        if (packet_number == 1) {
+          if ((packet[0] & 0x10) != 0) {
+            debug(2, "First packet is a sentinel packet.");
+          } else {
+            debug(1, "First packet is a not a sentinel packet!");
+          }
         }
-      }
-      // debug(1,"rtp_ap2_control_receiver coded: %u, %u", packet[0], packet[1]);
+        // debug(1,"rtp_ap2_control_receiver coded: %u, %u", packet[0], packet[1]);
 
-      if ((config.diagnostic_drop_packet_fraction == 0.0) ||
-          (drand48() > config.diagnostic_drop_packet_fraction)) {
-        // store the from_sock_addr if we haven't already done so
-        // v remember to zero this when you're finished!
-        if (conn->ap2_remote_control_socket_addr_length == 0) {
-          memcpy(&conn->ap2_remote_control_socket_addr, &from_sock_addr, from_sock_addr_length);
-          conn->ap2_remote_control_socket_addr_length = from_sock_addr_length;
-        }
-        switch (packet[1]) {
-        case 215: // code 215, effectively an anchoring announcement
-        {
-          // struct timespec tnr;
-          // clock_gettime(CLOCK_REALTIME, &tnr);
-          // uint64_t local_realtime_now = timespec_to_ns(&tnr);
+        if ((config.diagnostic_drop_packet_fraction == 0.0) ||
+            (drand48() > config.diagnostic_drop_packet_fraction)) {
+          // store the from_sock_addr if we haven't already done so
+          // v remember to zero this when you're finished!
+          if (conn->ap2_remote_control_socket_addr_length == 0) {
+            memcpy(&conn->ap2_remote_control_socket_addr, &from_sock_addr, from_sock_addr_length);
+            conn->ap2_remote_control_socket_addr_length = from_sock_addr_length;
+          }
+          switch (packet[1]) {
+          case 215: // code 215, effectively an anchoring announcement
+          {
+            // struct timespec tnr;
+            // clock_gettime(CLOCK_REALTIME, &tnr);
+            // uint64_t local_realtime_now = timespec_to_ns(&tnr);
 
-          /*
-                    char obf[4096];
-                    char *obfp = obf;
-                    int obfc;
-                    for (obfc=0;obfc<nread;obfc++) {
-                      snprintf(obfp, 3, "%02X", packet[obfc]);
-                      obfp+=2;
-                    };
-                    *obfp=0;
-                    debug(1,"AP2 Timing Control Received: \"%s\"",obf);
-          */
+            /*
+                      char obf[4096];
+                      char *obfp = obf;
+                      int obfc;
+                      for (obfc=0;obfc<nread;obfc++) {
+                        snprintf(obfp, 3, "%02X", packet[obfc]);
+                        obfp+=2;
+                      };
+                      *obfp=0;
+                      debug(1,"AP2 Timing Control Received: \"%s\"",obf);
+            */
 
-          uint64_t remote_packet_time_ns = nctoh64(packet + 8);
-          uint64_t clock_id = nctoh64(packet + 20);
+            uint64_t remote_packet_time_ns = nctoh64(packet + 8);
+            uint64_t clock_id = nctoh64(packet + 20);
 
-          // debug(1, "we have clock_id: %" PRIx64 ".", clock_id);
-          // debug(1,"remote_packet_time_ns: %" PRIx64 ", local_realtime_now_ns: %" PRIx64 ".",
-          // remote_packet_time_ns, local_realtime_now);
-          uint32_t frame_1 =
-              nctohl(packet + 4); // this seems to be the frame with latency of 77165 included
-          uint32_t frame_2 = nctohl(packet + 16); // this seems to be the frame the time refers to
-          // this just updates the anchor information contained in the packet
-          // the frame and its remote time
-          // add in the audio_backend_latency_offset;
-          int32_t notified_latency = frame_2 - frame_1;
-          int32_t added_latency = (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
-          // the actual latency is the notified latency plus the fixed latency + the added latency
+            // debug(1, "we have clock_id: %" PRIx64 ".", clock_id);
+            // debug(1,"remote_packet_time_ns: %" PRIx64 ", local_realtime_now_ns: %" PRIx64 ".",
+            // remote_packet_time_ns, local_realtime_now);
+            uint32_t frame_1 =
+                nctohl(packet + 4); // this seems to be the frame with latency of 77165 included
+            uint32_t frame_2 = nctohl(packet + 16); // this seems to be the frame the time refers to
+            // this just updates the anchor information contained in the packet
+            // the frame and its remote time
+            // add in the audio_backend_latency_offset;
+            int32_t notified_latency = frame_2 - frame_1;
+            int32_t added_latency =
+                (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
+            // the actual latency is the notified latency plus the fixed latency + the added latency
 
-          if (added_latency < (-(notified_latency + 11035)))
-            debug(1, "the audio_backend_latency_offset is causing a negative latency!");
+            int32_t net_latency =
+                notified_latency + 11035 +
+                added_latency; // this is the latency between incoming frames and the DAC
+            net_latency = net_latency -
+                          (int32_t)(config.audio_backend_buffer_desired_length * conn->input_rate);
+            // debug(1, "Net latency is %d frames.", net_latency);
 
-          /*
-          debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
-          conn->remote_reference_timestamp_time = remote_packet_time_ns;
-          conn->reference_timestamp =
-              frame_1 - 11035 - added_latency; // add the latency in to the anchortime
-          debug_mutex_unlock(&conn->reference_time_mutex, 0);
-          */
-          // this is now only used for calculating when to ask for resends
-          conn->latency = notified_latency + 11035 + added_latency;
-          // debug(1,"conn->latency is %d.", conn->latency);
-          set_ptp_anchor_info(conn, clock_id, frame_1 - 11035 - added_latency,
-                              remote_packet_time_ns);
+            if (net_latency <= 0) {
+              if (conn->latency_warning_issued == 0) {
+                warn("The stream latency (%f seconds) it too short to accommodate an offset of %f seconds and a backend buffer of %f seconds.", ((notified_latency + 11035) * 1.0)/conn->input_rate, config.audio_backend_latency_offset, config.audio_backend_buffer_desired_length);
+                warn("(FYI the stream latency needed would be %f seconds.)", config.audio_backend_buffer_desired_length - config.audio_backend_latency_offset);
+                conn->latency_warning_issued = 1;
+              }
+              conn->latency = notified_latency + 11035;
+            } else {
+              conn->latency = notified_latency + 11035 + added_latency;
+            }
 
-        } break;
-        case 0xd6:
-          // six bytes in is the sequence number at the start of the encrypted audio packet
-          // returns the sequence number but we're not really interested
-          decipher_player_put_packet(packet + 6, nread - 6, conn);
-          break;
-        default: {
-          char *packet_in_hex_cstring =
-              debug_malloc_hex_cstring(packet, nread); // remember to free this afterwards
-          debug(1,
+            /*
+            debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
+            conn->remote_reference_timestamp_time = remote_packet_time_ns;
+            conn->reference_timestamp =
+                frame_1 - 11035 - added_latency; // add the latency in to the anchortime
+            debug_mutex_unlock(&conn->reference_time_mutex, 0);
+            */
+            // this is now only used for calculating when to ask for resends
+            // debug(1, "conn->latency is %d.", conn->latency);
+            set_ptp_anchor_info(conn, clock_id, frame_1 - 11035 - added_latency,
+                                remote_packet_time_ns);
+
+          } break;
+          case 0xd6:
+            // six bytes in is the sequence number at the start of the encrypted audio packet
+            // returns the sequence number but we're not really interested
+            decipher_player_put_packet(packet + 6, nread - 6, conn);
+            break;
+          default: {
+            char *packet_in_hex_cstring =
+                debug_malloc_hex_cstring(packet, nread); // remember to free this afterwards
+            debug(
+                1,
                 "AP2 Control Receiver Packet of first byte 0x%02X, type 0x%02X length %d received: "
                 "\"%s\".",
                 packet[0], packet[1], nread, packet_in_hex_cstring);
-          free(packet_in_hex_cstring);
-        } break;
+            free(packet_in_hex_cstring);
+          } break;
+          }
+        } else {
+          debug(1, "AP2 Control Receiver -- dropping a packet.");
         }
-      } else {
-        debug(1, "AP2 Control Receiver -- dropping a packet.");
       }
     } else if (nread == 0) {
       debug(1, "AP2 Control Receiver -- connection closed.");

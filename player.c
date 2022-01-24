@@ -1743,6 +1743,8 @@ void *player_thread_func(void *arg) {
   int previous_frames_played_valid = 0;
 
   // pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
+  conn->latency_warning_issued =
+      0; // be permitted to generate a warning each time a play is attempted
   conn->packet_count = 0;
   conn->packet_count_since_flush = 0;
   conn->previous_random_number = 0;
