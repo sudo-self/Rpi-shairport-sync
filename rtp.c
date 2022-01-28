@@ -1426,7 +1426,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       debug(2, "Connection %d: No NQPTP master clock.", conn->connection_number);
       break;
     case clock_no_anchor_info:
-      debug(1, "Connection %d: No Clock Anchor.", conn->connection_number);
+      debug(1, "Connection %d: No clock anchor information.", conn->connection_number);
       break;
     case clock_version_mismatch:
       debug(1, "Connection %d: NQPTP clock interface mismatch.", conn->connection_number);
@@ -1664,12 +1664,8 @@ void *rtp_ap2_control_receiver(void *arg) {
 
     int64_t time_since_start = time_now - start_time;
 
-    if (time_since_start <= 10000000) {
-      debug(1, "Discarding early timing packet.");
-    }
-
     if (nread > 0) {
-      if ((time_since_start < 10000000) && ((packet[0] & 0x10) == 0)) {
+      if ((time_since_start < 2000000) && ((packet[0] & 0x10) == 0)) {
         debug(1,
               "Dropping what looks like a (non-sentinel) packet left over from a previous session "
               "at %f ms.",
