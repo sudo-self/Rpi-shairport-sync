@@ -1,3 +1,19 @@
+Version-4.1-dev-173-gdeb11654
+====
+#### Enhancements
+* Add some sanity checking of the latency offset and buffer size to check if they can be accommodated.
+* Discard non-sentinel UDP timing packets that are received just when a timing thread starts -- they may relate to a prior session.
+
+Version-4.1-dev-171-g703717a5
+====
+#### Bugfix
+* Clear PTP clock information when a Realtime stream stops playing. This _may_ address one of the issues reported in [#1404](https://github.com/mikebrady/shairport-sync/issues/1404).
+
+Version-4.1-dev-169-g6ced6bc6
+====
+#### Enhancement
+* Add a new `mixer_control_index` setting to the `alsa` section of the configuration file. A mixer is fully identified by a name and index. The index defaults to zero, and, until now, it could only be set using the `alsa` command-line argument `-i`. Thanks to [flipoidix](https://github.com/flipoidix) for bringing this issue to notice.
+
 Version-4.1-dev-164-gf79222f7
 ====
 #### Bugfix
