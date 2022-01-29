@@ -1,4 +1,4 @@
-FROM alpine AS builder
+FROM alpine:3.12 AS builder
 
 # Check required arguments exist. These will be provided by the Github Action
 # Workflow and are required to ensure the correct branches are being used.
@@ -67,7 +67,7 @@ RUN make install
 ##### SPS END #####
 
 # Shairport Sync Runtime System
-FROM crazymax/alpine-s6:edge
+FROM crazymax/alpine-s6:3.12-edge
 
 RUN apk -U add \
         alsa-lib \
@@ -108,3 +108,5 @@ RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio && addgr
 RUN rm -rf /lib/apk/db/*
 
 ENTRYPOINT [ "/init" ]
+
+CMD /usr/local/bin/shairport-sync -vu --statistics

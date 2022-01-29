@@ -1,2 +1,2 @@
 #!/usr/bin/execlineb -P
-/usr/local/bin/nqptp
+/usr/local/bin/nqptp -v
