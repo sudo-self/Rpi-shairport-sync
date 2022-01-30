@@ -78,6 +78,68 @@ typedef struct {
   pthread_cond_t not_full_cv;
 } buffered_tcp_desc;
 
+void check64conversion(const char *prompt, const uint8_t *source, uint64_t value) {
+  char converted_value[128];
+  sprintf(converted_value,"%" PRIx64 "", value);
+  
+  char obf[32];
+  char *obfp = obf;
+  int obfc;
+  int suppress_zeroes = 1;
+  for (obfc=0;obfc<8;obfc++) {
+    if ((suppress_zeroes == 0) || (source[obfc] != 0)){
+      if (suppress_zeroes != 0) {
+        if (source[obfc] < 0x10) {
+          snprintf(obfp, 2, "%1x", source[obfc]);
+          obfp+=1;
+        } else {
+          snprintf(obfp, 3, "%02x", source[obfc]);        
+          obfp+=2;
+        }
+      } else {
+        snprintf(obfp, 3, "%02x", source[obfc]);
+        obfp+=2;
+      }
+      suppress_zeroes = 0;
+    }
+  };
+  *obfp=0;
+  if (strcmp(converted_value,obf) != 0) {
+    debug(1,"%s check64conversion error converting \"%s\" to %" PRIx64 ".", prompt, obf, value);
+  }
+}
+
+void check32conversion(const char *prompt, const uint8_t *source, uint32_t value) {
+  char converted_value[128];
+  sprintf(converted_value,"%" PRIx32 "", value);
+  
+  char obf[32];
+  char *obfp = obf;
+  int obfc;
+  int suppress_zeroes = 1;
+  for (obfc=0;obfc<4;obfc++) {
+    if ((suppress_zeroes == 0) || (source[obfc] != 0)){
+      if (suppress_zeroes != 0) {
+        if (source[obfc] < 0x10) {
+          snprintf(obfp, 2, "%1x", source[obfc]);
+          obfp+=1;
+        } else {
+          snprintf(obfp, 3, "%02x", source[obfc]);        
+          obfp+=2;
+        }
+      } else {
+        snprintf(obfp, 3, "%02x", source[obfc]);
+        obfp+=2;
+      }
+      suppress_zeroes = 0;
+    }
+  };
+  *obfp=0;
+  if (strcmp(converted_value,obf) != 0) {
+    debug(1,"%s check32conversion error converting \"%s\" to %" PRIx32 ".", prompt, obf, value);
+  }
+}
+
 void rtp_initialise(rtsp_conn_info *conn) {
   conn->rtp_time_of_last_resend_request_error_ns = 0;
   conn->rtp_running = 0;
@@ -1212,6 +1274,7 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
 
 void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
                          uint64_t networktime) {
+  // debug(1,"clock: %" PRIx64 ", rtptime: %" PRIu32 ".", clock_id, rtptime);
   if (conn->anchor_clock != clock_id) {
     debug(1, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
     conn->anchor_clock_is_new = 1;
@@ -1304,7 +1367,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       if (actual_clock_id == conn->anchor_clock) {
         // if the master clock and the anchor clock are the same
         // wait at least this time before using the new master clock
-        // note that mastershipo may be backdated
+        // note that mastership may be backdated
         if (duration_of_mastership < 1500000000) {
           debug(3, "master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
           response = clock_not_ready;
@@ -1314,7 +1377,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
           // and it at least is the minimum age.
           conn->last_anchor_rtptime = conn->anchor_rtptime;
           conn->last_anchor_local_time = conn->anchor_time - actual_offset;
-          conn->last_anchor_time_of_update = get_absolute_time_in_ns();
+          conn->last_anchor_time_of_update = time_now;
           if (conn->last_anchor_info_is_valid == 0)
             conn->last_anchor_validity_start_time = start_of_mastership;
           conn->last_anchor_info_is_valid = 1;
@@ -1404,7 +1467,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   if ((clock_status_t)response != conn->clock_status) {
     switch (response) {
     case clock_ok:
-      debug(1, "Connection %d: NQPTP new master clock %" PRIx64 ".", conn->connection_number,
+      debug(1, "Connection %d: NQPTP new master clock %" PRIx64 " with anchor frame %" PRIx32 ".", conn->connection_number,
             actual_clock_id);
       break;
     case clock_not_ready:
@@ -1710,18 +1773,24 @@ void *rtp_ap2_control_receiver(void *arg) {
             */
 
             uint64_t remote_packet_time_ns = nctoh64(packet + 8);
+            check64conversion("remote_packet_time_ns", packet + 8, remote_packet_time_ns);
             uint64_t clock_id = nctoh64(packet + 20);
+            check64conversion("clock_id", packet + 20, clock_id);
 
             // debug(1, "we have clock_id: %" PRIx64 ".", clock_id);
             // debug(1,"remote_packet_time_ns: %" PRIx64 ", local_realtime_now_ns: %" PRIx64 ".",
             // remote_packet_time_ns, local_realtime_now);
             uint32_t frame_1 =
                 nctohl(packet + 4); // this seems to be the frame with latency of 77165 included
+            check32conversion("frame_1", packet + 4, frame_1);
             uint32_t frame_2 = nctohl(packet + 16); // this seems to be the frame the time refers to
+            check32conversion("frame_2", packet + 16, frame_2);
             // this just updates the anchor information contained in the packet
             // the frame and its remote time
             // add in the audio_backend_latency_offset;
             int32_t notified_latency = frame_2 - frame_1;
+            if (notified_latency != 77175)
+              debug(1,"Notified latency is %d frames.", notified_latency);
             int32_t added_latency =
                 (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
             // the actual latency is the notified latency plus the fixed latency + the added latency
@@ -1753,6 +1822,7 @@ void *rtp_ap2_control_receiver(void *arg) {
             */
             // this is now only used for calculating when to ask for resends
             // debug(1, "conn->latency is %d.", conn->latency);
+            // debug(1,"frame_1: %" PRIu32 ", added latency: %" PRId32 ".", frame_1, added_latency);
             set_ptp_anchor_info(conn, clock_id, frame_1 - 11035 - added_latency,
                                 remote_packet_time_ns);
 
