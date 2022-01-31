@@ -64,10 +64,11 @@ RUN ./configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ss
         --with-apple-alac --with-convolution
 RUN make -j
 RUN make install
+WORKDIR /
 ##### SPS END #####
 
 # Shairport Sync Runtime System
-FROM crazymax/alpine-s6:3.12-edge
+FROM crazymax/alpine-s6:3.12-3.0.0.2
 
 RUN apk -U add \
         alsa-lib \
@@ -93,12 +94,12 @@ COPY --from=builder /usr/local/lib/libalac.* /usr/local/lib/
 COPY --from=builder /etc/dbus-1/system.d/shairport-sync-dbus.conf /etc/dbus-1/system.d/
 COPY --from=builder /etc/dbus-1/system.d/shairport-sync-mpris.conf /etc/dbus-1/system.d/
 
-COPY ./docker/etc /etc
+COPY ./docker/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
 
 # Create non-root user for running the container -- running as the user 'shairport-sync' also allows
 # Shairport Sync to provide the D-Bus and MPRIS interfaces within the container
 
-RUN addgroup shairport-sync 
+RUN addgroup shairport-sync
 RUN adduser -D shairport-sync -G shairport-sync
 
 # Add the shairport-sync user to the pre-existing audio group, which has ID 29, for access to the ALSA stuff
