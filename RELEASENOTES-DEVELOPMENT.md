@@ -1,3 +1,12 @@
+Version-4.1-dev-188-gf135d857
+====
+#### Bugfixes
+* Ensure that when `ignore_volume_control` is true, the volume metadata has the current, max and min values of the [now ignored] attenuator set to 0.0. Thanks to [Michael Daley](https://github.com/greend139) for reporting in Issue [#1417](https://github.com/mikebrady/shairport-sync/issues/1417).
+* Add a fix for v3 of s6 overlay and other improvements to the Docker image. Thanks to [Charles Omer](https://github.com/charlesomer) for the fix and the improvements and thanks to [rdrdog](https://github.com/rdrdog) for reporting the issue.
+
+#### Other Changes
+* Add code to check certain 32-bit and 64-bit conversions.
+
 Version-4.1-dev-173-gdeb11654
 ====
 #### Enhancements
