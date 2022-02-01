@@ -3162,14 +3162,18 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
     // is being used by shairport sync to control the output volume
     char dv[128];
     memset(dv, 0, 128);
-    if (volume_mode == vol_both) {
-      // normalise the maximum output to the hardware device's max output
-      snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume,
-               (scaled_attenuation - max_db + hw_max_db) / 100.0,
-               (min_db - max_db + hw_max_db) / 100.0, (max_db - max_db + hw_max_db) / 100.0);
+    if (config.ignore_volume_control == 0) {
+      if (volume_mode == vol_both) {
+        // normalise the maximum output to the hardware device's max output
+        snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume,
+                 (scaled_attenuation - max_db + hw_max_db) / 100.0,
+                 (min_db - max_db + hw_max_db) / 100.0, (max_db - max_db + hw_max_db) / 100.0);
+      } else {
+        snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, scaled_attenuation / 100.0,
+                 min_db / 100.0, max_db / 100.0);
+      }
     } else {
-      snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, scaled_attenuation / 100.0,
-               min_db / 100.0, max_db / 100.0);
+      snprintf(dv, 127, "%.2f,%.2f,%.2f,%.2f", airplay_volume, 0.0, 0.0, 0.0);
     }
     send_ssnc_metadata('pvol', dv, strlen(dv), 1);
 #endif
