@@ -1,0 +1,9 @@
+#!/bin/sh
+avahi-daemon --check
+if [ $? -eq 0 ]; then
+  echo "Reloading avahi-daemon."
+  exec avahi-daemon --no-chroot --reload
+else
+  echo "Starting avahi-daemon."
+  exec avahi-daemon --no-chroot
+fi
