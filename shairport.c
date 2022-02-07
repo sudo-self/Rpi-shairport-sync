@@ -1181,6 +1181,14 @@ int parse_options(int argc, char **argv) {
       die("You need to have metadata.include_cover_art enabled in order to use mqtt.publish_cover");
     }
     config_set_lookup_bool(config.cfg, "mqtt.enable_remote", &config.mqtt_enable_remote);
+    if (config_lookup_string(config.cfg, "mqtt.empty_payload_substitute", &str)) {
+      if (strlen(str) == 0)
+        config.mqtt_empty_payload_substitute = NULL;
+      else
+        config.mqtt_empty_payload_substitute = strdup(str);
+    } else {
+      config.mqtt_empty_payload_substitute = strdup("--");
+    }
 #ifndef CONFIG_AVAHI
     if (config.mqtt_enable_remote) {
       die("You have enabled MQTT remote control which requires shairport-sync to be built with "
@@ -1191,7 +1199,7 @@ int parse_options(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
-    int64_t aid;
+    long long aid;
 
     // replace the airplay_device_id with this, if provided
     if (config_lookup_int64(config.cfg, "general.airplay_device_id", &aid)) {
@@ -1509,6 +1517,11 @@ void exit_function() {
 
       if (config.service_name)
         free(config.service_name);
+
+#ifdef CONFIG_MQTT
+      if (config.mqtt_empty_payload_substitute)
+        free(config.mqtt_empty_payload_substitute);
+#endif
 
 #ifdef CONFIG_CONVOLUTION
       if (config.convolution_ir_file)
