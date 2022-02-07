@@ -90,7 +90,7 @@ void check64conversion(const char *prompt, const uint8_t *source, uint64_t value
     if ((suppress_zeroes == 0) || (source[obfc] != 0)){
       if (suppress_zeroes != 0) {
         if (source[obfc] < 0x10) {
-          snprintf(obfp, 2, "%1x", source[obfc]);
+          snprintf(obfp, 3, "%1x", source[obfc]);
           obfp+=1;
         } else {
           snprintf(obfp, 3, "%02x", source[obfc]);        
@@ -121,7 +121,7 @@ void check32conversion(const char *prompt, const uint8_t *source, uint32_t value
     if ((suppress_zeroes == 0) || (source[obfc] != 0)){
       if (suppress_zeroes != 0) {
         if (source[obfc] < 0x10) {
-          snprintf(obfp, 2, "%1x", source[obfc]);
+          snprintf(obfp, 3, "%1x", source[obfc]);
           obfp+=1;
         } else {
           snprintf(obfp, 3, "%02x", source[obfc]);        
