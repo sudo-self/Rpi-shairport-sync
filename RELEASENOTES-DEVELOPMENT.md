@@ -1,3 +1,9 @@
+Version-4.1-dev-191-ge07c202b
+====
+#### Enhancement
+* This enhancement relates to MQTT with empty payloads. Many MQTT brokers and clients treat messages with empty payloads in a special way. For instance, [MQTT Explorer](http://mqtt-explorer.com) hides messages with empty payloads and [Node-RED](https://nodered.org) seems to use them to release and garbage-collect data received previously.
+Many Shairport Sync messages contain no extra data and so would naturally have empty payloads. This is causing problems -- see [#1425](https://github.com/mikebrady/shairport-sync/issues/1425) and [#1375](https://github.com/mikebrady/shairport-sync/issues/1375). To avoid these problems, a short "dummy" payload consisting of the character string "--" is now added to MQTT messages that contain no extra data. This can be changed with a new MQTT option in the configuration file: `empty_payload_substitute`. Thanks to [DOCaCola](https://github.com/DOCaCola) and [UMB8998](https://github.com/UMB8998) for reporting on this.
+
 Version-4.1-dev-188-gf135d857
 ====
 #### Bugfixes
