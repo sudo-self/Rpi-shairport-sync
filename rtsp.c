@@ -2271,7 +2271,7 @@ void handle_feedback(__attribute__((unused)) rtsp_conn_info *conn,
 
 void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *req,
                     __attribute__((unused)) rtsp_message *resp) {
-  debug_log_rtsp_message(2, "POST /command", req);
+  debug_log_rtsp_message(3, "POST /command", req);
   if (rtsp_message_contains_plist(req)) {
     plist_t command_dict = NULL;
     plist_from_memory(req->content, req->contentlength, &command_dict);
@@ -2305,7 +2305,7 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
                     if (subsidiary_plist) {
                       char *printable_plist = plist_content(subsidiary_plist);
                       if (printable_plist) {
-                        debug(2, "\n%s", printable_plist);
+                        debug(3, "\n%s", printable_plist);
                         free(printable_plist);
                       } else {
                         debug(1, "Can't print the plist!");
