@@ -1,3 +1,7 @@
+Version-4.1-dev-193-g4848608d
+====
+* Don't try to decode commands at debug level 2 -- leave it to level 3.
+
 Version-4.1-dev-191-ge07c202b
 ====
 #### Enhancement
