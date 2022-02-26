@@ -47,6 +47,7 @@
 #include <gcrypt.h>
 #include <sodium.h>
 #include <uuid/uuid.h>
+#include "ptp-utilities.h"
 #endif
 
 #ifdef CONFIG_MBEDTLS
@@ -1541,6 +1542,7 @@ void exit_function() {
         free(config.airplay_pin);
       if (config.airplay_pi)
         free(config.airplay_pi);
+      ptp_shm_interface_close(); // close it if it's open
 #endif
 
 #ifdef CONFIG_LIBDAEMON
@@ -2206,6 +2208,10 @@ int main(int argc, char **argv) {
   if (config.mqtt_enabled) {
     initialise_mqtt();
   }
+#endif
+
+#ifdef CONFIG_AIRPLAY_2
+  ptp_shm_interface_open(); 
 #endif
 
   activity_monitor_start(); // not yet for AP2
