@@ -1834,6 +1834,24 @@ int do_close() {
   return derr;
 }
 
+int sub_flush() {
+  if (alsa_backend_state == abm_disconnected)
+    debug(1, "alsa: do_flush() -- closing the output device when it is already "
+             "disconnected");
+  int derr = 0;
+  if (alsa_handle) {
+    debug(2,"alsa: do_flush() -- flushing the output device");
+    frames_sent_break_occurred = 1;
+    if ((derr = snd_pcm_drop(alsa_handle)))
+      debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
+    if ((derr = snd_pcm_prepare(alsa_handle)))
+      debug(1, "Error %d (\"%s\") preparing output device after flush.", derr, snd_strerror(derr));
+  } else {
+    debug(1, "alsa: do_flush() -- output device already closed.");
+  }
+  return derr;
+}
+
 int play(void *buf, int samples) {
 
   // play() will change the state of the alsa_backend_mode to abm_playing
@@ -1896,18 +1914,9 @@ int prepare(void) {
 static void flush(void) {
   // debug(2,"audio_alsa flush called.");
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
-  // mute_requested_internally = 1; // request a mute for backend's reasons
-  // debug(2, "flush() set_mute_state");
-  // set_mute_state();
-  // do_mute(1); // mute for backend's own reasons
   if (alsa_backend_state != abm_disconnected) { // must be playing or connected...
-    if (config.keep_dac_busy != 0) {
-      debug(2, "alsa: flush() -- alsa_backend_state => abm_connected.");
-      alsa_backend_state = abm_connected;
-    } else {
-      debug(2, "alsa: flush() -- closing the output device");
-      do_close(); // will change the state to disconnected
-      debug(2, "alsa: flush() -- alsa_backend_state => abm_disconnected.");
+    if (config.keep_dac_busy == 0) {
+      sub_flush();
     }
   } else
     debug(3, "alsa: flush() -- called on a disconnected alsa backend");
