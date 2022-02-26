@@ -62,6 +62,13 @@ int get_nqptp_data(struct shm_structure *nqptp_data) {
     memcpy(nqptp_data, (char *)mapped_addr, sizeof(struct shm_structure));
     pthread_cleanup_pop(1); // release the mutex
     response = 0;
+  } else {
+    if (mapped_addr == NULL)
+      debug(1, "get_nqptp_data because the mapped_addr is NULL");
+    else if (mapped_addr == MAP_FAILED)
+      debug(1, "get_nqptp_data because the mapped_addr is MAP_FAILED");
+    else
+      debug(1, "get_nqptp_data failed");
   }
   return response;
 }
@@ -69,7 +76,6 @@ int get_nqptp_data(struct shm_structure *nqptp_data) {
 int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *time_of_sample, uint64_t *raw_offset,
                        uint64_t *mastership_start_time) {
   int response = clock_ok;
-  pthread_cleanup_debug_mutex_lock(&ptp_access_mutex, 50000, 1);
   if (actual_clock_id != NULL)
     *actual_clock_id = 0;
   if (raw_offset != NULL)
@@ -78,67 +84,68 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *time_of_sample, uint
     *time_of_sample = 0;
   if (mastership_start_time != NULL)
     *mastership_start_time = 0;
-  if (ptp_shm_interface_open() == 0) {
-    struct shm_structure nqptp_data;
-    if (get_nqptp_data(&nqptp_data) == 0) {
-      if (nqptp_data.version == NQPTP_SHM_STRUCTURES_VERSION) {
-        // assuming a clock id can not be zero
-        if (nqptp_data.master_clock_id != 0) {
-          if (actual_clock_id != NULL)
-            *actual_clock_id = nqptp_data.master_clock_id;
-          if (time_of_sample != NULL)
-            *time_of_sample = nqptp_data.local_time;
-          if (raw_offset != NULL)
-            *raw_offset = nqptp_data.local_to_master_time_offset;
-          if (mastership_start_time != NULL)
-            *mastership_start_time = nqptp_data.master_clock_start_time;
-        } else {
-          response = clock_no_master;
-        }
+  //  if (ptp_shm_interface_open() == 0) {
+  struct shm_structure nqptp_data;
+  if (get_nqptp_data(&nqptp_data) == 0) {
+    if (nqptp_data.version == NQPTP_SHM_STRUCTURES_VERSION) {
+      // assuming a clock id can not be zero
+      if (nqptp_data.master_clock_id != 0) {
+        if (actual_clock_id != NULL)
+          *actual_clock_id = nqptp_data.master_clock_id;
+        if (time_of_sample != NULL)
+          *time_of_sample = nqptp_data.local_time;
+        if (raw_offset != NULL)
+          *raw_offset = nqptp_data.local_to_master_time_offset;
+        if (mastership_start_time != NULL)
+          *mastership_start_time = nqptp_data.master_clock_start_time;
       } else {
-        // the version can not be zero. If zero is returned here, it means that the shared memory is
-        // not yet initialised, so not availalbe
-        if (nqptp_data.version == 0)
-          response = clock_service_unavailable;
-        else
-          response = clock_version_mismatch;
+        response = clock_no_master;
       }
     } else {
-      response = clock_data_unavailable;
+      // the version can not be zero. If zero is returned here, it means that the shared memory is
+      // not yet initialised, so not availalbe
+      if (nqptp_data.version == 0)
+        response = clock_service_unavailable;
+      else
+        response = clock_version_mismatch;
     }
-    if (ptp_shm_interface_close() != 0)
-      response = clock_access_error;
   } else {
-    response = clock_service_unavailable;
+    response = clock_data_unavailable;
   }
-  pthread_cleanup_pop(1); // release the mutex
   return response;
 }
 
 int ptp_shm_interface_open() {
-  mapped_addr = NULL;
-  int response = -1;
-  if (strcmp(config.nqptp_shared_memory_interface_name, "") != 0) {
-    response = 0;
-    int shared_memory_file_descriptor =
-        shm_open(config.nqptp_shared_memory_interface_name, O_RDWR, 0);
-    if (shared_memory_file_descriptor >= 0) {
-      mapped_addr =
-          // needs to be PROT_READ | PROT_WRITE to allow the mapped memory to be writable for the
-          // mutex to lock and unlock
-          mmap(NULL, sizeof(struct shm_structure), PROT_READ | PROT_WRITE, MAP_SHARED,
-               shared_memory_file_descriptor, 0);
-      if (mapped_addr == MAP_FAILED) {
-        response = -1;
-      }
-      if (close(shared_memory_file_descriptor) == -1) {
+  int response = 0;
+  if (mapped_addr == NULL) {
+    response = -1;
+    debug(1, "ptp_shm_interface_open");
+    if (strcmp(config.nqptp_shared_memory_interface_name, "") != 0) {
+      response = 0;
+      int shared_memory_file_descriptor =
+          shm_open(config.nqptp_shared_memory_interface_name, O_RDWR, 0);
+      if (shared_memory_file_descriptor >= 0) {
+        mapped_addr =
+            // needs to be PROT_READ | PROT_WRITE to allow the mapped memory to be writable for the
+            // mutex to lock and unlock
+            mmap(NULL, sizeof(struct shm_structure), PROT_READ | PROT_WRITE, MAP_SHARED,
+                 shared_memory_file_descriptor, 0);
+        if (mapped_addr == MAP_FAILED) {
+          response = -1;
+        }
+        if (close(shared_memory_file_descriptor) == -1) {
+          response = -1;
+        }
+      } else {
         response = -1;
       }
     } else {
-      response = -1;
+      debug(1, "No config.nqptp_shared_memory_interface_name");
     }
+    if (response != 0)
+      mapped_addr = NULL; // in case we try again later...
   } else {
-    debug(1, "No config.nqptp_shared_memory_interface_name");
+    debug(1, "ptp_shm_interface_open -- already open!");
   }
   return response;
 }
@@ -146,6 +153,7 @@ int ptp_shm_interface_open() {
 int ptp_shm_interface_close() {
   int response = -1;
   if ((mapped_addr != MAP_FAILED) && (mapped_addr != NULL)) {
+    debug(1, "ptp_shm_interface_close");
     response = munmap(mapped_addr, sizeof(struct shm_structure));
     if (response != 0)
       debug(1, "error unmapping shared memory.");
