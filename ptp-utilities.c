@@ -123,7 +123,7 @@ int ptp_shm_interface_open() {
   int response = 0;
   if ((mapped_addr == NULL) || (mapped_addr == MAP_FAILED)) {
     response = -1;
-    debug(1, "ptp_shm_interface_open");
+    debug(2, "ptp_shm_interface_open");
     if (strcmp(config.nqptp_shared_memory_interface_name, "") != 0) {
       response = 0;
       int shared_memory_file_descriptor =
@@ -145,14 +145,14 @@ int ptp_shm_interface_open() {
         
       }
       if (response == 0)
-        debug(1, "ptp_shm_interface_open successful");
+        debug(2, "ptp_shm_interface_open successful");
       else
-        debug(1, "ptp_shm_interface_open failed");
+        debug(2, "ptp_shm_interface_open failed");
     } else {
       debug(1, "No config.nqptp_shared_memory_interface_name");
     }
   } else {
-    debug(1, "ptp_shm_interface_open -- already open!");
+    debug(2, "ptp_shm_interface_open -- already open!");
   }
   return response;
 }

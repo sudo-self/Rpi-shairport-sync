@@ -2214,8 +2214,10 @@ int main(int argc, char **argv) {
   ptp_shm_interface_init();
   ptp_send_control_message_string("T"); // incidentally create the named SHM and remove all previous history
   usleep(100000); // wait for it to get done (?)
-  if (ptp_shm_interface_open() != 0) {
-    debug(1,"unable to open the shm interface at startup!");
+  if (ptp_shm_interface_open() == 0) {
+    debug(1,"shm interface opened successfully!");
+  } else {
+    die("Unable to open the shm interface at startup!");  
   }
 #endif
 
