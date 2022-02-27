@@ -1,6 +1,9 @@
 [Unit]
 Description=Shairport Sync - AirPlay Audio Receiver
+Provides=shairport-sync.service
 After=sound.target
+Requires=nqptp.service
+Wants=nqptp.service
 Requires=avahi-daemon.service
 After=avahi-daemon.service
 Wants=network-online.target

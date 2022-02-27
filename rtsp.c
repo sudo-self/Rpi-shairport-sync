@@ -2687,6 +2687,15 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         // timingPeerList
         if (conn->airplay_stream_category == ptp_stream) {
           ptp_send_control_message_string("T"); // incidentally create the named SHM if necessary and remove all previous history
+          
+          if (ptp_shm_interface_open() == 0) {
+            debug(1,"shm interface opened successfully!");
+          } else {
+            warn("Unable to open the shm interface at SETUP!");  
+          }
+
+          
+          
           debug_log_rtsp_message(2, "SETUP \"PTP\" message", req);
           plist_t groupUUID = plist_dict_get_item(messagePlist, "groupUUID");
           if (groupUUID) {
