@@ -34,6 +34,7 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *time_of_sample, uint
 
 void ptp_send_control_message_string(const char *msg);
 
+void ptp_shm_interface_init();
 int ptp_shm_interface_open();
 int ptp_shm_interface_close();
 

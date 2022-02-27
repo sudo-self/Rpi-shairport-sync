@@ -2686,8 +2686,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         // if it's a full service PTP stream, we get groupUUID, groupContainsGroupLeader and
         // timingPeerList
         if (conn->airplay_stream_category == ptp_stream) {
-          ptp_shm_interface_open(); // it should be open already, but just in case it isn't...
-          ptp_send_control_message_string("T"); // remove all previous history
+          ptp_send_control_message_string("T"); // incidentally create the named SHM if necessary and remove all previous history
           debug_log_rtsp_message(2, "SETUP \"PTP\" message", req);
           plist_t groupUUID = plist_dict_get_item(messagePlist, "groupUUID");
           if (groupUUID) {

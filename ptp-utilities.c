@@ -46,7 +46,7 @@
 #include "ptp-utilities.h"
 
 int shm_fd;
-void *mapped_addr = NULL;
+void *mapped_addr;
 
 static pthread_mutex_t ptp_access_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -115,9 +115,13 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *time_of_sample, uint
   return response;
 }
 
+void ptp_shm_interface_init() {
+  mapped_addr = NULL;
+}
+
 int ptp_shm_interface_open() {
   int response = 0;
-  if (mapped_addr == NULL) {
+  if ((mapped_addr == NULL) || (mapped_addr == MAP_FAILED)) {
     response = -1;
     debug(1, "ptp_shm_interface_open");
     if (strcmp(config.nqptp_shared_memory_interface_name, "") != 0) {
@@ -138,12 +142,15 @@ int ptp_shm_interface_open() {
         }
       } else {
         response = -1;
+        
       }
+      if (response == 0)
+        debug(1, "ptp_shm_interface_open successful");
+      else
+        debug(1, "ptp_shm_interface_open failed");
     } else {
       debug(1, "No config.nqptp_shared_memory_interface_name");
     }
-    if (response != 0)
-      mapped_addr = NULL; // in case we try again later...
   } else {
     debug(1, "ptp_shm_interface_open -- already open!");
   }
