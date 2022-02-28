@@ -2211,13 +2211,23 @@ int main(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
-  ptp_shm_interface_init();
-  ptp_send_control_message_string("T"); // incidentally create the named SHM and remove all previous history
-  usleep(1000000); // wait for it to get done (?)
-  if (ptp_shm_interface_open() == 0) {
-    debug(1,"shm interface opened successfully!");
+  ptp_send_control_message_string("T"); // get nqptp to create the named shm interface
+  int ptp_check_times = 0;
+  const int ptp_wait_interval_us = 5000;
+  // wait for up to two seconds for NQPTP to come online
+  do {
+    ptp_send_control_message_string("T"); // get nqptp to create the named shm interface
+    usleep(ptp_wait_interval_us);
+    ptp_check_times++;  
+  } while ((ptp_shm_interface_open() != 0) && (ptp_check_times < (2000000 / ptp_wait_interval_us)));
+  
+  if (ptp_shm_interface_open() != 0) {
+    die("Can't access NQPTP! Is it installed and running?");
   } else {
-    warn("Unable to open the shm interface at startup!");  
+    if (ptp_check_times == 1)
+      debug(1,"NQPTP is online.");
+    else
+      debug(1,"NQPTP is online after %u microseconds.",ptp_check_times * ptp_wait_interval_us);
   }
 #endif
 
