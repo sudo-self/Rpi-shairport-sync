@@ -2686,16 +2686,9 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         // if it's a full service PTP stream, we get groupUUID, groupContainsGroupLeader and
         // timingPeerList
         if (conn->airplay_stream_category == ptp_stream) {
-          ptp_send_control_message_string("T"); // incidentally create the named SHM if necessary and remove all previous history
-          
-          if (ptp_shm_interface_open() == 0) {
-            debug(1,"shm interface opened successfully!");
-          } else {
-            warn("Unable to open the shm interface at SETUP!");  
-          }
-
-          
-          
+          if (ptp_shm_interface_open() != 0) // it should be open already, but just in case it isn't...
+            die("Can not access the NQPTP service. Has it stopped running?");
+          ptp_send_control_message_string("T"); // remove all previous history          
           debug_log_rtsp_message(2, "SETUP \"PTP\" message", req);
           plist_t groupUUID = plist_dict_get_item(messagePlist, "groupUUID");
           if (groupUUID) {
@@ -2800,7 +2793,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
             // debug(1,"initial timing peer command: \"%s\".", timing_list_message);
             ptp_send_control_message_string(timing_list_message);
-
             plist_dict_set_item(timingPeerInfoPlist, "Addresses", addresses);
             plist_dict_set_item(timingPeerInfoPlist, "ID", plist_new_string(conn->self_ip_string));
             plist_dict_set_item(setupResponsePlist, "timingPeerInfo", timingPeerInfoPlist);
