@@ -48,8 +48,6 @@
 int shm_fd;
 void *mapped_addr = NULL;
 
-static pthread_mutex_t ptp_access_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 // returns a copy of the shared memory data from the nqptp
 // shared memory interface, so long as it's open.
 int get_nqptp_data(struct shm_structure *nqptp_data) {
