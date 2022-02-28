@@ -46,7 +46,7 @@
 #include "ptp-utilities.h"
 
 int shm_fd;
-void *mapped_addr;
+void *mapped_addr = NULL;
 
 static pthread_mutex_t ptp_access_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -73,6 +73,7 @@ int get_nqptp_data(struct shm_structure *nqptp_data) {
   return response;
 }
 
+int age_signalled = 0;
 int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *time_of_sample, uint64_t *raw_offset,
                        uint64_t *mastership_start_time) {
   int response = clock_ok;
@@ -94,6 +95,15 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *time_of_sample, uint
           *actual_clock_id = nqptp_data.master_clock_id;
         if (time_of_sample != NULL)
           *time_of_sample = nqptp_data.local_time;
+        int64_t age_of_sample = get_absolute_time_in_ns() - nqptp_data.local_time;
+        int64_t too_old_time = 1000000000;
+        too_old_time = too_old_time * 10; // seconds
+        if ((age_of_sample >= too_old_time) && (age_signalled == 0)) {
+          warn("PTP sample time is old -- is NQPTP running?");
+          age_signalled = 1;
+        }
+        if (age_of_sample < too_old_time)
+          age_signalled = 0;
         if (raw_offset != NULL)
           *raw_offset = nqptp_data.local_to_master_time_offset;
         if (mastership_start_time != NULL)
@@ -115,15 +125,16 @@ int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *time_of_sample, uint
   return response;
 }
 
-void ptp_shm_interface_init() {
-  mapped_addr = NULL;
-}
-
 int ptp_shm_interface_open() {
   int response = 0;
+  debug(2, "ptp_shm_interface_open with mapped_addr = %" PRIuPTR "", mapped_addr);
   if ((mapped_addr == NULL) || (mapped_addr == MAP_FAILED)) {
     response = -1;
-    debug(2, "ptp_shm_interface_open");
+    if (mapped_addr == NULL)
+      debug(3, "ptp_shm_interface_open is NULL");
+    if (mapped_addr == MAP_FAILED)
+      debug(3, "ptp_shm_interface_open is MAP_FAILED");
+    
     if (strcmp(config.nqptp_shared_memory_interface_name, "") != 0) {
       response = 0;
       int shared_memory_file_descriptor =
@@ -142,15 +153,14 @@ int ptp_shm_interface_open() {
         }
       } else {
         response = -1;
-        
       }
-      if (response == 0)
-        debug(2, "ptp_shm_interface_open successful");
-      else
-        debug(2, "ptp_shm_interface_open failed");
     } else {
       debug(1, "No config.nqptp_shared_memory_interface_name");
     }
+    if (response == 0)
+      debug(2, "ptp_shm_interface_open -- success!");
+    else
+      debug(2, "ptp_shm_interface_open -- fail!");
   } else {
     debug(2, "ptp_shm_interface_open -- already open!");
   }
