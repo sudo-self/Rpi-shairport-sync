@@ -110,7 +110,7 @@ void going_inactive(int block) {
 }
 
 void activity_monitor_signify_activity(int active) {
-  // this could be pthread_cancelled and they is likely to be cancellation points in the
+  // this could be pthread_cancelled and there is likely to be cancellation points in the
   // hooked-on procedures
   pthread_cleanup_debug_mutex_lock(&activity_monitor_mutex, 10000, 1);
   player_state = active == 0 ? ps_inactive : ps_active;
