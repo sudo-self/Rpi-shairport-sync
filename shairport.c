@@ -605,7 +605,7 @@ int parse_options(int argc, char **argv) {
                "support. Change the \"general/interpolation\" setting in the configuration file.");
 #endif
         else
-          die("Invalid interpolation option choice. It should be \"auto\", \"basic\" or \"soxr\"");
+          die("Invalid interpolation option choice \"%s\". It should be \"auto\", \"basic\" or \"soxr\"", str);
       }
 
 #ifdef CONFIG_SOXR
@@ -681,7 +681,7 @@ int parse_options(int argc, char **argv) {
           config.debugger_show_file_and_line = 1;
         else
           die("Invalid diagnostics log_show_file_and_line option choice \"%s\". It should be "
-              "\"yes\" or \"no\"");
+              "\"yes\" or \"no\"", str);
       }
 
       /* Get the show elapsed time in debug messages setting. */
@@ -692,7 +692,7 @@ int parse_options(int argc, char **argv) {
           config.debugger_show_elapsed_time = 1;
         else
           die("Invalid diagnostics log_show_time_since_startup option choice \"%s\". It should be "
-              "\"yes\" or \"no\"");
+              "\"yes\" or \"no\"", str);
       }
 
       /* Get the show relative time in debug messages setting. */
@@ -703,7 +703,7 @@ int parse_options(int argc, char **argv) {
           config.debugger_show_relative_time = 1;
         else
           die("Invalid diagnostics log_show_time_since_last_message option choice \"%s\". It "
-              "should be \"yes\" or \"no\"");
+              "should be \"yes\" or \"no\"", str);
       }
 
       /* Get the statistics setting. */
@@ -714,7 +714,7 @@ int parse_options(int argc, char **argv) {
           config.statistics_requested = 1;
         else
           die("Invalid diagnostics statistics option choice \"%s\". It should be \"yes\" or "
-              "\"no\"");
+              "\"no\"", str);
       }
 
       /* Get the disable_resend_requests setting. */
@@ -727,7 +727,7 @@ int parse_options(int argc, char **argv) {
         else
           die("Invalid diagnostic disable_resend_requests option choice \"%s\". It should be "
               "\"yes\" "
-              "or \"no\"");
+              "or \"no\"", str);
       }
 
       /* Get the drop packets setting. */
@@ -764,7 +764,7 @@ int parse_options(int argc, char **argv) {
         else if (strcasecmp(str, "yes") == 0)
           config.ignore_volume_control = 1;
         else
-          die("Invalid ignore_volume_control option choice \"%s\". It should be \"yes\" or \"no\"");
+          die("Invalid ignore_volume_control option choice \"%s\". It should be \"yes\" or \"no\"", str);
       }
 
       /* Get the optional volume_max_db setting. */
@@ -792,7 +792,7 @@ int parse_options(int argc, char **argv) {
           config.playback_mode = ST_right_only;
         else
           die("Invalid playback_mode choice \"%s\". It should be \"stereo\" (default), \"mono\", "
-              "\"reverse stereo\", \"both left\", \"both right\"");
+              "\"reverse stereo\", \"both left\", \"both right\"", str);
       }
 
       /* Get the volume control profile setting -- "standard" or "flat" */
@@ -803,7 +803,7 @@ int parse_options(int argc, char **argv) {
           config.volume_control_profile = VCP_flat;
         else
           die("Invalid volume_control_profile choice \"%s\". It should be \"standard\" (default) "
-              "or \"flat\"");
+              "or \"flat\"", str);
       }
 
       config_set_lookup_bool(config.cfg, "general.volume_control_combined_hardware_priority",
@@ -855,7 +855,7 @@ int parse_options(int argc, char **argv) {
             inform("Support for the Apple ALAC decoder has not been compiled into this version of "
                    "Shairport Sync. The default decoder will be used.");
         } else
-          die("Invalid alac_decoder option choice \"%s\". It should be \"hammerton\" or \"apple\"");
+          die("Invalid alac_decoder option choice \"%s\". It should be \"hammerton\" or \"apple\"", str);
       }
 
       /* Get the resend control settings. */
@@ -916,7 +916,7 @@ int parse_options(int argc, char **argv) {
         else if (strcasecmp(str, "yes") == 0)
           config.metadata_enabled = 1;
         else
-          die("Invalid metadata enabled option choice \"%s\". It should be \"yes\" or \"no\"");
+          die("Invalid metadata enabled option choice \"%s\". It should be \"yes\" or \"no\"", str);
       }
 
       if (config_lookup_string(config.cfg, "metadata.include_cover_art", &str)) {
@@ -926,7 +926,7 @@ int parse_options(int argc, char **argv) {
           config.get_coverart = 1;
         else
           die("Invalid metadata include_cover_art option choice \"%s\". It should be \"yes\" or "
-              "\"no\"");
+              "\"no\"", str);
       }
 
       if (config_lookup_string(config.cfg, "metadata.pipe_name", &str)) {
@@ -957,8 +957,8 @@ int parse_options(int argc, char **argv) {
         else if (strcasecmp(str, "yes") == 0)
           config.retain_coverart = 1;
         else
-          die("Invalid metadata retain_cover_art option choice \"%s\". It should be \"yes\" or "
-              "\"no\"");
+          die("Invalid metadata \"retain_cover_art\" option choice \"%s\". It should be \"yes\" or "
+              "\"no\"", str);
       }
 #endif
 
@@ -982,7 +982,7 @@ int parse_options(int argc, char **argv) {
 
       if (config_lookup_float(config.cfg, "sessioncontrol.active_state_timeout", &dvalue)) {
         if (dvalue < 0.0)
-          warn("Invalid value \"%f\" for sessioncontrol.active_state_timeout. It must be positive. "
+          warn("Invalid value \"%f\" for \"active_state_timeout\". It must be positive. "
                "The default of %f will be used instead.",
                dvalue, config.active_state_timeout);
         else
@@ -1000,8 +1000,8 @@ int parse_options(int argc, char **argv) {
         else if (strcasecmp(str, "yes") == 0)
           config.cmd_blocking = 1;
         else
-          die("Invalid session control wait_for_completion option choice \"%s\". It should be "
-              "\"yes\" or \"no\"");
+          warn("Invalid \"wait_for_completion\" option choice \"%s\". It should be "
+              "\"yes\" or \"no\". It is set to \"no\".", str);
       }
 
       if (config_lookup_string(config.cfg, "sessioncontrol.before_play_begins_returns_output",
@@ -1011,9 +1011,9 @@ int parse_options(int argc, char **argv) {
         else if (strcasecmp(str, "yes") == 0)
           config.cmd_start_returns_output = 1;
         else
-          die("Invalid session control before_play_begins_returns_output option choice \"%s\". It "
+          die("Invalid \"before_play_begins_returns_output\" option choice \"%s\". It "
               "should be "
-              "\"yes\" or \"no\"");
+              "\"yes\" or \"no\"", str);
       }
 
       if (config_lookup_string(config.cfg, "sessioncontrol.allow_session_interruption", &str)) {
@@ -1023,9 +1023,9 @@ int parse_options(int argc, char **argv) {
         else if (strcasecmp(str, "yes") == 0)
           config.allow_session_interruption = 1;
         else
-          die("Invalid session control allow_interruption option choice \"%s\". It should be "
+          die("Invalid \"allow_interruption\" option choice \"%s\". It should be "
               "\"yes\" "
-              "or \"no\"");
+              "or \"no\"", str);
       }
 
       if (config_lookup_int(config.cfg, "sessioncontrol.session_timeout", &value)) {
@@ -1040,7 +1040,7 @@ int parse_options(int argc, char **argv) {
         else if (strcasecmp(str, "yes") == 0)
           config.convolution = 1;
         else
-          die("Invalid dsp.convolution. It should be \"yes\" or \"no\"");
+          die("Invalid dsp.convolution setting \"%s\". It should be \"yes\" or \"no\"", str);
       }
 
       if (config_lookup_float(config.cfg, "dsp.convolution_gain", &dvalue)) {
@@ -1073,7 +1073,7 @@ int parse_options(int argc, char **argv) {
         else if (strcasecmp(str, "yes") == 0)
           config.loudness = 1;
         else
-          die("Invalid dsp.convolution. It should be \"yes\" or \"no\"");
+          die("Invalid dsp.loudness \"%s\". It should be \"yes\" or \"no\"", str);
       }
 
       if (config_lookup_float(config.cfg, "dsp.loudness_reference_volume_db", &dvalue)) {
@@ -1106,7 +1106,7 @@ int parse_options(int argc, char **argv) {
         config.dbus_service_bus_type = DBT_session;
       else
         die("Invalid dbus_service_bus option choice \"%s\". It should be \"system\" (default) or "
-            "\"session\"");
+            "\"session\"", str);
     }
 #endif
 
@@ -1119,7 +1119,7 @@ int parse_options(int argc, char **argv) {
         config.mpris_service_bus_type = DBT_session;
       else
         die("Invalid mpris_service_bus option choice \"%s\". It should be \"system\" (default) or "
-            "\"session\"");
+            "\"session\"", str);
     }
 #endif
 
