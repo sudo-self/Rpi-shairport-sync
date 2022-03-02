@@ -1,3 +1,19 @@
+Version-4.1-dev-209-gb4cd4fbc
+====
+***Pesky Change You Can't Ignore***
+
+A change has been made the `shairport-sync` `systemd` service file, so before updating, please remove the existing service file with the following command:
+```
+# rm /lib/systemd/system/shairport-sync.service
+```
+**Enhancements**
+* Improve the timing service interface: Instead of opening and closing a Shared Memory Interface (SMI) whenever timing information was needed from NQPTP, the SMI  is now opened only once, at startup.   Overall, this reduces overhead at critical times and seems to improve the initial accuracy of synchronisation. It also requires the NQPTP service to be available and accessible at startup.
+* Improve `alsa` flush performance: Add new code to better handle a flush request in the `alsa` backend. This new code results in smoother operation and timing accuracy is improved when continuing after a flush.
+* Define the Shairport Sync service in the `systemd` service file.
+
+**Bug Fix**
+* Fix a bug that caused a crash if an incorrect `wait_for_completion` option was chosen. Fixed a few similar bugs too. Thanks to [HiFiBerry](https://github.com/hifiberry) for reporting the issue at [#1431](https://github.com/mikebrady/shairport-sync/issues/1431).
+
 Version-4.1-dev-193-g4848608d
 ====
 * Don't try to decode commands at debug level 2 -- leave it to level 3.
