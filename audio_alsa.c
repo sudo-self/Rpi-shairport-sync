@@ -1430,27 +1430,38 @@ static void start(__attribute__((unused)) int i_sample_rate,
 int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
                               yndk_type *using_update_timestamps) {
   int ret = 0;
+  snd_pcm_state_t state_temp;
+  snd_pcm_sframes_t delay_temp;
+
   if (using_update_timestamps)
     *using_update_timestamps = YNDK_NO;
-  *state = snd_pcm_state(alsa_handle);
-  if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
-    ret = snd_pcm_delay(alsa_handle, delay);
+  state_temp = snd_pcm_state(alsa_handle);
+  if ((state_temp == SND_PCM_STATE_RUNNING) || (state_temp == SND_PCM_STATE_DRAINING)) {
+    ret = snd_pcm_delay(alsa_handle, &delay_temp);
   } else {
     // not running, thus no delay information, thus can't check for frame
     // rates
     // frame_index = 0; // we'll be starting over...
     // measurement_data_is_valid = 0;
-    *delay = 0;
+    delay_temp = 0;
   }
 
   stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
   stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
+
+  if (delay != NULL)
+    *delay = delay_temp;
+  if (state != NULL)
+    *state = state_temp;
 
   return ret;
 }
 
 int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
                                yndk_type *using_update_timestamps) {
+  snd_pcm_state_t state_temp = SND_PCM_STATE_DISCONNECTED; // just to stop a compiler warning
+  snd_pcm_sframes_t delay_temp;
+
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
 
@@ -1477,9 +1488,9 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
     #endif
     */
 
-    *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
+    state_temp = snd_pcm_status_get_state(alsa_snd_pcm_status);
 
-    if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
+    if ((state_temp == SND_PCM_STATE_RUNNING) || (state_temp == SND_PCM_STATE_DRAINING)) {
 
       //     uint64_t update_timestamp_ns =
       //         update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
@@ -1514,9 +1525,9 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
       }
 
       if (update_timestamp_ns == 0) {
-        ret = snd_pcm_delay(alsa_handle, delay);
+        ret = snd_pcm_delay(alsa_handle, &delay_temp);
       } else {
-        snd_pcm_sframes_t delay_temp = snd_pcm_status_get_delay(alsa_snd_pcm_status);
+        delay_temp = snd_pcm_status_get_delay(alsa_snd_pcm_status);
 
         /*
         // It seems that the alsa library uses CLOCK_REALTIME before 1.0.28, even though
@@ -1585,11 +1596,10 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
                   frames_played_since_last_interrupt, frames_played_since_last_interrupt_sized);
           delay_temp = delay_temp - frames_played_since_last_interrupt_sized;
         }
-        *delay = delay_temp;
       }
     } else { // not running, thus no delay information, thus can't check for
              // stall
-      *delay = 0;
+      delay_temp = 0;
       stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
       stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
 
@@ -1601,6 +1611,12 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
   } else {
     debug(1, "alsa: can't get device's status.");
   }
+
+  if (delay != NULL)
+    *delay = delay_temp;
+  if (state != NULL)
+    *state = state_temp;
+
   return ret;
 }
 
@@ -1615,12 +1631,11 @@ int delay(long *the_delay) {
   // the sps_extra_code_output_stalled or the
   // sps_extra_code_output_state_cannot_make_ready codes
   int ret = 0;
-  *the_delay = 0;
+  snd_pcm_sframes_t my_delay = 0;
 
   int oldState;
 
   snd_pcm_state_t state;
-  snd_pcm_sframes_t my_delay = 0; // this initialisation is to silence a clang warning
 
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
@@ -1634,7 +1649,8 @@ int delay(long *the_delay) {
   pthread_cleanup_pop(0);
   pthread_setcancelstate(oldState, NULL);
 
-  *the_delay = my_delay; // note: snd_pcm_sframes_t is a long
+  if (the_delay != NULL) // can't imagine why this might happen
+    *the_delay = my_delay; // note: snd_pcm_sframes_t is a long
 
   return ret;
 }
@@ -1840,7 +1856,7 @@ int sub_flush() {
              "disconnected");
   int derr = 0;
   if (alsa_handle) {
-    debug(2,"alsa: do_flush() -- flushing the output device");
+    debug(2, "alsa: do_flush() -- flushing the output device");
     frames_sent_break_occurred = 1;
     if ((derr = snd_pcm_drop(alsa_handle)))
       debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
