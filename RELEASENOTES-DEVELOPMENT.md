@@ -1,3 +1,8 @@
+Version-4.1-dev-211-g9bac04e2
+====
+**Bug Fix**
+* Check for `NULL` pointers before dereferencing delay and state variable pointers in `audio_alsa.c`'s `delay` and `*-delay_and_status` functions. Thanks to [leirace](https://github.com/leirace) for the report, Issue [#1441](https://github.com/mikebrady/shairport-sync/issues/1441).
+
 Version-4.1-dev-209-gb4cd4fbc
 ====
 ***Pesky Change You Can't Ignore***
