@@ -1413,21 +1413,26 @@ static void start(__attribute__((unused)) int i_sample_rate,
 
 int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
                               yndk_type *using_update_timestamps) {
-  int ret = 0;
-  snd_pcm_state_t state_temp;
-  snd_pcm_sframes_t delay_temp;
-
+  int ret = ENODEV;
   if (using_update_timestamps)
     *using_update_timestamps = YNDK_NO;
-  state_temp = snd_pcm_state(alsa_handle);
-  if ((state_temp == SND_PCM_STATE_RUNNING) || (state_temp == SND_PCM_STATE_DRAINING)) {
-    ret = snd_pcm_delay(alsa_handle, &delay_temp);
+
+  snd_pcm_state_t state_temp = SND_PCM_STATE_DISCONNECTED;
+  snd_pcm_sframes_t delay_temp = 0;
+  if (alsa_handle != NULL) {
+    state_temp = snd_pcm_state(alsa_handle);
+    if ((state_temp == SND_PCM_STATE_RUNNING) || (state_temp == SND_PCM_STATE_DRAINING)) {
+      ret = snd_pcm_delay(alsa_handle, &delay_temp);
+    } else {
+      // not running, thus no delay information, thus can't check for frame
+      // rates
+      // frame_index = 0; // we'll be starting over...
+      // measurement_data_is_valid = 0;
+      // delay_temp = 0;
+      ret = 0;
+    }
   } else {
-    // not running, thus no delay information, thus can't check for frame
-    // rates
-    // frame_index = 0; // we'll be starting over...
-    // measurement_data_is_valid = 0;
-    delay_temp = 0;
+    debug(1, "alsa_handle is NULL in standard_delay_and_status.");
   }
 
   stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
@@ -1596,7 +1601,7 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
     }
 
   } else {
-    debug(1, "alsa_handle is NULL!");
+    debug(1, "alsa_handle is NULL in precision_delay_and_status!");
     // already set to ret = ENODEV;
   }
   if (delay != NULL)
