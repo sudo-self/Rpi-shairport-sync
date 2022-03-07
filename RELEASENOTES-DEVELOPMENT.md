@@ -1,3 +1,8 @@
+Version-4.1-dev-214-gadf0845e
+====
+**Enhancement**
+* Check to see if the alsa_handle is NULL in `precision_delay_and_status`.
+
 Version-4.1-dev-211-g9bac04e2
 ====
 **Bug Fix**
