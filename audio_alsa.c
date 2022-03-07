@@ -332,22 +332,6 @@ void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double v
   }
 }
 
-void actual_close_alsa_device() {
-  debug(1, "actual close");
-  if (alsa_handle) {
-    int derr;
-    if ((derr = snd_pcm_hw_free(alsa_handle)))
-      debug(1,
-            "Error %d (\"%s\") freeing the output device hardware while "
-            "closing it.",
-            derr, snd_strerror(derr));
-
-    if ((derr = snd_pcm_close(alsa_handle)))
-      debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
-    alsa_handle = NULL;
-  }
-}
-
 // This array is a sequence of the output rates to be tried if automatic speed selection is
 // requested.
 // There is no benefit to upconverting the frame rate, other than for compatibility.
@@ -1453,170 +1437,172 @@ int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
     *delay = delay_temp;
   if (state != NULL)
     *state = state_temp;
-
   return ret;
 }
 
 int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
                                yndk_type *using_update_timestamps) {
-  snd_pcm_state_t state_temp = SND_PCM_STATE_DISCONNECTED; // just to stop a compiler warning
-  snd_pcm_sframes_t delay_temp;
+  snd_pcm_state_t state_temp = SND_PCM_STATE_DISCONNECTED;
+  snd_pcm_sframes_t delay_temp = 0;
+  if (using_update_timestamps)
+    *using_update_timestamps = YNDK_DONT_KNOW;
+  int ret = ENODEV;
 
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
 
-  if (using_update_timestamps)
-    *using_update_timestamps = YNDK_DONT_KNOW;
-
   struct timespec tn;                // time now
   snd_htimestamp_t update_timestamp; // actually a struct timespec
+  if (alsa_handle != NULL) {
+    ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
+    if (ret == 0) {
+      snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
 
-  int ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
-  if (ret == 0) {
+      /*
+      // must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
+      #if SND_LIB_MINOR != 0
+          snd_htimestamp_t driver_htstamp;
+          snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &driver_htstamp);
+          uint64_t driver_htstamp_ns = driver_htstamp.tv_sec;
+          driver_htstamp_ns = driver_htstamp_ns * 1000000000;
+          driver_htstamp_ns = driver_htstamp_ns + driver_htstamp.tv_nsec;
+          debug(1,"driver_htstamp: %f.", driver_htstamp_ns * 0.000000001);
+      #endif
+      */
 
-    snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
+      state_temp = snd_pcm_status_get_state(alsa_snd_pcm_status);
 
-    /*
-    // must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
-    #if SND_LIB_MINOR != 0
-        snd_htimestamp_t driver_htstamp;
-        snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &driver_htstamp);
-        uint64_t driver_htstamp_ns = driver_htstamp.tv_sec;
-        driver_htstamp_ns = driver_htstamp_ns * 1000000000;
-        driver_htstamp_ns = driver_htstamp_ns + driver_htstamp.tv_nsec;
-        debug(1,"driver_htstamp: %f.", driver_htstamp_ns * 0.000000001);
-    #endif
-    */
+      if ((state_temp == SND_PCM_STATE_RUNNING) || (state_temp == SND_PCM_STATE_DRAINING)) {
 
-    state_temp = snd_pcm_status_get_state(alsa_snd_pcm_status);
+        //     uint64_t update_timestamp_ns =
+        //         update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
 
-    if ((state_temp == SND_PCM_STATE_RUNNING) || (state_temp == SND_PCM_STATE_DRAINING)) {
+        uint64_t update_timestamp_ns = update_timestamp.tv_sec;
+        update_timestamp_ns = update_timestamp_ns * 1000000000;
+        update_timestamp_ns = update_timestamp_ns + update_timestamp.tv_nsec;
 
-      //     uint64_t update_timestamp_ns =
-      //         update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
-
-      uint64_t update_timestamp_ns = update_timestamp.tv_sec;
-      update_timestamp_ns = update_timestamp_ns * 1000000000;
-      update_timestamp_ns = update_timestamp_ns + update_timestamp.tv_nsec;
-
-      // if the update_timestamp is zero, we take this to mean that the device doesn't report
-      // interrupt timings. (It could be that it's not a real hardware device.)
-      // so we switch to getting the delay the regular way
-      // i.e. using snd_pcm_delay	()
-      if (using_update_timestamps) {
-        if (update_timestamp_ns == 0)
-          *using_update_timestamps = YNDK_NO;
-        else
-          *using_update_timestamps = YNDK_YES;
-      }
-
-      // user information
-      if (update_timestamp_ns == 0) {
-        if (delay_type_notified != 1) {
-          debug(2, "alsa: update timestamps unavailable");
-          delay_type_notified = 1;
+        // if the update_timestamp is zero, we take this to mean that the device doesn't report
+        // interrupt timings. (It could be that it's not a real hardware device.)
+        // so we switch to getting the delay the regular way
+        // i.e. using snd_pcm_delay	()
+        if (using_update_timestamps) {
+          if (update_timestamp_ns == 0)
+            *using_update_timestamps = YNDK_NO;
+          else
+            *using_update_timestamps = YNDK_YES;
         }
-      } else {
-        // diagnostic
-        if (delay_type_notified != 0) {
-          debug(2, "alsa: update timestamps available");
-          delay_type_notified = 0;
-        }
-      }
 
-      if (update_timestamp_ns == 0) {
-        ret = snd_pcm_delay(alsa_handle, &delay_temp);
-      } else {
-        delay_temp = snd_pcm_status_get_delay(alsa_snd_pcm_status);
-
-        /*
-        // It seems that the alsa library uses CLOCK_REALTIME before 1.0.28, even though
-        // the check for monotonic returns true. Might have to watch out for this.
-          #if SND_LIB_MINOR == 0 && SND_LIB_SUBMINOR < 28
-                clock_gettime(CLOCK_REALTIME, &tn);
-          #else
-                clock_gettime(CLOCK_MONOTONIC, &tn);
-          #endif
-        */
-
-        if (use_monotonic_clock)
-          clock_gettime(CLOCK_MONOTONIC, &tn);
-        else
-          clock_gettime(CLOCK_REALTIME, &tn);
-
-        // uint64_t time_now_ns = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
-        uint64_t time_now_ns = tn.tv_sec;
-        time_now_ns = time_now_ns * 1000000000;
-        time_now_ns = time_now_ns + tn.tv_nsec;
-
-        // see if it's stalled
-
-        if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == delay_temp)) {
-          // hasn't outputted anything since the last call to delay()
-
-          if (((update_timestamp_ns - stall_monitor_start_time) > stall_monitor_error_threshold) ||
-              ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
-            debug(2,
-                  "DAC seems to have stalled with time_now_ns: %" PRIX64
-                  ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
-                  ", stall_monitor_error_threshold %" PRIX64 ".",
-                  time_now_ns, update_timestamp_ns, stall_monitor_start_time,
-                  stall_monitor_error_threshold);
-            debug(2,
-                  "DAC seems to have stalled with time_now: %lx,%lx"
-                  ", update_timestamp: %lx,%lx, stall_monitor_start_time %" PRIX64
-                  ", stall_monitor_error_threshold %" PRIX64 ".",
-                  tn.tv_sec, tn.tv_nsec, update_timestamp.tv_sec, update_timestamp.tv_nsec,
-                  stall_monitor_start_time, stall_monitor_error_threshold);
-            ret = sps_extra_code_output_stalled;
+        // user information
+        if (update_timestamp_ns == 0) {
+          if (delay_type_notified != 1) {
+            debug(2, "alsa: update timestamps unavailable");
+            delay_type_notified = 1;
           }
         } else {
-          stall_monitor_start_time = update_timestamp_ns;
-          stall_monitor_frame_count = delay_temp;
+          // diagnostic
+          if (delay_type_notified != 0) {
+            debug(2, "alsa: update timestamps available");
+            delay_type_notified = 0;
+          }
         }
 
-        if (ret == 0) {
-          uint64_t delta = time_now_ns - update_timestamp_ns;
+        if (update_timestamp_ns == 0) {
+          ret = snd_pcm_delay(alsa_handle, &delay_temp);
+        } else {
+          delay_temp = snd_pcm_status_get_delay(alsa_snd_pcm_status);
 
-          //          uint64_t frames_played_since_last_interrupt =
-          //              ((uint64_t)config.output_rate * delta) / 1000000000;
+          /*
+          // It seems that the alsa library uses CLOCK_REALTIME before 1.0.28, even though
+          // the check for monotonic returns true. Might have to watch out for this.
+            #if SND_LIB_MINOR == 0 && SND_LIB_SUBMINOR < 28
+                  clock_gettime(CLOCK_REALTIME, &tn);
+            #else
+                  clock_gettime(CLOCK_MONOTONIC, &tn);
+            #endif
+          */
 
-          uint64_t frames_played_since_last_interrupt = config.output_rate;
-          frames_played_since_last_interrupt = frames_played_since_last_interrupt * delta;
-          frames_played_since_last_interrupt = frames_played_since_last_interrupt / 1000000000;
+          if (use_monotonic_clock)
+            clock_gettime(CLOCK_MONOTONIC, &tn);
+          else
+            clock_gettime(CLOCK_REALTIME, &tn);
 
-          snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
-              frames_played_since_last_interrupt;
-          if ((frames_played_since_last_interrupt_sized < 0) ||
-              ((uint64_t)frames_played_since_last_interrupt_sized !=
-               frames_played_since_last_interrupt))
-            debug(1,
-                  "overflow resizing frames_played_since_last_interrupt %" PRIx64
-                  " to frames_played_since_last_interrupt %lx.",
-                  frames_played_since_last_interrupt, frames_played_since_last_interrupt_sized);
-          delay_temp = delay_temp - frames_played_since_last_interrupt_sized;
+          // uint64_t time_now_ns = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
+          uint64_t time_now_ns = tn.tv_sec;
+          time_now_ns = time_now_ns * 1000000000;
+          time_now_ns = time_now_ns + tn.tv_nsec;
+
+          // see if it's stalled
+
+          if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == delay_temp)) {
+            // hasn't outputted anything since the last call to delay()
+
+            if (((update_timestamp_ns - stall_monitor_start_time) >
+                 stall_monitor_error_threshold) ||
+                ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
+              debug(2,
+                    "DAC seems to have stalled with time_now_ns: %" PRIX64
+                    ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
+                    ", stall_monitor_error_threshold %" PRIX64 ".",
+                    time_now_ns, update_timestamp_ns, stall_monitor_start_time,
+                    stall_monitor_error_threshold);
+              debug(2,
+                    "DAC seems to have stalled with time_now: %lx,%lx"
+                    ", update_timestamp: %lx,%lx, stall_monitor_start_time %" PRIX64
+                    ", stall_monitor_error_threshold %" PRIX64 ".",
+                    tn.tv_sec, tn.tv_nsec, update_timestamp.tv_sec, update_timestamp.tv_nsec,
+                    stall_monitor_start_time, stall_monitor_error_threshold);
+              ret = sps_extra_code_output_stalled;
+            }
+          } else {
+            stall_monitor_start_time = update_timestamp_ns;
+            stall_monitor_frame_count = delay_temp;
+          }
+
+          if (ret == 0) {
+            uint64_t delta = time_now_ns - update_timestamp_ns;
+
+            //          uint64_t frames_played_since_last_interrupt =
+            //              ((uint64_t)config.output_rate * delta) / 1000000000;
+
+            uint64_t frames_played_since_last_interrupt = config.output_rate;
+            frames_played_since_last_interrupt = frames_played_since_last_interrupt * delta;
+            frames_played_since_last_interrupt = frames_played_since_last_interrupt / 1000000000;
+
+            snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
+                frames_played_since_last_interrupt;
+            if ((frames_played_since_last_interrupt_sized < 0) ||
+                ((uint64_t)frames_played_since_last_interrupt_sized !=
+                 frames_played_since_last_interrupt))
+              debug(1,
+                    "overflow resizing frames_played_since_last_interrupt %" PRIx64
+                    " to frames_played_since_last_interrupt %lx.",
+                    frames_played_since_last_interrupt, frames_played_since_last_interrupt_sized);
+            delay_temp = delay_temp - frames_played_since_last_interrupt_sized;
+          }
         }
+      } else { // not running, thus no delay information, thus can't check for
+               // stall
+        delay_temp = 0;
+        stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
+        stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
+
+        // not running, thus no delay information, thus can't check for frame
+        // rates
+        // frame_index = 0; // we'll be starting over...
+        // measurement_data_is_valid = 0;
       }
-    } else { // not running, thus no delay information, thus can't check for
-             // stall
-      delay_temp = 0;
-      stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
-      stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
-
-      // not running, thus no delay information, thus can't check for frame
-      // rates
-      // frame_index = 0; // we'll be starting over...
-      // measurement_data_is_valid = 0;
+    } else {
+      debug(1, "alsa: can't get device's status.");
     }
-  } else {
-    debug(1, "alsa: can't get device's status.");
-  }
 
+  } else {
+    debug(1, "alsa_handle is NULL!");
+    // already set to ret = ENODEV;
+  }
   if (delay != NULL)
     *delay = delay_temp;
   if (state != NULL)
     *state = state_temp;
-
   return ret;
 }
 
@@ -1649,7 +1635,7 @@ int delay(long *the_delay) {
   pthread_cleanup_pop(0);
   pthread_setcancelstate(oldState, NULL);
 
-  if (the_delay != NULL) // can't imagine why this might happen
+  if (the_delay != NULL)   // can't imagine why this might happen
     *the_delay = my_delay; // note: snd_pcm_sframes_t is a long
 
   return ret;
