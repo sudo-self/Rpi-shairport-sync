@@ -1817,6 +1817,7 @@ int do_open(int do_auto_setup) {
 }
 
 int do_close() {
+  debug(2,"alsa: do_close()");
   if (alsa_backend_state == abm_disconnected)
     debug(1, "alsa: do_close() -- closing the output device when it is already "
              "disconnected");
@@ -1828,8 +1829,6 @@ int do_close() {
     usleep(5000); // this make the function pthread cancellable
     if ((derr = snd_pcm_hw_free(alsa_handle)))
       debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
-
-    // flush also closes the device
     debug(2, "alsa: do_close() -- closing alsa handle");
     if ((derr = snd_pcm_close(alsa_handle)))
       debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
@@ -1853,6 +1852,7 @@ int sub_flush() {
       debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
     if ((derr = snd_pcm_prepare(alsa_handle)))
       debug(1, "Error %d (\"%s\") preparing output device after flush.", derr, snd_strerror(derr));
+    alsa_backend_state = abm_connected;
   } else {
     debug(1, "alsa: do_flush() -- output device already closed.");
   }
@@ -1923,6 +1923,10 @@ static void flush(void) {
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
   if (alsa_backend_state != abm_disconnected) { // must be playing or connected...
     if (config.keep_dac_busy == 0) {
+      // debug(1,"flush is actually a close");
+      do_close();
+    } else {
+      // debug(1,"flush is a real flush");
       sub_flush();
     }
   } else
@@ -1932,8 +1936,16 @@ static void flush(void) {
 }
 
 static void stop(void) {
-  // debug(2,"audio_alsa stop called.");
-  flush(); // flush will also close the device if appropriate
+  debug(1,"audio_alsa stop called.");
+  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
+  if (alsa_backend_state != abm_disconnected) { // must be playing or connected...
+    if (config.keep_dac_busy == 0) {
+      do_close();
+    }
+  } else
+    debug(3, "alsa: stop() -- called on a disconnected alsa backend");
+  debug_mutex_unlock(&alsa_mutex, 3);
+  pthread_cleanup_pop(0); // release the mutex
 }
 
 static void parameters(audio_parameters *info) {
