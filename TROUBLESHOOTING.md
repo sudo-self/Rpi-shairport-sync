@@ -61,6 +61,9 @@ To see the AirPlay service Shairport Sync provides, your devices must be on the 
 ### Faulty WiFi
 For an example of what it can take to track down a bad WiFi situation – in this case, a faulty WiFi adapter – please look at [this report](https://github.com/mikebrady/shairport-sync/issues/689).
 
+### Using your iOS device as a hotspot.
+An iOS device that is being used as a WiFi hotspot can not play audio to another device.
+
 ### Can't play from iTunes on Windows
 
 **Problem**
