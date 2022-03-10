@@ -74,11 +74,8 @@ void going_active(int block) {
 #ifdef CONFIG_DBUS_INTERFACE
     if (dbus_service_is_running())
       shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
-    else
-      config.keep_dac_busy = 1;
-#else
-    config.keep_dac_busy = 1;
 #endif
+    config.keep_dac_busy = 1;
   }
 }
 
@@ -101,11 +98,8 @@ void going_inactive(int block) {
 #ifdef CONFIG_DBUS_INTERFACE
     if (dbus_service_is_running())
       shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
-    else
-      config.keep_dac_busy = 0;
-#else
-    config.keep_dac_busy = 0;
 #endif
+  config.keep_dac_busy = 0;
   }
 }
 
