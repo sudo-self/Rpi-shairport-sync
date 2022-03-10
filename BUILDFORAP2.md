@@ -148,6 +148,10 @@ The Shairport Sync AirPlay service should appear on the network with a service n
 
 Connect and enjoy...
 
+### Adding to Home
+
+Follow the steps in [ADDINGTOHOME.md](https://github.com/mikebrady/shairport-sync/blob/development/ADDINGTOHOME.md) to add your Shairport Sync device to the Apple Home system.
+
 ### Restart Your Mac!
 
 At the time of writing, there seems to be a bug in AirPlay 2 on Apple Silicon Macs and on the Apple TV. It appears that, if the Mac/ATV has been sleeping, the AirPlay 2 infrastructure is not fully reenabled when it wakens up. The `nqptp` program incorporates a workaround which fixes this issue for ATVs and mostly fixes it for macOS. However, it does not completely fix macOS Music on Apple Silicon Macs. The only known solution is to reboot the Mac.
