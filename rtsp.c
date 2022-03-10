@@ -1836,7 +1836,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
     if (item != NULL) {
       uint64_t rate;
       plist_get_uint_val(item, &rate);
-      debug(2, "anchor rate 0x%016" PRIx64 ".", rate);
+      debug(3, "anchor rate 0x%016" PRIx64 ".", rate);
       debug_mutex_lock(&conn->flush_mutex, 1000, 1);
       pthread_cleanup_push(mutex_unlock, &conn->flush_mutex);
       conn->ap2_rate = rate;
@@ -1848,8 +1848,6 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         debug(2, "Connection %d: Stop playing.", conn->connection_number);
         activity_monitor_signify_activity(0);
         conn->ap2_play_enabled = 0;
-        // not sure this is needed yet
-        // reset_anchor_info(conn); // needed if the player resumes
       }
       pthread_cleanup_pop(1); // unlock the conn->flush_mutex
     }
@@ -1880,8 +1878,8 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
   resp->respcode = 500;
 }
 
-void handle_post(__attribute((unused)) rtsp_conn_info *conn,
-                 __attribute((unused)) rtsp_message *req,
+void handle_post(rtsp_conn_info *conn,
+                 rtsp_message *req,
                  __attribute((unused)) rtsp_message *resp) {
   debug(1, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
         req->contentlength);
@@ -2367,7 +2365,7 @@ void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   } else if (strcmp(req->path, "/command") == 0) {
     handle_command(conn, req, resp);
   } else {
-    debug(2, "Connection %d: Unhandled POST %s Content-Length %d", conn->connection_number,
+    debug(1, "Connection %d: Unhandled POST %s Content-Length %d", conn->connection_number,
           req->path, req->contentlength);
     debug_log_rtsp_message(2, "POST request", req);
   }
@@ -4808,16 +4806,15 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       resp = msg_init();
       pthread_cleanup_push(msg_cleanup_function, (void *)&resp);
       resp->respcode = 501; // Not Implemented
-      /*
-            if (strcmp(req->method, "OPTIONS") !=
-                0) // the options message is very common, so don't log it until level 3
-              debug_level = 2;
-            debug(debug_level,
-                  "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
-                  req->method),
-                debug_print_msg_headers(debug_level, req);
-      */
-
+      int dl = debug_level;
+      if ((strcmp(req->method, "OPTIONS") ==
+          0) || (strcmp(req->method, "POST") ==
+          0)) // the options message is very common, so don't log it until level 3
+        dl = 3;
+      debug(dl,
+            "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
+            req->method),
+      debug_print_msg_headers(dl, req);
       apple_challenge(conn->fd, req, resp);
       hdr = msg_get_header(req, "CSeq");
       if (hdr)
@@ -4871,8 +4868,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         }
       }
-      debug(debug_level, "Connection %d: RTSP Response:", conn->connection_number);
-      debug_print_msg_headers(debug_level, resp);
+      debug(dl, "Connection %d: RTSP Response:", conn->connection_number);
+      debug_print_msg_headers(dl, resp);
 
       if (conn->stop == 0) {
         int err = msg_write_response(conn, resp);
