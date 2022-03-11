@@ -1936,7 +1936,6 @@ static void flush(void) {
 }
 
 static void stop(void) {
-  debug(1,"audio_alsa stop called.");
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
   if (alsa_backend_state != abm_disconnected) { // must be playing or connected...
     if (config.keep_dac_busy == 0) {
