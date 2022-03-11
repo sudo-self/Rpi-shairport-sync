@@ -1,3 +1,19 @@
+Version-4.1-dev-224-g29d2155e
+====
+***Pesky Change You Can't Ignore***
+
+A change has been made the `shairport-sync` `systemd` service file, so before updating, please remove the existing service file with the following command:
+```
+# rm /lib/systemd/system/shairport-sync.service
+```
+**Bug Fixes**
+* Interpret `disable_standby_mode` to determine if a flush should also close an `alsa` device as follows:
+  1. If `disable_standby_mode` is set to `"no"` (default) or `"never"`, then a flush will immediately close the `alsa` device.
+  2. If `disable_standby_mode` is `"auto"`, a flush will not close the `alsa` device. The device will be closed at the end of the active timeout.
+  3. If `disable_standby_mode` is `"yes"` or `"always"`, a flush will not close the `alsa` device. The device will never be closed.
+
+* Remove the invalid `Provides` entry from the `systemd` service file. Thanks to [David Crook](https://github.com/idcrook) for reporting Issue [#1448](https://github.com/mikebrady/shairport-sync/issues/1448).
+
 Version-4.1-dev-214-gadf0845e
 ====
 **Enhancement**
