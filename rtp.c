@@ -2837,13 +2837,13 @@ void *rtp_buffered_audio_processor(void *arg) {
         }
       } else {
         // nread is 0 -- the port has been closed
-        debug(1, "buffered audio port closed!");
+        debug(2, "buffered audio port closed!");
         finished = 1;
       }
     }
 
   } while (finished == 0);
-  debug(1, "Buffered Audio Receiver RTP thread \"normal\" exit.");
+  debug(2, "Buffered Audio Receiver RTP thread \"normal\" exit.");
   pthread_cleanup_pop(1); // deallocate the swr
   pthread_cleanup_pop(1); // deallocate the av_packet
   pthread_cleanup_pop(1); // av_parser_init_cleanup_handler
