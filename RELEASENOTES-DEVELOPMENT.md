@@ -1,3 +1,8 @@
+Versiob-4.1-dev-229-g08afa822
+====
+**Enhancement**
+* Add _Minimum Buffer Size_ to statistcs information for a Buffered Audio stream (and remove the minimum and maximum number of decoded buffers -- they are not too interesting). The Minimum Buffer Size gives the smallest size, in bytes of kilibytes, of the buffer of audio that has yet to be decoded during the last statistics interval. The larger it is, the longer Shairport Sync can play while a network outage is occuring. It can legitimately be zero at the start of a track, and obviously it can reach zero at the end of a track, but if it is zero while a track is playing, it may indicate problems with the network.
+
 Version-4.1-dev-224-g29d2155e
 ====
 ***Pesky Change You Can't Ignore***
