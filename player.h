@@ -320,6 +320,7 @@ typedef struct {
   uint64_t last_anchor_validity_start_time;
 
   ssize_t ap2_audio_buffer_size;
+  ssize_t ap2_audio_buffer_minimum_size;
   flush_request_t *flush_requests; // if non-null, there are flush requests, mutex protected
   int ap2_flush_requested;
   int ap2_flush_from_valid;

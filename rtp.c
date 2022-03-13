@@ -1926,12 +1926,18 @@ void *rtp_realtime_audio_receiver(void *arg) {
   pthread_exit(NULL);
 }
 
-ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count) {
+ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count, size_t *bytes_remaining) {
   ssize_t response = -1;
   if (pthread_mutex_lock(&descriptor->mutex) != 0)
     debug(1, "problem with mutex");
   pthread_cleanup_push(mutex_unlock, (void *)&descriptor->mutex);
   if (descriptor->closed == 0) {
+    if ((descriptor->buffer_occupancy == 0) && (descriptor->error_code == 0)) {
+      if (count == 2)
+        debug(2, "buffered_read: waiting for %u bytes (okay at start of a track).", count);
+      else
+        debug(1, "buffered_read: waiting for %u bytes.", count);
+    }    
     while ((descriptor->buffer_occupancy == 0) && (descriptor->error_code == 0)) {
       if (pthread_cond_wait(&descriptor->not_empty_cv, &descriptor->mutex))
         debug(1, "Error waiting for buffered read");
@@ -1940,8 +1946,9 @@ ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count) {
   if (descriptor->buffer_occupancy != 0) {
     ssize_t bytes_to_move = count;
 
-    if (descriptor->buffer_occupancy < count)
+    if (descriptor->buffer_occupancy < count) {
       bytes_to_move = descriptor->buffer_occupancy;
+    }
 
     ssize_t top_gap = descriptor->buffer + descriptor->buffer_max_size - descriptor->toq;
     if (top_gap < bytes_to_move)
@@ -1952,6 +1959,8 @@ ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count) {
     if (descriptor->toq == descriptor->buffer + descriptor->buffer_max_size)
       descriptor->toq = descriptor->buffer;
     descriptor->buffer_occupancy -= bytes_to_move;
+    if (bytes_remaining != NULL)
+      *bytes_remaining = descriptor->buffer_occupancy;
     response = bytes_to_move;
     if (pthread_cond_signal(&descriptor->not_full_cv))
       debug(1, "Error signalling");
@@ -2026,7 +2035,7 @@ void *buffered_tcp_reader(void *arg) {
     if (nread < 0) {
       char errorstring[1024];
       strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-      debug(1, "error in buffered_read %d: \"%s\". Could not recv a packet.", errno, errorstring);
+      debug(1, "error in buffered_tcp_reader %d: \"%s\". Could not recv a packet.", errno, errorstring);
       descriptor->error_code = errno;
     } else if (nread == 0) {
       descriptor->closed = 1;
@@ -2081,13 +2090,13 @@ void av_packet_alloc_cleanup_handler(void *arg) {
 
 // this will read a block of the size specified to the buffer
 // and will return either with the block or on error
-ssize_t lread_sized_block(buffered_tcp_desc *descriptor, void *buf, size_t count) {
+ssize_t lread_sized_block(buffered_tcp_desc *descriptor, void *buf, size_t count, size_t *bytes_remaining) {
   ssize_t response, nread;
   size_t inbuf = 0; // bytes already in the buffer
   int keep_trying = 1;
 
   do {
-    nread = buffered_read(descriptor, buf + inbuf, count - inbuf);
+    nread = buffered_read(descriptor, buf + inbuf, count - inbuf, bytes_remaining);
     if (nread == 0) {
       // a blocking read that returns zero means eof -- implies connection closed
       debug(3, "read_sized_block connection closed.");
@@ -2375,7 +2384,7 @@ void *rtp_buffered_audio_processor(void *arg) {
     int flush_newly_complete = 0;
     int play_newly_stopped = 0;
     // are we in in flush mode, or just about to leave it?
-    debug_mutex_lock(&conn->flush_mutex, 10000, 1); // 10ms is a long time to wait!
+    debug_mutex_lock(&conn->flush_mutex, 25000, 1); // 25 ms is a long time to wait!
     uint32_t flushUntilSeq = conn->ap2_flush_until_sequence_number;
     uint32_t flushUntilTS = conn->ap2_flush_until_rtp_timestamp;
 
@@ -2586,7 +2595,10 @@ void *rtp_buffered_audio_processor(void *arg) {
       // do we will get in a packet of audio
       uint16_t data_len;
       // here we read from the buffer that our thread has been reading
-      nread = lread_sized_block(buffered_audio, &data_len, sizeof(data_len));
+      size_t bytes_remaining_in_buffer;
+      nread = lread_sized_block(buffered_audio, &data_len, sizeof(data_len), &bytes_remaining_in_buffer);
+      if ((conn->ap2_audio_buffer_minimum_size < 0) || (bytes_remaining_in_buffer < (size_t)conn->ap2_audio_buffer_minimum_size))
+        conn->ap2_audio_buffer_minimum_size = bytes_remaining_in_buffer;
       if (nread < 0) {
         char errorstring[1024];
         strerror_r(errno, (char *)errorstring, sizeof(errorstring));
@@ -2597,7 +2609,9 @@ void *rtp_buffered_audio_processor(void *arg) {
       }
       data_len = ntohs(data_len);
       // debug(1,"buffered audio packet of size %u detected.", data_len - 2);
-      nread = lread_sized_block(buffered_audio, packet, data_len - 2);
+      nread = lread_sized_block(buffered_audio, packet, data_len - 2, &bytes_remaining_in_buffer);
+      if ((conn->ap2_audio_buffer_minimum_size < 0) || (bytes_remaining_in_buffer < (size_t)conn->ap2_audio_buffer_minimum_size))
+        conn->ap2_audio_buffer_minimum_size = bytes_remaining_in_buffer;
       // debug(1, "buffered audio packet of size %u received.", nread);
       if (nread < 0) {
         char errorstring[1024];

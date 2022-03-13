@@ -1574,13 +1574,13 @@ int ap1_synced_statistics_print_profile[] =                  {2, 2, 2, 1, 2, 1, 
 int ap1_nosync_statistics_print_profile[] =                  {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 1, 0};
 int ap1_nodelay_statistics_print_profile[] =                 {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 1, 1, 0, 0, 1, 0};
 
-int ap2_realtime_synced_stream_statistics_print_profile[] =  {2, 2, 2, 1, 2, 1, 1, 2, 1, 1, 1, 0, 1, 2, 2, 0, 0};
-int ap2_realtime_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 0, 1, 0, 0, 0, 0};
-int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 0, 1, 0, 0, 0, 0};
+int ap2_realtime_synced_stream_statistics_print_profile[] =  {2, 2, 2, 1, 2, 1, 1, 2, 1, 1, 1, 0, 0, 1, 2, 2, 0, 0};
+int ap2_realtime_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0};
+int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0};
 
-int ap2_buffered_synced_stream_statistics_print_profile[] =  {2, 2, 2, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 2, 2, 0, 0};
-int ap2_buffered_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0};
-int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0};
+int ap2_buffered_synced_stream_statistics_print_profile[] =  {2, 2, 2, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 2, 2, 0, 0};
+int ap2_buffered_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0};
+int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0};
 // clang-format on
 
 void statistics_item(const char *heading, const char *format, ...) {
@@ -1899,6 +1899,10 @@ void *player_thread_func(void *arg) {
   uint64_t minimum_dac_queue_size = UINT64_MAX;
   int32_t minimum_buffer_occupancy = INT32_MAX;
   int32_t maximum_buffer_occupancy = INT32_MIN;
+
+#ifdef CONFIG_AIRPLAY_2  
+  conn->ap2_audio_buffer_minimum_size = -1;
+#endif
 
   conn->playstart = time(NULL);
 
@@ -2432,6 +2436,12 @@ void *player_thread_func(void *arg) {
                   statistics_item("min DAC queue", "%*" PRIu64 "", 13, minimum_dac_queue_size);
                   statistics_item("min buffers", "%*" PRIu32 "", 11, minimum_buffer_occupancy);
                   statistics_item("max buffers", "%*" PRIu32 "", 11, maximum_buffer_occupancy);
+#ifdef CONFIG_AIRPLAY_2  
+                  if ( conn->ap2_audio_buffer_minimum_size > 10 * 1024)
+                    statistics_item("min buffer size", "%*" PRIu32 "k", 14, conn->ap2_audio_buffer_minimum_size/1024);
+                  else
+                    statistics_item("min buffer size", "%*" PRIu32 "", 15, conn->ap2_audio_buffer_minimum_size);
+#endif
                   statistics_item("nominal fps", "%*.2f", 11, conn->remote_frame_rate);
                   statistics_item("received fps", "%*.2f", 12, conn->input_frame_rate);
                   if (conn->frame_rate_valid) {
@@ -2466,6 +2476,9 @@ void *player_thread_func(void *arg) {
             minimum_dac_queue_size = UINT64_MAX;  // hack reset
             maximum_buffer_occupancy = INT32_MIN; // can't be less than this
             minimum_buffer_occupancy = INT32_MAX; // can't be more than this
+#ifdef CONFIG_AIRPLAY_2  
+            conn->ap2_audio_buffer_minimum_size = -1;
+#endif
             at_least_one_frame_seen = 0;
           }
 
