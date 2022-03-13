@@ -244,6 +244,8 @@ The is the smallest number of frames of audio in the DAC's hardware queue. If it
 The is the smallest number of packets of audio in the queue to be processed in the last interval. It is related to the overall latency in AirPlay 1 and AirPlay 2 Realtime Streams. If it comes close to zero it's often a sign that the network is poor.
 ##### max buffers
 The is the largest number of packets of audio in the queue to be processed in the last interval. 
+##### min buffer size
+The is smallest remaining number of bytes in the Buffered Audio buffer in the last interval. It can legitimately be zero when a track ends or begins. If it reaches zero while a track is playing, it means that audio data is not arriving at Shairport Sync quickly enough and may indicate network problems. AirPlay 2 Buffered Audio streams only.
 ##### nominal fps
 This is the rate specified in the AirPlay stream itself. AirPlay 1 only.
 ##### received fps
