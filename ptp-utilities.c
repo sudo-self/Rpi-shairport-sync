@@ -132,7 +132,7 @@ int ptp_shm_interface_open() {
       debug(3, "ptp_shm_interface_open is NULL");
     if (mapped_addr == MAP_FAILED)
       debug(3, "ptp_shm_interface_open is MAP_FAILED");
-    
+
     if (strcmp(config.nqptp_shared_memory_interface_name, "") != 0) {
       response = 0;
       int shared_memory_file_descriptor =

@@ -99,7 +99,7 @@ void going_inactive(int block) {
     if (dbus_service_is_running())
       shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
 #endif
-  config.keep_dac_busy = 0;
+    config.keep_dac_busy = 0;
   }
 }
 

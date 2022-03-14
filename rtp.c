@@ -80,63 +80,63 @@ typedef struct {
 
 void check64conversion(const char *prompt, const uint8_t *source, uint64_t value) {
   char converted_value[128];
-  sprintf(converted_value,"%" PRIx64 "", value);
-  
+  sprintf(converted_value, "%" PRIx64 "", value);
+
   char obf[32];
   char *obfp = obf;
   int obfc;
   int suppress_zeroes = 1;
-  for (obfc=0;obfc<8;obfc++) {
-    if ((suppress_zeroes == 0) || (source[obfc] != 0)){
+  for (obfc = 0; obfc < 8; obfc++) {
+    if ((suppress_zeroes == 0) || (source[obfc] != 0)) {
       if (suppress_zeroes != 0) {
         if (source[obfc] < 0x10) {
           snprintf(obfp, 3, "%1x", source[obfc]);
-          obfp+=1;
+          obfp += 1;
         } else {
-          snprintf(obfp, 3, "%02x", source[obfc]);        
-          obfp+=2;
+          snprintf(obfp, 3, "%02x", source[obfc]);
+          obfp += 2;
         }
       } else {
         snprintf(obfp, 3, "%02x", source[obfc]);
-        obfp+=2;
+        obfp += 2;
       }
       suppress_zeroes = 0;
     }
   };
-  *obfp=0;
-  if (strcmp(converted_value,obf) != 0) {
-    debug(1,"%s check64conversion error converting \"%s\" to %" PRIx64 ".", prompt, obf, value);
+  *obfp = 0;
+  if (strcmp(converted_value, obf) != 0) {
+    debug(1, "%s check64conversion error converting \"%s\" to %" PRIx64 ".", prompt, obf, value);
   }
 }
 
 void check32conversion(const char *prompt, const uint8_t *source, uint32_t value) {
   char converted_value[128];
-  sprintf(converted_value,"%" PRIx32 "", value);
-  
+  sprintf(converted_value, "%" PRIx32 "", value);
+
   char obf[32];
   char *obfp = obf;
   int obfc;
   int suppress_zeroes = 1;
-  for (obfc=0;obfc<4;obfc++) {
-    if ((suppress_zeroes == 0) || (source[obfc] != 0)){
+  for (obfc = 0; obfc < 4; obfc++) {
+    if ((suppress_zeroes == 0) || (source[obfc] != 0)) {
       if (suppress_zeroes != 0) {
         if (source[obfc] < 0x10) {
           snprintf(obfp, 3, "%1x", source[obfc]);
-          obfp+=1;
+          obfp += 1;
         } else {
-          snprintf(obfp, 3, "%02x", source[obfc]);        
-          obfp+=2;
+          snprintf(obfp, 3, "%02x", source[obfc]);
+          obfp += 2;
         }
       } else {
         snprintf(obfp, 3, "%02x", source[obfc]);
-        obfp+=2;
+        obfp += 2;
       }
       suppress_zeroes = 0;
     }
   };
-  *obfp=0;
-  if (strcmp(converted_value,obf) != 0) {
-    debug(1,"%s check32conversion error converting \"%s\" to %" PRIx32 ".", prompt, obf, value);
+  *obfp = 0;
+  if (strcmp(converted_value, obf) != 0) {
+    debug(1, "%s check32conversion error converting \"%s\" to %" PRIx32 ".", prompt, obf, value);
   }
 }
 
@@ -1790,7 +1790,7 @@ void *rtp_ap2_control_receiver(void *arg) {
             // add in the audio_backend_latency_offset;
             int32_t notified_latency = frame_2 - frame_1;
             if (notified_latency != 77175)
-              debug(1,"Notified latency is %d frames.", notified_latency);
+              debug(1, "Notified latency is %d frames.", notified_latency);
             int32_t added_latency =
                 (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
             // the actual latency is the notified latency plus the fixed latency + the added latency
@@ -1804,8 +1804,14 @@ void *rtp_ap2_control_receiver(void *arg) {
 
             if (net_latency <= 0) {
               if (conn->latency_warning_issued == 0) {
-                warn("The stream latency (%f seconds) it too short to accommodate an offset of %f seconds and a backend buffer of %f seconds.", ((notified_latency + 11035) * 1.0)/conn->input_rate, config.audio_backend_latency_offset, config.audio_backend_buffer_desired_length);
-                warn("(FYI the stream latency needed would be %f seconds.)", config.audio_backend_buffer_desired_length - config.audio_backend_latency_offset);
+                warn("The stream latency (%f seconds) it too short to accommodate an offset of %f "
+                     "seconds and a backend buffer of %f seconds.",
+                     ((notified_latency + 11035) * 1.0) / conn->input_rate,
+                     config.audio_backend_latency_offset,
+                     config.audio_backend_buffer_desired_length);
+                warn("(FYI the stream latency needed would be %f seconds.)",
+                     config.audio_backend_buffer_desired_length -
+                         config.audio_backend_latency_offset);
                 conn->latency_warning_issued = 1;
               }
               conn->latency = notified_latency + 11035;
@@ -1926,7 +1932,8 @@ void *rtp_realtime_audio_receiver(void *arg) {
   pthread_exit(NULL);
 }
 
-ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count, size_t *bytes_remaining) {
+ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count,
+                      size_t *bytes_remaining) {
   ssize_t response = -1;
   if (pthread_mutex_lock(&descriptor->mutex) != 0)
     debug(1, "problem with mutex");
@@ -1937,7 +1944,7 @@ ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count, si
         debug(2, "buffered_read: waiting for %u bytes (okay at start of a track).", count);
       else
         debug(1, "buffered_read: waiting for %u bytes.", count);
-    }    
+    }
     while ((descriptor->buffer_occupancy == 0) && (descriptor->error_code == 0)) {
       if (pthread_cond_wait(&descriptor->not_empty_cv, &descriptor->mutex))
         debug(1, "Error waiting for buffered read");
@@ -2035,7 +2042,8 @@ void *buffered_tcp_reader(void *arg) {
     if (nread < 0) {
       char errorstring[1024];
       strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-      debug(1, "error in buffered_tcp_reader %d: \"%s\". Could not recv a packet.", errno, errorstring);
+      debug(1, "error in buffered_tcp_reader %d: \"%s\". Could not recv a packet.", errno,
+            errorstring);
       descriptor->error_code = errno;
     } else if (nread == 0) {
       descriptor->closed = 1;
@@ -2090,7 +2098,8 @@ void av_packet_alloc_cleanup_handler(void *arg) {
 
 // this will read a block of the size specified to the buffer
 // and will return either with the block or on error
-ssize_t lread_sized_block(buffered_tcp_desc *descriptor, void *buf, size_t count, size_t *bytes_remaining) {
+ssize_t lread_sized_block(buffered_tcp_desc *descriptor, void *buf, size_t count,
+                          size_t *bytes_remaining) {
   ssize_t response, nread;
   size_t inbuf = 0; // bytes already in the buffer
   int keep_trying = 1;
@@ -2596,8 +2605,10 @@ void *rtp_buffered_audio_processor(void *arg) {
       uint16_t data_len;
       // here we read from the buffer that our thread has been reading
       size_t bytes_remaining_in_buffer;
-      nread = lread_sized_block(buffered_audio, &data_len, sizeof(data_len), &bytes_remaining_in_buffer);
-      if ((conn->ap2_audio_buffer_minimum_size < 0) || (bytes_remaining_in_buffer < (size_t)conn->ap2_audio_buffer_minimum_size))
+      nread = lread_sized_block(buffered_audio, &data_len, sizeof(data_len),
+                                &bytes_remaining_in_buffer);
+      if ((conn->ap2_audio_buffer_minimum_size < 0) ||
+          (bytes_remaining_in_buffer < (size_t)conn->ap2_audio_buffer_minimum_size))
         conn->ap2_audio_buffer_minimum_size = bytes_remaining_in_buffer;
       if (nread < 0) {
         char errorstring[1024];
@@ -2610,7 +2621,8 @@ void *rtp_buffered_audio_processor(void *arg) {
       data_len = ntohs(data_len);
       // debug(1,"buffered audio packet of size %u detected.", data_len - 2);
       nread = lread_sized_block(buffered_audio, packet, data_len - 2, &bytes_remaining_in_buffer);
-      if ((conn->ap2_audio_buffer_minimum_size < 0) || (bytes_remaining_in_buffer < (size_t)conn->ap2_audio_buffer_minimum_size))
+      if ((conn->ap2_audio_buffer_minimum_size < 0) ||
+          (bytes_remaining_in_buffer < (size_t)conn->ap2_audio_buffer_minimum_size))
         conn->ap2_audio_buffer_minimum_size = bytes_remaining_in_buffer;
       // debug(1, "buffered audio packet of size %u received.", nread);
       if (nread < 0) {
@@ -2647,11 +2659,12 @@ void *rtp_buffered_audio_processor(void *arg) {
         int64_t local_lead_time = 0;
         int64_t requested_lead_time_ns = (int64_t)(requested_lead_time * 1000000000);
         // requested_lead_time_ns = (int64_t)(-300000000);
-        // debug(1,"requested_lead_time_ns is actually %f milliseconds.", requested_lead_time_ns * 1E-6);
+        // debug(1,"requested_lead_time_ns is actually %f milliseconds.", requested_lead_time_ns *
+        // 1E-6);
         int outdated = 0;
         if (have_time_information == 0) {
           local_lead_time = local_should_be_time - get_absolute_time_in_ns();
-          // debug(1,"local_lead_time is actually %f milliseconds.", local_lead_time * 1E-6);          
+          // debug(1,"local_lead_time is actually %f milliseconds.", local_lead_time * 1E-6);
           outdated = (local_lead_time < requested_lead_time_ns);
           // if (outdated != 0)
           // debug(1,"Frame is outdated %d if lead_time %" PRId64 " is less than requested lead time

@@ -96,17 +96,17 @@ void on_connect(struct mosquitto *mosq, __attribute__((unused)) void *userdata,
 void mqtt_publish(char *topic, char *data_in, uint32_t length_in) {
   char *data = data_in;
   uint32_t length = length_in;
-  
+
   if ((length == 0) && (config.mqtt_empty_payload_substitute != NULL)) {
     length = strlen(config.mqtt_empty_payload_substitute);
     data = config.mqtt_empty_payload_substitute;
   }
-  
+
   char fulltopic[strlen(config.mqtt_topic) + strlen(topic) + 3];
   snprintf(fulltopic, strlen(config.mqtt_topic) + strlen(topic) + 2, "%s/%s", config.mqtt_topic,
            topic);
   debug(2, "[MQTT]: publishing under %s", fulltopic);
-  
+
   int rc;
   if ((rc = mosquitto_publish(global_mosq, NULL, fulltopic, length, data, 0, 0)) !=
       MOSQ_ERR_SUCCESS) {

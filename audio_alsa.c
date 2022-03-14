@@ -1817,7 +1817,7 @@ int do_open(int do_auto_setup) {
 }
 
 int do_close() {
-  debug(2,"alsa: do_close()");
+  debug(2, "alsa: do_close()");
   if (alsa_backend_state == abm_disconnected)
     debug(1, "alsa: do_close() -- closing the output device when it is already "
              "disconnected");

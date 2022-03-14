@@ -1827,7 +1827,8 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       uint32_t anchorRTPTime = rtpTime;
 
       int32_t added_latency = (int32_t)(config.audio_backend_latency_offset * conn->input_rate);
-      // debug(1,"anchorRTPTime: %" PRIu32 ", added latency: %" PRId32 ".", anchorRTPTime, added_latency);
+      // debug(1,"anchorRTPTime: %" PRIu32 ", added latency: %" PRId32 ".", anchorRTPTime,
+      // added_latency);
       set_ptp_anchor_info(conn, conn->networkTimeTimelineID, anchorRTPTime - added_latency,
                           anchorTimeNanoseconds);
     }
@@ -1878,8 +1879,7 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
   resp->respcode = 500;
 }
 
-void handle_post(rtsp_conn_info *conn,
-                 rtsp_message *req,
+void handle_post(rtsp_conn_info *conn, rtsp_message *req,
                  __attribute((unused)) rtsp_message *resp) {
   debug(1, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
         req->contentlength);
@@ -2344,14 +2344,12 @@ void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *
   }
 }
 
-void handle_audio_mode(rtsp_conn_info *conn,
-                     rtsp_message *req,
-                     __attribute__((unused)) rtsp_message *resp) {
+void handle_audio_mode(rtsp_conn_info *conn, rtsp_message *req,
+                       __attribute__((unused)) rtsp_message *resp) {
   debug(2, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
         req->contentlength);
   debug_log_rtsp_message(2, NULL, req);
 }
-
 
 void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   resp->respcode = 200;
@@ -2695,9 +2693,10 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         // if it's a full service PTP stream, we get groupUUID, groupContainsGroupLeader and
         // timingPeerList
         if (conn->airplay_stream_category == ptp_stream) {
-          if (ptp_shm_interface_open() != 0) // it should be open already, but just in case it isn't...
+          if (ptp_shm_interface_open() !=
+              0) // it should be open already, but just in case it isn't...
             die("Can not access the NQPTP service. Has it stopped running?");
-          ptp_send_control_message_string("T"); // remove all previous history          
+          ptp_send_control_message_string("T"); // remove all previous history
           debug_log_rtsp_message(2, "SETUP \"PTP\" message", req);
           plist_t groupUUID = plist_dict_get_item(messagePlist, "groupUUID");
           if (groupUUID) {
@@ -4818,14 +4817,13 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       pthread_cleanup_push(msg_cleanup_function, (void *)&resp);
       resp->respcode = 501; // Not Implemented
       int dl = debug_level;
-      if ((strcmp(req->method, "OPTIONS") ==
-          0) || (strcmp(req->method, "POST") ==
-          0)) // the options message is very common, so don't log it until level 3
+      if ((strcmp(req->method, "OPTIONS") == 0) ||
+          (strcmp(req->method, "POST") ==
+           0)) // the options message is very common, so don't log it until level 3
         dl = 3;
-      debug(dl,
-            "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
+      debug(dl, "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
             req->method),
-      debug_print_msg_headers(dl, req);
+          debug_print_msg_headers(dl, req);
       apple_challenge(conn->fd, req, resp);
       hdr = msg_get_header(req, "CSeq");
       if (hdr)

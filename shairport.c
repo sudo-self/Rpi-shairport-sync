@@ -44,10 +44,10 @@
 #include "config.h"
 
 #ifdef CONFIG_AIRPLAY_2
+#include "ptp-utilities.h"
 #include <gcrypt.h>
 #include <sodium.h>
 #include <uuid/uuid.h>
-#include "ptp-utilities.h"
 #endif
 
 #ifdef CONFIG_MBEDTLS
@@ -605,7 +605,9 @@ int parse_options(int argc, char **argv) {
                "support. Change the \"general/interpolation\" setting in the configuration file.");
 #endif
         else
-          die("Invalid interpolation option choice \"%s\". It should be \"auto\", \"basic\" or \"soxr\"", str);
+          die("Invalid interpolation option choice \"%s\". It should be \"auto\", \"basic\" or "
+              "\"soxr\"",
+              str);
       }
 
 #ifdef CONFIG_SOXR
@@ -681,7 +683,8 @@ int parse_options(int argc, char **argv) {
           config.debugger_show_file_and_line = 1;
         else
           die("Invalid diagnostics log_show_file_and_line option choice \"%s\". It should be "
-              "\"yes\" or \"no\"", str);
+              "\"yes\" or \"no\"",
+              str);
       }
 
       /* Get the show elapsed time in debug messages setting. */
@@ -692,7 +695,8 @@ int parse_options(int argc, char **argv) {
           config.debugger_show_elapsed_time = 1;
         else
           die("Invalid diagnostics log_show_time_since_startup option choice \"%s\". It should be "
-              "\"yes\" or \"no\"", str);
+              "\"yes\" or \"no\"",
+              str);
       }
 
       /* Get the show relative time in debug messages setting. */
@@ -703,7 +707,8 @@ int parse_options(int argc, char **argv) {
           config.debugger_show_relative_time = 1;
         else
           die("Invalid diagnostics log_show_time_since_last_message option choice \"%s\". It "
-              "should be \"yes\" or \"no\"", str);
+              "should be \"yes\" or \"no\"",
+              str);
       }
 
       /* Get the statistics setting. */
@@ -714,7 +719,8 @@ int parse_options(int argc, char **argv) {
           config.statistics_requested = 1;
         else
           die("Invalid diagnostics statistics option choice \"%s\". It should be \"yes\" or "
-              "\"no\"", str);
+              "\"no\"",
+              str);
       }
 
       /* Get the disable_resend_requests setting. */
@@ -727,7 +733,8 @@ int parse_options(int argc, char **argv) {
         else
           die("Invalid diagnostic disable_resend_requests option choice \"%s\". It should be "
               "\"yes\" "
-              "or \"no\"", str);
+              "or \"no\"",
+              str);
       }
 
       /* Get the drop packets setting. */
@@ -764,7 +771,8 @@ int parse_options(int argc, char **argv) {
         else if (strcasecmp(str, "yes") == 0)
           config.ignore_volume_control = 1;
         else
-          die("Invalid ignore_volume_control option choice \"%s\". It should be \"yes\" or \"no\"", str);
+          die("Invalid ignore_volume_control option choice \"%s\". It should be \"yes\" or \"no\"",
+              str);
       }
 
       /* Get the optional volume_max_db setting. */
@@ -792,7 +800,8 @@ int parse_options(int argc, char **argv) {
           config.playback_mode = ST_right_only;
         else
           die("Invalid playback_mode choice \"%s\". It should be \"stereo\" (default), \"mono\", "
-              "\"reverse stereo\", \"both left\", \"both right\"", str);
+              "\"reverse stereo\", \"both left\", \"both right\"",
+              str);
       }
 
       /* Get the volume control profile setting -- "standard" or "flat" */
@@ -803,7 +812,8 @@ int parse_options(int argc, char **argv) {
           config.volume_control_profile = VCP_flat;
         else
           die("Invalid volume_control_profile choice \"%s\". It should be \"standard\" (default) "
-              "or \"flat\"", str);
+              "or \"flat\"",
+              str);
       }
 
       config_set_lookup_bool(config.cfg, "general.volume_control_combined_hardware_priority",
@@ -855,7 +865,8 @@ int parse_options(int argc, char **argv) {
             inform("Support for the Apple ALAC decoder has not been compiled into this version of "
                    "Shairport Sync. The default decoder will be used.");
         } else
-          die("Invalid alac_decoder option choice \"%s\". It should be \"hammerton\" or \"apple\"", str);
+          die("Invalid alac_decoder option choice \"%s\". It should be \"hammerton\" or \"apple\"",
+              str);
       }
 
       /* Get the resend control settings. */
@@ -926,7 +937,8 @@ int parse_options(int argc, char **argv) {
           config.get_coverart = 1;
         else
           die("Invalid metadata include_cover_art option choice \"%s\". It should be \"yes\" or "
-              "\"no\"", str);
+              "\"no\"",
+              str);
       }
 
       if (config_lookup_string(config.cfg, "metadata.pipe_name", &str)) {
@@ -958,7 +970,8 @@ int parse_options(int argc, char **argv) {
           config.retain_coverart = 1;
         else
           die("Invalid metadata \"retain_cover_art\" option choice \"%s\". It should be \"yes\" or "
-              "\"no\"", str);
+              "\"no\"",
+              str);
       }
 #endif
 
@@ -1001,7 +1014,8 @@ int parse_options(int argc, char **argv) {
           config.cmd_blocking = 1;
         else
           warn("Invalid \"wait_for_completion\" option choice \"%s\". It should be "
-              "\"yes\" or \"no\". It is set to \"no\".", str);
+               "\"yes\" or \"no\". It is set to \"no\".",
+               str);
       }
 
       if (config_lookup_string(config.cfg, "sessioncontrol.before_play_begins_returns_output",
@@ -1013,7 +1027,8 @@ int parse_options(int argc, char **argv) {
         else
           die("Invalid \"before_play_begins_returns_output\" option choice \"%s\". It "
               "should be "
-              "\"yes\" or \"no\"", str);
+              "\"yes\" or \"no\"",
+              str);
       }
 
       if (config_lookup_string(config.cfg, "sessioncontrol.allow_session_interruption", &str)) {
@@ -1025,7 +1040,8 @@ int parse_options(int argc, char **argv) {
         else
           die("Invalid \"allow_interruption\" option choice \"%s\". It should be "
               "\"yes\" "
-              "or \"no\"", str);
+              "or \"no\"",
+              str);
       }
 
       if (config_lookup_int(config.cfg, "sessioncontrol.session_timeout", &value)) {
@@ -1106,7 +1122,8 @@ int parse_options(int argc, char **argv) {
         config.dbus_service_bus_type = DBT_session;
       else
         die("Invalid dbus_service_bus option choice \"%s\". It should be \"system\" (default) or "
-            "\"session\"", str);
+            "\"session\"",
+            str);
     }
 #endif
 
@@ -1119,7 +1136,8 @@ int parse_options(int argc, char **argv) {
         config.mpris_service_bus_type = DBT_session;
       else
         die("Invalid mpris_service_bus option choice \"%s\". It should be \"system\" (default) or "
-            "\"session\"", str);
+            "\"session\"",
+            str);
     }
 #endif
 
@@ -2218,16 +2236,16 @@ int main(int argc, char **argv) {
   do {
     ptp_send_control_message_string("T"); // get nqptp to create the named shm interface
     usleep(ptp_wait_interval_us);
-    ptp_check_times++;  
+    ptp_check_times++;
   } while ((ptp_shm_interface_open() != 0) && (ptp_check_times < (2000000 / ptp_wait_interval_us)));
-  
+
   if (ptp_shm_interface_open() != 0) {
     die("Can't access NQPTP! Is it installed and running?");
   } else {
     if (ptp_check_times == 1)
-      debug(1,"NQPTP is online.");
+      debug(1, "NQPTP is online.");
     else
-      debug(1,"NQPTP is online after %u microseconds.",ptp_check_times * ptp_wait_interval_us);
+      debug(1, "NQPTP is online after %u microseconds.", ptp_check_times * ptp_wait_interval_us);
   }
 #endif
 
