@@ -2646,10 +2646,12 @@ void *rtp_buffered_audio_processor(void *arg) {
         int have_time_information = frame_to_local_time(timestamp, &local_should_be_time, conn);
         int64_t local_lead_time = 0;
         int64_t requested_lead_time_ns = (int64_t)(requested_lead_time * 1000000000);
-        requested_lead_time_ns = (int64_t)(-300000000);
+        // requested_lead_time_ns = (int64_t)(-300000000);
+        // debug(1,"requested_lead_time_ns is actually %f milliseconds.", requested_lead_time_ns * 1E-6);
         int outdated = 0;
         if (have_time_information == 0) {
           local_lead_time = local_should_be_time - get_absolute_time_in_ns();
+          // debug(1,"local_lead_time is actually %f milliseconds.", local_lead_time * 1E-6);          
           outdated = (local_lead_time < requested_lead_time_ns);
           // if (outdated != 0)
           // debug(1,"Frame is outdated %d if lead_time %" PRId64 " is less than requested lead time
