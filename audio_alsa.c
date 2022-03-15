@@ -1727,9 +1727,10 @@ int do_play(void *buf, int samples) {
       snd_pcm_state_t prior_state = state; // keep this for afterwards....
       // debug(3, "alsa: write %d frames.", samples);
       ret = alsa_pcm_write(alsa_handle, buf, samples);
+      if (ret > 0)
+        frames_sent_for_playing += ret; // this is the number of frames accepted
       if (ret == samples) {
         stall_monitor_frame_count += samples;
-        frames_sent_for_playing += samples;
       } else {
         frames_sent_break_occurred = 1; // note than an output error has occurred
         if (ret == -EPIPE) {            /* underrun */
