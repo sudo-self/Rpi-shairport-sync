@@ -1,4 +1,9 @@
-Versiob-4.1-dev-229-g08afa822
+Version-4.1-dev-234-ge8721889
+====
+**Bug Fix**
+* Fixed a bug using HomePod Software 15.4. The bug was that when a Shairport Sync device was added as a HomePod output device, visually it didn't appear to join the group of output devices and additionally its volume control could not be accessed. The bug was fixed by increasing the maximum permissible length of ID strings in Shairport Sync.
+
+Version-4.1-dev-229-g08afa822
 ====
 **Enhancement**
 * Add _Minimum Buffer Size_ to statistcs information for a Buffered Audio stream (and remove the minimum and maximum number of decoded buffers -- they are not too interesting). The Minimum Buffer Size gives the smallest size, in bytes of kilibytes, of the buffer of audio that has yet to be decoded during the last statistics interval. The larger it is, the longer Shairport Sync can play while a network outage is occuring. It can legitimately be zero at the start of a track, and obviously it can reach zero at the end of a track, but if it is zero while a track is playing, it may indicate problems with the network.
