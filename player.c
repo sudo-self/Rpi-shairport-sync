@@ -1570,17 +1570,17 @@ int *statistics_print_profile;
 // be printed -- 2 means print, 1 means print only in a debug mode, 0 means skip
 
 // clang-format off
-int ap1_synced_statistics_print_profile[] =                  {2, 2, 2, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 1, 1};
-int ap1_nosync_statistics_print_profile[] =                  {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 1, 0};
-int ap1_nodelay_statistics_print_profile[] =                 {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 1, 1, 0, 0, 1, 0};
+int ap1_synced_statistics_print_profile[] =                  {2, 2, 2, 0, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 1, 1};
+int ap1_nosync_statistics_print_profile[] =                  {2, 0, 0, 0, 2, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 1, 0};
+int ap1_nodelay_statistics_print_profile[] =                 {0, 0, 0, 0, 2, 1, 1, 2, 0, 1, 1, 1, 1, 0, 0, 1, 0};
 
-int ap2_realtime_synced_stream_statistics_print_profile[] =  {2, 2, 2, 1, 2, 1, 1, 2, 1, 1, 1, 0, 0, 1, 2, 2, 0, 0};
-int ap2_realtime_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 1, 2, 1, 1, 2, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0};
-int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 2, 1, 1, 2, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0};
+int ap2_realtime_synced_stream_statistics_print_profile[] =  {2, 2, 2, 0, 2, 1, 1, 2, 1, 1, 1, 0, 0, 1, 2, 2, 0, 0};
+int ap2_realtime_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 0, 2, 1, 1, 2, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0};
+int ap2_realtime_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 0, 2, 1, 1, 2, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0};
 
-int ap2_buffered_synced_stream_statistics_print_profile[] =  {2, 2, 2, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 2, 2, 0, 0};
-int ap2_buffered_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0};
-int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0};
+int ap2_buffered_synced_stream_statistics_print_profile[] =  {2, 2, 2, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 2, 2, 0, 0};
+int ap2_buffered_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0};
+int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0};
 // clang-format on
 
 void statistics_item(const char *heading, const char *format, ...) {
@@ -2629,35 +2629,57 @@ void *player_thread_func(void *arg) {
             } else {
               sync_error_out_of_bounds = 0;
             }
-
+            
             if (sync_error_out_of_bounds > 3) {
-              // debug(1, "New lost sync with source for %d consecutive packets -- flushing and "
+              // debug(1, "lost sync with source for %d consecutive packets -- flushing and "
               //          "resyncing. Error: %lld.",
               //        sync_error_out_of_bounds, sync_error);
               sync_error_out_of_bounds = 0;
+
+              uint64_t frames_sent_for_play = 0;
+              uint64_t actual_delay = 0;
+              
+              if ((config.output->delay) && (config.no_sync == 0) && (config.output->stats)) {
+                uint64_t raw_measurement_time;
+                uint64_t corrected_measurement_time;
+                config.output->stats(&raw_measurement_time, &corrected_measurement_time,
+                                         &actual_delay, &frames_sent_for_play);
+              }
+
 
               int64_t filler_length =
                   (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
                 debug(1,
-                      "Large positive sync error of: %" PRId64
-                      " frames (%f seconds), with frame: %u.",
+                      "Large positive sync error of %" PRId64
+                      " frames (%f seconds), at frame: %" PRIu32 ".",
                       sync_error, (sync_error * 1.0) / config.output_rate,
                       inframe->given_timestamp);
-                int64_t local_frames_to_drop = sync_error / conn->output_sample_ratio;
+                debug(1,"%" PRId64 " frames sent to DAC. DAC buffer contains %" PRId64 " frames.",
+                      frames_sent_for_play, actual_delay);
+                // the sync error is output frames, but we have to work out how many source frames to drop
+                // there may be a multiple (the conn->output_sample_ratio) of output frames per input frame...
+                int64_t source_frames_to_drop = sync_error;
+                source_frames_to_drop = source_frames_to_drop / conn->output_sample_ratio;                
+                
+                // add some time to give the pipeline a chance to recover -- a bit hacky
+                double extra_time_to_drop = 0.1; // seconds
+                int64_t extra_frames_to_drop = (int64_t)(conn->input_rate * extra_time_to_drop);
+                source_frames_to_drop += extra_frames_to_drop;
 
-                // add 100 ms to give the pipeline a chance to recover -- a bit hacky
-                local_frames_to_drop += (conn->input_rate) * 100 / 1000;
-
-                uint32_t frames_to_drop_sized = local_frames_to_drop;
-                do_flush(inframe->given_timestamp + frames_to_drop_sized, conn);
+                uint32_t frames_to_drop = source_frames_to_drop;
+                uint32_t flush_to_frame = inframe->given_timestamp + frames_to_drop;
+                                
+                do_flush(flush_to_frame, conn);
 
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
                 debug(1,
-                      "Large negative sync error of: %" PRId64
-                      " frames (%f seconds), with frame: %" PRIu32 ".",
+                      "Large negative sync error of %" PRId64
+                      " frames (%f seconds), at frame: %" PRIu32 ".",
                       sync_error, (sync_error * 1.0) / config.output_rate,
                       inframe->given_timestamp);
+                debug(1,"%" PRId64 " frames sent to DAC. DAC buffer contains %" PRId64 " frames.",
+                      frames_sent_for_play, actual_delay);
                 int64_t silence_length = -sync_error;
                 if (silence_length > (filler_length * 5))
                   silence_length = filler_length * 5;
