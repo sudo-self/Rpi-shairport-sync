@@ -110,8 +110,8 @@ char pkString[128];
 char deviceIdString[64];
 char featuresString[64];
 char statusflagsString[32];
-char piString[64];
-char gidString[64];
+char piString[128];
+char gidString[128];
 #endif
 
 #define METADATA_SNDBUF (4 * 1024 * 1024)
