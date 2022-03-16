@@ -1,7 +1,7 @@
 Version-4.1-dev-238-g1dc481c3
 ====
 **Enhancement**
-* Add some extra diagnostic information whe large sync errors occur. If available, add the total number of frames sent to the output device and also, if available, add the current delay, in frames, in the output device.
+* Add some extra diagnostic information when large sync errors occur: if available, add the total number of frames sent to the output device and also, if available, add the current delay, in frames, in the output device.
 
 Version-4.1-dev-234-ge8721889
 ====
