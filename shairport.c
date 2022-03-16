@@ -1591,7 +1591,7 @@ void exit_function() {
         debug(1, "exit_function libdaemon exit");
     }
 #else
-    debug(1, "exit_function exit");
+    debug(1, "normal exit");
 #endif
   } else {
     debug(1, "emergency exit");

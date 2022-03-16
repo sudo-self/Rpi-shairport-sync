@@ -168,7 +168,7 @@ int ptp_shm_interface_open() {
 int ptp_shm_interface_close() {
   int response = -1;
   if ((mapped_addr != MAP_FAILED) && (mapped_addr != NULL)) {
-    debug(1, "ptp_shm_interface_close");
+    debug(2, "ptp_shm_interface_close");
     response = munmap(mapped_addr, sizeof(struct shm_structure));
     if (response != 0)
       debug(1, "error unmapping shared memory.");
