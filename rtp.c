@@ -2515,15 +2515,13 @@ void *rtp_buffered_audio_processor(void *arg) {
             if (frame_to_local_time(pcm_buffer_read_point_rtptime, &buffer_should_be_time, conn) ==
                 0) {
               int64_t lead_time = buffer_should_be_time - get_absolute_time_in_ns();
-              double lead_time_ms = lead_time * 0.000001;
-              // debug(1,"lead time in buffered_audio is %f milliseconds.", lead_time_ms);
 
               // it seems that some garbage blocks can be left after the flush, so
               // only accept them if they have sensible lead times
-              if ((lead_time_ms < 5000.0) && (lead_time > -1000.0)) {
+              if ((lead_time < (int64_t)5000000000L) && (lead_time >= 0)) {
                 // if it's the very first block (thus no priming needed)
                 if ((blocks_read == 1) || (blocks_read_since_flush > 3)) {
-                  if ((lead_time >= (int64_t)(requested_lead_time * 1000000000)) ||
+                  if ((lead_time >= (int64_t)(requested_lead_time * 1000000000L)) ||
                       (streaming_has_started != 0)) {
                     if (streaming_has_started == 0)
                       debug(2,
@@ -2563,7 +2561,7 @@ void *rtp_buffered_audio_processor(void *arg) {
               } else {
                 debug(2,
                       "Dropping packet %u from block %u with out-of-range lead_time: %.3f seconds.",
-                      pcm_buffer_read_point_rtptime, seq_no, 0.001 * lead_time_ms);
+                      pcm_buffer_read_point_rtptime, seq_no, 0.000000001 * lead_time);
               }
 
               pcm_buffer_read_point_rtptime += 352;
