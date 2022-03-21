@@ -298,8 +298,11 @@ char *metadata_write_image_file(const char *buf, int len) {
                   }
                 }
               }
+              if (close(dir_fd) < 0)
+                debug(1, "Error %d closing directory \"%s\"", errno, config.cover_art_cache_dir);
             } else {
-              debug(1, "Can't open the directory for deletion.");
+              debug(1, "Can't open the directory \"%s\" for deletion -- error %d.",
+                    config.cover_art_cache_dir, errno);
             }
             free(full_filename);
             closedir(d);
