@@ -1,3 +1,8 @@
+Version-4.1-dev-242-g3877acc7
+====
+**Bug Fix**
+* Fix a crash that would occur after days of continuous play. The issue was that each time a cover art file was created (and previous cover art deleted) the coverart directory was opened with `open()`, but was not closed with `close()`.
+
 Version-4.1-dev-238-g1dc481c3
 ====
 **Enhancement**
