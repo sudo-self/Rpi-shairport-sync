@@ -1,3 +1,15 @@
+Version-4.1-dev-245-gf34a69fa
+====
+**Enhancement**
+
+* AirPlay 2 only. Two new metadata messages have been added. They might be useful for amplifier switching, etc.
+1. The `conn` message signifies "AirPlay 2 connect" and is sent when an AirPlay 2 device selects this player. It is sent _before_ killing any current play session.
+
+   (Note: in AirPlay 2 operation, the existing `clip` message is identical, but it is sent _after_ any existing play session has been terminated.)
+
+2. The `disc` message signifies "AirPlay 2 disconnect".
+  
+
 Version-4.1-dev-242-g3877acc7
 ====
 **Bug Fix**
