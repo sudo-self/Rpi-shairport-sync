@@ -2478,6 +2478,12 @@ void teardown_phase_two(rtsp_conn_info *conn) {
     if (conn->airplay_gid != NULL) {
       free(conn->airplay_gid);
       conn->airplay_gid = NULL;
+      
+#ifdef CONFIG_METADATA
+      // this is here to ensure it's only performed once during a teardown of a ptp stream
+      send_ssnc_metadata('disc', conn->client_ip_string, strlen(conn->client_ip_string), 1);
+#endif
+
     }
     conn->groupContainsGroupLeader = 0;
     config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
@@ -2654,6 +2660,9 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 conn->self_ip_string, conn->self_rtsp_port);
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
+#ifdef CONFIG_METADATA
+          send_ssnc_metadata('conn', conn->client_ip_string, strlen(conn->client_ip_string), 1); // before disconnecting an existing play
+#endif
           get_play_lock(conn);
 #ifdef CONFIG_METADATA
           send_ssnc_metadata('clip', conn->client_ip_string, strlen(conn->client_ip_string), 1);
@@ -3383,11 +3392,22 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 //    'acre' -- this is the source's Active-Remote token, necessary if you want
 //    to send commands to the source's remote control (if it has one).
 //		`clip` -- the payload is the IP number of the client, i.e. the sender of audio.
-//		Can be an IPv4 or an IPv6 number.
+//		Can be an IPv4 or an IPv6 number. In AirPlay 2 operation, it is sent as soon
+//    as the client has exclusive access to the player and after any existing
+//    play session has been interrupted and terminated.
+//		`conn` -- the payload is the IP number of the client, i.e. the sender of audio.
+//		Can be an IPv4 or an IPv6 number. This is an AirPlay-2-only message.
+//    It is sent as soon as the client requests access to the player. 
+//    If Shairport Sync is already playing, this message is sent before the current
+//    play session is stopped.
 //		`svip` -- the payload is the IP number of the server, i.e. the player itself.
 //		Can be an IPv4 or an IPv6 number.
+//    `disc` -- the payload is the IP number of the client, i.e. the sender of audio.
+//		Can be an IPv4 or an IPv6 number. This is an AirPlay-2-only message.
+//    It is sent when a client has been disconnected.
 //		`dapo` -- the payload is the port number (as text) on the server to which remote
 // control commands should be sent. It is 3689 for iTunes but varies for iOS devices.
+//    ``
 
 //		A special sub-protocol is used for sending large data items over UDP
 //    If the payload exceeded 4 MB, it is chunked using the following format:
