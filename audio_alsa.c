@@ -1923,15 +1923,13 @@ static void flush(void) {
   // debug(2,"audio_alsa flush called.");
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
   if (alsa_backend_state != abm_disconnected) { // must be playing or connected...
+    // do nothing for a flush if config.keep_dac_busy is true
     if (config.keep_dac_busy == 0) {
-      // debug(1,"flush is actually a close");
-      do_close();
-    } else {
-      // debug(1,"flush is a real flush");
       sub_flush();
     }
-  } else
+  } else {
     debug(3, "alsa: flush() -- called on a disconnected alsa backend");
+  }
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
 }
