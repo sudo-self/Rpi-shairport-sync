@@ -1,8 +1,15 @@
+Version-4.1-dev-249-g38bbad6f
+====
+**Bug Fix**
+
+* Fix a bug in the `systemd` startup file. The bug was that even when Shairport Sync was built without Avahi support, Shairport Sync would not launch until the Avahi service was available. Thanks to [klslz](https://github.com/klslz) for reporting the problem in issue [#1454](https://github.com/mikebrady/shairport-sync/issues/1454).
+
+
 Version-4.1-dev-247-ga295c2a2
 ====
 **Bug Fix**
 
-* Fix a bug in the logic for supressing clicks when the `alsa` `disable_standby_mode` is active.
+* Fix a bug in the logic for suppressing clicks when the `alsa` `disable_standby_mode` is active.
 
 Version-4.1-dev-245-gf34a69fa
 ====
