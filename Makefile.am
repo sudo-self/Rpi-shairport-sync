@@ -236,7 +236,11 @@ if INSTALL_SYSTEMD
 	getent group shairport-sync &>/dev/null || groupadd -r shairport-sync >/dev/null
 	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/bin/nologin -G audio shairport-sync >/dev/null
 	[ -e $(DESTDIR)$(systemdsystemunitdir) ] || mkdir -p $(DESTDIR)$(systemdsystemunitdir)
+if USE_AVAHI
+	[ -e $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service ] || cp scripts/shairport-sync.service-avahi $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service
+else
 	[ -e $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service ] || cp scripts/shairport-sync.service $(DESTDIR)$(systemdsystemunitdir)
+endif
 endif
 if INSTALL_FREEBSD_SERVICE
   # Choose a uid and gid of 801 completely arbitrarity, except that it should be below 1000. FreeBSD doesn't seem to allow you to say "an ID in the range of..."

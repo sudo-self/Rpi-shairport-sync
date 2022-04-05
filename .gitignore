@@ -25,6 +25,7 @@ stamp-h1
 man/Makefile
 man/Makefile.in
 scripts/shairport-sync.service
+scripts/shairport-sync.service-avahi
 scripts/shairport-sync
 shairport-sync.core
 gitversion.h

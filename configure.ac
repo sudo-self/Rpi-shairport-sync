@@ -230,6 +230,9 @@ if test "x$with_avahi" = "xyes" ; then
   AC_DEFINE([CONFIG_AVAHI], 1, [Include Avahi-based mDNS support.])
   AC_CHECK_LIB([avahi-client], [avahi_client_new], , AC_MSG_ERROR(Avahi support requires the avahi-client library!))
   AC_CHECK_LIB([avahi-common],[avahi_strerror], , AC_MSG_ERROR(Avahi support requires the avahi-common library!))
+  AC_CONFIG_FILES([scripts/shairport-sync.service-avahi])
+else
+  AC_CONFIG_FILES([scripts/shairport-sync.service])
 fi
 AM_CONDITIONAL([USE_AVAHI], [test "x$with_avahi" = "xyes"])
 
@@ -473,6 +476,7 @@ AC_FUNC_ERROR_AT_LINE
 AC_FUNC_FORK
 AC_CHECK_FUNCS([atexit clock_gettime gethostname inet_ntoa memchr memmove memset mkfifo pow select socket stpcpy strcasecmp strchr strdup strerror strstr strtol strtoul])
 
-AC_CONFIG_FILES([Makefile man/Makefile scripts/shairport-sync.service])
+# Note -- there are AC_CONFIG_FILES directives further back, conditional on Avahi
+AC_CONFIG_FILES([Makefile man/Makefile])
 AC_CONFIG_FILES([scripts/shairport-sync],[chmod +x scripts/shairport-sync])
 AC_OUTPUT
