@@ -92,6 +92,18 @@ Note that the installation uses the libao library and so synchronisation is not 
 
 **Cygwin:** Please see the guide at [CYGWIN.md](https://github.com/mikebrady/shairport-sync/blob/master/CYGWIN.md).
 
+**OpenBSD:** A port exists for Shairport Sync.  Packages are available for users of -current OpenBSD, the first release to include this port will be OpenBSD 7.2.  To install, simply run
+
+```
+pkg_add shairport_sync
+```
+Configure your system to start the service at boot time with
+```
+rcctl enable messagebus avahi_daemon shairport_sync
+```
+
+Note that the README for this port includes instructions on how to share access to the audio device between Shairport Sync and another user.
+
 Sincere thanks to all package contributors!
 
 If you wish to build and install the latest version of Shairport Sync on Debian, Ubuntu, Fedora or Arch platforms, please continue to follow these instructions. When the program has been compiled and installed, refer to the section on Configuring Shairport Sync that follows. To build Shairport Sync from sources on FreeBSD please refer to [FREEBSD.md](https://github.com/mikebrady/shairport-sync/blob/master/FREEBSD.md).
