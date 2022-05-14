@@ -167,7 +167,9 @@ typedef struct {
   volatile int watchdog_barks;  // number of times the watchdog has timed out and done something
   int unfixable_error_reported; // set when an unfixable error command has been executed.
 
-  time_t playstart;
+  uint64_t playstart;
+  uint64_t connection_start_time; // the time the device is selected, which could be a long time
+                                  // before a play
   pthread_t thread, timer_requester, rtp_audio_thread, rtp_control_thread, rtp_timing_thread,
       player_watchdog_thread;
 
@@ -282,7 +284,6 @@ typedef struct {
   // this is what connects an rtp timestamp to the remote time
 
   int anchor_remote_info_is_valid;
-  int anchor_clock_is_new;
 
   // these can be modified if the master clock changes over time
   uint64_t anchor_clock;
