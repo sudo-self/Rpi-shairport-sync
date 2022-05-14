@@ -1,3 +1,15 @@
+Version-4.1-dev-255-g8a2756b7
+====
+**Bug Fix**
+* Fix an audible interruption that could happen in certain circumstances when an output device was added or removed to a group of output devices. The "certain circumstances" are when the following two conditions are true:
+  1. An AirPlay 2 Realtime Stream is playing,
+  2. The new output device's clock takes or relinquishes control of output timing.
+
+For example, (1) when playing Spotify on an iOS device (this currently uses an AirPlay 2 Realtime Stream) to a Shairport Sync device and (2) adding or removing a HomePod mini as an output device (the HomePod mini's clock will take or relinquish control of output timing).
+
+**Enhancement**
+* When a Shairport Sync device is added as an output device to a stream that is already playing, it now mutes for two seconds to improve synchronisation when it joins in and actually starts producing audio. The previous slight lack of synchronisation was inaudible, but would require some interpolation before settling down.
+
 Version-4.1-dev-249-g38bbad6f
 ====
 **Bug Fix**
