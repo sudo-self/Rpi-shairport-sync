@@ -1849,6 +1849,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         debug(2, "Connection %d: Stop playing.", conn->connection_number);
         activity_monitor_signify_activity(0);
         conn->ap2_play_enabled = 0;
+        reset_anchor_info(conn);
       }
       pthread_cleanup_pop(1); // unlock the conn->flush_mutex
     }
@@ -2478,12 +2479,11 @@ void teardown_phase_two(rtsp_conn_info *conn) {
     if (conn->airplay_gid != NULL) {
       free(conn->airplay_gid);
       conn->airplay_gid = NULL;
-      
+
 #ifdef CONFIG_METADATA
       // this is here to ensure it's only performed once during a teardown of a ptp stream
       send_ssnc_metadata('disc', conn->client_ip_string, strlen(conn->client_ip_string), 1);
 #endif
-
     }
     conn->groupContainsGroupLeader = 0;
     config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
@@ -2661,7 +2661,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
 #ifdef CONFIG_METADATA
-          send_ssnc_metadata('conn', conn->client_ip_string, strlen(conn->client_ip_string), 1); // before disconnecting an existing play
+          send_ssnc_metadata('conn', conn->client_ip_string, strlen(conn->client_ip_string),
+                             1); // before disconnecting an existing play
 #endif
           get_play_lock(conn);
 #ifdef CONFIG_METADATA
@@ -3397,7 +3398,7 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 //    play session has been interrupted and terminated.
 //		`conn` -- the payload is the IP number of the client, i.e. the sender of audio.
 //		Can be an IPv4 or an IPv6 number. This is an AirPlay-2-only message.
-//    It is sent as soon as the client requests access to the player. 
+//    It is sent as soon as the client requests access to the player.
 //    If Shairport Sync is already playing, this message is sent before the current
 //    play session is stopped.
 //		`svip` -- the payload is the IP number of the server, i.e. the player itself.
@@ -5218,6 +5219,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
           debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
                 conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                 conn->self_ip_string, conn->self_rtsp_port);
+          conn->connection_start_time = get_absolute_time_in_ns();
         } else {
           debug(1, "Error figuring out Shairport Sync's own IP number.");
         }
