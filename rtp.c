@@ -1277,7 +1277,6 @@ void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtpti
   // debug(1,"clock: %" PRIx64 ", rtptime: %" PRIu32 ".", clock_id, rtptime);
   if (conn->anchor_clock != clock_id) {
     debug(1, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
-    conn->anchor_clock_is_new = 1;
   }
   // debug(1,"set anchor info clock: %" PRIx64", rtptime: %u, networktime: %" PRIx64 ".", clock_id,
   // rtptime, networktime);
@@ -1357,73 +1356,44 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
 
     if (conn->anchor_remote_info_is_valid !=
         0) { // i.e. if we have anchor clock ID and anchor time / rtptime
-      // figure out how long the clock has been master
-      int64_t duration_of_mastership = time_now - start_of_mastership;
-      // if we have an alternative, i.e. if last anchor stuff is valid
-      // then we can wait for a long time to let the new master settle
-      // if we do not, we can wait for some different (shorter) time before
-      // using the master clock timing
 
       if (actual_clock_id == conn->anchor_clock) {
-        // if the master clock and the anchor clock are the same
-        // wait at least this time before using the new master clock
-        // note that mastership may be backdated
-        if (duration_of_mastership < 1500000000) {
-          debug(3, "master not old enough yet: %f ms", 0.000001 * duration_of_mastership);
-          response = clock_not_ready;
-        } else if ((duration_of_mastership > 5000000000) ||
-                   (conn->last_anchor_info_is_valid == 0)) {
-          // use the master clock if it's at least this old or if we have no alternative
-          // and it at least is the minimum age.
-          conn->last_anchor_rtptime = conn->anchor_rtptime;
-          conn->last_anchor_local_time = conn->anchor_time - actual_offset;
-          conn->last_anchor_time_of_update = time_now;
-          if (conn->last_anchor_info_is_valid == 0)
-            conn->last_anchor_validity_start_time = start_of_mastership;
-          conn->last_anchor_info_is_valid = 1;
-          if (conn->anchor_clock_is_new != 0)
-            debug(1,
-                  "Connection %d: Clock %" PRIx64
-                  " is now the new anchor clock and master clock. History: %f milliseconds.",
-                  conn->connection_number, conn->anchor_clock, 0.000001 * duration_of_mastership);
-          conn->anchor_clock_is_new = 0;
-        }
+        conn->last_anchor_rtptime = conn->anchor_rtptime;
+        conn->last_anchor_local_time = conn->anchor_time - actual_offset;
+        conn->last_anchor_time_of_update = time_now;
+        if (conn->last_anchor_info_is_valid == 0)
+          conn->last_anchor_validity_start_time = start_of_mastership;
+        conn->last_anchor_info_is_valid = 1;
       } else {
+        debug(3, "Current master clock %" PRIx64 " and anchor_clock %" PRIx64 " are different",
+              actual_clock_id, conn->anchor_clock);
         // the anchor clock and the actual clock are different
-        // this could happen because
-        // the master clock has changed or
-        // because the anchor clock has changed
+        // this could happen because the master clock has changed or
+        // because the anchor clock has changed (this can happen with a Realtime Stream)
 
-        // so, if the anchor has not changed, it must be that the master clock has changed
-        if (conn->anchor_clock_is_new != 0)
-          debug(3,
-                "Connection %d: Anchor clock has changed to %" PRIx64 ", master clock is: %" PRIx64
-                ". History: %f milliseconds.",
-                conn->connection_number, conn->anchor_clock, actual_clock_id,
-                0.000001 * duration_of_mastership);
-
-        if ((conn->last_anchor_info_is_valid != 0) && (conn->anchor_clock_is_new == 0)) {
+        if (conn->last_anchor_info_is_valid != 0) {
           int64_t time_since_last_update =
               get_absolute_time_in_ns() - conn->last_anchor_time_of_update;
           if (time_since_last_update > 5000000000) {
+            int64_t duration_of_mastership = time_now - start_of_mastership;
             debug(1,
                   "Connection %d: Master clock has changed to %" PRIx64
                   ". History: %f milliseconds.",
                   conn->connection_number, actual_clock_id, 0.000001 * duration_of_mastership);
-            // here we adjust the time of the anchor rtptime
-            // we know its local time, so we use the new clocks's offset to
-            // calculate what time that must be on the new clock
+            // Here we adjust the time of the anchor rtptime.
+            // We know its local time, so we use the new clocks's offset to
+            // calculate what time that must be on the new clock.
 
             // Now, the thing is that while the anchor clock and master clock for a
             // buffered session starts off the same,
             // the master clock can change without the anchor clock changing.
-            // SPS allows the new master clock time to settle down and then
+            // SPS gives the new master clock time to settle down and then
             // calculates the appropriate offset to it by
             // calculating back from the local anchor information and the new clock's
             // advertised offset. Of course, small errors will occur.
-            // More importantly, the new master clock(s) and the original one will
+            // Equally importantly, the new master clock(s) and the original one will
             // drift at different rates. So, after all this, if the original master
-            // clock becomes the master again, then there could be quite a difference
+            // clock becomes the master again, there could be quite a difference
             // in the time information that was calculated through all the clock
             // changes and the actual master clock's time information.
             // What do we do? We can hardly ignore this new and reliable information
@@ -1432,26 +1402,26 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
 
             // So, if the master clock has again become equal to the actual anchor clock
             // then we can reinstate it all.
-            // first, let us calculate the cumulative offset after swapping all the clocks...
+
+            // First, let us calculate the cumulative offset after swapping all the clocks...
             conn->anchor_time = conn->last_anchor_local_time + actual_offset;
 
-            // we can check how much of a deviation there was going from clock to clock and back
-            // around to the master clock
+            // Here we can check how much of a deviation there was going from clock to clock and
+            // back around to the master clock
 
             if (actual_clock_id == conn->actual_anchor_clock) {
               int64_t cumulative_deviation = conn->anchor_time - conn->actual_anchor_time;
               debug(1,
-                    "Master clock has become equal to the anchor clock. The estimated clock time "
-                    "was %f ms ahead(+) or behind (-) the real clock time.",
+                    "The original master clock has become the master clock again."
+                    "The estimated clock time "
+                    "was %f ms ahead(+) or behind (-) the original master clock time.",
                     0.000001 * cumulative_deviation);
               conn->anchor_clock = conn->actual_anchor_clock;
               conn->anchor_time = conn->actual_anchor_time;
               conn->anchor_rtptime = conn->actual_anchor_rtptime;
             } else {
-              // conn->anchor_time = conn->last_anchor_local_time + actual_offset; // already done
               conn->anchor_clock = actual_clock_id;
             }
-            conn->anchor_clock_is_new = 0;
           }
         } else {
           response = clock_not_valid; // no current clock information and no previous clock info
@@ -1467,7 +1437,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   if ((clock_status_t)response != conn->clock_status) {
     switch (response) {
     case clock_ok:
-      debug(1, "Connection %d: NQPTP new master clock %" PRIx64 ".", conn->connection_number,
+      debug(1, "Connection %d: NQPTP master clock %" PRIx64 ".", conn->connection_number,
             actual_clock_id);
       break;
     case clock_not_ready:
@@ -1489,7 +1459,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       debug(2, "Connection %d: No NQPTP master clock.", conn->connection_number);
       break;
     case clock_no_anchor_info:
-      debug(1, "Connection %d: No clock anchor information.", conn->connection_number);
+      debug(1, "Connection %d: Awaiting clock anchor information.", conn->connection_number);
       break;
     case clock_version_mismatch:
       debug(1, "Connection %d: NQPTP clock interface mismatch.", conn->connection_number);
@@ -1831,6 +1801,10 @@ void *rtp_ap2_control_receiver(void *arg) {
             // debug(1,"frame_1: %" PRIu32 ", added latency: %" PRId32 ".", frame_1, added_latency);
             set_ptp_anchor_info(conn, clock_id, frame_1 - 11035 - added_latency,
                                 remote_packet_time_ns);
+            if (conn->anchor_clock != clock_id) {
+              debug(1, "Connection %d: Change Anchor Clock: %" PRIx64 ".", conn->connection_number,
+                    clock_id);
+            }
 
           } break;
           case 0xd6:
@@ -1943,7 +1917,7 @@ ssize_t buffered_read(buffered_tcp_desc *descriptor, void *buf, size_t count,
       if (count == 2)
         debug(2, "buffered_read: waiting for %u bytes (okay at start of a track).", count);
       else
-        debug(1, "buffered_read: waiting for %u bytes.", count);
+        debug(2, "buffered_read: waiting for %u bytes.", count);
     }
     while ((descriptor->buffer_occupancy == 0) && (descriptor->error_code == 0)) {
       if (pthread_cond_wait(&descriptor->not_empty_cv, &descriptor->mutex))
@@ -2373,7 +2347,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   int streaming_has_started = 0;
   int play_enabled = 0;
   uint32_t flush_from_timestamp;
-  double requested_lead_time = 0.1; // normal lead time minimum -- maybe  it should be about 0.1
+  double requested_lead_time = 0.0; // normal lead time minimum -- maybe  it should be about 0.1
 
   // wait until our timing information is valid
 
@@ -2496,7 +2470,8 @@ void *rtp_buffered_audio_processor(void *arg) {
       if (player_buffer_occupancy > ((requested_lead_time + 0.4) * conn->input_rate /
                                      352)) { // must be greater than the lead time.
         // if there is enough stuff in the player's buffer, sleep for a while and try again
-        usleep(1000); // wait for a while
+        debug(3, "sleep while full");
+        usleep(10000); // wait for a while
       } else {
         if ((pcm_buffer_occupancy - pcm_buffer_read_point) >= (352 * conn->input_bytes_per_frame)) {
           new_buffer_needed = 0;
@@ -2518,7 +2493,7 @@ void *rtp_buffered_audio_processor(void *arg) {
 
               // it seems that some garbage blocks can be left after the flush, so
               // only accept them if they have sensible lead times
-              if ((lead_time < (int64_t)5000000000L) && (lead_time >= 0)) {
+              if ((lead_time < (int64_t)30000000000L) && (lead_time >= 0)) {
                 // if it's the very first block (thus no priming needed)
                 if ((blocks_read == 1) || (blocks_read_since_flush > 3)) {
                   if ((lead_time >= (int64_t)(requested_lead_time * 1000000000L)) ||
@@ -2570,7 +2545,8 @@ void *rtp_buffered_audio_processor(void *arg) {
               debug(1, "frame to local time error");
             }
           } else {
-            usleep(1000); // wait before asking if play is enabled again
+            debug(3, "sleep until demand");
+            usleep(10000); // wait before asking if play is enabled again
           }
         } else {
           new_buffer_needed = 1;
@@ -2660,7 +2636,16 @@ void *rtp_buffered_audio_processor(void *arg) {
         // debug(1,"requested_lead_time_ns is actually %f milliseconds.", requested_lead_time_ns *
         // 1E-6);
         int outdated = 0;
+        int too_soon_after_connection = 0;
         if (have_time_information == 0) {
+          int64_t play_time_since_connection = local_should_be_time - conn->connection_start_time;
+          int64_t time_since_connection = get_absolute_time_in_ns() - conn->connection_start_time;
+
+          too_soon_after_connection =
+              ((play_time_since_connection < 2000000000) && (time_since_connection < 2000000000));
+          if (too_soon_after_connection)
+            debug(3, "time_since_connection is %f milliseconds. too_soon_after_connection is %d.",
+                  time_since_connection * 1E-6, too_soon_after_connection);
           local_lead_time = local_should_be_time - get_absolute_time_in_ns();
           // debug(1,"local_lead_time is actually %f milliseconds.", local_lead_time * 1E-6);
           outdated = (local_lead_time < requested_lead_time_ns);
@@ -2668,7 +2653,7 @@ void *rtp_buffered_audio_processor(void *arg) {
           // debug(1,"Frame is outdated %d if lead_time %" PRId64 " is less than requested lead time
           // %" PRId64 " ns.", outdated, local_lead_time, requested_lead_time_ns);
         } else {
-          debug(1, "Timing information not valid");
+          debug(3, "Timing information not valid");
           // outdated = 1;
         }
 
@@ -2689,8 +2674,8 @@ void *rtp_buffered_audio_processor(void *arg) {
         // flushing the pcm buffer wasn't enough, as the request would have been turned off by now
         // so we better indicate that the pcm buffer is empty and its contents invalid
 
-        // also, if the incomgin frame is outdated, set pcm_buffer_occupancy to 0;
-        if ((flush_requested) || (outdated)) {
+        // also, if the incoming frame is outdated, set pcm_buffer_occupancy to 0;
+        if ((flush_requested) || (outdated) || (too_soon_after_connection)) {
           pcm_buffer_occupancy = 0;
         }
 
@@ -2706,8 +2691,9 @@ void *rtp_buffered_audio_processor(void *arg) {
           //}
         }
 
-        if (((flush_requested != 0) && (seq_no == flushUntilSeq)) ||
-            ((flush_requested == 0) && (new_buffer_needed))) {
+        if ((((flush_requested != 0) && (seq_no == flushUntilSeq)) ||
+             ((flush_requested == 0) && (new_buffer_needed))) &&
+            (too_soon_after_connection == 0)) {
 
           unsigned char nonce[12];
           memset(nonce, 0, sizeof(nonce));
@@ -2847,6 +2833,8 @@ void *rtp_buffered_audio_processor(void *arg) {
 
             // revert the state of cancellability
           }
+        } else {
+          debug(3, "Dropping block %u with timestamp %u.", seq_no, timestamp);
         }
       } else {
         // nread is 0 -- the port has been closed
