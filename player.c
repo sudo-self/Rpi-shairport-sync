@@ -1168,7 +1168,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                               silence, fs, config.output_format, conn->enable_dither,
                               conn->previous_random_number);
                           config.output->play(silence, fs);
-                          debug(2, "Sent %" PRId64 " frames of silence", fs);
+                          debug(3, "Sent %" PRId64 " frames of silence", fs);
                           free(silence);
                           have_sent_prefiller_silence = 1;
                         }
@@ -1628,18 +1628,21 @@ void player_thread_cleanup_handler(void *arg) {
         conn->connection_number);
 
   if (config.statistics_requested) {
-    int rawSeconds = (int)difftime(time(NULL), conn->playstart);
-    int elapsedHours = rawSeconds / 3600;
-    int elapsedMin = (rawSeconds / 60) % 60;
-    int elapsedSec = rawSeconds % 60;
+    int64_t time_playing = get_absolute_time_in_ns() - conn->playstart;
+    time_playing = time_playing / 1000000000;
+    int64_t elapsedHours = time_playing / 3600;
+    int64_t elapsedMin = (time_playing / 60) % 60;
+    int64_t elapsedSec = time_playing % 60;
     if (conn->frame_rate_valid)
-      inform("Connection %d: Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f, "
+      inform("Connection %d: Playback Stopped. Total playing time %02" PRId64 ":%02" PRId64
+             ":%02" PRId64 ". Input: %0.2f, "
              " Output: %0.2f (raw), %0.2f (corrected) "
              "frames per second.",
              conn->connection_number, elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate,
              conn->raw_frame_rate, conn->corrected_frame_rate);
     else
-      inform("Connection %d: Playback Stopped. Total playing time %02d:%02d:%02d. Input: %0.2f "
+      inform("Connection %d: Playback Stopped. Total playing time %02" PRId64 ":%02" PRId64
+             ":%02" PRId64 ". Input: %0.2f "
              "frames per second.",
              conn->connection_number, elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate);
   }
@@ -1904,8 +1907,6 @@ void *player_thread_func(void *arg) {
   conn->ap2_audio_buffer_minimum_size = -1;
 #endif
 
-  conn->playstart = time(NULL);
-
   conn->raw_frame_rate = 0.0;
   conn->corrected_frame_rate = 0.0;
   conn->frame_rate_valid = 0;
@@ -2117,6 +2118,8 @@ void *player_thread_func(void *arg) {
       inbuf = inframe->data;
       inbuflength = inframe->length;
       if (inbuf) {
+        if (play_number == 0)
+          conn->playstart = get_absolute_time_in_ns();
         play_number++;
         //        if (play_number % 100 == 0)
         //          debug(3, "Play frame %d.", play_number);
@@ -2629,7 +2632,7 @@ void *player_thread_func(void *arg) {
             } else {
               sync_error_out_of_bounds = 0;
             }
-            
+
             if (sync_error_out_of_bounds > 3) {
               // debug(1, "lost sync with source for %d consecutive packets -- flushing and "
               //          "resyncing. Error: %lld.",
@@ -2638,14 +2641,13 @@ void *player_thread_func(void *arg) {
 
               uint64_t frames_sent_for_play = 0;
               uint64_t actual_delay = 0;
-              
+
               if ((config.output->delay) && (config.no_sync == 0) && (config.output->stats)) {
                 uint64_t raw_measurement_time;
                 uint64_t corrected_measurement_time;
                 config.output->stats(&raw_measurement_time, &corrected_measurement_time,
-                                         &actual_delay, &frames_sent_for_play);
+                                     &actual_delay, &frames_sent_for_play);
               }
-
 
               int64_t filler_length =
                   (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
@@ -2655,13 +2657,14 @@ void *player_thread_func(void *arg) {
                       " frames (%f seconds), at frame: %" PRIu32 ".",
                       sync_error, (sync_error * 1.0) / config.output_rate,
                       inframe->given_timestamp);
-                debug(1,"%" PRId64 " frames sent to DAC. DAC buffer contains %" PRId64 " frames.",
+                debug(1, "%" PRId64 " frames sent to DAC. DAC buffer contains %" PRId64 " frames.",
                       frames_sent_for_play, actual_delay);
-                // the sync error is output frames, but we have to work out how many source frames to drop
-                // there may be a multiple (the conn->output_sample_ratio) of output frames per input frame...
+                // the sync error is output frames, but we have to work out how many source frames
+                // to drop there may be a multiple (the conn->output_sample_ratio) of output frames
+                // per input frame...
                 int64_t source_frames_to_drop = sync_error;
-                source_frames_to_drop = source_frames_to_drop / conn->output_sample_ratio;                
-                
+                source_frames_to_drop = source_frames_to_drop / conn->output_sample_ratio;
+
                 // add some time to give the pipeline a chance to recover -- a bit hacky
                 double extra_time_to_drop = 0.1; // seconds
                 int64_t extra_frames_to_drop = (int64_t)(conn->input_rate * extra_time_to_drop);
@@ -2669,7 +2672,7 @@ void *player_thread_func(void *arg) {
 
                 uint32_t frames_to_drop = source_frames_to_drop;
                 uint32_t flush_to_frame = inframe->given_timestamp + frames_to_drop;
-                                
+
                 do_flush(flush_to_frame, conn);
 
               } else if ((sync_error < 0) && ((-sync_error) > filler_length)) {
@@ -2678,7 +2681,7 @@ void *player_thread_func(void *arg) {
                       " frames (%f seconds), at frame: %" PRIu32 ".",
                       sync_error, (sync_error * 1.0) / config.output_rate,
                       inframe->given_timestamp);
-                debug(1,"%" PRId64 " frames sent to DAC. DAC buffer contains %" PRId64 " frames.",
+                debug(1, "%" PRId64 " frames sent to DAC. DAC buffer contains %" PRId64 " frames.",
                       frames_sent_for_play, actual_delay);
                 int64_t silence_length = -sync_error;
                 if (silence_length > (filler_length * 5))
