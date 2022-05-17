@@ -509,7 +509,7 @@ int actual_open_alsa_device(int do_auto_setup) {
     }
     if (ret == 0) {
       config.output_format = trial_format;
-      debug(1, "alsa: output format chosen is \"%s\".",
+      debug(2, "alsa: output format chosen is \"%s\".",
             sps_format_description_string(config.output_format));
     } else {
       die("audio_alsa: Could not automatically set the output format for device \"%s\": %s",
@@ -552,7 +552,7 @@ int actual_open_alsa_device(int do_auto_setup) {
     }
     if (ret == 0) {
       config.output_rate = actual_sample_rate;
-      debug(1, "alsa: output speed chosen is %d.", config.output_rate);
+      debug(2, "alsa: output speed chosen is %d.", config.output_rate);
     } else {
       die("audio_alsa: Could not automatically set the output rate for device \"%s\": %s",
           alsa_out_dev, snd_strerror(ret));

@@ -1276,7 +1276,7 @@ void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtpti
                          uint64_t networktime) {
   // debug(1,"clock: %" PRIx64 ", rtptime: %" PRIu32 ".", clock_id, rtptime);
   if (conn->anchor_clock != clock_id) {
-    debug(1, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
+    debug(2, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
   }
   // debug(1,"set anchor info clock: %" PRIx64", rtptime: %u, networktime: %" PRIx64 ".", clock_id,
   // rtptime, networktime);
@@ -1376,7 +1376,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
               get_absolute_time_in_ns() - conn->last_anchor_time_of_update;
           if (time_since_last_update > 5000000000) {
             int64_t duration_of_mastership = time_now - start_of_mastership;
-            debug(1,
+            debug(2,
                   "Connection %d: Master clock has changed to %" PRIx64
                   ". History: %f milliseconds.",
                   conn->connection_number, actual_clock_id, 0.000001 * duration_of_mastership);
@@ -1437,7 +1437,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
   if ((clock_status_t)response != conn->clock_status) {
     switch (response) {
     case clock_ok:
-      debug(1, "Connection %d: NQPTP master clock %" PRIx64 ".", conn->connection_number,
+      debug(2, "Connection %d: NQPTP master clock %" PRIx64 ".", conn->connection_number,
             actual_clock_id);
       break;
     case clock_not_ready:
@@ -1449,7 +1449,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       warn("Can't access the NQPTP clock. Is NQPTP running?");
       break;
     case clock_access_error:
-      debug(1, "Connection %d: Error accessing the NQPTP clock interface.",
+      debug(2, "Connection %d: Error accessing the NQPTP clock interface.",
             conn->connection_number);
       break;
     case clock_data_unavailable:
@@ -1459,10 +1459,10 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
       debug(2, "Connection %d: No NQPTP master clock.", conn->connection_number);
       break;
     case clock_no_anchor_info:
-      debug(1, "Connection %d: Awaiting clock anchor information.", conn->connection_number);
+      debug(2, "Connection %d: Awaiting clock anchor information.", conn->connection_number);
       break;
     case clock_version_mismatch:
-      debug(1, "Connection %d: NQPTP clock interface mismatch.", conn->connection_number);
+      debug(2, "Connection %d: NQPTP clock interface mismatch.", conn->connection_number);
       warn("This version of Shairport Sync is not compatible with the installed version of NQPTP. "
            "Please update.");
       break;
@@ -1710,7 +1710,7 @@ void *rtp_ap2_control_receiver(void *arg) {
           if ((packet[0] & 0x10) != 0) {
             debug(2, "First packet is a sentinel packet.");
           } else {
-            debug(1, "First packet is a not a sentinel packet!");
+            debug(2, "First packet is a not a sentinel packet!");
           }
         }
         // debug(1,"rtp_ap2_control_receiver coded: %u, %u", packet[0], packet[1]);
@@ -1789,20 +1789,10 @@ void *rtp_ap2_control_receiver(void *arg) {
               conn->latency = notified_latency + 11035 + added_latency;
             }
 
-            /*
-            debug_mutex_lock(&conn->reference_time_mutex, 1000, 0);
-            conn->remote_reference_timestamp_time = remote_packet_time_ns;
-            conn->reference_timestamp =
-                frame_1 - 11035 - added_latency; // add the latency in to the anchortime
-            debug_mutex_unlock(&conn->reference_time_mutex, 0);
-            */
-            // this is now only used for calculating when to ask for resends
-            // debug(1, "conn->latency is %d.", conn->latency);
-            // debug(1,"frame_1: %" PRIu32 ", added latency: %" PRId32 ".", frame_1, added_latency);
             set_ptp_anchor_info(conn, clock_id, frame_1 - 11035 - added_latency,
                                 remote_packet_time_ns);
             if (conn->anchor_clock != clock_id) {
-              debug(1, "Connection %d: Change Anchor Clock: %" PRIx64 ".", conn->connection_number,
+              debug(2, "Connection %d: Change Anchor Clock: %" PRIx64 ".", conn->connection_number,
                     clock_id);
             }
 

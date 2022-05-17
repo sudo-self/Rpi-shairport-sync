@@ -2655,7 +2655,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_get_string_val(timingProtocol, &timingProtocolString);
       if (timingProtocolString) {
         if (strcmp(timingProtocolString, "PTP") == 0) {
-          debug(1, "Connection %d: AP2 PTP connection from %s:%u to self at %s:%u.",
+          debug(2, "Connection %d: AP2 PTP connection from %s:%u to self at %s:%u.",
                 conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                 conn->self_ip_string, conn->self_rtsp_port);
           conn->airplay_stream_category = ptp_stream;
@@ -2681,7 +2681,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(1, "Connection %d: Remote Control connection from %s:%u to self at %s:%u.",
+              debug(2, "Connection %d: Remote Control connection from %s:%u to self at %s:%u.",
                     conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                     conn->self_ip_string, conn->self_rtsp_port);
               conn->airplay_stream_category = remote_control_stream;
