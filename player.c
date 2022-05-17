@@ -2423,42 +2423,42 @@ void *player_thread_func(void *arg) {
                   line_of_stats[0] = '\0';
                   statistics_column = 0;
                   was_a_previous_column = 0;
-                  statistics_item("sync error ms", "%*.2f", 13,
+                  statistics_item("Sync Error ms", "%*.2f", 13,
                                   1000 * moving_average_sync_error / config.output_rate);
-                  statistics_item("net sync ppm", "%*.1f", 12,
+                  statistics_item("Net Sync PPM", "%*.1f", 12,
                                   moving_average_correction * 1000000 /
                                       (352 * conn->output_sample_ratio));
-                  statistics_item("all sync ppm", "%*.1f", 12,
+                  statistics_item("All Sync PPM", "%*.1f", 12,
                                   moving_average_insertions_plus_deletions * 1000000 /
                                       (352 * conn->output_sample_ratio));
-                  statistics_item("    packets", "%*d", 11, play_number);
-                  statistics_item("missing", "%*" PRIu64 "", 7, conn->missing_packets);
-                  statistics_item("  late", "%*" PRIu64 "", 6, conn->late_packets);
-                  statistics_item("too late", "%*" PRIu64 "", 8, conn->too_late_packets);
-                  statistics_item("resend reqs", "%*" PRIu64 "", 11, conn->resend_requests);
-                  statistics_item("min DAC queue", "%*" PRIu64 "", 13, minimum_dac_queue_size);
-                  statistics_item("min buffers", "%*" PRIu32 "", 11, minimum_buffer_occupancy);
-                  statistics_item("max buffers", "%*" PRIu32 "", 11, maximum_buffer_occupancy);
+                  statistics_item("    Packets", "%*d", 11, play_number);
+                  statistics_item("Missing", "%*" PRIu64 "", 7, conn->missing_packets);
+                  statistics_item("  Late", "%*" PRIu64 "", 6, conn->late_packets);
+                  statistics_item("Too Late", "%*" PRIu64 "", 8, conn->too_late_packets);
+                  statistics_item("Resend Reqs", "%*" PRIu64 "", 11, conn->resend_requests);
+                  statistics_item("Min DAC Queue", "%*" PRIu64 "", 13, minimum_dac_queue_size);
+                  statistics_item("Min Buffers", "%*" PRIu32 "", 11, minimum_buffer_occupancy);
+                  statistics_item("Max Buffers", "%*" PRIu32 "", 11, maximum_buffer_occupancy);
 #ifdef CONFIG_AIRPLAY_2
                   if (conn->ap2_audio_buffer_minimum_size > 10 * 1024)
-                    statistics_item("min buffer size", "%*" PRIu32 "k", 14,
+                    statistics_item("Min Buffer Size", "%*" PRIu32 "k", 14,
                                     conn->ap2_audio_buffer_minimum_size / 1024);
                   else
-                    statistics_item("min buffer size", "%*" PRIu32 "", 15,
+                    statistics_item("Min Buffer Size", "%*" PRIu32 "", 15,
                                     conn->ap2_audio_buffer_minimum_size);
 #endif
-                  statistics_item("nominal fps", "%*.2f", 11, conn->remote_frame_rate);
-                  statistics_item("received fps", "%*.2f", 12, conn->input_frame_rate);
+                  statistics_item("Nominal FPS", "%*.2f", 11, conn->remote_frame_rate);
+                  statistics_item("Received FPS", "%*.2f", 12, conn->input_frame_rate);
                   if (conn->frame_rate_valid) {
-                    statistics_item("output fps (r)", "%*.2f", 14, conn->raw_frame_rate);
-                    statistics_item("output fps (c)", "%*.2f", 14, conn->corrected_frame_rate);
+                    statistics_item("Output FPS (r)", "%*.2f", 14, conn->raw_frame_rate);
+                    statistics_item("Output FPS (c)", "%*.2f", 14, conn->corrected_frame_rate);
                   } else {
-                    statistics_item("output fps (r)", "           N/A");
-                    statistics_item("output fps (c)", "           N/A");
+                    statistics_item("Output FPS (r)", "           N/A");
+                    statistics_item("Output FPS (c)", "           N/A");
                   }
-                  statistics_item("source drift ppm", "%*.2f", 16,
+                  statistics_item("Source Drift PPM", "%*.2f", 16,
                                   (conn->local_to_remote_time_gradient - 1.0) * 1000000);
-                  statistics_item("drift samples", "%*d", 13,
+                  statistics_item("Drift Samples", "%*d", 13,
                                   conn->local_to_remote_time_gradient_sample_count);
                   /*
                   statistics_item("estimated (unused) correction ppm", "%*.2f",
@@ -2585,7 +2585,7 @@ void *player_thread_func(void *arg) {
               // sync_error);
 
               // remove the bias when reporting the error to make it the true error
-
+              debug(1, "Connection %d: First Frame...", conn->connection_number);
               debug(2,
                     "first frame sync error (positive --> late): %" PRId64
                     " frames, %.3f mS at %d frames per second output.",
