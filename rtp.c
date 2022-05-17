@@ -352,8 +352,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-                                             
-                                             
+
+
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -364,19 +364,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-                                             
+
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-                                             
+
                                                               // Best guess is that this delay is 11,025 frames.
-                                             
+
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-                                             
+
                                                               uint32_t fl = nctohs(&packet[2]); //
-                                             
+
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -2640,12 +2640,11 @@ void *rtp_buffered_audio_processor(void *arg) {
         if (have_time_information == 0) {
           int64_t play_time_since_connection = local_should_be_time - conn->connection_start_time;
           int64_t time_since_connection = get_absolute_time_in_ns() - conn->connection_start_time;
-
           too_soon_after_connection =
               ((play_time_since_connection < 2000000000) && (time_since_connection < 2000000000));
           if (too_soon_after_connection)
-            debug(3, "time_since_connection is %f milliseconds. too_soon_after_connection is %d.",
-                  time_since_connection * 1E-6, too_soon_after_connection);
+            debug(3, "time_since_connection is %f milliseconds. play_time_since_connection is %f milliseconds. lead_time is %f milliseconds. too_soon_after_connection is %d.",
+                  time_since_connection * 1E-6, play_time_since_connection * 1E-6, (play_time_since_connection - time_since_connection) * 1E-6, too_soon_after_connection);
           local_lead_time = local_should_be_time - get_absolute_time_in_ns();
           // debug(1,"local_lead_time is actually %f milliseconds.", local_lead_time * 1E-6);
           outdated = (local_lead_time < requested_lead_time_ns);
@@ -2654,7 +2653,6 @@ void *rtp_buffered_audio_processor(void *arg) {
           // %" PRId64 " ns.", outdated, local_lead_time, requested_lead_time_ns);
         } else {
           debug(3, "Timing information not valid");
-          // outdated = 1;
         }
 
         if ((flush_requested) && (seq_no >= flushUntilSeq)) {
