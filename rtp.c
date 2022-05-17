@@ -1411,7 +1411,7 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
 
             if (actual_clock_id == conn->actual_anchor_clock) {
               int64_t cumulative_deviation = conn->anchor_time - conn->actual_anchor_time;
-              debug(1,
+              debug(2,
                     "The original master clock has become the master clock again."
                     "The estimated clock time "
                     "was %f ms ahead(+) or behind (-) the original master clock time.",

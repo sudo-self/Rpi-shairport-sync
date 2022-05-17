@@ -884,7 +884,7 @@ int prepare_mixer() {
           audio_alsa.parameters = &parameters; // likewise the parameters stuff
           if (alsa_mix_mindb == SND_CTL_TLV_DB_GAIN_MUTE) {
             // For instance, the Raspberry Pi does this
-            debug(1, "Lowest dB value is a mute");
+            debug(2, "Lowest dB value is a mute");
             mixer_volume_setting_gives_mute = 1;
             alsa_mix_mute = SND_CTL_TLV_DB_GAIN_MUTE; // this may not be
                                                       // necessary -- it's
