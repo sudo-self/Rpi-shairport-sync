@@ -1958,7 +1958,7 @@ static int pairing_remove_cb(uint8_t public_key[32] __attribute__((unused)), con
 
 static void pairing_list_cb(pair_cb enum_cb, void *enum_cb_arg,
                             void *cb_arg __attribute__((unused))) {
-  debug(1, "pair-list cb");
+  debug(2, "pair-list cb");
 
   for (struct pairings *pairing = pairings; pairing; pairing = pairing->next) {
     enum_cb(pairing->public_key, pairing->device_id, enum_cb_arg);
