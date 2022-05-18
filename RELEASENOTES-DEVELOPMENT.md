@@ -1,7 +1,7 @@
-Version-4.1-dev-263-g00bc837b
+Version-4.1-dev-266-g1d228870
 ====
 **Minor Changes**
-* Cosmetic changes, some debug messages removed and changed.
+* Cosmetic changes -- some debug and informational messages altered.
 
 Version-4.1-dev-255-g8a2756b7
 ====
