@@ -1570,9 +1570,9 @@ int *statistics_print_profile;
 // be printed -- 2 means print, 1 means print only in a debug mode, 0 means skip
 
 // clang-format off
-int ap1_synced_statistics_print_profile[] =                  {2, 2, 2, 0, 2, 1, 1, 2, 1, 1, 1, 1, 1, 2, 2, 1, 1};
-int ap1_nosync_statistics_print_profile[] =                  {2, 0, 0, 0, 2, 1, 1, 2, 1, 1, 1, 1, 1, 0, 0, 1, 0};
-int ap1_nodelay_statistics_print_profile[] =                 {0, 0, 0, 0, 2, 1, 1, 2, 0, 1, 1, 1, 1, 0, 0, 1, 0};
+int ap1_synced_statistics_print_profile[] =                  {2, 2, 2, 0, 2, 1, 1, 2, 1, 1, 1, 0, 1, 1, 2, 2, 1, 1};
+int ap1_nosync_statistics_print_profile[] =                  {2, 0, 0, 0, 2, 1, 1, 2, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0};
+int ap1_nodelay_statistics_print_profile[] =                 {0, 0, 0, 0, 2, 1, 1, 2, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0};
 
 int ap2_realtime_synced_stream_statistics_print_profile[] =  {2, 2, 2, 0, 2, 1, 1, 2, 1, 1, 1, 0, 0, 1, 2, 2, 0, 0};
 int ap2_realtime_nosync_stream_statistics_print_profile[] =  {2, 0, 0, 0, 2, 1, 1, 2, 1, 1, 1, 0, 0, 1, 0, 0, 0, 0};
@@ -2446,6 +2446,8 @@ void *player_thread_func(void *arg) {
                   else
                     statistics_item("Min Buffer Size", "%*" PRIu32 "", 15,
                                     conn->ap2_audio_buffer_minimum_size);
+#else
+                    statistics_item("N/A", "   "); // dummy -- should never be visible
 #endif
                   statistics_item("Nominal FPS", "%*.2f", 11, conn->remote_frame_rate);
                   statistics_item("Received FPS", "%*.2f", 12, conn->input_frame_rate);
