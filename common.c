@@ -1520,8 +1520,7 @@ void sps_nanosleep(const time_t sec, const long nanosec) {
 // Also note that timing must be relative to CLOCK_REALTIME
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
-                                const char *debugmessage, int debuglevel) {
+int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time) {
 
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
@@ -1534,30 +1533,15 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
   uint64_t wait_until_nsec = wait_until_time % 1000000000;
   timeoutTime.tv_sec = wait_until_sec;
   timeoutTime.tv_nsec = wait_until_nsec;
-
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
-  uint64_t et = get_realtime_in_ns() - start_time;
-
-  if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
-    char errstr[1000];
-    if (r == ETIMEDOUT)
-      debug(debuglevel,
-            "Timed out waiting for a mutex, having waited %f seconds with a maximum "
-            "waiting time of %f seconds. \"%s\".",
-            (1.0 * et) / 1000000000, dally_time * 0.000001, debugmessage);
-    else
-      debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
-            strerror_r(r, errstr, sizeof(errstr)), debugmessage);
-  }
   pthread_setcancelstate(oldState, NULL);
   return r;
 }
 #endif
 #ifdef COMPILE_FOR_OSX
-int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
-                                const char *debugmessage, int debuglevel) {
+int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time) {
 
-  // this is not pthread_cancellation safe because is contains a cancellation point
+  // this would not be not pthread_cancellation safe because is contains a cancellation point
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   int time_to_wait = dally_time;
@@ -1569,17 +1553,6 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
     sps_nanosleep(0, st * 1000); // this contains a cancellation point
     time_to_wait -= st;
     r = pthread_mutex_trylock(mutex);
-  }
-  if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
-    char errstr[1000];
-    if (r == EBUSY) {
-      debug(debuglevel, "waiting for a mutex, maximum expected time of %f seconds exceeded \"%s\".",
-            dally_time * 0.000001, debugmessage);
-      r = ETIMEDOUT; // for compatibility
-    } else {
-      debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
-            strerror_r(r, errstr, sizeof(errstr)), debugmessage);
-    }
   }
   pthread_setcancelstate(oldState, NULL);
   return r;
@@ -1597,14 +1570,14 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
   memset(dstring, 0, sizeof(dstring));
   snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
   if (debuglevel != 0)
-    debug(3, "mutex_lock \"%s\" at \"%s\".", mutexname, dstring); // only if you really ask for it!
-  int result = sps_pthread_mutex_timedlock(mutex, dally_time, dstring, debuglevel);
+    _debug(filename, line, 3, "mutex_lock \"%s\" at \"%s\".", mutexname, dstring); // only if you really ask for it!
+  int result = sps_pthread_mutex_timedlock(mutex, dally_time);
   if (result == ETIMEDOUT) {
     result = pthread_mutex_lock(mutex);
     uint64_t time_delay = get_absolute_time_in_ns() - time_at_start;
-    debug(debuglevel,
-          "Mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f sec.",
-          mutexname, dstring, (1.0 * dally_time) / 1000000, 0.000000001 * time_delay);
+    _debug(filename, line, debuglevel,
+          "mutex_lock \"%s\" expected max wait: %" PRId64 " ns, actual wait: %u microseconds.",
+          mutexname, (1.0 * dally_time) / 1000000, 0.000000001 * time_delay);
   }
   pthread_setcancelstate(oldState, NULL);
   return result;

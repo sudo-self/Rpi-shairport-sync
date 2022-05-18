@@ -423,8 +423,8 @@ extern pthread_mutex_t the_conn_lock;
   pthread_mutex_unlock(&the_conn_lock);
 
 // wait for the specified time in microseconds -- it checks every 20 milliseconds
-int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
-                                const char *debugmessage, int debuglevel);
+// int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
+//                                 const char *debugmessage, int debuglevel);
 // wait for the specified time, checking every 20 milliseconds, and block if it can't acquire the
 // lock
 int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexName,

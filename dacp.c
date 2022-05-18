@@ -206,7 +206,8 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
       pthread_cleanup_push(addrinfo_cleanup, (void *)&res);
       // only do this one at a time -- not sure it is necessary, but better safe than sorry
 
-      int mutex_reply = sps_pthread_mutex_timedlock(&dacp_conversation_lock, 2000000, command, 1);
+      // int mutex_reply = sps_pthread_mutex_timedlock(&dacp_conversation_lock, 2000000, command, 1);
+      int mutex_reply = debug_mutex_lock(&dacp_conversation_lock, 2000000, 1);
       // int mutex_reply = pthread_mutex_lock(&dacp_conversation_lock);
       if (mutex_reply == 0) {
         pthread_cleanup_push(mutex_lock_cleanup, (void *)&dacp_conversation_lock);
@@ -488,11 +489,6 @@ void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
   debug_mutex_unlock(&dacp_server_information_lock, 3);
 }
 
-void dacp_monitor_thread_code_cleanup(__attribute__((unused)) void *arg) {
-  // debug(1, "dacp_monitor_thread_code_cleanup called.");
-  pthread_mutex_unlock(&dacp_server_information_lock);
-}
-
 void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
   int scan_index = 0;
   int always_use_revision_number_1 = 0;
@@ -504,12 +500,8 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
   int idle_scan_count = 0;
   while (1) {
     int result = 0;
-    sps_pthread_mutex_timedlock(
-        &dacp_server_information_lock, 500000,
-        "dacp_monitor_thread_code couldn't get DACP server information lock in 0.5 second!.", 2);
     int32_t the_volume;
-
-    pthread_cleanup_push(dacp_monitor_thread_code_cleanup, NULL);
+    pthread_cleanup_debug_mutex_lock(&dacp_server_information_lock, 500000, 2);
     if (dacp_server.scan_enable == 0) {
       metadata_hub_modify_prolog();
       int ch = (metadata_store.dacp_server_active != 0) ||
