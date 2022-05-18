@@ -2447,7 +2447,7 @@ void *player_thread_func(void *arg) {
                     statistics_item("Min Buffer Size", "%*" PRIu32 "", 15,
                                     conn->ap2_audio_buffer_minimum_size);
 #else
-                    statistics_item("N/A", "   "); // dummy -- should never be visible
+                  statistics_item("N/A", "   "); // dummy -- should never be visible
 #endif
                   statistics_item("Nominal FPS", "%*.2f", 11, conn->remote_frame_rate);
                   statistics_item("Received FPS", "%*.2f", 12, conn->input_frame_rate);
@@ -2587,7 +2587,6 @@ void *player_thread_func(void *arg) {
               // sync_error);
 
               // remove the bias when reporting the error to make it the true error
-              debug(1, "Connection %d: First Frame...", conn->connection_number);
               debug(2,
                     "first frame sync error (positive --> late): %" PRId64
                     " frames, %.3f mS at %d frames per second output.",
@@ -2620,6 +2619,24 @@ void *player_thread_func(void *arg) {
                        final_adjustment_length_sized, sync_error);
                 }
                 sync_error = 0; // say the error was fixed!
+              }
+              // since this is the first frame of audio, inform the user if requested...
+              if (config.statistics_requested) {
+#ifdef CONFIG_AIRPLAY_2
+                if (conn->airplay_stream_type == realtime_stream) {
+                  if (conn->airplay_type == ap_1)
+                    inform("Connection %d: Playback Started -- AirPlay 1 Compatible.",
+                           conn->connection_number);
+                  else
+                    inform("Connection %d: Playback Started -- AirPlay 2 Realtime.",
+                           conn->connection_number);
+                } else {
+                  inform("Connection %d: Playback Started -- AirPlay 2 Buffered.",
+                         conn->connection_number);
+                }
+#else
+                inform("Connection %d: Playback Started -- AirPlay 1.", conn->connection_number);
+#endif
               }
             }
             // not too sure if abs() is implemented for int64_t, so we'll do it manually
