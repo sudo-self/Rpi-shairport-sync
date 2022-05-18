@@ -1211,9 +1211,11 @@ uint64_t get_monotonic_time_in_ns() {
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
   struct timespec tn;
-  // can't use CLOCK_MONOTONIC_RAW as it's not implemented in OpenWrt
-  // CLOCK_REALTIME because PTP uses it.
+#ifdef CLOCK_MONOTONIC_RAW
+  clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
+#else
   clock_gettime(CLOCK_MONOTONIC, &tn);
+#endif  
   uint64_t tnnsec = tn.tv_sec;
   tnnsec = tnnsec * 1000000000;
   uint64_t tnjnsec = tn.tv_nsec;
@@ -1254,12 +1256,16 @@ uint64_t get_monotonic_time_in_ns() {
 
 // all these clock things are now in macOS now since 10.13 (September 2017). Must update...
 uint64_t get_monotonic_raw_time_in_ns() {
-  // CLOCK_MONOTONIC_RAW in FreeBSD etc, monotonic in MacOSX
+  // CLOCK_MONOTONIC_RAW/CLOCK_MONOTONIC in Linux/FreeBSD etc, monotonic in MacOSX
   uint64_t time_now_ns;
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
   struct timespec tn;
+#ifdef CLOCK_MONOTONIC_RAW
   clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
+#else
+  clock_gettime(CLOCK_MONOTONIC, &tn);
+#endif  
   uint64_t tnnsec = tn.tv_sec;
   tnnsec = tnnsec * 1000000000;
   uint64_t tnjnsec = tn.tv_nsec;
@@ -1304,9 +1310,11 @@ uint64_t get_realtime_in_ns() {
   uint64_t time_now_ns;
 
   struct timespec tn;
-  // can't use CLOCK_MONOTONIC_RAW as it's not implemented in OpenWrt
-  // CLOCK_REALTIME because PTP uses it.
-  clock_gettime(CLOCK_REALTIME, &tn);
+#ifdef CLOCK_MONOTONIC_RAW
+  clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
+#else
+  clock_gettime(CLOCK_MONOTONIC, &tn);
+#endif  
   uint64_t tnnsec = tn.tv_sec;
   tnnsec = tnnsec * 1000000000;
   uint64_t tnjnsec = tn.tv_nsec;
@@ -1316,12 +1324,16 @@ uint64_t get_realtime_in_ns() {
 #endif
 
 uint64_t get_absolute_time_in_ns() {
-  // CLOCK_MONOTONIC_RAW in FreeBSD etc, monotonic in MacOSX
+  // CLOCK_MONOTONIC_RAW/CLOCK_MONOTONIC in Linux/FreeBSD etc, monotonic in MacOSX
   uint64_t time_now_ns;
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
   struct timespec tn;
+#ifdef CLOCK_MONOTONIC_RAW
   clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
+#else
+  clock_gettime(CLOCK_MONOTONIC, &tn);
+#endif  
   uint64_t tnnsec = tn.tv_sec;
   tnnsec = tnnsec * 1000000000;
   uint64_t tnjnsec = tn.tv_nsec;
@@ -1524,7 +1536,6 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time) {
 
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-
   struct timespec timeoutTime;
   uint64_t wait_until_time = dally_time * 1000; // to nanoseconds
   uint64_t start_time = get_realtime_in_ns();   // this is from CLOCK_REALTIME
@@ -1565,19 +1576,16 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
     return pthread_mutex_lock(mutex);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  uint64_t time_at_start = get_absolute_time_in_ns();
-  char dstring[1000];
-  memset(dstring, 0, sizeof(dstring));
-  snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
-  if (debuglevel != 0)
-    _debug(filename, line, 3, "mutex_lock \"%s\" at \"%s\".", mutexname, dstring); // only if you really ask for it!
+   if (debuglevel != 0)
+    _debug(filename, line, 3, "mutex_lock \"%s\".", mutexname); // only if you really ask for it!
   int result = sps_pthread_mutex_timedlock(mutex, dally_time);
   if (result == ETIMEDOUT) {
-    result = pthread_mutex_lock(mutex);
-    uint64_t time_delay = get_absolute_time_in_ns() - time_at_start;
     _debug(filename, line, debuglevel,
-          "mutex_lock \"%s\" expected max wait: %" PRId64 " ns, actual wait: %u microseconds.",
-          mutexname, (1.0 * dally_time) / 1000000, 0.000000001 * time_delay);
+          "mutex_lock \"%s\" failed to lock after %f ms. Now trying an untimed lock...",
+          mutexname, dally_time * 1E-3);
+    result = pthread_mutex_lock(mutex);
+    _debug(filename, line, debuglevel,
+          "Untimed lock exited with an error code of %u", result);
   }
   pthread_setcancelstate(oldState, NULL);
   return result;
