@@ -56,7 +56,7 @@ int get_nqptp_data(struct shm_structure *nqptp_data) {
   // exclusive access while copying
 
   if ((mapped_addr != MAP_FAILED) && (mapped_addr != NULL)) {
-    pthread_cleanup_debug_mutex_lock((pthread_mutex_t *)mapped_addr, 100000, 1);
+    pthread_cleanup_debug_mutex_lock((pthread_mutex_t *)mapped_addr, 10000, 1);
     memcpy(nqptp_data, (char *)mapped_addr, sizeof(struct shm_structure));
     pthread_cleanup_pop(1); // release the mutex
     response = 0;
