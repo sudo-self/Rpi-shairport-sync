@@ -252,7 +252,7 @@ static uint64_t frames_sent_for_playing;
 
 // set to true if there has been a discontinuity between the last reported frames_sent_for_playing
 // and the present reported frames_sent_for_playing
-// Not that it will be set when the device is opened, as any previous figures for
+// Note that it will be set when the device is opened, as any previous figures for
 // frames_sent_for_playing (which Shairport Sync might hold) would be invalid.
 static int frames_sent_break_occurred;
 
