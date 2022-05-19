@@ -1515,9 +1515,7 @@ void exit_function() {
       debug(2, "Stopping metadata");
       metadata_stop(); // close down the metadata pipe
 #endif
-      debug(2, "Deinitialising the audio backend.");
-      activity_monitor_stop(0);
-
+      debug(2, "Stopping the activity monitor.");
       activity_monitor_stop(0);
 
       if ((config.output) && (config.output->deinit)) {
