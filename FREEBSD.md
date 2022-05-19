@@ -47,9 +47,10 @@ Building
 
 Install the packages that are needed for Shairport Sync to be downloaded and built successfully:
 ```
-# pkg install git autotools pkgconf popt libconfig openssl sndio alsa-utils
+# pkg install git autotools pkgconf popt libconfig openssl sndio
 ```
 Add `alsa-utils` if you're wish to use ALSA. Omit `sndio` if you don't intend to use the `sndio` subsystem.
+Add `libplist libsodium ffmpeg e2fsprogs-libuuid` if you are building for AirPlay 2.
 
 Now, download Shairport Sync from GitHub:
 ```
@@ -64,6 +65,7 @@ $ ./configure  --with-libdaemon --with-avahi --with-ssl=openssl  --with-sndio --
 $ make
 ```
 Add `--with-alsa` if you wish to include the ALSA back end. Omit the `--with-sndio` if you don't want the `sndio` back end. Omit the `--with-freebsd-service` if you don't want to install a FreeBSD startup script, runtime folder and user and group -- see below for more details.
+Add `--with-airplay-2` if you wish to build the AirPlay 2 version of Shairport Sync.
 
 Installation
 ----
