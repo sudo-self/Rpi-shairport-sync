@@ -1581,11 +1581,16 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
   int result = sps_pthread_mutex_timedlock(mutex, dally_time);
   if (result == ETIMEDOUT) {
     _debug(filename, line, debuglevel,
-          "mutex_lock \"%s\" failed to lock after %f ms. Now trying an untimed lock...",
+          "mutex_lock \"%s\" failed to lock after %f ms -- now waiting unconditionally to lock it.",
           mutexname, dally_time * 1E-3);
     result = pthread_mutex_lock(mutex);
-    _debug(filename, line, debuglevel,
-          "Untimed lock exited with an error code of %u", result);
+    if (result == 0)
+      _debug(filename, line, debuglevel,
+            " ...mutex_lock \"%s\" locked successfully.",
+            mutexname);
+    else
+      _debug(filename, line, debuglevel,
+            " ...mutex_lock \"%s\" exited with error code: %u", mutexname, result);
   }
   pthread_setcancelstate(oldState, NULL);
   return result;
