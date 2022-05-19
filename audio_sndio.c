@@ -4,7 +4,7 @@
  * Copyright (c) 2017 Tobias Kortkamp <t@tobik.me>
  *
  * Modifications for audio synchronisation
- * and related work, copyright (c) Mike Brady 2014 -- 2017
+ * and related work, copyright (c) Mike Brady 2014 -- 2022
  * All rights reserved.
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -38,6 +38,8 @@ static void stop(void);
 static void onmove_cb(void *, int);
 static int delay(long *);
 static void flush(void);
+int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, uint64_t *the_delay,
+          uint64_t *frames_sent_to_dac);
 
 audio_output audio_sndio = {.name = "sndio",
                             .help = &help,
@@ -49,7 +51,7 @@ audio_output audio_sndio = {.name = "sndio",
                             .is_running = NULL,
                             .flush = &flush,
                             .delay = &delay,
-                            .stats = NULL,
+                            .stats = &stats,
                             .play = &play,
                             .volume = NULL,
                             .parameters = NULL,
@@ -60,8 +62,19 @@ static struct sio_hdl *hdl;
 static int framesize;
 static size_t played;
 static size_t written;
-int64_t time_of_last_onmove_cb;
+uint64_t time_of_last_onmove_cb;
+uint64_t corrected_time_of_last_onmove_cb;
 int at_least_one_onmove_cb_seen;
+
+static uint64_t frames_sent_for_playing;
+// set to true if there has been a discontinuity between the last reported value for "played"
+// and the present reported "played"
+// Note that it will be set when the device is opened, as any previous figures for
+// "played" (which Shairport Sync might hold) would be invalid.
+static int frames_sent_break_occurred;
+static int underrun_seen;
+
+
 struct sio_par par;
 
 struct sndio_formats {
@@ -82,9 +95,21 @@ static struct sndio_formats formats[] = {{"S8", SPS_FORMAT_S8, 44100, 8, 1, 1, S
                                          {"S24", SPS_FORMAT_S24, 44100, 24, 4, 1, SIO_LE_NATIVE},
                                          {"S24_3LE", SPS_FORMAT_S24_3LE, 44100, 24, 3, 1, 1},
                                          {"S24_3BE", SPS_FORMAT_S24_3BE, 44100, 24, 3, 1, 0},
-                                         {"S32", SPS_FORMAT_S32, 44100, 24, 4, 1, SIO_LE_NATIVE}};
+                                         {"S32", SPS_FORMAT_S32, 44100, 32, 4, 1, SIO_LE_NATIVE}};
 
 static void help() { printf("    -d output-device    set the output device [default*|...]\n"); }
+
+uint64_t get_uptime_in_ns() {
+  uint64_t time_now_ns;
+  struct timespec tn;
+  clock_gettime(CLOCK_UPTIME_PRECISE, &tn);
+  uint64_t tnnsec = tn.tv_sec;
+  tnnsec = tnnsec * 1000000000;
+  uint64_t tnjnsec = tn.tv_nsec;
+  time_now_ns = tnnsec + tnjnsec;
+  return time_now_ns;
+}
+
 
 static int init(int argc, char **argv) {
   int found, opt, round, rate, bufsz;
@@ -120,7 +145,7 @@ static int init(int argc, char **argv) {
       devname = SIO_DEVANY;
     if (config_lookup_int(config.cfg, "sndio.rate", &rate)) {
       if (rate % 44100 == 0 && rate >= 44100 && rate <= 352800) {
-        par.rate = rate;
+         par.rate = rate;
       } else {
         die("sndio: output rate must be a multiple of 44100 and 44100 <= rate <= "
             "352800");
@@ -169,15 +194,21 @@ static int init(int argc, char **argv) {
   }
   if (optind < argc)
     die("Invalid audio argument: %s", argv[optind]);
-  pthread_mutex_lock(&sndio_mutex);
-  debug(1, "Output device name is \"%s\".", devname);
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
+  // pthread_mutex_lock(&sndio_mutex);
+  debug(1, "sndio: output device name is \"%s\".", devname);
+  debug(1, "sndio: rate: %u.",par.rate);
+  debug(1, "sndio: bits: %u.",par.bits);
+
   hdl = sio_open(devname, SIO_PLAY, 0);
   if (!hdl)
     die("sndio: cannot open audio device");
 
   written = played = 0;
+  frames_sent_for_playing = 0;
   time_of_last_onmove_cb = 0;
   at_least_one_onmove_cb_seen = 0;
+  underrun_seen = 0;
 
   for (i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (formats[i].fmt == config.output_format) {
@@ -213,7 +244,8 @@ static int init(int argc, char **argv) {
 
   sio_onmove(hdl, onmove_cb, NULL);
 
-  pthread_mutex_unlock(&sndio_mutex);
+  // pthread_mutex_unlock(&sndio_mutex);
+  pthread_cleanup_pop(1); // unlock the mutex
   if (framesize == 0) {
     die("sndio: framesize set to zero.");
   }
@@ -221,60 +253,73 @@ static int init(int argc, char **argv) {
 }
 
 static void deinit() {
-  pthread_mutex_lock(&sndio_mutex);
+  // pthread_mutex_lock(&sndio_mutex);
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
   sio_close(hdl);
-  pthread_mutex_unlock(&sndio_mutex);
+  // pthread_mutex_unlock(&sndio_mutex);
+  pthread_cleanup_pop(1); // unlock the mutex
 }
 
 static void start(__attribute__((unused)) int sample_rate,
                   __attribute__((unused)) int sample_format) {
-  pthread_mutex_lock(&sndio_mutex);
+  // pthread_mutex_lock(&sndio_mutex);
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
+  frames_sent_break_occurred = 1; // there is a discontinuity with
+  at_least_one_onmove_cb_seen = 0;
+  // any previously-reported frame count
+
   if (!sio_start(hdl))
     die("sndio: unable to start");
   written = played = 0;
   time_of_last_onmove_cb = 0;
   at_least_one_onmove_cb_seen = 0;
-  pthread_mutex_unlock(&sndio_mutex);
+  // pthread_mutex_unlock(&sndio_mutex);
+  pthread_cleanup_pop(1); // unlock the mutex
 }
 
 static int play(void *buf, int frames) {
   if (frames > 0) {
-    pthread_mutex_lock(&sndio_mutex);
+    // pthread_mutex_lock(&sndio_mutex);
+    pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
     written += sio_write(hdl, buf, frames * framesize);
-    pthread_mutex_unlock(&sndio_mutex);
+    // pthread_mutex_unlock(&sndio_mutex);
+    pthread_cleanup_pop(1); // unlock the mutex
   }
   return 0;
 }
 
 static void stop() {
-  int gotlock = 1;
-
-  // The player thread could already be waiting in sio_write() during
-  // termination implying that the same thread already have acquired the mutex.
-  if (pthread_mutex_trylock(&sndio_mutex))
-    gotlock = 0;
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
 
   if (!sio_stop(hdl))
     die("sndio: unable to stop");
   written = played = 0;
-
-  if (gotlock)
-    pthread_mutex_unlock(&sndio_mutex);
+  frames_sent_break_occurred = 1;
+  pthread_cleanup_pop(1); // unlock the mutex
 }
 
 static void onmove_cb(__attribute__((unused)) void *arg, int delta) {
-  time_of_last_onmove_cb = get_absolute_time_in_ns();
+  time_of_last_onmove_cb = get_uptime_in_ns(); // this is not (?) adjusted ("disciplined") by NTP
+  corrected_time_of_last_onmove_cb = get_monotonic_time_in_ns(); // this is ("disciplined") by NTP
   at_least_one_onmove_cb_seen = 1;
   played += delta;
+  frames_sent_for_playing += delta;
+  if (delta == 0) {
+    debug(1,"No frames written in interval -- is this underrun?");
+    underrun_seen = 1;
+    frames_sent_break_occurred = 1;
+   } else {
+    underrun_seen = 0;
+  }
 }
 
-static int delay(long *_delay) {
-  pthread_mutex_lock(&sndio_mutex);
+int get_delay(long *delay) {
+  int response = 0;
   size_t estimated_extra_frames_output = 0;
   if (at_least_one_onmove_cb_seen) { // when output starts, the onmove_cb callback will be made
     // calculate the difference in time between now and when the last callback occurred,
     // and use it to estimate the frames that would have been output
-    uint64_t time_difference = get_absolute_time_in_ns() - time_of_last_onmove_cb;
+    uint64_t time_difference = get_uptime_in_ns() - time_of_last_onmove_cb;
     uint64_t frame_difference = (time_difference * par.rate) / 1000000000;
     estimated_extra_frames_output = frame_difference;
     // sanity check -- total estimate can not exceed frames written.
@@ -285,15 +330,58 @@ static int delay(long *_delay) {
     // debug(1,"Frames played to last cb: %d, estimated to current time:
     // %d.",played,estimated_extra_frames_output);
   }
-  *_delay = (written / framesize) - (played + estimated_extra_frames_output);
-  pthread_mutex_unlock(&sndio_mutex);
-  return 0;
+  if ((delay != NULL) && (underrun_seen == 0))
+    *delay = (written / framesize) - (played + estimated_extra_frames_output);
+  if (underrun_seen != 0)
+    response = 1;
+  return response;
+}
+
+static int delay(long *delay) {
+  int result = 0;
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
+  result = get_delay(delay);
+  pthread_cleanup_pop(1); // unlock the mutex
+  return result;
 }
 
 static void flush() {
-  pthread_mutex_lock(&sndio_mutex);
+  // pthread_mutex_lock(&sndio_mutex);
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
   if (!sio_stop(hdl) || !sio_start(hdl))
     die("sndio: unable to flush");
   written = played = 0;
-  pthread_mutex_unlock(&sndio_mutex);
+  frames_sent_break_occurred = 1;
+  // pthread_mutex_unlock(&sndio_mutex);
+  pthread_cleanup_pop(1); // unlock the mutex
 }
+
+int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, uint64_t *the_delay,
+          uint64_t *frames_sent_to_dac) {
+  // returns 0 if the device is in a valid state 
+  // returns the actual delay if running or 0 if prepared in *the_delay
+  // returns the present estimated value of frames played
+  // otherwise return a non-zero value
+  int ret = 0;
+  *the_delay = 0;
+
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+  long my_delay = 0; // initialised to stop a compiler warning
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
+  *raw_measurement_time = time_of_last_onmove_cb;
+  *corrected_measurement_time = corrected_time_of_last_onmove_cb; // this is ("disciplined") by NTP
+  get_delay(&my_delay);
+  ret = frames_sent_break_occurred; // will be zero unless an error like an underrun occurred
+  frames_sent_break_occurred = 0; // reset it.
+  if (frames_sent_to_dac != NULL)
+    *frames_sent_to_dac = frames_sent_for_playing;
+  pthread_cleanup_pop(1); // unlock the mutex
+  pthread_setcancelstate(oldState, NULL);
+  uint64_t hd = my_delay; // note: snd_pcm_sframes_t is a long
+  *the_delay = hd;
+  if (at_least_one_onmove_cb_seen == 0)
+    ret = 1;
+  return ret;
+}
+
