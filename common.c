@@ -1215,7 +1215,7 @@ uint64_t get_monotonic_time_in_ns() {
   clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
 #else
   clock_gettime(CLOCK_MONOTONIC, &tn);
-#endif  
+#endif
   uint64_t tnnsec = tn.tv_sec;
   tnnsec = tnnsec * 1000000000;
   uint64_t tnjnsec = tn.tv_nsec;
@@ -1265,7 +1265,7 @@ uint64_t get_monotonic_raw_time_in_ns() {
   clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
 #else
   clock_gettime(CLOCK_MONOTONIC, &tn);
-#endif  
+#endif
   uint64_t tnnsec = tn.tv_sec;
   tnnsec = tnnsec * 1000000000;
   uint64_t tnjnsec = tn.tv_nsec;
@@ -1314,7 +1314,7 @@ uint64_t get_realtime_in_ns() {
   clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
 #else
   clock_gettime(CLOCK_MONOTONIC, &tn);
-#endif  
+#endif
   uint64_t tnnsec = tn.tv_sec;
   tnnsec = tnnsec * 1000000000;
   uint64_t tnjnsec = tn.tv_nsec;
@@ -1333,7 +1333,7 @@ uint64_t get_absolute_time_in_ns() {
   clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
 #else
   clock_gettime(CLOCK_MONOTONIC, &tn);
-#endif  
+#endif
   uint64_t tnnsec = tn.tv_sec;
   tnnsec = tnnsec * 1000000000;
   uint64_t tnjnsec = tn.tv_nsec;
@@ -1531,6 +1531,7 @@ void sps_nanosleep(const time_t sec, const long nanosec) {
 // Mac OS X doesn't have pthread_mutex_timedlock
 // Also note that timing must be relative to CLOCK_REALTIME
 
+/*
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time) {
 
@@ -1550,6 +1551,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time) {
 }
 #endif
 #ifdef COMPILE_FOR_OSX
+*/
 int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time) {
 
   // this would not be not pthread_cancellation safe because is contains a cancellation point
@@ -1568,7 +1570,7 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time) {
   pthread_setcancelstate(oldState, NULL);
   return r;
 }
-#endif
+// #endif
 
 int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexname,
                       const char *filename, const int line, int debuglevel) {
