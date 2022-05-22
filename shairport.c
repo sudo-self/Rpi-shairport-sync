@@ -148,19 +148,21 @@ void print_version(void) {
 
 #ifdef CONFIG_AIRPLAY_2
 int has_fplt_capable_aac_decoder(void) {
+/*
   // return 1 if the AAC decoder advertises ftlp decoding capability, which
   // is needed for decoding Buffered Audio streams
   int has_capability = 0;
   const AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
   if (codec != NULL) {
     AVCodecContext *codec_context = avcodec_alloc_context3(codec);
-    if (codec_context != NULL) {     
+    if (codec_context != NULL) {
       if (codec_context->sample_fmt == AV_SAMPLE_FMT_FLTP)
         has_capability = 1;
       av_free(codec_context);
-    }   
+    }
   }
-  return has_capability;
+*/
+  return 1;
 }
 #endif
 
@@ -1684,7 +1686,7 @@ int main(int argc, char **argv) {
 #endif
   emergency_exit = 0; // what to do or skip in the exit_function
   atexit(exit_function);
-  
+
   // set defaults
 
   // get a device id -- the first non-local MAC address
