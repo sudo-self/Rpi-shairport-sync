@@ -2211,10 +2211,6 @@ void *rtp_buffered_audio_processor(void *arg) {
   // ideas and some code from https://rodic.fr/blog/libavcodec-tutorial-decode-audio-file/
   // with thanks
 
-  // initialize all muxers, demuxers and protocols for libavformat
-  // (does nothing if called twice during the course of one program execution)
-  // deprecated in ffmpeg 4.0 and later... but still needed in ffmpeg 3.6 / ubuntu 18
-
   AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
   if (codec == NULL) {
     debug(1, "Can't find an AAC decoder!");
