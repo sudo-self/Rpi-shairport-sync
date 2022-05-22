@@ -48,6 +48,7 @@
 #include <gcrypt.h>
 #include <sodium.h>
 #include <uuid/uuid.h>
+#include <libavcodec/avcodec.h>
 #endif
 
 #ifdef CONFIG_MBEDTLS
@@ -144,6 +145,25 @@ void print_version(void) {
     debug(1, "Can't print version string!");
   }
 }
+
+#ifdef CONFIG_AIRPLAY_2
+int has_fplt_capable_aac_decoder(void) {
+  // return 1 if the AAC decoder advertises ftlp decoding capability, which
+  // is needed for decoding Buffered Audio streams
+  int has_capability = 0;
+  const AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
+  if (codec != NULL) {
+    AVCodecContext *codec_context = avcodec_alloc_context3(codec);
+    if (codec_context != NULL) {     
+      if (codec_context->sample_fmt == AV_SAMPLE_FMT_FLTP)
+        has_capability = 1;
+      av_free(codec_context);
+    }   
+  }
+  return has_capability;
+}
+#endif
+
 #ifdef CONFIG_SOXR
 pthread_t soxr_time_check_thread;
 void *soxr_time_check(__attribute__((unused)) void *arg) {
@@ -229,6 +249,13 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
 #endif
 
 void usage(char *progname) {
+#ifdef CONFIG_AIRPLAY_2
+  if (has_fplt_capable_aac_decoder() == 0) {
+    printf("IMPORTANT NOTE: Shairport Sync will not run on this system.\n");
+    printf("A Floating Point Planar (\"fplt\") AAC decoder is required,\n");
+    printf("but the system's ffmpeg library does not contain one.\n\n");
+  }
+#endif
   printf("Usage: %s [options...]\n", progname);
   printf("  or:  %s [options...] -- [audio output-specific options]\n", progname);
   printf("\n");
@@ -1657,7 +1684,7 @@ int main(int argc, char **argv) {
 #endif
   emergency_exit = 0; // what to do or skip in the exit_function
   atexit(exit_function);
-
+  
   // set defaults
 
   // get a device id -- the first non-local MAC address
@@ -1914,6 +1941,10 @@ int main(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
+  if (has_fplt_capable_aac_decoder() == 0) {
+    die("Shairport Sync will not run on this system. A Floating Point Planar (\"fplt\") AAC decoder is required, but the system's ffmpeg library does not contain one.");
+  }
+
   uint64_t apf = config.airplay_features;
   uint64_t apfh = config.airplay_features;
   apfh = apfh >> 32;
