@@ -148,7 +148,6 @@ void print_version(void) {
 
 #ifdef CONFIG_AIRPLAY_2
 int has_fplt_capable_aac_decoder(void) {
-/*
   // return 1 if the AAC decoder advertises ftlp decoding capability, which
   // is needed for decoding Buffered Audio streams
   int has_capability = 0;
@@ -156,13 +155,15 @@ int has_fplt_capable_aac_decoder(void) {
   if (codec != NULL) {
     AVCodecContext *codec_context = avcodec_alloc_context3(codec);
     if (codec_context != NULL) {
-      if (codec_context->sample_fmt == AV_SAMPLE_FMT_FLTP)
-        has_capability = 1;
+      if (avcodec_open2(codec_context, codec, NULL) >= 0) {
+        if (codec_context->sample_fmt == AV_SAMPLE_FMT_FLTP)
+          has_capability = 1;
+        avcodec_close(codec_context);
+      }
       av_free(codec_context);
     }
   }
-*/
-  return 1;
+  return has_capability;
 }
 #endif
 
