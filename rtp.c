@@ -2215,11 +2215,6 @@ void *rtp_buffered_audio_processor(void *arg) {
   // (does nothing if called twice during the course of one program execution)
   // deprecated in ffmpeg 4.0 and later... but still needed in ffmpeg 3.6 / ubuntu 18
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  avcodec_register_all();
-#pragma GCC diagnostic pop
-
   AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
   if (codec == NULL) {
     debug(1, "Can't find an AAC decoder!");
@@ -2244,6 +2239,9 @@ void *rtp_buffered_audio_processor(void *arg) {
   }
   // push a closer -- av_parser_close(codec_parser_context);
   pthread_cleanup_push(av_parser_init_cleanup_handler, codec_parser_context);
+  
+  if (codec_context->sample_fmt != AV_SAMPLE_FMT_FLTP)
+    die("the AAC decoder is not capable of handling Floating Point Planar (\"fltp\") formatted AAC-encoded material.");
 
   AVPacket *pkt = av_packet_alloc();
   if (pkt == NULL) {
