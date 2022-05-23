@@ -1639,10 +1639,10 @@ void player_thread_cleanup_handler(void *arg) {
     int64_t elapsedSec = time_playing % 60;
     if (conn->frame_rate_valid)
       inform("Connection %d: Playback Stopped. Total playing time %02" PRId64 ":%02" PRId64
-             ":%02" PRId64 ". Input: %0.2f, "
-             " Output: %0.2f (raw), %0.2f (corrected) "
+             ":%02" PRId64 ". "
+             "Output: %0.2f (raw), %0.2f (corrected) "
              "frames per second.",
-             conn->connection_number, elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate,
+             conn->connection_number, elapsedHours, elapsedMin, elapsedSec,
              conn->raw_frame_rate, conn->corrected_frame_rate);
     else
       inform("Connection %d: Playback Stopped. Total playing time %02" PRId64 ":%02" PRId64
