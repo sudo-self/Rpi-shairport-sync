@@ -1,6 +1,6 @@
 Building Shairport Sync for AirPlay 2
 ==
-* Before embarking on building Shairport Sync, you might wish to [check the features and limitations](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md#features-and-limitations) of the AirPlay 2 service it provides.
+* Before building Shairport Sync, you might wish to [check the features and limitations](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md#features-and-limitations) of the AirPlay 2 service it provides.
 * Build instructions are different from previous versions of Shairport Sync. Please read carefully.
 * Be very careful with audio systems capable of very high volume output -- the volume control in this software may not be reliable!
 * For now, leave the settings in the configuration file at default except as noted below.
