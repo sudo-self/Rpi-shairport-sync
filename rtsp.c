@@ -5005,7 +5005,6 @@ void rtsp_listen_loop_cleanup_handler(__attribute__((unused)) void *arg) {
   debug(2, "rtsp_listen_loop_cleanup_handler called.");
   cancel_all_RTSP_threads(unspecified_stream_category, 0); // kill all RTSP listeners
   int *sockfd = (int *)arg;
-  mdns_unregister();
   if (sockfd) {
     int i;
     for (i = 1; i <= sockfd[0]; i++) {
@@ -5130,7 +5129,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     t2 = secondary_txt_records; // second set of text records in AirPlay 2 only
 #endif
     build_bonjour_strings(NULL); // no conn yet
-    mdns_register(t1, t2);
+    mdns_register(t1, t2); // note that the dacp thread could still be using the mdns stuff after all player threads have been terminated, so mdns_unregister can't be in the rtsp_listen_loop cleanup.
 
     pthread_setcancelstate(oldState, NULL);
     int acceptfd;

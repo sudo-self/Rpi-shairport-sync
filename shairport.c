@@ -1619,6 +1619,7 @@ void exit_function() {
         debug(1, "exit_function libdaemon exit");
     }
 #else
+    mdns_unregister(); // once the dacp handler is done and all player threrads are done it should be safe
     debug(1, "normal exit");
 #endif
   } else {
