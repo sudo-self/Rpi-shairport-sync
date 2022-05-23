@@ -1,8 +1,7 @@
 Building Shairport Sync for AirPlay 2
 ==
 * Build instructions are different from previous versions of Shairport Sync. Please read carefully.
-* This code is experimental and much of the normal functionality of Shairport Sync is broken. Please do not use it in situations where reliable service is expected.
-* Be especially careful with audio systems capable of very high volume output -- the volume control in this software may not be reliable!
+* Be very careful with audio systems capable of very high volume output -- the volume control in this software may not be reliable!
 * For now, leave the settings in the configuration file at default except as noted below.
 * At the time of writing, May 2, 2021, everything is on the latest version of the software -- macOS 11.3, iOS 14.5, Raspberry Pi OS 5.10.17-v7l+ (Buster), Ubuntu 20.04 -- fully updated.
 * Shairport Sync relies on a program called [`nqptp`](https://github.com/mikebrady/nqptp) to monitor timing signals. This program uses ports 319 and 320 and replaces any PTP service you have on the computer. 
@@ -10,9 +9,16 @@ Building Shairport Sync for AirPlay 2
 * The POSIX Shared Memory Interface (SMI) Version numbers of `nqptp` and Shairport Sync must match. If they don't, you'll get a message in the logs. It means that one of the programs is out of date with respect to the other.
 * Build instructions are likely to change.
 
+Shairport Sync AirPlay 2 Limitations
+==
+* You can not install Shairport Sync for AirPlay 2 on a Mac. This is because the Mac already uses ports 319 and 320 and so they are not available for the use of NQPTP. Without NQPTP, Shairport Sync can't provide AirPlay 2 service.
+* Fedora can't be used without significant modifications. Fedora 36 does not contain a suitable AAC decoder and its sound system is based on Pipewire, which is incompatible with Shairport Sync.
+* No AirPlay 2 service for iTunes on Windows. This is because iTunes for Windows uses an authentication system that has not deciphered.
+* Remote control from other devices doesn't work well -- the protocol is not understood.
+
 Instructions
 ==
-Overall, you'll be building and installing two programs. The first one is `nqptp` and the second one is Shairport Sync itself. Build `nqptp` first.
+Overall, you'll be building and installing two programs. The first one is `nqptp` and the second one is Shairport Sync itself. Build and install `nqptp` first.
 
 In the commands below, for a Debian/Ubuntu-like Linux, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `apt-get update` in superuser mode and you are in user mode, enter `sudo apt-get update`.
 
@@ -152,8 +158,6 @@ Connect and enjoy...
 
 Follow the steps in [ADDINGTOHOME.md](https://github.com/mikebrady/shairport-sync/blob/development/ADDINGTOHOME.md) to add your Shairport Sync device to the Apple Home system.
 
-### Restart Your Mac!
+### Update Your Mac!
 
-At the time of writing, there seems to be a bug in AirPlay 2 on Apple Silicon Macs and on the Apple TV. It appears that, if the Mac/ATV has been sleeping, the AirPlay 2 infrastructure is not fully reenabled when it wakens up. The `nqptp` program incorporates a workaround which fixes this issue for ATVs and mostly fixes it for macOS. However, it does not completely fix macOS Music on Apple Silicon Macs. The only known solution is to reboot the Mac.
-
-Hopefully, this bug, which is [widely known](https://discussions.apple.com/thread/253041243) and which doesn't just affect Shairport Sync, will be rectified by Apple soon.
+Many AirPlay 2 bugs have been fixed in recent versions of macOS, so it is strongly recommended that you update your Mac.
