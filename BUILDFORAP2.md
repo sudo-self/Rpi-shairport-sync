@@ -11,10 +11,10 @@ Building Shairport Sync for AirPlay 2
 
 Shairport Sync AirPlay 2 Limitations
 ==
-* You can not install Shairport Sync for AirPlay 2 on a Mac. This is because the Mac already uses ports 319 and 320 and so they are not available for the use of NQPTP. Without NQPTP, Shairport Sync can't provide AirPlay 2 service.
-* Fedora can't be used without significant modifications. Fedora 36 does not contain a suitable AAC decoder and its sound system is based on Pipewire, which is incompatible with Shairport Sync.
 * No AirPlay 2 service for iTunes on Windows. This is because iTunes for Windows uses an authentication system that has not deciphered.
 * Remote control from other devices doesn't work well -- the protocol is not understood.
+* You can not install Shairport Sync for AirPlay 2 on a Mac. This is because the Mac already uses ports 319 and 320 and so they are not available for the use of NQPTP. Without NQPTP, Shairport Sync can't provide AirPlay 2 service.
+* Fedora can't be used without significant modifications. Fedora 36 does not contain a suitable AAC decoder and its sound system is based on Pipewire, which is incompatible with Shairport Sync.
 
 Instructions
 ==
