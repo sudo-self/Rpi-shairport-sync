@@ -1586,8 +1586,12 @@ int ap2_buffered_nodelay_stream_statistics_print_profile[] = {0, 0, 0, 0, 0, 0, 
 void statistics_item(const char *heading, const char *format, ...) {
   if (((statistics_print_profile[statistics_column] == 1) && (debuglev != 0)) ||
       (statistics_print_profile[statistics_column] == 2)) { // include this column?
-    if (was_a_previous_column != 0)
-      strcat(line_of_stats, " ");
+    if (was_a_previous_column != 0) {
+      if (statistics_row == 0)
+        strcat(line_of_stats, " | ");
+      else
+        strcat(line_of_stats, "   ");
+    }
     if (statistics_row == 0) {
       strcat(line_of_stats, heading);
     } else {
