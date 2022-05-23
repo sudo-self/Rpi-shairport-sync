@@ -23,7 +23,7 @@
 
 #ifdef CONFIG_AIRPLAY_2
 #include "pair_ap/pair.h"
-#include "plist/plist.h"
+#include <plist/plist.h>
 #endif
 
 #include "alac.h"
