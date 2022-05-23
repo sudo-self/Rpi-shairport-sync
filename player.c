@@ -1321,7 +1321,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       struct timespec time_of_wakeup;
       time_of_wakeup.tv_sec = sec;
       time_of_wakeup.tv_nsec = nsec;
-      //      pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex, &time_of_wakeup);
+
       int rc = pthread_cond_timedwait(&conn->flowcontrol, &conn->ab_mutex,
                                       &time_of_wakeup); // this is a pthread cancellation point
       if ((rc != 0) && (rc != ETIMEDOUT))
