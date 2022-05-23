@@ -195,7 +195,7 @@ From this point on, at least on the Raspberry Pi, if you reboot the machine, it 
 
 ### Optimise startup time -- Raspberry Pi Specific
 
-This is applicable to a Raspberry Pi only. Some of it may be applicable to other systems, but it has not been tested on them. There are quite a few services that are not necessary for this setup. Disabling them can increase startup time. Running these commands disables them:
+This is applicable to a Raspberry Pi only. Some of it may be applicable to other systems, but it has not been tested on them. There are quite a few services that are not necessary for this setup. Disabling them can improve startup time. Running these commands disables them:
 
 ````
 sudo systemctl disable systemd-timesyncd.service
