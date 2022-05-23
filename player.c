@@ -1646,9 +1646,8 @@ void player_thread_cleanup_handler(void *arg) {
              conn->raw_frame_rate, conn->corrected_frame_rate);
     else
       inform("Connection %d: Playback Stopped. Total playing time %02" PRId64 ":%02" PRId64
-             ":%02" PRId64 ". Input: %0.2f "
-             "frames per second.",
-             conn->connection_number, elapsedHours, elapsedMin, elapsedSec, conn->input_frame_rate);
+             ":%02" PRId64 ".",
+             conn->connection_number, elapsedHours, elapsedMin, elapsedSec);
   }
 
 #ifdef CONFIG_DACP_CLIENT
@@ -2034,7 +2033,7 @@ void *player_thread_func(void *arg) {
 #ifdef CONFIG_AIRPLAY_2
   if (conn->airplay_type == ap_2) {
     if (conn->airplay_stream_type == realtime_stream) {
-      if (config.output->stats) {
+      if (config.output->delay) {
         if (config.no_sync == 0)
           statistics_print_profile = ap2_realtime_synced_stream_statistics_print_profile;
         else
@@ -2043,7 +2042,7 @@ void *player_thread_func(void *arg) {
         statistics_print_profile = ap2_realtime_nodelay_stream_statistics_print_profile;
       }
     } else {
-      if (config.output->stats) {
+      if (config.output->delay) {
         if (config.no_sync == 0)
           statistics_print_profile = ap2_buffered_synced_stream_statistics_print_profile;
         else
@@ -2054,7 +2053,7 @@ void *player_thread_func(void *arg) {
     }
   } else {
 #endif
-    if (config.output->stats) {
+    if (config.output->delay) {
       if (config.no_sync == 0)
         statistics_print_profile = ap1_synced_statistics_print_profile;
       else

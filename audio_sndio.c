@@ -51,7 +51,7 @@ audio_output audio_sndio = {.name = "sndio",
                             .is_running = NULL,
                             .flush = &flush,
                             .delay = &delay,
-                            .stats = &stats,
+                            .stats = NULL,
                             .play = &play,
                             .volume = NULL,
                             .parameters = NULL,
@@ -65,15 +65,6 @@ static size_t written;
 uint64_t time_of_last_onmove_cb;
 uint64_t corrected_time_of_last_onmove_cb;
 int at_least_one_onmove_cb_seen;
-
-static uint64_t frames_sent_for_playing;
-// set to true if there has been a discontinuity between the last reported value for "played"
-// and the present reported "played"
-// Note that it will be set when the device is opened, as any previous figures for
-// "played" (which Shairport Sync might hold) would be invalid.
-static int frames_sent_break_occurred;
-static int underrun_seen;
-
 
 struct sio_par par;
 
@@ -205,10 +196,8 @@ static int init(int argc, char **argv) {
     die("sndio: cannot open audio device");
 
   written = played = 0;
-  frames_sent_for_playing = 0;
-  time_of_last_onmove_cb = 0;
+   time_of_last_onmove_cb = 0;
   at_least_one_onmove_cb_seen = 0;
-  underrun_seen = 0;
 
   for (i = 0; i < sizeof(formats) / sizeof(formats[0]); i++) {
     if (formats[i].fmt == config.output_format) {
@@ -264,7 +253,6 @@ static void start(__attribute__((unused)) int sample_rate,
                   __attribute__((unused)) int sample_format) {
   // pthread_mutex_lock(&sndio_mutex);
   pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
-  frames_sent_break_occurred = 1; // there is a discontinuity with
   at_least_one_onmove_cb_seen = 0;
   // any previously-reported frame count
 
@@ -294,7 +282,6 @@ static void stop() {
   if (!sio_stop(hdl))
     die("sndio: unable to stop");
   written = played = 0;
-  frames_sent_break_occurred = 1;
   pthread_cleanup_pop(1); // unlock the mutex
 }
 
@@ -303,14 +290,6 @@ static void onmove_cb(__attribute__((unused)) void *arg, int delta) {
   corrected_time_of_last_onmove_cb = get_monotonic_time_in_ns(); // this is ("disciplined") by NTP
   at_least_one_onmove_cb_seen = 1;
   played += delta;
-  frames_sent_for_playing += delta;
-  if (delta == 0) {
-    debug(1,"No frames written in interval -- is this underrun?");
-    underrun_seen = 1;
-    frames_sent_break_occurred = 1;
-   } else {
-    underrun_seen = 0;
-  }
 }
 
 int get_delay(long *delay) {
@@ -330,10 +309,8 @@ int get_delay(long *delay) {
     // debug(1,"Frames played to last cb: %d, estimated to current time:
     // %d.",played,estimated_extra_frames_output);
   }
-  if ((delay != NULL) && (underrun_seen == 0))
+  if (delay != NULL)
     *delay = (written / framesize) - (played + estimated_extra_frames_output);
-  if (underrun_seen != 0)
-    response = 1;
   return response;
 }
 
@@ -351,11 +328,12 @@ static void flush() {
   if (!sio_stop(hdl) || !sio_start(hdl))
     die("sndio: unable to flush");
   written = played = 0;
-  frames_sent_break_occurred = 1;
   // pthread_mutex_unlock(&sndio_mutex);
   pthread_cleanup_pop(1); // unlock the mutex
 }
 
+/*
+// this doesn't seem to be very accurate, so not using it.
 int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, uint64_t *the_delay,
           uint64_t *frames_sent_to_dac) {
   // returns 0 if the device is in a valid state 
@@ -384,4 +362,5 @@ int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, 
     ret = 1;
   return ret;
 }
+*/
 
