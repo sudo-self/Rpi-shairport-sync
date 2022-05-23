@@ -47,6 +47,13 @@
 #include <avahi-client/lookup.h>
 #include <avahi-common/alternative.h>
 
+
+void threaded_poll_unlock(void *arg) { avahi_threaded_poll_unlock((AvahiThreadedPoll *)arg); }
+
+#define pthread_avahi_threaded_poll_lock_and_push(mu)                    \
+  avahi_threaded_poll_lock(mu);                                          \
+  pthread_cleanup_push(threaded_poll_unlock, (void *)mu)
+
 #define check_avahi_response(debugLevelArg, veryUnLikelyArgumentName)                              \
   {                                                                                                \
     int rc = veryUnLikelyArgumentName;                                                             \
@@ -339,8 +346,10 @@ static int avahi_update(char **txt_records, char **secondary_txt_records) {
     selected_interface = config.interface_index;
   else
     selected_interface = AVAHI_IF_UNSPEC;
+  pthread_avahi_threaded_poll_lock_and_push(tpoll);
+  //avahi_threaded_poll_lock(tpoll);
+  //pthread_cleanup_push(threaded_poll_unlock, (void *)tpoll)
 
-  avahi_threaded_poll_lock(tpoll);
   if (txt_records != NULL) {
     if (text_record_string_list)
       avahi_string_list_free(text_record_string_list);
@@ -364,7 +373,7 @@ static int avahi_update(char **txt_records, char **secondary_txt_records) {
       debug(1, "avahi_update error updating secondary txt records.");
   }
 
-  avahi_threaded_poll_unlock(tpoll);
+  pthread_cleanup_pop(1); // unlock the avahi_threaded_poll_lock
   return 0;
 }
 
@@ -472,7 +481,8 @@ void avahi_dacp_monitor_set_id(const char *dacp_id) {
       char *t = strdup(dacp_id);
       if (t) {
         dbs->dacp_id = t;
-        avahi_threaded_poll_lock(tpoll);
+        pthread_avahi_threaded_poll_lock_and_push(tpoll);
+        // avahi_threaded_poll_lock(tpoll);
         if (dbs->service_browser)
           avahi_service_browser_free(dbs->service_browser);
 
@@ -482,7 +492,8 @@ void avahi_dacp_monitor_set_id(const char *dacp_id) {
           warn("failed to create avahi service browser: %s\n",
                avahi_strerror(avahi_client_errno(client)));
         }
-        avahi_threaded_poll_unlock(tpoll);
+        pthread_cleanup_pop(1); // unlock the avahi_threaded_poll_lock
+        // avahi_threaded_poll_unlock(tpoll);
         debug(2, "dacp_monitor for \"%s\"", dacp_id);
       } else {
         warn("avahi_dacp_set_id: can not allocate a dacp_id string in dacp_browser_struct.");
@@ -495,12 +506,14 @@ void avahi_dacp_monitor_stop() {
   // debug(1, "avahi_dacp_monitor_stop");
   dacp_browser_struct *dbs = &private_dbs;
   // stop and dispose of everything
-  avahi_threaded_poll_lock(tpoll);
+  pthread_avahi_threaded_poll_lock_and_push(tpoll);
+  // avahi_threaded_poll_lock(tpoll);
   if (dbs->service_browser) {
     avahi_service_browser_free(dbs->service_browser);
     dbs->service_browser = NULL;
   }
-  avahi_threaded_poll_unlock(tpoll);
+  pthread_cleanup_pop(1); // unlock the avahi_threaded_poll_lock
+  // avahi_threaded_poll_unlock(tpoll);
   free(dbs->dacp_id);
   debug(2, "avahi_dacp_monitor_stop Avahi DACP monitor successfully stopped");
 }
