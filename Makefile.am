@@ -248,7 +248,8 @@ if INSTALL_FREEBSD_SERVICE
 	pw showuser shairport-sync > /dev/null 2>&1 || pw adduser -c "shairport-sync unprivileged user" -n shairport-sync -u 801 -s /usr/sbin/nologin -d /nonexistent > /dev/null 2>&1
 	[ -e /var/run/shairport-sync ] || mkdir -p /var/run/shairport-sync
 	chown shairport-sync:shairport-sync /var/run/shairport-sync
-	[ -e /usr/local/etc/rc.d/shairport_sync ] || cp scripts/shairport-sync.freebsd /usr/local/etc/rc.d/shairport_sync
+  # Always update the startup script -- this is different to the Linux systemd situation, where the startup script is untouched if it exists.
+	cp scripts/shairport-sync.freebsd /usr/local/etc/rc.d/shairport_sync
 	chmod 555 /usr/local/etc/rc.d/shairport_sync
 endif
 if INSTALL_CYGWIN_SERVICE
