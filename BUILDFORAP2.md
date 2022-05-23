@@ -1,5 +1,6 @@
 Building Shairport Sync for AirPlay 2
 ==
+* Before embarking on building Shairport Sync, you might wish to [check the features and limitations](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md) of the AirPlay 2 service it provides.
 * Build instructions are different from previous versions of Shairport Sync. Please read carefully.
 * Be very careful with audio systems capable of very high volume output -- the volume control in this software may not be reliable!
 * For now, leave the settings in the configuration file at default except as noted below.
@@ -8,13 +9,6 @@ Building Shairport Sync for AirPlay 2
  (FYI, most computers do not have a PTP clock running. They often use a (totally different) [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time.) 
 * The POSIX Shared Memory Interface (SMI) Version numbers of `nqptp` and Shairport Sync must match. If they don't, you'll get a message in the logs. It means that one of the programs is out of date with respect to the other.
 * Build instructions are likely to change.
-
-Shairport Sync AirPlay 2 Limitations
-==
-* No AirPlay 2 service for iTunes on Windows. This is because iTunes for Windows uses an authentication system that has not deciphered.
-* Remote control from other devices doesn't work well -- the protocol is not understood.
-* You can not install Shairport Sync for AirPlay 2 on a Mac. This is because the Mac already uses ports 319 and 320 and so they are not available for the use of NQPTP. Without NQPTP, Shairport Sync can't provide AirPlay 2 service.
-* Fedora can't be used without significant modifications. Fedora 36 does not contain a suitable AAC decoder and its sound system is based on Pipewire, which is incompatible with Shairport Sync.
 
 Instructions
 ==
