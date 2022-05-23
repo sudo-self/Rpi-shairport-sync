@@ -2451,12 +2451,17 @@ void *player_thread_func(void *arg) {
 #endif
                   statistics_item("Nominal FPS", "%*.2f", 11, conn->remote_frame_rate);
                   statistics_item("Received FPS", "%*.2f", 12, conn->input_frame_rate);
-                  if (conn->frame_rate_valid) {
-                    statistics_item("Output FPS (r)", "%*.2f", 14, conn->raw_frame_rate);
-                    statistics_item("Output FPS (c)", "%*.2f", 14, conn->corrected_frame_rate);
+                  // only make the next two columns appear if we are getting stats information from the back end
+                  if (config.output->stats) {
+                    if (conn->frame_rate_valid) {
+                      statistics_item("Output FPS (r)", "%*.2f", 14, conn->raw_frame_rate);
+                      statistics_item("Output FPS (c)", "%*.2f", 14, conn->corrected_frame_rate);
+                    } else {
+                      statistics_item("Output FPS (r)", "           N/A");
+                      statistics_item("Output FPS (c)", "           N/A");
+                    }
                   } else {
-                    statistics_item("Output FPS (r)", "           N/A");
-                    statistics_item("Output FPS (c)", "           N/A");
+                    statistics_column = statistics_column + 2;
                   }
                   statistics_item("Source Drift PPM", "%*.2f", 16,
                                   (conn->local_to_remote_time_gradient - 1.0) * 1000000);
