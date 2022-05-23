@@ -2,7 +2,7 @@ Version 4.1-dev-283-ga62e4b0b
 ====
 **Enhancements**
 * FreeBSD compatibility. Shairport Sync (and NQPTP) can now work in AirPlay 2 mode on a FreeBSD system. Note that the build instructions and the configuration parameters have changed -- `libdaemon` is no longer needed and should not be included.
-* Certain Linux distributions -- notably Fedora 36 -- do not include a suitable AAC decoder for decoding AirPlay 2 Buffered Audio streams. Shairport Sync now includes a check to ensure that the AAC decoder can decode the stream, which seems to be encoded in Floating Point Linear Planar AAC ("`fltp`") format. (The AAC decoder is provided by the [`libavcodec`](https://www.ffmpeg.org/libavcodec.html) library, part of the [`ffmpeg`](https://www.ffmpeg.org) multimedia framework. If troubleshooting is necessary, the  [`ffmpeg`](https://www.ffmpeg.org/ffmpeg.html) command line tool is very useful.
+* Certain Linux distributions -- notably Fedora 36 -- do not include a suitable AAC decoder for decoding AirPlay 2 Buffered Audio streams. Shairport Sync now includes a check to ensure that the AAC decoder can decode the stream, which seems to be encoded in Floating Point Linear Planar AAC ("`fltp`") format. (The AAC decoder is provided by the [`libavcodec`](https://www.ffmpeg.org/libavcodec.html) library, part of the [`ffmpeg`](https://www.ffmpeg.org) multimedia framework. For troubleshooting, the  [`ffmpeg`](https://www.ffmpeg.org/ffmpeg.html) command line tool is very useful.)
 
 Version-4.1-dev-266-g1d228870
 ====
