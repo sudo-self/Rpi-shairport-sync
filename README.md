@@ -13,7 +13,7 @@ Guides
 ---
 * A brief guide to building classic Shairport Sync (for AirPlay 1) is available at [BUILDFORAP1.md](https://github.com/mikebrady/shairport-sync/blob/development/BUILDFORAP1.md).
 * A guide to building Shairport Sync for AirPlay 2 on Linux is available at [BUILDFORAP2.md](https://github.com/mikebrady/shairport-sync/blob/development/BUILDFORAP2.md).
-* A guide to building for AirPlay 2 on FreeBSD is available at [FREEBSD.md](https://github.com/mikebrady/shairport-sync/blob/development/FREEBSD.md).
+* A guide to building for AirPlay 1 or AirPlay 2 on FreeBSD is available at [FREEBSD.md](https://github.com/mikebrady/shairport-sync/blob/development/FREEBSD.md).
 * Please note, a Docker image including Airplay 2 support is available under the docker folder of this repo.
 
 More Information
