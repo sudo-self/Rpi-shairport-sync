@@ -252,6 +252,7 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
 #endif
 
 void usage(char *progname) {
+/*
 #ifdef CONFIG_AIRPLAY_2
   if (has_fplt_capable_aac_decoder() == 0) {
     printf("IMPORTANT NOTE: Shairport Sync will not run on this system.\n");
@@ -259,6 +260,7 @@ void usage(char *progname) {
     printf("but the system's ffmpeg library does not contain one.\n\n");
   }
 #endif
+*/
   printf("Usage: %s [options...]\n", progname);
   printf("  or:  %s [options...] -- [audio output-specific options]\n", progname);
   printf("\n");

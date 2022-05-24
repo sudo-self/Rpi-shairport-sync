@@ -2236,8 +2236,8 @@ void *rtp_buffered_audio_processor(void *arg) {
   // push a closer -- av_parser_close(codec_parser_context);
   pthread_cleanup_push(av_parser_init_cleanup_handler, codec_parser_context);
 
-  if (codec_context->sample_fmt != AV_SAMPLE_FMT_FLTP)
-    die("the AAC decoder is not capable of handling Floating Point Planar (\"fltp\") formatted AAC-encoded material.");
+  // if (codec_context->sample_fmt != AV_SAMPLE_FMT_FLTP)
+  //  die("the AAC decoder is not capable of handling Floating Point Planar (\"fltp\") formatted AAC-encoded material.");
 
   AVPacket *pkt = av_packet_alloc();
   if (pkt == NULL) {
