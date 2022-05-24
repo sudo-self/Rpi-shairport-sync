@@ -87,7 +87,7 @@ $ su
 # make install
 ```
 
-With the `./configure` options shown above, this will install the `shairport-sync` program along with a sample configuration file at `/usr/local/etc/shairport-sync.conf`. A service startup script will also be installed to launch Shairport Sync as a daemon. In addition, a `shairport-sync` user and group will be added to enable `shairport-sync` to run with a low level of privilige (a primitive form of extra security).
+With the `./configure` options shown above, this will install the `shairport-sync` program along with a sample configuration file at `/usr/local/etc/shairport-sync.conf`. A service startup script will also be installed to launch Shairport Sync as a daemon. In addition, a `shairport-sync` user and group will be added to enable `shairport-sync` to run with a low level of privilege (a primitive form of extra security).
 
 Finally, edit `/usr/local/etc/shairport-sync.conf` to customise your installation, e.g. service name, etc. To make the `shairport-sync` daemon load at startup, add the following line to `/etc/rc.conf`:
 
