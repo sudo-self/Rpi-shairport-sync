@@ -51,7 +51,7 @@ Add `alsa-utils` if you're wish to use ALSA. Omit `sndio` if you don't intend to
 
 Add `libplist libsodium ffmpeg e2fsprogs-libuuid vim` if you are building for AirPlay 2.
 
-At this point, if you intend to build Shairport Sync for AirPlay 2, you should build and install `NQPTP`, a companion application that provides AirPlay 2 timing support for Shairport Sync. You'll find the software itself and an installation guide [here](https://github.com/mikebrady/nqptp/blob/main/README.md) (guide not yet updated for FreeBSD). Once you have built, installed and enabled NQPTP, you can proceed with building Shairport Sync.
+At this point, if you intend to build Shairport Sync for AirPlay 2, you should build and install `NQPTP`, a companion application that provides AirPlay 2 timing support for Shairport Sync. You'll find the software itself and an installation guide [here](https://github.com/mikebrady/nqptp/blob/main/README.md). Once you have built, installed and enabled NQPTP, you can proceed with building Shairport Sync.
 
 Now, download Shairport Sync from GitHub:
 ```
