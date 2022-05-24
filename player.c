@@ -1310,7 +1310,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
         die("input_rate is zero -- should never happen!");
       uint64_t time_to_wait_for_wakeup_ns =
           1000000000 / conn->input_rate;     // this is time period of one frame
-      time_to_wait_for_wakeup_ns *= 2 * 352; // two full 352-frame packets
+      time_to_wait_for_wakeup_ns *= 12 * 352; // two full 352-frame packets
       time_to_wait_for_wakeup_ns /= 3;       // two thirds of a packet time
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD

@@ -2235,7 +2235,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   }
   // push a closer -- av_parser_close(codec_parser_context);
   pthread_cleanup_push(av_parser_init_cleanup_handler, codec_parser_context);
-  
+
   if (codec_context->sample_fmt != AV_SAMPLE_FMT_FLTP)
     die("the AAC decoder is not capable of handling Floating Point Planar (\"fltp\") formatted AAC-encoded material.");
 
@@ -2455,7 +2455,7 @@ void *rtp_buffered_audio_processor(void *arg) {
                                      352)) { // must be greater than the lead time.
         // if there is enough stuff in the player's buffer, sleep for a while and try again
         debug(3, "sleep while full");
-        usleep(10000); // wait for a while
+        usleep(20000); // wait for a while
       } else {
         if ((pcm_buffer_occupancy - pcm_buffer_read_point) >= (352 * conn->input_bytes_per_frame)) {
           new_buffer_needed = 0;
@@ -2530,7 +2530,7 @@ void *rtp_buffered_audio_processor(void *arg) {
             }
           } else {
             debug(3, "sleep until demand");
-            usleep(10000); // wait before asking if play is enabled again
+            usleep(20000); // wait before asking if play is enabled again
           }
         } else {
           new_buffer_needed = 1;
