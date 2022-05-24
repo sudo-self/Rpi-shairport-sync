@@ -1947,9 +1947,11 @@ int main(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
-  if (has_fplt_capable_aac_decoder() == 0) {
+/*
+  if (has_fltp_capable_aac_decoder() == 0) {
     die("Shairport Sync will not run on this system. A Floating Point Planar (\"fplt\") AAC decoder is required, but the system's ffmpeg library does not contain one.");
   }
+*/
 
   uint64_t apf = config.airplay_features;
   uint64_t apfh = config.airplay_features;
