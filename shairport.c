@@ -147,8 +147,8 @@ void print_version(void) {
 }
 
 #ifdef CONFIG_AIRPLAY_2
-int has_fplt_capable_aac_decoder(void) {
-  // return 1 if the AAC decoder advertises ftlp decoding capability, which
+int has_fltp_capable_aac_decoder(void) {
+  // return 1 if the AAC decoder advertises fltp decoding capability, which
   // is needed for decoding Buffered Audio streams
   int has_capability = 0;
   const AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
@@ -254,9 +254,9 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
 void usage(char *progname) {
 /*
 #ifdef CONFIG_AIRPLAY_2
-  if (has_fplt_capable_aac_decoder() == 0) {
+  if (has_fltp_capable_aac_decoder() == 0) {
     printf("IMPORTANT NOTE: Shairport Sync will not run on this system.\n");
-    printf("A Floating Point Planar (\"fplt\") AAC decoder is required,\n");
+    printf("A Floating Planar (\"fltp\") AAC decoder is required,\n");
     printf("but the system's ffmpeg library does not contain one.\n\n");
   }
 #endif
