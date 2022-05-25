@@ -46,9 +46,9 @@
 #ifdef CONFIG_AIRPLAY_2
 #include "ptp-utilities.h"
 #include <gcrypt.h>
+#include <libavcodec/avcodec.h>
 #include <sodium.h>
 #include <uuid/uuid.h>
-#include <libavcodec/avcodec.h>
 #endif
 
 #ifdef CONFIG_MBEDTLS
@@ -129,6 +129,8 @@ pthread_t rtsp_listener_thread;
 int killOption = 0;
 int daemonisewith = 0;
 int daemonisewithout = 0;
+int log_to_syslog_selected = 0;
+int log_to_syslog_select_is_first_command_line_argument = 0;
 
 // static int shutting_down = 0;
 char configuration_file_path[4096 + 1];
@@ -256,90 +258,103 @@ void usage(char *progname) {
 #ifdef CONFIG_AIRPLAY_2
   if (has_fltp_capable_aac_decoder() == 0) {
     printf("\nIMPORTANT NOTE: Shairport Sync can not run on this system.\n");
-    printf("A Floating Planar (\"fltp\") AAC decoder is required,\n");
+    printf("A Floating Planar (\"fltp\") AAC decoder is required, ");
     printf("but the system's ffmpeg library does not seem to include one.\n");
-    printf("See: https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only\n\n");
+    printf("See: "
+           "https://github.com/mikebrady/shairport-sync/blob/development/"
+           "TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only\n\n");
 
   } else {
 #endif
 
-  printf("Usage: %s [options...]\n", progname);
-  printf("  or:  %s [options...] -- [audio output-specific options]\n", progname);
-  printf("\n");
-  printf("Options:\n");
-  printf("    -h, --help              show this help.\n");
+    printf("Usage: %s [options...]\n", progname);
+    printf("  or:  %s [options...] -- [audio output-specific options]\n", progname);
+    printf("\n");
+    printf("Options:\n");
+    printf("    -h, --help              show this help.\n");
 #ifdef CONFIG_LIBDAEMON
-  printf("    -d, --daemon            daemonise.\n");
-  printf("    -j, --justDaemoniseNoPIDFile            daemonise without a PID file.\n");
-  printf("    -k, --kill              kill the existing shairport daemon.\n");
+    printf("    -d, --daemon            daemonise.\n");
+    printf("    -j, --justDaemoniseNoPIDFile            daemonise without a PID file.\n");
+    printf("    -k, --kill              kill the existing shairport daemon.\n");
 #endif
-  printf("    -V, --version           show version information.\n");
-  printf("    -c, --configfile=FILE   read configuration settings from FILE. Default is "
-         "/etc/shairport-sync.conf.\n");
+    printf("    -V, --version           show version information.\n");
+    printf("    -c, --configfile=FILE   read configuration settings from FILE. Default is "
+           "/etc/shairport-sync.conf.\n");
 
-  printf("\n");
-  printf("The following general options are for backward compatibility. These and all new options "
-         "have settings in the configuration file, by default /etc/shairport-sync.conf:\n");
-  printf("    -v, --verbose           -v print debug information; -vv more; -vvv lots.\n");
-  printf("    -p, --port=PORT         set RTSP listening port.\n");
-  printf("    -a, --name=NAME         set advertised name.\n");
-  printf("    -L, --latency=FRAMES    [Deprecated] Set the latency for audio sent from an unknown "
-         "device.\n");
-  printf("                            The default is to set it automatically.\n");
-  printf("    -S, --stuffing=MODE set how to adjust current latency to match desired latency, "
-         "where \n");
-  printf("                            \"basic\" inserts or deletes audio frames from "
-         "packet frames with low processor overhead, and \n");
-  printf("                            \"soxr\" uses libsoxr to minimally resample packet frames -- "
-         "moderate processor overhead.\n");
-  printf(
-      "                            \"soxr\" option only available if built with soxr support.\n");
-  printf("    -B, --on-start=PROGRAM  run PROGRAM when playback is about to begin.\n");
-  printf("    -E, --on-stop=PROGRAM   run PROGRAM when playback has ended.\n");
-  printf("                            For -B and -E options, specify the full path to the program, "
-         "e.g. /usr/bin/logger.\n");
-  printf(
-      "                            Executable scripts work, but must have the appropriate shebang "
-      "(#!/bin/sh) in the headline.\n");
-  printf(
-      "    -w, --wait-cmd          wait until the -B or -E programs finish before continuing.\n");
-  printf("    -o, --output=BACKEND    select audio output method.\n");
-  printf("    -m, --mdns=BACKEND      force the use of BACKEND to advertize the service.\n");
-  printf("                            if no mdns provider is specified,\n");
-  printf("                            shairport tries them all until one works.\n");
-  printf("    -r, --resync=THRESHOLD  [Deprecated] resync if error exceeds this number of frames. "
-         "Set to 0 to "
-         "stop resyncing.\n");
-  printf("    -t, --timeout=SECONDS   go back to idle mode from play mode after a break in "
-         "communications of this many seconds (default 120). Set to 0 never to exit play mode.\n");
-  printf("    --statistics            print some interesting statistics -- output to the logfile "
-         "if running as a daemon.\n");
-  printf("    --tolerance=TOLERANCE   [Deprecated] allow a synchronization error of TOLERANCE "
-         "frames (default "
-         "88) before trying to correct it.\n");
-  printf("    --password=PASSWORD     require PASSWORD to connect. Default is not to require a "
-         "password.\n");
-  printf("    --logOutputLevel        log the output level setting -- useful for setting maximum "
-         "volume.\n");
+    printf("\n");
+    printf(
+        "The following general options are for backward compatibility. These and all new options "
+        "have settings in the configuration file, by default /etc/shairport-sync.conf:\n");
+    printf("    -v, --verbose           -v print debug information; -vv more; -vvv lots.\n");
+    printf("    -p, --port=PORT         set RTSP listening port.\n");
+    printf("    -a, --name=NAME         set advertised name.\n");
+    printf(
+        "    -L, --latency=FRAMES    [Deprecated] Set the latency for audio sent from an unknown "
+        "device.\n");
+    printf("                            The default is to set it automatically.\n");
+    printf("    -S, --stuffing=MODE set how to adjust current latency to match desired latency, "
+           "where \n");
+    printf("                            \"basic\" inserts or deletes audio frames from "
+           "packet frames with low processor overhead, and \n");
+    printf(
+        "                            \"soxr\" uses libsoxr to minimally resample packet frames -- "
+        "moderate processor overhead.\n");
+    printf("                            \"auto\" (default) chooses basic or soxr depending on "
+           "processor capability.\n");
+    printf(
+        "                            \"soxr\" option only available if built with soxr support.\n");
+    printf("    -B, --on-start=PROGRAM  run PROGRAM when playback is about to begin.\n");
+    printf("    -E, --on-stop=PROGRAM   run PROGRAM when playback has ended.\n");
+    printf(
+        "                            For -B and -E options, specify the full path to the program, "
+        "e.g. /usr/bin/logger.\n");
+    printf("                            Executable scripts work, but must have the appropriate "
+           "shebang "
+           "(#!/bin/sh) in the headline.\n");
+    printf(
+        "    -w, --wait-cmd          wait until the -B or -E programs finish before continuing.\n");
+    printf("    -o, --output=BACKEND    select audio output method.\n");
+    printf("    -m, --mdns=BACKEND      force the use of BACKEND to advertize the service.\n");
+    printf("                            if no mdns provider is specified,\n");
+    printf("                            shairport tries them all until one works.\n");
+    printf(
+        "    -r, --resync=THRESHOLD  [Deprecated] resync if error exceeds this number of frames. "
+        "Set to 0 to "
+        "stop resyncing.\n");
+    printf(
+        "    -t, --timeout=SECONDS   go back to idle mode from play mode after a break in "
+        "communications of this many seconds (default 120). Set to 0 never to exit play mode.\n");
+    printf("    --statistics            print some interesting statistics -- output to the logfile "
+           "if running as a daemon.\n");
+    printf("    --tolerance=TOLERANCE   [Deprecated] allow a synchronization error of TOLERANCE "
+           "frames (default "
+           "88) before trying to correct it.\n");
+    printf("    --password=PASSWORD     require PASSWORD to connect. Default is not to require a "
+           "password.\n");
+    printf("    --logOutputLevel        log the output level setting -- useful for setting maximum "
+           "volume.\n");
 #ifdef CONFIG_METADATA
-  printf("    -M, --metadata-enable   ask for metadata from the source and process it.\n");
-  printf("    --metadata-pipename=PIPE send metadata to PIPE, e.g. "
-         "--metadata-pipename=/tmp/%s-metadata.\n",
-         config.appName);
-  printf("                            The default is /tmp/%s-metadata.\n", config.appName);
-  printf("    -g, --get-coverart      send cover art through the metadata pipe.\n");
+    printf("    -M, --metadata-enable   ask for metadata from the source and process it.\n");
+    printf("    --metadata-pipename=PIPE send metadata to PIPE, e.g. "
+           "--metadata-pipename=/tmp/%s-metadata.\n",
+           config.appName);
+    printf("                            The default is /tmp/%s-metadata.\n", config.appName);
+    printf(
+        "    -g, --get-coverart      Include cover art in the metadata to be gathered and sent.\n");
 #endif
-  printf("    -u, --use-stderr        log messages through STDERR rather than the system log.\n");
-  printf("\n");
-  mdns_ls_backends();
-  printf("\n");
-  audio_ls_outputs();
+    printf("    --log-to-syslog         send debug and statistics information through syslog\n");
+    printf(
+        "                            If used, this should be the first command line argument.\n");
+    printf("    -u, --use-stderr        [Deprecated] This setting is not needed -- stderr is now "
+           "used by default.\n");
+    printf("\n");
+    mdns_ls_backends();
+    printf("\n");
+    audio_ls_outputs();
 
 #ifdef CONFIG_AIRPLAY_2
   }
 #endif
-
-
 }
 
 int parse_options(int argc, char **argv) {
@@ -375,6 +390,7 @@ int parse_options(int argc, char **argv) {
       {"password", 0, POPT_ARG_STRING, &config.password, 0, NULL, NULL},
       {"tolerance", 'z', POPT_ARG_INT, &fTolerance, 0, NULL, NULL},
       {"use-stderr", 'u', POPT_ARG_NONE, NULL, 'u', NULL, NULL},
+      {"log-to-syslog", 0, POPT_ARG_NONE, &log_to_syslog_selected, 0, NULL, NULL},
 #ifdef CONFIG_METADATA
       {"metadata-enable", 'M', POPT_ARG_NONE, &config.metadata_enabled, 'M', NULL, NULL},
       {"metadata-pipename", 0, POPT_ARG_STRING, &config.metadata_pipename, 0, NULL, NULL},
@@ -395,7 +411,7 @@ int parse_options(int argc, char **argv) {
     die("Can not get a secondary popt context.");
   poptSetOtherOptionHelp(optCon, "[OPTIONS]* ");
 
-  /* Now do options processing just to get a debug level */
+  /* Now do options processing just to get a debug log destination and level */
   debuglev = 0;
   while ((c = poptGetNextOpt(optCon)) >= 0) {
     switch (c) {
@@ -403,7 +419,8 @@ int parse_options(int argc, char **argv) {
       debuglev++;
       break;
     case 'u':
-      log_to_stderr();
+      inform("Warning: the option -u is no longer needed and is deprecated. Debug and statistics "
+             "output to STDERR is now the default. Use \"--log-to-syslog\" to revert.");
       break;
     case 'D':
       inform("Warning: the option -D or --disconnectFromOutput is deprecated.");
@@ -441,6 +458,15 @@ int parse_options(int argc, char **argv) {
   }
 
   poptFreeContext(optCon);
+
+  if (log_to_syslog_selected) {
+    // if this was the first command line argument, it'll already have been chosen
+    if (log_to_syslog_select_is_first_command_line_argument == 0) {
+      inform("Suggestion: make \"--log-to-syslog\" the first command line argument to ensure "
+             "messages go to the syslog right from the beginning.");
+    }
+    log_to_syslog();
+  }
 
 #ifdef CONFIG_LIBDAEMON
   if ((daemonisewith) && (daemonisewithout))
@@ -1404,7 +1430,7 @@ int parse_options(int argc, char **argv) {
     strcat(temp_metadata_pipe_name, config.appName);
     strcat(temp_metadata_pipe_name, "-metadata");
     config.metadata_pipename = strdup(temp_metadata_pipe_name);
-    debug(1, "default metadata_pipename is \"%s\".", temp_metadata_pipe_name);
+    debug(2, "default metadata_pipename is \"%s\".", temp_metadata_pipe_name);
   }
 #endif
 
@@ -1629,7 +1655,8 @@ void exit_function() {
         debug(1, "exit_function libdaemon exit");
     }
 #else
-    mdns_unregister(); // once the dacp handler is done and all player threrads are done it should be safe
+    mdns_unregister(); // once the dacp handler is done and all player threrads are done it should
+                       // be safe
     debug(1, "normal exit");
 #endif
   } else {
@@ -1672,7 +1699,13 @@ int main(int argc, char **argv) {
     exit(EXIT_SUCCESS);
   }
 
-  log_to_syslog();
+  /* Check if we are called with -log-to-syslog */
+  if (argc >= 2 && (strcmp(argv[1], "--log-to-syslog") == 0)) {
+    log_to_syslog_select_is_first_command_line_argument = 1;
+    log_to_syslog();
+  } else {
+    log_to_stderr();
+  }
 
   pid = getpid();
   config.log_fd = -1;
@@ -1689,7 +1722,6 @@ int main(int argc, char **argv) {
     die("can not allocate memory for the app name!");
   free(basec);
 
-//  debug(1,"startup");
 #ifdef CONFIG_LIBDAEMON
   daemon_set_verbosity(LOG_DEBUG);
 #else
@@ -1815,13 +1847,13 @@ int main(int argc, char **argv) {
   daemon_pid_file_proc = pid_file_proc;
 
 #endif
-
   // parse arguments into config -- needed to locate pid_dir
   int audio_arg = parse_options(argc, argv);
 
   // mDNS supports maximum of 63-character names (we append 13).
   if (strlen(config.service_name) > 50) {
-    warn("Supplied name too long (max 50 characters)");
+    warn("The service name \"%s\" is too long (max 50 characters) and has been truncated.",
+         config.service_name);
     config.service_name[50] = '\0'; // truncate it and carry on...
   }
 
@@ -1957,19 +1989,19 @@ int main(int argc, char **argv) {
 #ifdef CONFIG_AIRPLAY_2
 
   if (has_fltp_capable_aac_decoder() == 0) {
-    die("Shairport Sync can not run on this system. Run \"shairport-sync -h\" for more.");
+    die("Shairport Sync can not run on this system. Run \"shairport-sync -h\" for more "
+        "information.");
   }
-
 
   uint64_t apf = config.airplay_features;
   uint64_t apfh = config.airplay_features;
   apfh = apfh >> 32;
   uint32_t apf32 = apf;
   uint32_t apfh32 = apfh;
-  debug(1, "Started in Airplay 2 mode with features 0x%" PRIx32 ",0x%" PRIx32 " on device \"%s\"!",
+  debug(1, "startup in Airplay 2 mode with features 0x%" PRIx32 ",0x%" PRIx32 " on device \"%s\".",
         apf32, apfh32, config.airplay_device_id);
 #else
-  debug(1, "Started in Airplay 1 mode!");
+  debug(1, "startup in Airplay 1 mode.");
 #endif
 
   // control-c (SIGINT) cleanly

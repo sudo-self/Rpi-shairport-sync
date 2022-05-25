@@ -5,7 +5,7 @@ Wants=network-online.target
 After=network.target network-online.target
 
 [Service]
-ExecStart=@prefix@/bin/shairport-sync
+ExecStart=@prefix@/bin/shairport-sync --log-to-syslog
 User=shairport-sync
 Group=shairport-sync
 
