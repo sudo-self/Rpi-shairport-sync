@@ -260,7 +260,7 @@ void usage(char *progname) {
     printf("but the system's ffmpeg library does not seem to include one.\n");
     printf("See: https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only\n\n");
 
-  }
+  } else {
 #endif
 
   printf("Usage: %s [options...]\n", progname);
@@ -334,6 +334,12 @@ void usage(char *progname) {
   mdns_ls_backends();
   printf("\n");
   audio_ls_outputs();
+
+#ifdef CONFIG_AIRPLAY_2
+  }
+#endif
+
+
 }
 
 int parse_options(int argc, char **argv) {
