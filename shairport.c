@@ -252,15 +252,17 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
 #endif
 
 void usage(char *progname) {
-/*
+
 #ifdef CONFIG_AIRPLAY_2
   if (has_fltp_capable_aac_decoder() == 0) {
-    printf("IMPORTANT NOTE: Shairport Sync will not run on this system.\n");
+    printf("IMPORTANT NOTE: Shairport Sync can not run on this system.\n");
     printf("A Floating Planar (\"fltp\") AAC decoder is required,\n");
-    printf("but the system's ffmpeg library does not contain one.\n\n");
+    printf("but the system's ffmpeg library does not seem to include one.\n\n");
+    printf("See: https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only.\n");
+
   }
 #endif
-*/
+
   printf("Usage: %s [options...]\n", progname);
   printf("  or:  %s [options...] -- [audio output-specific options]\n", progname);
   printf("\n");
@@ -1947,11 +1949,11 @@ int main(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
-/*
+
   if (has_fltp_capable_aac_decoder() == 0) {
-    die("Shairport Sync will not run on this system. A Floating Point Planar (\"fplt\") AAC decoder is required, but the system's ffmpeg library does not contain one.");
+    die("Shairport Sync can not run on this system. Run \"shairport-sync -h\" for more.");
   }
-*/
+
 
   uint64_t apf = config.airplay_features;
   uint64_t apfh = config.airplay_features;
