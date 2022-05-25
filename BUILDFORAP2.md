@@ -1,11 +1,11 @@
 Building Shairport Sync for AirPlay 2
 ==
 * Before building Shairport Sync, you might wish to [check the features and limitations](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md#features-and-limitations) of the AirPlay 2 service it provides.
+* Very recent versions of Linux / FreeBSD are required for AirPlay 2 operation. At the time of writing, May 2, 2021, everything is on the latest version of the software -- macOS 11.3, iOS 14.5, Raspberry Pi OS 5.10.17-v7l+ (Buster), FreeBSD 12.1, Ubuntu 20.04 -- fully updated.
 * Build instructions are different from previous versions of Shairport Sync. Please read carefully.
 * Be very careful with audio systems capable of very high volume output -- the volume control in this software may not be reliable!
 * For now, leave the settings in the configuration file at default except as noted below.
-* At the time of writing, May 2, 2021, everything is on the latest version of the software -- macOS 11.3, iOS 14.5, Raspberry Pi OS 5.10.17-v7l+ (Buster), Ubuntu 20.04 -- fully updated.
-* Shairport Sync relies on a program called [`nqptp`](https://github.com/mikebrady/nqptp) to monitor timing signals. This program uses ports 319 and 320 and replaces any PTP service you have on the computer. 
+* Shairport Sync relies on a companion program called [`nqptp`](https://github.com/mikebrady/nqptp) to monitor timing signals. This program uses ports 319 and 320 and replaces any PTP service you have on the computer. 
  (FYI, most computers do not have a PTP clock running. They often use a (totally different) [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time.) 
 * The POSIX Shared Memory Interface (SMI) Version numbers of `nqptp` and Shairport Sync must match. If they don't, you'll get a message in the logs. It means that one of the programs is out of date with respect to the other.
 * Build instructions are likely to change.
