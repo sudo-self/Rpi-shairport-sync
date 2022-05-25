@@ -258,7 +258,7 @@ void usage(char *progname) {
     printf("\nIMPORTANT NOTE: Shairport Sync can not run on this system.\n");
     printf("A Floating Planar (\"fltp\") AAC decoder is required,\n");
     printf("but the system's ffmpeg library does not seem to include one.\n");
-    printf("See: https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only.\n\n");
+    printf("See: https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only\n\n");
 
   }
 #endif
