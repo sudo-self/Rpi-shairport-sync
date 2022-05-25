@@ -1,3 +1,22 @@
+Version 4.1-dev-317-g0dc34a46
+====
+***Pesky Changes You Can't Ignore***
+
+A change has been made the `shairport-sync`service/startup files, so before updating, please rerun the `./configure...` step and (Linux only) remove the existing service file as follows:
+```
+$ ./configure ...  # whatever your preferred options are...
+# rm /lib/systemd/system/shairport-sync.service # Linux only -- no need for this in FreeBSD
+```
+**Enhancements**
+* The AAC decoder check for AirPlay 2 operation was temporarily removed but has now been reinstated and is working again. If it is causing problems, please let us know. A section has been added to the [TROUBLESHOOTING.md](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only) document.
+* Debugging and statistical information now outputs to `STDERR` by default, so the rather confusing `-u` command line option is no longer needed. This has the following implications:
+  * If Shairport Sync is run from a terminal window, then messages, warnings, debug and statistical information will appear on the terminal window.
+  * If Shairport Sync is run as a daemon, then `STDERR` will be redirected to the system log.
+  * If you wish to use [syslog](https://en.wikipedia.org/wiki/Syslog) (e.g. you might wish to see the different levels of highlighting of different categories of information),
+there is a new command line option `--log-to-syslog`. (This is used by the modified startup scripts.)
+* The `-u` option is now redundant and is deprecated (see above).
+* A new command line option `--log-to-syslog` allows you to direct messages, warnings, debug and statistical information to [syslog](https://en.wikipedia.org/wiki/Syslog). For full effect, it should be the first argument in your list of command line arguments. It is really intended for when Shairport Sync is run as a daemon.
+
 Version 4.1-dev-283-ga62e4b0b
 ====
 **Enhancements**
