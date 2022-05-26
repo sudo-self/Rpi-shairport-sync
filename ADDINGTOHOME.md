@@ -1,4 +1,4 @@
-Here is a brief guide to adding a Shairport Sync device to the Apple Home application on iOS 15.3.1. Note that Shairport Sync has to be built with AirPlay 2 support.
+Here is a how to add a Shairport Sync device to the Apple Home application on iOS 15.3.1. Note that Shairport Sync has to be built with AirPlay 2 support.
 
 ***
 
