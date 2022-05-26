@@ -17,7 +17,7 @@ Shairport Sync does not support lossless playback of Lossless or High Definition
 
 AirPlay 2 -- What You Need
 ---
-AirPlay 2 support needs a slightly more powerful CPU for decoding and synchronisation and more memory for bigger buffers and larger libraries. A Raspberry Pi 2 or Raspberry Pi Zero 2 W or better is required.
+AirPlay 2 support needs a slightly more powerful CPU for decoding and synchronisation and more memory for bigger buffers and larger libraries. A Raspberry Pi 2 or Raspberry Pi Zero 2 W or better is recommended.
 
 Here are some guidelines: 
 * Full access, including `root` privileges, to a system at least as powerful as a Raspberry Pi 2 or a Raspberry Pi Zero 2 W.
