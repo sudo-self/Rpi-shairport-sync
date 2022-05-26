@@ -47,7 +47,7 @@ Install the packages that are needed for Shairport Sync to be downloaded and bui
 ```
 # pkg install git autotools pkgconf popt libconfig openssl sndio
 ```
-* Add `alsa-utils` if you're wish to use ALSA.
+* Add `alsa-utils` if you wish to use ALSA.
 * Omit `sndio` if you don't intend to use the `sndio` subsystem.
 * Add `libplist libsodium ffmpeg e2fsprogs-libuuid vim` if you are building for AirPlay 2.
 
