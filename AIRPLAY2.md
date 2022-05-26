@@ -4,7 +4,8 @@ Shairport Sync offers AirPlay 2 support for audio sources on iOS devices, Macs, 
 
 ### Features and Limitations
 #### What Works
-- AirPlay 2 for iOS, HomePod mini, AppleTV and Mac players.
+- AirPlay 2 audio for iOS, HomePod mini, AppleTV and Mac players.
+- Devices running Shairport Sync in AirPlay 2 mode can be [added as speakers](https://github.com/mikebrady/shairport-sync/blob/development/ADDINGTOHOME.md) to the Home app. 
 
 #### What Does Not Work
 - No Remote Control
