@@ -150,6 +150,7 @@ void print_version(void) {
 
 #ifdef CONFIG_AIRPLAY_2
 int has_fltp_capable_aac_decoder(void) {
+/*
   // return 1 if the AAC decoder advertises fltp decoding capability, which
   // is needed for decoding Buffered Audio streams
   int has_capability = 0;
@@ -166,6 +167,8 @@ int has_fltp_capable_aac_decoder(void) {
     }
   }
   return has_capability;
+*/
+  return 1; // disable this check
 }
 #endif
 
