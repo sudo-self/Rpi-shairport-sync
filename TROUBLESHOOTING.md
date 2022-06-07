@@ -246,18 +246,18 @@ Audio may seem to pause or drop for several seconds. iOS devices may regularly d
 
 **Possible Solution **
 
-If none of the above steps completely remove the issue, try increasing the audio backend buffer setting in the backend section of shairport-sync.conf. (This section may vary depending on the value of the "output_backend" setting.)
+If none of the above steps completely remove the issue, try increasing the audio backend buffer setting in the backend section of shairport-sync.conf. (This section may vary depending on the value of the `"output_backend"` setting.)
 
 For example:
 
 ````
 audio_backend_buffer_desired_length = 19845;
 ````
-Is triple the default for the ALSA backend and effectively solves the above issue with a Pi Zero on a busy network.
+...is triple the default for the ALSA backend and effectively solves the above issue with a Pi Zero on a busy network.
 
 ### AAC Decoder Issues (AirPlay 2 only)
 
-To play AirPlay 2 Buffered Audio streams, Shairport Sync needs an AAC decoder capable of decoding Floating Planar -- `fltp` -- AAC material. Unfortunately, not all systems have such a decoder. The idea here is to use the [`ffmpeg`](https://www.ffmpeg.org) app, which may already be installed in your system, to list AAC decoders and to check that the default AAC decoder has `fplp` capability. Here is an example of where the AAC decoder _can_ decode `fltp` material. The system is a Raspberry Pi running 64-bit Raspberry Pi OS Lite 11 (Bullseye):
+To play AirPlay 2 Buffered Audio streams, Shairport Sync needs an AAC decoder capable of decoding Planar Floating Point -- `fltp` -- AAC material. Unfortunately, not all systems have such a decoder. To troubleshoot this, the idea here is to use the [`ffmpeg`](https://www.ffmpeg.org) app, which may already be installed in your system, to list AAC decoders and to check that the default AAC decoder has `fplp` capability. Here is an example of where the AAC decoder _can_ decode `fltp` material. The system is a Raspberry Pi running 64-bit Raspberry Pi OS Lite 11 (Bullseye):
 ```
 $ ffmpeg -decoders | grep -i aac
 
