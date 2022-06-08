@@ -12,9 +12,9 @@ Shairport Sync offers AirPlay 2 support for audio sources on iOS devices, Macs, 
 - No AirPlay 2 for Windows iTunes
 
 ### General
-Shairport Sync uses another application called [`nqptp`](https://github.com/mikebrady/nqptp) ("Not Quite PTP") for timing and synchronisation in AirPlay 2. `nqptp` must run as `root` and must have exclusive access to ports `319` and `320`.
+Shairport Sync uses a companion application called [`nqptp`](https://github.com/mikebrady/nqptp) ("Not Quite PTP") for timing and synchronisation in AirPlay 2. `nqptp` must run as `root` and must have exclusive access to ports `319` and `320`.
 
-Shairport Sync does not support lossless playback of Lossless or High Definition Lossless material. Instead, this material is automatically transcoded to AAC before sending it via AirPlay 2 to Shairport Sync. 
+Lossless and High Definition Lossless material is transcoded to AAC before it reaches Shairport Sync. 
 
 AirPlay 2 -- What You Need
 ---
@@ -39,7 +39,7 @@ AirPlay 2 -- More About What Works
 
 Note
 ----
-The functionality offered by Shairport Sync is the result of lots of study and analysis of the AirPlay 1 and AirPlay 2 protocols by many people over the years. These protocols have not been officially published, and there is no assurance that Shairport Sync will continue to work with AirPlay in future.
+The functionality offered by Shairport Sync is the result of study and analysis of the AirPlay 1 and AirPlay 2 protocols by many people over the years. These protocols have not been officially published, and there is no assurance that Shairport Sync will continue to work with AirPlay in future.
 
 Acknowledgements
 ----
