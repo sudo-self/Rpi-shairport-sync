@@ -150,7 +150,7 @@ void print_version(void) {
 
 #ifdef CONFIG_AIRPLAY_2
 int has_fltp_capable_aac_decoder(void) {
-/*
+
   // return 1 if the AAC decoder advertises fltp decoding capability, which
   // is needed for decoding Buffered Audio streams
   int has_capability = 0;
@@ -167,8 +167,6 @@ int has_fltp_capable_aac_decoder(void) {
     }
   }
   return has_capability;
-*/
-  return 1; // disable this check
 }
 #endif
 
@@ -230,17 +228,21 @@ void *soxr_time_check(__attribute__((unused)) void *arg) {
                  NULL, NULL);                          // Default configuration.
   }
 
-  double soxr_execution_time_ns = (get_absolute_time_in_ns() - soxr_start_time) * 1.0;
+  int64_t soxr_execution_time =
+      get_absolute_time_in_ns() - soxr_start_time;   // this must be zero or positive
+  int soxr_execution_time_int = soxr_execution_time; // must be in or around 1500000000
+
   // free(outbuffer);
   // free(inbuffer);
+
   if (number_of_iterations != 0) {
-    config.soxr_delay_index =
-        (int)(0.9 + soxr_execution_time_ns / (number_of_iterations * 1000000));
+    config.soxr_delay_index = soxr_execution_time_int / number_of_iterations;
   } else {
     debug(1, "No soxr-timing iterations performed, so \"basic\" iteration will be used.");
     config.soxr_delay_index = 0; // used as a flag
   }
-  debug(2, "soxr_delay_index: %d.", config.soxr_delay_index);
+  debug(2, "soxr_delay: %d nanoseconds, soxr_delay_threshold: %d milliseconds.",
+        config.soxr_delay_index, config.soxr_delay_threshold / 1000000);
   if ((config.packet_stuffing == ST_soxr) &&
       (config.soxr_delay_index > config.soxr_delay_threshold))
     inform("Note: this device may be too slow for \"soxr\" interpolation. Consider choosing the "
@@ -491,9 +493,9 @@ int parse_options(int argc, char **argv) {
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
   config.active_state_timeout = 10.0;
-  config.soxr_delay_threshold = 30; // the soxr measurement time (milliseconds) of two oneshots must
-                                    // not exceed this if soxr interpolation is to be chosen
-                                    // automatically.
+  config.soxr_delay_threshold = 30 * 1000000; // the soxr measurement time (nanoseconds) of two
+                                              // oneshots must not exceed this if soxr interpolation
+                                              // is to be chosen automatically.
   config.volume_range_hw_priority =
       0; // if combining software and hardware volume control, give the software priority
          // i.e. when reducing volume, reduce the sw first before reducing the software.
@@ -680,15 +682,17 @@ int parse_options(int argc, char **argv) {
       }
 
 #ifdef CONFIG_SOXR
+
       /* Get the soxr_delay_threshold setting. */
+      /* Convert between the input, given in milliseconds, and the stored values in nanoseconds. */
       if (config_lookup_int(config.cfg, "general.soxr_delay_threshold", &value)) {
-        if ((value >= 0) && (value <= 100))
-          config.soxr_delay_threshold = value;
+        if ((value >= 1) && (value <= 100))
+          config.soxr_delay_threshold = value * 1000000;
         else
           warn("Invalid general soxr_delay_threshold setting option choice \"%d\". It should be "
-               "between 0 and 100, "
+               "between 1 and 100, "
                "inclusive. Default is %d (milliseconds).",
-               value, config.soxr_delay_threshold);
+               value, config.soxr_delay_threshold / 1000000);
       }
 #endif
 
@@ -1696,6 +1700,16 @@ int main(int argc, char **argv) {
     exit(EXIT_SUCCESS);
   }
 
+#ifdef CONFIG_AIRPLAY_2
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+  // this is needed by FFMPEG 3 or earlier
+  // it needs to be done now in case -h is selected -- to check whether the fltp AAC
+  // decoder is present or not
+  avcodec_register_all();
+#pragma GCC diagnostic pop
+#endif
+
   /* Check if we are called with -h or --help parameter */
   if (argc >= 2 && ((strcmp(argv[1], "-h") == 0) || (strcmp(argv[1], "--help") == 0))) {
     usage(argv[0]);
@@ -2158,9 +2172,8 @@ int main(int argc, char **argv) {
   debug(1, "mdns backend \"%s\".", strnull(config.mdns_name));
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
   debug(1, "interpolation setting is \"%s\".",
-        config.packet_stuffing == ST_basic  ? "basic"
-        : config.packet_stuffing == ST_soxr ? "soxr"
-                                            : "auto");
+        config.packet_stuffing == ST_basic ? "basic"
+                                           : config.packet_stuffing == ST_soxr ? "soxr" : "auto");
   debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
   debug(1, "resync time is %f seconds.", config.resyncthreshold);
   debug(1, "allow a session to be interrupted: %d.", config.allow_session_interruption);
