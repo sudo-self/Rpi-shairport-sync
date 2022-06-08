@@ -1,3 +1,12 @@
+Version 4.1-dev-332-g38c43f07
+====
+**Bug Fixes**
+* Fixed a bug where the AAC decoder check would not recognise the AAC decoder in `ffmpeg` version 3. Thanks to [GXJ0102](https://github.com/GXJ0102) for help with this.
+* Fixed a bug where, on a very fast CPU, `"basic"` interpolation would be chosen instead of `"soxr"` interpolation.
+
+**Enhancement**
+* Relax the system requirement slighty -- Shairport Sync will build and run on Ubuntu 18.04 LTS.
+
 Version 4.1-dev-317-g0dc34a46
 ====
 ***Pesky Changes You Can't Ignore***
