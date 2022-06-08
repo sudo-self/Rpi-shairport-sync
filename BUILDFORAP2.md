@@ -1,17 +1,16 @@
 Building Shairport Sync for AirPlay 2
 ==
 * Before building Shairport Sync, you might wish to [check the features and limitations](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md#features-and-limitations) of the AirPlay 2 service it provides.
-* Very recent versions of Linux / FreeBSD are required for AirPlay 2 operation. At the time of writing, May 2, 2021, everything is on the latest version of the software -- macOS 11.3, iOS 14.5, Raspberry Pi OS 5.10.17-v7l+ (Buster), FreeBSD 12.1, Ubuntu 20.04 -- fully updated.
-* Build instructions are different from previous versions of Shairport Sync. Please read carefully.
+* Recent versions of Linux / FreeBSD are required for AirPlay 2 operation. At the time of writing, May 2, 2021, everything is on the latest version of the software -- macOS 11.3, iOS 14.5, Raspberry Pi OS 5.10.17-v7l+ (Buster), FreeBSD 12.1, Ubuntu 18.04 -- fully updated. A further requirement is an AAC decoder capable of decoding Planar Floating Point `"fltp"` material. Unfortuately, some prominent Linux distributions -- notably Fedora 36 -- do not include this decoder. See [here](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only) for more on this.
 * Be very careful with audio systems capable of very high volume output -- the volume control in this software may not be reliable!
-* For now, leave the settings in the configuration file at default except as noted below.
 * Shairport Sync relies on a companion program called [`nqptp`](https://github.com/mikebrady/nqptp) to monitor timing signals. This program uses ports 319 and 320 and replaces any PTP service you have on the computer. 
- (FYI, most computers do not have a PTP clock running. They often use a (totally different) [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time.) 
-* The POSIX Shared Memory Interface (SMI) Version numbers of `nqptp` and Shairport Sync must match. If they don't, you'll get a message in the logs. It means that one of the programs is out of date with respect to the other.
-* Build instructions are likely to change.
+ (FYI, most computers do not have a PTP clock running. They often use a (totally different) [Network Timing Protocol (NTP)](http://www.ntp.org) service to keep the system clock synchronised with world time.) The POSIX Shared Memory Interface (SMI) Version numbers of `nqptp` and Shairport Sync must match. If they don't, you'll get a message in the logs. It means that one of the programs is out of date with respect to the other.
+
 
 Instructions
 ==
+Build instructions are different from previous versions of Shairport Sync and may change further. For now, leave the settings in the configuration file at default except as noted below.
+
 Overall, you'll be building and installing two programs. The first one is `nqptp` and the second one is Shairport Sync itself. Build and install `nqptp` first.
 
 In the commands below, for a Debian/Ubuntu-like Linux, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `apt-get update` in superuser mode and you are in user mode, enter `sudo apt-get update`.
