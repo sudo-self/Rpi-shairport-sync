@@ -1701,13 +1701,12 @@ int main(int argc, char **argv) {
   }
 
 #ifdef CONFIG_AIRPLAY_2
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  // this is needed by FFMPEG 3 or earlier
-  // it needs to be done now in case -h is selected -- to check whether the fltp AAC
-  // decoder is present or not
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(53, 10, 0)
+  avcodec_init();
+#endif
+#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
   avcodec_register_all();
-#pragma GCC diagnostic pop
+#endif
 #endif
 
   /* Check if we are called with -h or --help parameter */
