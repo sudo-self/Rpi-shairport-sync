@@ -2211,7 +2211,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   // ideas and some code from https://rodic.fr/blog/libavcodec-tutorial-decode-audio-file/
   // with thanks
 
-  AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
+  const AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
   if (codec == NULL) {
     debug(1, "Can't find an AAC decoder!");
   }
