@@ -1,3 +1,8 @@
+Version 4.1-dev-340-g4705be9b
+====
+**Enhancement**
+* Improve the AAC decoder check by iterating through all formats the AAC decoder supports.
+
 Version 4.1-dev-332-g38c43f07
 ====
 **Bug Fixes**
