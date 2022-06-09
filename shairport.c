@@ -156,14 +156,13 @@ int has_fltp_capable_aac_decoder(void) {
   int has_capability = 0;
   const AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_AAC);
   if (codec != NULL) {
-    AVCodecContext *codec_context = avcodec_alloc_context3(codec);
-    if (codec_context != NULL) {
-      if (avcodec_open2(codec_context, codec, NULL) >= 0) {
-        if (codec_context->sample_fmt == AV_SAMPLE_FMT_FLTP)
+    const enum AVSampleFormat *p = codec->sample_fmts;
+    if (p != NULL) {
+      while ((has_capability == 0) && (*p != AV_SAMPLE_FMT_NONE)) {
+         if (*p == AV_SAMPLE_FMT_FLTP)
           has_capability = 1;
-        avcodec_close(codec_context);
+        p++;
       }
-      av_free(codec_context);
     }
   }
   return has_capability;
