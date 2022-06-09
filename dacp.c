@@ -562,7 +562,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
     pthread_cleanup_pop(1);
 
     if (result == 490) { // 490 means no port was specified
-      if (((char *)dacp_server.dacp_id != NULL) && (strlen(dacp_server.dacp_id) != 0)) {
+      if (strlen(dacp_server.dacp_id) != 0) {
         // debug(1,"mdns_dacp_monitor_set_id");
         mdns_dacp_monitor_set_id(dacp_server.dacp_id);
       }
