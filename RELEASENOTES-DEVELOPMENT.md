@@ -10,7 +10,7 @@ Version 4.1-dev-332-g38c43f07
 * Fixed a bug where, on a very fast CPU, `"basic"` interpolation would be chosen instead of `"soxr"` interpolation.
 
 **Enhancement**
-* Relax the system requirement slighty -- Shairport Sync will build and run on Ubuntu 18.04 LTS.
+* Relax the "fully-up-to-date| system requirement slighty -- Shairport Sync will build and run on Ubuntu 18.04 LTS.
 
 Version 4.1-dev-317-g0dc34a46
 ====
