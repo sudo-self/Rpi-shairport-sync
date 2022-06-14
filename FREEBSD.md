@@ -4,7 +4,9 @@ Shairport Sync runs natively on FreeBSD using the `sndio` back end, thanks to th
 
 [`sndio`](http://www.sndio.org) is *"a small audio and MIDI framework part of the OpenBSD project and ported to FreeBSD, Linux and NetBSD"* developed by Alexandre Ratchov (see also [this paper](http://www.openbsd.org/papers/asiabsdcon2010_sndio.pdf) for more details).
 
-The build instructions here install back ends for `sndio` and/or `ALSA`. `ALSA` is, or course, the [Advanced Linux Sound Architecture](https://www.alsa-project.org/wiki/Main_Page), so it is not "native" to FreeBSD, but has been ported to some architectures under FreeBSD. 
+The build instructions here install back ends for `sndio` and/or `ALSA`. `ALSA` is, or course, the [Advanced Linux Sound Architecture](https://www.alsa-project.org/wiki/Main_Page), so it is not "native" to FreeBSD, but has been ported to some architectures under FreeBSD. Build instructions are different from previous versions of Shairport Sync and may change further. For now, leave the settings in the configuration file at default except as noted below.
+
+Overall, you'll be building and installing two programs. The first one is NQPTP, a companion app that Shairport Sync uses for AirPlay 2 timing, and the second one is Shairport Sync itself. Build and install NQPTP first. If you are building Classic Shairport Sync, NQPTP is unnecessary and can be omitted.
 
 General
 ----
