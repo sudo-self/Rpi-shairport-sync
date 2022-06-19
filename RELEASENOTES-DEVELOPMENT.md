@@ -3,6 +3,8 @@ Version 4.1-dev-347-g6556a79d
 **Bug Fix**
 * If a speaker with its own master clock (e.g. a HomePod mini) was added and then removed from the group of output speakers in AirPlay 2 mode, Shairport Sync would stop working. 
 
+**Note** -- there is an important update to NQPTP out as well.
+
 Version 4.1-dev-340-g4705be9b
 ====
 **Enhancement**
