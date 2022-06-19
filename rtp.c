@@ -352,8 +352,8 @@ void *rtp_control_receiver(void *arg) {
                                                                 obfp += 2;
                                                               };
                                                               *obfp = 0;
-
-
+                                             
+                                             
                                                               // get raw timestamp information
                                                               // I think that a good way to understand these timestamps is that
                                                               // (1) the rtlt below is the timestamp of the frame that should be playing at the
@@ -364,19 +364,19 @@ void *rtp_control_receiver(void *arg) {
                                                               // Thus, (3) the latency can be calculated by subtracting the second from the
                                                               // first.
                                                               // There must be more to it -- there something missing.
-
+                                             
                                                               // In addition, it seems that if the value of the short represented by the second
                                                               // pair of bytes in the packet is 7
                                                               // then an extra time lag is expected to be added, presumably by
                                                               // the AirPort Express.
-
+                                             
                                                               // Best guess is that this delay is 11,025 frames.
-
+                                             
                                                               uint32_t rtlt = nctohl(&packet[4]); // raw timestamp less latency
                                                               uint32_t rt = nctohl(&packet[16]);  // raw timestamp
-
+                                             
                                                               uint32_t fl = nctohs(&packet[2]); //
-
+                                             
                                                               debug(1,"Sync Packet of %d bytes received: \"%s\", flags: %d, timestamps %u and %u,
                                                           giving a latency of %d frames.",plen,obf,fl,rt,rtlt,rt-rtlt);
                                                               //debug(1,"Monotonic timestamps are: %" PRId64 " and %" PRId64 "
@@ -1274,7 +1274,8 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
 
 void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
                          uint64_t networktime) {
-  // debug(1,"clock: %" PRIx64 ", rtptime: %" PRIu32 ".", clock_id, rtptime);
+  // debug(1,"set_ptp_anchor_info: clock: %" PRIx64 ", rtptime: %" PRIu32 ", networktime: %" PRIx64
+  // ".", clock_id, rtptime, networktime);
   if (conn->anchor_clock != clock_id) {
     debug(2, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
   }
@@ -1318,12 +1319,6 @@ void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtpti
   conn->anchor_rtptime = rtptime;
   conn->anchor_time = networktime;
   conn->anchor_clock = clock_id;
-
-  // these are used to identify when the master clock becomes equal to the
-  // actual anchor clock information, so it can be used to avoid accumulating errors
-  conn->actual_anchor_rtptime = rtptime;
-  conn->actual_anchor_time = networktime;
-  conn->actual_anchor_clock = clock_id;
 }
 
 void reset_ptp_anchor_info(rtsp_conn_info *conn) {
@@ -1378,50 +1373,22 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
             int64_t duration_of_mastership = time_now - start_of_mastership;
             debug(2,
                   "Connection %d: Master clock has changed to %" PRIx64
-                  ". History: %f milliseconds.",
+                  ". History: %.3f milliseconds.",
                   conn->connection_number, actual_clock_id, 0.000001 * duration_of_mastership);
             // Here we adjust the time of the anchor rtptime.
             // We know its local time, so we use the new clocks's offset to
             // calculate what time that must be on the new clock.
 
             // Now, the thing is that while the anchor clock and master clock for a
-            // buffered session starts off the same,
+            // buffered session start off the same,
             // the master clock can change without the anchor clock changing.
             // SPS gives the new master clock time to settle down and then
             // calculates the appropriate offset to it by
             // calculating back from the local anchor information and the new clock's
-            // advertised offset. Of course, small errors will occur.
-            // Equally importantly, the new master clock(s) and the original one will
-            // drift at different rates. So, after all this, if the original master
-            // clock becomes the master again, there could be quite a difference
-            // in the time information that was calculated through all the clock
-            // changes and the actual master clock's time information.
-            // What do we do? We can hardly ignore this new and reliable information
-            // so we'll take it. Maybe we should add code to slowly correct towards it
-            // but at present, we just take it.
+            // advertised offset.
 
-            // So, if the master clock has again become equal to the actual anchor clock
-            // then we can reinstate it all.
-
-            // First, let us calculate the cumulative offset after swapping all the clocks...
             conn->anchor_time = conn->last_anchor_local_time + actual_offset;
-
-            // Here we can check how much of a deviation there was going from clock to clock and
-            // back around to the master clock
-
-            if (actual_clock_id == conn->actual_anchor_clock) {
-              int64_t cumulative_deviation = conn->anchor_time - conn->actual_anchor_time;
-              debug(2,
-                    "The original master clock has become the master clock again."
-                    "The estimated clock time "
-                    "was %f ms ahead(+) or behind (-) the original master clock time.",
-                    0.000001 * cumulative_deviation);
-              conn->anchor_clock = conn->actual_anchor_clock;
-              conn->anchor_time = conn->actual_anchor_time;
-              conn->anchor_rtptime = conn->actual_anchor_rtptime;
-            } else {
-              conn->anchor_clock = actual_clock_id;
-            }
+            conn->anchor_clock = actual_clock_id;
           }
         } else {
           response = clock_not_valid; // no current clock information and no previous clock info
@@ -2624,8 +2591,12 @@ void *rtp_buffered_audio_processor(void *arg) {
           too_soon_after_connection =
               ((play_time_since_connection < 2000000000) && (time_since_connection < 2000000000));
           if (too_soon_after_connection)
-            debug(3, "time_since_connection is %f milliseconds. play_time_since_connection is %f milliseconds. lead_time is %f milliseconds. too_soon_after_connection is %d.",
-                  time_since_connection * 1E-6, play_time_since_connection * 1E-6, (play_time_since_connection - time_since_connection) * 1E-6, too_soon_after_connection);
+            debug(3,
+                  "time_since_connection is %f milliseconds. play_time_since_connection is %f "
+                  "milliseconds. lead_time is %f milliseconds. too_soon_after_connection is %d.",
+                  time_since_connection * 1E-6, play_time_since_connection * 1E-6,
+                  (play_time_since_connection - time_since_connection) * 1E-6,
+                  too_soon_after_connection);
           local_lead_time = local_should_be_time - get_absolute_time_in_ns();
           // debug(1,"local_lead_time is actually %f milliseconds.", local_lead_time * 1E-6);
           outdated = (local_lead_time < requested_lead_time_ns);
