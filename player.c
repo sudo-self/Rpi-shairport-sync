@@ -249,82 +249,84 @@ int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_c
 
 static int init_alac_decoder(int32_t fmtp[12], rtsp_conn_info *conn) {
 
+  // clang-format off
+
   // This is a guess, but the format of the fmtp looks identical to the format of an
-  // ALACSpecificCOnfig
-  // which is detailed in the file ALACMagicCookieDescription.txt in the Apple ALAC sample
-  // implementation
+  // ALACSpecificCOnfig which is detailed in the file ALACMagicCookieDescription.txt
+  // in the Apple ALAC sample implementation
   // Here it is:
 
   /*
-      struct  ALACSpecificConfig (defined in ALACAudioTypes.h)
-      abstract     This struct is used to describe codec provided information about the encoded
-     Apple Lossless bitstream.
-                  It must accompany the encoded stream in the containing audio file and be provided
-     to the decoder.
 
-      field        frameLength     uint32_t  indicating the frames per packet
-     when
-     no
-     explicit
-     frames per packet setting is
-                                                            present in the packet header. The
-     encoder frames per packet can be explicitly set
-                                                            but for maximum compatibility, the
-     default encoder setting of 4096 should be used.
+    * ALAC Specific Info (24 bytes) (mandatory)
+    __________________________________________________________________________________________________________________________________
 
-      field        compatibleVersion   uint8_t   indicating compatible version,
+    The Apple Lossless codec stores specific information about the encoded stream in the ALACSpecificConfig. This
+    info is vended by the encoder and is used to setup the decoder for a given encoded bitstream.
+
+    When read from and written to a file, the fields of this struct must be in big-endian order.
+    When vended by the encoder (and received by the decoder) the struct values will be in big-endian order.
+
+
+        struct      ALACSpecificConfig (defined in ALACAudioTypes.h)
+        abstract    This struct is used to describe codec provided information about the encoded Apple Lossless bitstream.
+                    It must accompany the encoded stream in the containing audio file and be provided to the decoder.
+
+        field       frameLength             uint32_t        indicating the frames per packet when no explicit frames per packet setting is
+                                                            present in the packet header. The encoder frames per packet can be explicitly set
+                                                            but for maximum compatibility, the default encoder setting of 4096 should be used.
+
+        field       compatibleVersion       uint8_t         indicating compatible version,
                                                             value must be set to 0
 
-      field        bitDepth     uint8_t   describes the bit depth of the
-     source
-     PCM
-     data
-     (maximum
-     value = 32)
+        field       bitDepth                uint8_t         describes the bit depth of the source PCM data (maximum value = 32)
 
-      field        pb       uint8_t   currently unused tuning
-     parametetbugr.
+        field       pb                      uint8_t         currently unused tuning parameter.
                                                             value should be set to 40
 
-      field        mb       uint8_t   currently unused tuning parameter.
-                                                            value should be set to 14
-
-      field        kb      uint8_t   currently unused tuning parameter.
+        field       mb                      uint8_t         currently unused tuning parameter.
                                                             value should be set to 10
 
-      field        numChannels     uint8_t   describes the channel count (1 =
-     mono,
-     2
-     =
-     stereo,
-     etc...)
-                                                            when channel layout info is not provided
-     in the 'magic cookie', a channel count > 2
-                                                            describes a set of discreet channels
-     with no specific ordering
+        field       kb                      uint8_t         currently unused tuning parameter.
+                                                            value should be set to 14
 
-      field        maxRun      uint16_t   currently unused.
-                                                    value should be set to 255
+        field       numChannels             uint8_t         describes the channel count (1 = mono, 2 = stereo, etc...)
+                                                            when channel layout info is not provided in the 'magic cookie', a channel count > 2
+                                                            describes a set of discreet channels with no specific ordering
 
-      field        maxFrameBytes     uint32_t   the maximum size of an Apple
-     Lossless
-     packet
-     within
-     the encoded stream.
-                                                          value of 0 indicates unknown
+        field       maxRun                  uint16_t        currently unused.
+                                                            value should be set to 255
 
-      field        avgBitRate     uint32_t   the average bit rate in bits per
-     second
-     of
-     the
-     Apple
-     Lossless stream.
-                                                          value of 0 indicates unknown
+        field       maxFrameBytes           uint32_t        the maximum size of an Apple Lossless packet within the encoded stream.
+                                                            value of 0 indicates unknown
 
-      field        sampleRate     uint32_t   sample rate of the encoded stream
+        field       avgBitRate              uint32_t        the average bit rate in bits per second of the Apple Lossless stream.
+                                                            value of 0 indicates unknown
+
+        field       sampleRate              uint32_t        sample rate of the encoded stream
+
+
+    typedef struct ALACSpecificConfig
+    {
+            uint32_t        frameLength;
+            uint8_t         compatibleVersion;
+            uint8_t         bitDepth;
+            uint8_t         pb;
+            uint8_t         mb;
+            uint8_t         kb;
+            uint8_t         numChannels;
+            uint16_t        maxRun;
+            uint32_t        maxFrameBytes;
+            uint32_t        avgBitRate;
+            uint32_t        sampleRate;
+
+    } ALACSpecificConfig;
+
    */
 
-  // We are going to go on that basis
+   // We are going to go on that basis
+
+   // clang-format on
 
   alac_file *alac;
 
