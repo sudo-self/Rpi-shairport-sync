@@ -1,3 +1,8 @@
+Version 4.1-dev-350-g82849e0d
+====
+**Change**
+* Return 501 instead of 404 for unimplemented GETs in AirPlay 2 mode.
+
 Version 4.1-dev-347-g6556a79d
 ====
 **Bug Fix**
