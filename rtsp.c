@@ -1351,7 +1351,9 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
   struct response_t responses[] = {{200, "OK"},
                                    {400, "Bad Request"},
                                    {403, "Unauthorized"},
+                                   {404, "Not Found"},
                                    {451, "Unavailable"},
+                                   {500, "Internal Server Error"},
                                    {501, "Not Implemented"}};
   // 451 is really "Unavailable For Legal Reasons"!
   int found = 0;
@@ -1868,7 +1870,7 @@ void handle_get(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
     handle_get_info(conn, req, resp);
   } else {
     debug(1, "Unhandled GET, path \"%s\".", req->path);
-    resp->respcode = 404; // makes sense, right?
+    resp->respcode = 501; // Not Implemented
   }
 }
 
