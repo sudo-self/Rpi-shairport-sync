@@ -56,8 +56,7 @@ pthread_mutex_t activity_monitor_mutex;
 pthread_cond_t activity_monitor_cv;
 
 void going_active(int block) {
-  // debug(1, "activity_monitor: state transitioning to \"active\" with%s blocking", block ? "" :
-  // "out");
+  // debug(1, "activity_monitor: state transitioning to \"active\" with%s blocking", block ? "" : "out");
   if (config.cmd_active_start)
     command_execute(config.cmd_active_start, "", block);
 #ifdef CONFIG_METADATA
@@ -106,10 +105,10 @@ void going_inactive(int block) {
 void activity_monitor_signify_activity(int active) {
   // this could be pthread_cancelled and there is likely to be cancellation points in the
   // hooked-on procedures
-  pthread_cleanup_debug_mutex_lock(&activity_monitor_mutex, 10000, 1);
+  pthread_mutex_lock(&activity_monitor_mutex);
   player_state = active == 0 ? ps_inactive : ps_active;
   // Now, although we could simply let the state machine in the activity monitor thread
-  // look after eveything, we will change state here in two situations:
+  // look after everything, we will change state here in two situations:
   // 1. If the state machine is am_inactive and the player is ps_active
   // we will change the state to am_active and execute the going_active() function.
   // 2. If the state machine is am_active and the player is ps_inactive and
@@ -120,18 +119,25 @@ void activity_monitor_signify_activity(int active) {
   // and wait for them to complete before continuing. If they were performed in the
   // activity monitor thread, then we couldn't wait for them to complete.
 
-  // Thus, the only time the thread will execute a going_... function is when a non-zero
-  // timeout actually matures.
-
+  // So, if the active end procedure is on a timer, it will be executed when the
+  // timeout occurs and the "blocking" status is ignored.
+  
   if ((state == am_inactive) && (player_state == ps_active)) {
+    state = am_active;
+    pthread_mutex_unlock(&activity_monitor_mutex);
     going_active(
-        config.cmd_blocking); // note -- will be executed with the mutex locked, but that's okay
+        config.cmd_blocking);
   } else if ((state == am_active) && (player_state == ps_inactive) &&
              (config.active_state_timeout == 0.0)) {
+    state = am_inactive;
+    pthread_mutex_unlock(&activity_monitor_mutex);
     going_inactive(
-        config.cmd_blocking); // note -- will be executed with the mutex locked, but that's okay
+        config.cmd_blocking); 
+  } else {
+    pthread_mutex_unlock(&activity_monitor_mutex);
   }
-
+  // lock the mutex again to send a signal
+  pthread_cleanup_debug_mutex_lock(&activity_monitor_mutex, 10000, 1);
   pthread_cond_signal(&activity_monitor_cv);
   pthread_cleanup_pop(1); // release the mutex
 }
@@ -166,16 +172,16 @@ void *activity_monitor_thread_code(void *arg) {
       debug(2, "am_state: am_inactive");
       while (player_state != ps_active)
         pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);
-      state = am_active;
-      debug(2, "am_state: going active");
+      // state = am_active; this is done by the activity_monitor_signify_activity(1) function
+      debug(2, "am_state: am_active");
       break;
     case am_active:
       // debug(1,"am_state: am_active");
       while (player_state != ps_inactive)
         pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);
-      if (config.active_state_timeout == 0.0) {
-        state = am_inactive;
-      } else {
+      
+      // if it's not already am_inactive, the it should be beginning to time out...
+      if (state != am_inactive) {
         state = am_timing_out;
 
         uint64_t time_to_wait_for_wakeup_ns = (uint64_t)(config.active_state_timeout * 1000000000);
