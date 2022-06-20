@@ -1,3 +1,11 @@
+Version 4.1-dev-352-g4d608216
+====
+**Bug Fix**
+* Fix a bug in the activity monitor that could potentially allow the `run_this_before_entering_active_state` hook to be called more than once when the player was going active. It could also potentially allow the `run_this_after_exiting_active_state` hook to be called more than once when the player was leaving the idle state, but only if the `active_state_timeout` was set to 0. Thanks to [Ben Willmore](https://github.com/ben-willmore) for the [report](https://github.com/mikebrady/shairport-sync/issues/1440).
+
+**Enhancement**
+* Allow procedures hooked to `run_this_before_entering_active_state` and `run_this_after_exiting_active_state` to run without the `activity_monitor_mutex` in the locked state.
+
 Version 4.1-dev-350-g82849e0d
 ====
 **Change**
