@@ -33,13 +33,13 @@ Guides
 
 AirPlay 2 -- More About What Works
 ---
-* Two types of audio are received by Shairport Sync -- "Realtime" streams of CD quality ALAC (like AirPlay 1) and "Buffered Audio" streams of AAC stereo at 44,100 frames per second. The selection of stream type is made by the player. Realtime streams generally have a latency of about two seconds. Buffered Audio streams typically have a latency of half a second or less.
+* Two types of audio are received by Shairport Sync -- "Realtime" streams of CD quality ALAC (like "classic" AirPlay) and "Buffered Audio" streams of AAC stereo at 44,100 frames per second. The selection of stream type is made by the player. Realtime streams generally have a latency of about two seconds. Buffered Audio streams typically have a latency of half a second or less.
 * Audio is synchronised with other AirPlay 2 devices, including AirPlay 2 devices that have their own master clocks.
-* Shairport Sync offers AirPlay 1 compatibility for situations where iTunes on macOS or macOS Music plays to multiple speakers and where one of more of them is compatible with AirPlay 1 only.
+* Shairport Sync offers "classic" AirPlay compatibility for situations where iTunes on macOS or macOS Music plays to multiple speakers and where one of more of them is compatible with AirPlay only.
 
 Note
 ----
-The functionality offered by Shairport Sync is the result of study and analysis of the AirPlay 1 and AirPlay 2 protocols by many people over the years. These protocols have not been officially published, and there is no assurance that Shairport Sync will continue to work with AirPlay in future.
+The functionality offered by Shairport Sync is the result of study and analysis of the AirPlay and AirPlay 2 protocols by many people over the years. These protocols have not been officially published, and there is no assurance that Shairport Sync will continue to work with AirPlay in future.
 
 Acknowledgements
 ----
