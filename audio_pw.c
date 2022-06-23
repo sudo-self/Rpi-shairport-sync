@@ -35,6 +35,10 @@
 
 #include <math.h>
 
+#define PW_TIMEOUT_S 5
+#define SECONDS_TO_NANOSECONDS 1000000000L
+#define PW_TIMEOUT_NS (PW_TIMEOUT_S * SECONDS_TO_NANOSECONDS)
+
 struct pw_data {
   struct pw_thread_loop *mainloop;
   struct pw_context *context;
@@ -412,7 +416,15 @@ static void start(int sample_rate, int sample_format) {
     if (stream_state == PW_STREAM_STATE_PAUSED)
       break;
 
-    pw_thread_loop_wait(data.mainloop);
+    struct timespec abstime;
+
+    pw_thread_loop_get_time(data.mainloop, &abstime, PW_TIMEOUT_NS);
+
+    ret = pw_thread_loop_timed_wait_full(data.mainloop, &abstime);
+    if (ret == -ETIMEDOUT) {
+      deinit();
+      die("pw: pw_thread_loop_timed_wait_full timed out: %s", strerror(ret));
+    }
   }
 
   pw_thread_loop_unlock(data.mainloop);
@@ -444,6 +456,7 @@ static int play(void *buf, int samples) {
   struct pw_buffer *pw_buffer;
   struct spa_buffer *spa_buffer;
   struct spa_data *spa_data;
+  int ret;
 
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   pw_thread_loop_lock(data.mainloop);
@@ -456,7 +469,16 @@ static int play(void *buf, int samples) {
     if (pw_buffer)
       break;
 
-    pw_thread_loop_wait(data.mainloop);
+    struct timespec abstime;
+
+    pw_thread_loop_get_time(data.mainloop, &abstime, PW_TIMEOUT_NS);
+
+    ret = pw_thread_loop_timed_wait_full(data.mainloop, &abstime);
+    if (ret == -ETIMEDOUT) {
+      pw_thread_loop_unlock(data.mainloop);
+      pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+      return ret;
+    }
   }
 
   spa_buffer = pw_buffer->buffer;
