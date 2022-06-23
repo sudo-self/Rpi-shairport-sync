@@ -178,6 +178,8 @@ static void deinit() {
     pw_properties_free(data.props);
     data.props = NULL;
   }
+
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
 static int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
@@ -230,6 +232,7 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
     die("pw: pw_properties_new() failed: %m");
   }
 
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   pw_thread_loop_lock(data.mainloop);
 
   if (pw_thread_loop_start(data.mainloop) != 0) {
@@ -256,6 +259,7 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
   data.sync = pw_core_sync(data.core, 0, data.sync);
 
   pw_thread_loop_unlock(data.mainloop);
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
   return 0;
 }
@@ -336,6 +340,8 @@ static const char *spa_format_to_str(enum spa_audio_format audio_format) {
 
 static void start(int sample_rate, int sample_format) {
 
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
   pw_thread_loop_lock(data.mainloop);
 
   const struct spa_pod *params[1];
@@ -410,22 +416,28 @@ static void start(int sample_rate, int sample_format) {
   }
 
   pw_thread_loop_unlock(data.mainloop);
+
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
 static void stop() {
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   pw_thread_loop_lock(data.mainloop);
 
   pw_stream_flush(data.stream, true);
 
   pw_thread_loop_unlock(data.mainloop);
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
 static void flush() {
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   pw_thread_loop_lock(data.mainloop);
 
   pw_stream_flush(data.stream, false);
 
   pw_thread_loop_unlock(data.mainloop);
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
 static int play(void *buf, int samples) {
@@ -433,6 +445,7 @@ static int play(void *buf, int samples) {
   struct spa_buffer *spa_buffer;
   struct spa_data *spa_data;
 
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   pw_thread_loop_lock(data.mainloop);
 
   if (pw_stream_get_state(data.stream, NULL) == PW_STREAM_STATE_PAUSED)
@@ -467,6 +480,8 @@ static int play(void *buf, int samples) {
   pw_stream_queue_buffer(data.stream, pw_buffer);
 
   pw_thread_loop_unlock(data.mainloop);
+
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
   return 0;
 }
