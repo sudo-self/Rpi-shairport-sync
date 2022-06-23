@@ -310,6 +310,7 @@ typedef struct {
   timing_t timing_type;                 // are we using NTP or PTP on this connection?
 
   pthread_t *rtp_event_thread;
+  pthread_t *rtp_data_thread;
   pthread_t rtp_ap2_control_thread;
   pthread_t rtp_realtime_audio_thread;
   pthread_t rtp_buffered_audio_thread;
@@ -335,12 +336,14 @@ typedef struct {
   ap2_pairing ap2_control_pairing;
 
   int event_socket;
+  int data_socket;
   SOCKADDR ap2_remote_control_socket_addr; // a socket pointing to the control port of the client
   socklen_t ap2_remote_control_socket_addr_length;
   int ap2_control_socket;
   int realtime_audio_socket;
   int buffered_audio_socket;
 
+  uint16_t local_data_port;
   uint16_t local_event_port;
   uint16_t local_ap2_control_port;
   uint16_t local_realtime_audio_port;

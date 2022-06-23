@@ -1503,6 +1503,59 @@ int local_ptp_time_to_frame(uint64_t time, uint32_t *frame, rtsp_conn_info *conn
   return result;
 }
 
+void rtp_data_receiver_cleanup_handler(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(2, "Connection %d: AP2 Data Receiver Cleanup.", conn->connection_number);
+}
+
+void *rtp_data_receiver(void *arg) {
+  rtsp_conn_info *conn = (rtsp_conn_info *)arg;
+  debug(1, "Connection %d: AP2 Data Receiver started", conn->connection_number);
+  pthread_cleanup_push(rtp_data_receiver_cleanup_handler, arg);
+
+  listen(conn->data_socket, 5);
+
+  uint8_t packet[4096];
+  ssize_t nread;
+  SOCKADDR remote_addr;
+  memset(&remote_addr, 0, sizeof(remote_addr));
+  socklen_t addr_size = sizeof(remote_addr);
+
+  int fd = accept(conn->data_socket, (struct sockaddr *)&remote_addr, &addr_size);
+  debug(1,
+        "Connection %d: rtp_data_receiver accepted a connection on socket %d and moved to a new "
+        "socket %d.",
+        conn->connection_number, conn->data_socket, fd);
+  intptr_t pfd = fd;
+  pthread_cleanup_push(socket_cleanup, (void *)pfd);
+  int finished = 0;
+  do {
+    nread = recv(fd, packet, sizeof(packet), 0);
+
+    if (nread < 0) {
+      char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      debug(1, "Connection %d: error in ap2 rtp_data_receiver %d: \"%s\". Could not recv a packet.",
+            conn->connection_number, errno, errorstring);
+      // if ((config.diagnostic_drop_packet_fraction == 0.0) ||
+      //     (drand48() > config.diagnostic_drop_packet_fraction)) {
+    } else if (nread > 0) {
+
+      // ssize_t plen = nread;
+      debug(1, "Connection %d: Packet Received on Data Port.", conn->connection_number);
+      // } else {
+      //   debug(3, "Event Receiver Thread -- dropping incoming packet to simulate a bad network.");
+      // }
+    } else {
+      finished = 1;
+    }
+  } while (finished == 0);
+  pthread_cleanup_pop(1); // close the socket
+  pthread_cleanup_pop(1); // do the cleanup
+  debug(2, "Connection %d: AP2 Data Receiver RTP thread \"normal\" exit.", conn->connection_number);
+  pthread_exit(NULL);
+}
+
 void rtp_event_receiver_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   debug(2, "Connection %d: AP2 Event Receiver Cleanup.", conn->connection_number);
@@ -1510,7 +1563,7 @@ void rtp_event_receiver_cleanup_handler(void *arg) {
 
 void *rtp_event_receiver(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(2, "Connection %d: AP2 Event Receiver started", conn->connection_number);
+  debug(1, "Connection %d: AP2 Event Receiver started", conn->connection_number);
   pthread_cleanup_push(rtp_event_receiver_cleanup_handler, arg);
 
   listen(conn->event_socket, 5);
@@ -1522,6 +1575,10 @@ void *rtp_event_receiver(void *arg) {
   socklen_t addr_size = sizeof(remote_addr);
 
   int fd = accept(conn->event_socket, (struct sockaddr *)&remote_addr, &addr_size);
+  debug(2,
+        "Connection %d: rtp_event_receiver accepted a connection on socket %d and moved to a new "
+        "socket %d.",
+        conn->connection_number, conn->event_socket, fd);
   intptr_t pfd = fd;
   pthread_cleanup_push(socket_cleanup, (void *)pfd);
   int finished = 0;
@@ -1539,7 +1596,7 @@ void *rtp_event_receiver(void *arg) {
     } else if (nread > 0) {
 
       // ssize_t plen = nread;
-      debug(1, "Packet Received on Event Port.");
+      debug(1, "Connection %d: Packet Received on Event Port.", conn->connection_number);
       if (packet[1] == 0xD7) {
         debug(1,
               "Connection %d: AP2 Event Receiver -- Time Announce RTP packet of type 0x%02X length "

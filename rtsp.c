@@ -2,7 +2,7 @@
  * RTSP protocol handler. This file is part of Shairport Sync
  * Copyright (c) James Laird 2013
 
- * Modifications associated with audio synchronization, mutithreading and
+ * Modifications associated with audio synchronization, multithreading and
  * metadata handling copyright (c) Mike Brady 2014-2021
  * All rights reserved.
  *
@@ -811,10 +811,14 @@ char *msg_get_header(rtsp_message *msg, char *name) {
   return NULL;
 }
 
-void debug_print_msg_headers(int level, rtsp_message *msg) {
+void _debug_print_msg_headers(const char *filename, const int linenumber, int level,
+                              rtsp_message *msg) {
   unsigned int i;
+  if (msg->respcode != 0)
+    _debug(filename, linenumber, level, "  Response Code: %d.", msg->respcode);
   for (i = 0; i < msg->nheaders; i++) {
-    debug(level, "  Type: \"%s\", content: \"%s\"", msg->name[i], msg->value[i]);
+    _debug(filename, linenumber, level, "  Type: \"%s\", content: \"%s\"", msg->name[i],
+           msg->value[i]);
   }
 }
 
@@ -1046,23 +1050,30 @@ char *rtsp_plist_content(rtsp_message *message) {
 
 #endif
 
-void debug_log_rtsp_message(int level, char *prompt, rtsp_message *message) {
+void _debug_log_rtsp_message(const char *filename, const int linenumber, int level, char *prompt,
+                             rtsp_message *message) {
   if (level > debuglev)
     return;
   if ((prompt) && (*prompt != '\0')) // okay to pass NULL or an empty list...
-    debug(level, prompt);
-    // debug_print_msg_headers(level, message);
+    _debug(filename, linenumber, level, prompt);
+  _debug_print_msg_headers(filename, linenumber, level, message);
 #ifdef CONFIG_AIRPLAY_2
   char *plist_content = rtsp_plist_content(message);
   if (plist_content) {
-    debug(level, "  Content Plist (as XML):\n--\n%s--", plist_content);
+    _debug(filename, linenumber, level, "  Content Plist (as XML):\n--\n%s--", plist_content);
     free(plist_content);
   } else
 #endif
   {
-    debug(level, "  No Content Plist. Content length: %d.", message->contentlength);
+    _debug(filename, linenumber, level, "  No Content Plist. Content length: %d.",
+           message->contentlength);
   }
 }
+
+#define debug_log_rtsp_message(level, prompt, message)                                             \
+  _debug_log_rtsp_message(__FILE__, __LINE__, level, prompt, message)
+#define debug_print_msg_headers(level, message)                                                    \
+  _debug_print_msg_headers(__FILE__, __LINE__, level, message)
 
 #ifdef CONFIG_AIRPLAY_2
 static void buf_add(ap2_buffer *buf, uint8_t *in, size_t in_len) {
@@ -1130,6 +1141,30 @@ static ssize_t read_encrypted(int fd, ap2_pairing *ctx, void *buf, size_t count)
   return buf_remove(&ctx->plain_buf, buf, count);
 }
 
+static ssize_t write_encrypted(int fd, ap2_pairing *ctx, const void *buf, size_t count) {
+  uint8_t *encrypted;
+  size_t encrypted_len;
+
+  ssize_t ret = pair_encrypt(&encrypted, &encrypted_len, buf, count, ctx->cipher_ctx);
+  if (ret < 0) {
+    debug(1, pair_cipher_errmsg(ctx->cipher_ctx));
+    return -1;
+  }
+
+  size_t remain = encrypted_len;
+  while (remain > 0) {
+    ssize_t wrote = write(fd, encrypted + (encrypted_len - remain), remain);
+    if (wrote <= 0) {
+      free(encrypted);
+      return wrote;
+    }
+    remain -= wrote;
+  }
+  free(encrypted);
+  return count;
+}
+
+/*
 static ssize_t write_encrypted(rtsp_conn_info *conn, const void *buf, size_t count) {
   uint8_t *encrypted;
   size_t encrypted_len;
@@ -1153,6 +1188,7 @@ static ssize_t write_encrypted(rtsp_conn_info *conn, const void *buf, size_t cou
   free(encrypted);
   return count;
 }
+*/
 #endif
 
 ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
@@ -1417,7 +1453,7 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
 #ifdef CONFIG_AIRPLAY_2
   ssize_t reply;
   if (conn->ap2_control_pairing.is_encrypted) {
-    reply = write_encrypted(conn, pkt, p - pkt);
+    reply = write_encrypted(conn->fd, &conn->ap2_control_pairing, pkt, p - pkt);
   } else {
     reply = write(conn->fd, pkt, p - pkt);
   }
@@ -2246,9 +2282,21 @@ void handle_configure(rtsp_conn_info *conn __attribute__((unused)),
   debug_log_rtsp_message(2, "POST /configure response:", resp);
 }
 
-void handle_feedback(__attribute__((unused)) rtsp_conn_info *conn,
-                     __attribute__((unused)) rtsp_message *req,
+void handle_feedback(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                      __attribute__((unused)) rtsp_message *resp) {
+  if (conn->airplay_stream_category == remote_control_stream) {
+    plist_t array_plist = plist_new_array();
+
+    plist_t response_plist = plist_new_dict();
+    plist_dict_set_item(response_plist, "streams", array_plist);
+
+    plist_to_bin(response_plist, &resp->content, &resp->contentlength);
+    plist_free(response_plist);
+
+    msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
+    debug_log_rtsp_message(2, "FEEDBACK response (remote_control_stream):", resp);
+  }
+
   /* not finished yet
   plist_t payload_plist = plist_new_dict();
   plist_dict_set_item(payload_plist, "type", plist_new_uint(103));
@@ -2868,7 +2916,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 conn->connection_number, req);
           warn("Shairport Sync can not handle NTP streams.");
         } else if (conn->airplay_stream_category == remote_control_stream) {
-          debug_log_rtsp_message(2, "SETUP \"isRemoteControlOnly\" message", req);
+          debug_log_rtsp_message(2, "SETUP (no stream) \"isRemoteControlOnly\" message", req);
 
           // get a port to use as an event port
           // bind a new TCP port and get a socket
@@ -2882,7 +2930,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 conn->connection_number, err);
           }
 
-          debug(2, "Connection %d: TCP Remote Control event port opened: %u.",
+          debug(2, "Connection %d SETUP (RC): TCP Remote Control event port opened: %u.",
                 conn->connection_number, conn->local_event_port);
           if (conn->rtp_event_thread != NULL)
             debug(1, "previous rtp_event_thread allocation not freed, it seems.");
@@ -2890,7 +2938,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           if (conn->rtp_event_thread == NULL)
             die("Couldn't allocate space for pthread_t");
           pthread_create(conn->rtp_event_thread, NULL, &rtp_event_receiver, (void *)conn);
-
           plist_dict_set_item(setupResponsePlist, "eventPort",
                               plist_new_uint(conn->local_event_port));
           plist_dict_set_item(setupResponsePlist, "timingPort", plist_new_uint(0));
@@ -3108,10 +3155,34 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       resp->respcode = 200;
     } else if (conn->airplay_stream_category == remote_control_stream) {
       debug(2, "Connection %d: SETUP: Remote Control Stream received.", conn->connection_number);
-      debug_log_rtsp_message(2, "Remote Control Stream stream (second) message", req);
+
+      // get a port to use as an data port
+      // bind a new TCP port and get a socket
+      conn->local_data_port = 0; // any port
+      int err =
+          bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family, conn->self_ip_string,
+                               conn->self_scope_id, &conn->local_data_port, &conn->data_socket);
+      if (err) {
+        die("SETUP on Connection %d: Error %d: could not find a TCP port to use as a data "
+            "port",
+            conn->connection_number, err);
+      }
+
+      debug(1, "Connection %d SETUP (RC): TCP Remote Control data port opened: %u.",
+            conn->connection_number, conn->local_data_port);
+      if (conn->rtp_data_thread != NULL)
+        debug(1, "previous rtp_data_thread allocation not freed, it seems.");
+      conn->rtp_data_thread = malloc(sizeof(pthread_t));
+      if (conn->rtp_data_thread == NULL)
+        die("Couldn't allocate space for pthread_t");
+
+      pthread_create(conn->rtp_data_thread, NULL, &rtp_data_receiver, (void *)conn);
+
       plist_t coreResponseDict = plist_new_dict();
       plist_dict_set_item(coreResponseDict, "streamID", plist_new_uint(1));
       plist_dict_set_item(coreResponseDict, "type", plist_new_uint(130));
+      plist_dict_set_item(coreResponseDict, "dataPort", plist_new_uint(conn->local_data_port));
+
       plist_t coreResponseArray = plist_new_array();
       plist_array_append_item(coreResponseArray, coreResponseDict);
       plist_dict_set_item(setupResponsePlist, "streams", coreResponseArray);
@@ -4844,9 +4915,16 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           (strcmp(req->method, "POST") ==
            0)) // the options message is very common, so don't log it until level 3
         dl = 3;
-      debug(dl, "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
-            req->method),
-          debug_print_msg_headers(dl, req);
+
+      if (conn->airplay_stream_category == remote_control_stream) {
+        debug(dl, "Connection %d (RC): Received an RTSP Packet of type \"%s\":",
+              conn->connection_number, req->method),
+            debug_log_rtsp_message(dl, NULL, req);
+      } else {
+        debug(dl, "Connection %d: Received an RTSP Packet of type \"%s\":", conn->connection_number,
+              req->method),
+            debug_log_rtsp_message(dl, NULL, req);
+      }
       apple_challenge(conn->fd, req, resp);
       hdr = msg_get_header(req, "CSeq");
       if (hdr)
@@ -4900,9 +4978,13 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         }
       }
-      debug(dl, "Connection %d: RTSP Response:", conn->connection_number);
-      debug_print_msg_headers(dl, resp);
-
+      if (conn->airplay_stream_category == remote_control_stream) {
+        debug(dl, "Connection %d (RC): RTSP Response:", conn->connection_number);
+        debug_log_rtsp_message(dl, NULL, resp);
+      } else {
+        debug(dl, "Connection %d: RTSP Response:", conn->connection_number);
+        debug_log_rtsp_message(dl, NULL, resp);
+      }
       if (conn->stop == 0) {
         int err = msg_write_response(conn, resp);
         if (err) {
@@ -5131,7 +5213,9 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
     t2 = secondary_txt_records; // second set of text records in AirPlay 2 only
 #endif
     build_bonjour_strings(NULL); // no conn yet
-    mdns_register(t1, t2); // note that the dacp thread could still be using the mdns stuff after all player threads have been terminated, so mdns_unregister can't be in the rtsp_listen_loop cleanup.
+    mdns_register(t1, t2); // note that the dacp thread could still be using the mdns stuff after
+                           // all player threads have been terminated, so mdns_unregister can't be
+                           // in the rtsp_listen_loop cleanup.
 
     pthread_setcancelstate(oldState, NULL);
     int acceptfd;
