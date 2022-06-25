@@ -1510,7 +1510,11 @@ void rtp_data_receiver_cleanup_handler(void *arg) {
 
 void *rtp_data_receiver(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(1, "Connection %d: AP2 Data Receiver started", conn->connection_number);
+  if (conn->airplay_stream_category == remote_control_stream)
+    debug(1, "Connection %d (RC): AP2 Data Receiver started", conn->connection_number);
+  else
+    debug(1, "Connection %d: AP2 Data Receiver started", conn->connection_number);
+    
   pthread_cleanup_push(rtp_data_receiver_cleanup_handler, arg);
 
   listen(conn->data_socket, 5);
@@ -1563,7 +1567,10 @@ void rtp_event_receiver_cleanup_handler(void *arg) {
 
 void *rtp_event_receiver(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  debug(1, "Connection %d: AP2 Event Receiver started", conn->connection_number);
+  if (conn->airplay_stream_category == remote_control_stream)
+    debug(1, "Connection %d (RC): AP2 Event Receiver started", conn->connection_number);
+  else
+    debug(1, "Connection %d: AP2 Event Receiver started", conn->connection_number);
   pthread_cleanup_push(rtp_event_receiver_cleanup_handler, arg);
 
   listen(conn->event_socket, 5);

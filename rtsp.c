@@ -2507,8 +2507,23 @@ void teardown_phase_two(rtsp_conn_info *conn) {
   // we are being asked to disconnect
   // this can be called more than once on the same connection --
   // by the player itself but also by the play seesion being killed
-  debug(2, "Connection %d: TEARDOWN a %s connection.", conn->connection_number,
-        get_category_string(conn->airplay_stream_category));
+    debug(2, "Connection %d: TEARDOWN a %s connection.", conn->connection_number,
+          get_category_string(conn->airplay_stream_category));
+  if (conn->airplay_stream_category == remote_control_stream) {
+    if (conn->rtp_data_thread) {
+      debug(2, "Connection %d (RC): TEARDOWN Delete Data Thread.", conn->connection_number);
+      pthread_cancel(*conn->rtp_data_thread);
+      pthread_join(*conn->rtp_data_thread, NULL);
+      free(conn->rtp_data_thread);
+      conn->rtp_data_thread = NULL;
+    }
+    debug(2, "Connection %d: TEARDOWN Close Data Socket.", conn->connection_number);
+    if (conn->data_socket) {
+      close(conn->data_socket);
+      conn->data_socket = 0;
+    }
+  }
+
   if (conn->rtp_event_thread) {
     debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
     pthread_cancel(*conn->rtp_event_thread);
@@ -2520,8 +2535,6 @@ void teardown_phase_two(rtsp_conn_info *conn) {
   if (conn->event_socket) {
     close(conn->event_socket);
     conn->event_socket = 0;
-    debug(2, "Connection %d: closing TCP event port %u.", conn->connection_number,
-          conn->local_event_port);
   }
 
   // if we are closing a PTP stream only, do this
@@ -3154,7 +3167,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_dict_set_item(setupResponsePlist, "streams", streams_array);
       resp->respcode = 200;
     } else if (conn->airplay_stream_category == remote_control_stream) {
-      debug(2, "Connection %d: SETUP: Remote Control Stream received.", conn->connection_number);
+      debug(2, "Connection %d (RC): SETUP: Remote Control Stream received.", conn->connection_number);
 
       // get a port to use as an data port
       // bind a new TCP port and get a socket
@@ -3163,7 +3176,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family, conn->self_ip_string,
                                conn->self_scope_id, &conn->local_data_port, &conn->data_socket);
       if (err) {
-        die("SETUP on Connection %d: Error %d: could not find a TCP port to use as a data "
+        die("SETUP on Connection %d (RC): Error %d: could not find a TCP port to use as a data "
             "port",
             conn->connection_number, err);
       }
