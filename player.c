@@ -2096,8 +2096,6 @@ void *player_thread_func(void *arg) {
   pthread_setcancelstate(oldState, NULL);
 
   double initial_volume = config.airplay_volume; // default
-  if (config.ignore_volume_control != 0)
-    initial_volume = 0.0; // set the default to full volume if ignore volume control is on
   if (conn->initial_airplay_volume_set)          // if we have been given an initial volume
     initial_volume = conn->initial_airplay_volume;
   // set the default volume to whatever it was before, as stored in the config airplay_volume
