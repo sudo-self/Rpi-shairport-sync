@@ -117,18 +117,22 @@ typedef enum { realtime_stream, buffered_stream } airplay_stream_t;
 
 typedef struct {
   uint8_t *data;
-  size_t len;
+  size_t length;
   size_t size;
-} ap2_buffer;
+} sized_buffer;
 
 typedef struct {
+  struct pair_cipher_context *cipher_ctx;
+  sized_buffer encrypted_read_buffer;
+  sized_buffer plaintext_read_buffer;
   int is_encrypted;
+} pair_cipher_bundle; // cipher context and buffers
+
+
+typedef struct {
   struct pair_setup_context *setup_ctx;
   struct pair_verify_context *verify_ctx;
-  struct pair_cipher_context *cipher_ctx;
-
-  ap2_buffer encrypted_buf;
-  ap2_buffer plain_buf;
+  pair_cipher_bundle control_cipher_bundle;
 } ap2_pairing;
 
 // flush requests are stored in order of flushFromSeq
@@ -333,7 +337,7 @@ typedef struct {
   int ap2_rate;         // protect with flush mutex, 0 means don't play, 1 means play
   int ap2_play_enabled; // protect with flush mutex
 
-  ap2_pairing ap2_control_pairing;
+  ap2_pairing ap2_pairing_context;
 
   int event_socket;
   int data_socket;

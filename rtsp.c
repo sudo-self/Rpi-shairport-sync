@@ -1076,72 +1076,72 @@ void _debug_log_rtsp_message(const char *filename, const int linenumber, int lev
   _debug_print_msg_headers(__FILE__, __LINE__, level, message)
 
 #ifdef CONFIG_AIRPLAY_2
-static void buf_add(ap2_buffer *buf, uint8_t *in, size_t in_len) {
-  if (buf->len + in_len > buf->size) {
-    buf->size = buf->len + in_len + 2048; // Extra legroom to avoid future memcpy's
+static void buf_add(sized_buffer *buf, uint8_t *in, size_t in_len) {
+  if (buf->length + in_len > buf->size) {
+    buf->size = buf->length + in_len + 2048; // Extra legroom to avoid future memcpy's
     uint8_t *new = malloc(buf->size);
-    memcpy(new, buf->data, buf->len);
+    memcpy(new, buf->data, buf->length);
     free(buf->data);
     buf->data = new;
   }
-  memcpy(buf->data + buf->len, in, in_len);
-  buf->len += in_len;
+  memcpy(buf->data + buf->length, in, in_len);
+  buf->length += in_len;
 }
 
-static void buf_drain(ap2_buffer *buf, ssize_t len) {
-  if (len < 0 || (size_t)len >= buf->len) {
+static void buf_drain(sized_buffer *buf, ssize_t len) {
+  if (len < 0 || (size_t)len >= buf->length) {
     free(buf->data);
-    memset(buf, 0, sizeof(ap2_buffer));
+    memset(buf, 0, sizeof(sized_buffer));
     return;
   }
-  memmove(buf->data, buf->data + len, buf->len - len);
-  buf->len -= len;
+  memmove(buf->data, buf->data + len, buf->length - len);
+  buf->length -= len;
 }
 
-static size_t buf_remove(ap2_buffer *buf, uint8_t *out, size_t out_len) {
-  size_t bytes = (buf->len > out_len) ? out_len : buf->len;
+static size_t buf_remove(sized_buffer *buf, uint8_t *out, size_t out_len) {
+  size_t bytes = (buf->length > out_len) ? out_len : buf->length;
   memcpy(out, buf->data, bytes);
   buf_drain(buf, bytes);
   return bytes;
 }
 
-static ssize_t read_encrypted(int fd, ap2_pairing *ctx, void *buf, size_t count) {
+static ssize_t read_encrypted(int fd, pair_cipher_bundle *ctx, void *buf, size_t count) {
   uint8_t in[4096];
   uint8_t *plain;
   size_t plain_len;
 
   // If there is leftover decoded content from the last pass just return that
-  if (ctx->plain_buf.len > 0) {
-    return buf_remove(&ctx->plain_buf, buf, count);
+  if (ctx->plaintext_read_buffer.length > 0) {
+    return buf_remove(&ctx->plaintext_read_buffer, buf, count);
   }
 
   do {
     ssize_t got = read(fd, in, sizeof(in));
     if (got <= 0)
       return got;
-    buf_add(&ctx->encrypted_buf, in, got);
+    buf_add(&ctx->encrypted_read_buffer, in, got);
 
-    ssize_t consumed = pair_decrypt(&plain, &plain_len, ctx->encrypted_buf.data,
-                                    ctx->encrypted_buf.len, ctx->cipher_ctx);
+    ssize_t consumed = pair_decrypt(&plain, &plain_len, ctx->encrypted_read_buffer.data,
+                                    ctx->encrypted_read_buffer.length, ctx->cipher_ctx);
     if (consumed < 0)
       return -1;
-    buf_drain(&ctx->encrypted_buf, consumed);
+    buf_drain(&ctx->encrypted_read_buffer, consumed);
   } while (plain_len == 0);
 
   // Fast path, avoids some memcpy + allocs in case of the normal, small message
-  /*  if (ctx->plain_buf.len == 0 && plain_len < count) {
+  /*  if (ctx->plaintext_read_buffer.len == 0 && plain_len < count) {
       memcpy(buf, plain, plain_len);
       free(plain);
       return plain_len;
     }
   */
-  buf_add(&ctx->plain_buf, plain, plain_len);
+  buf_add(&ctx->plaintext_read_buffer, plain, plain_len);
   free(plain);
 
-  return buf_remove(&ctx->plain_buf, buf, count);
+  return buf_remove(&ctx->plaintext_read_buffer, buf, count);
 }
 
-static ssize_t write_encrypted(int fd, ap2_pairing *ctx, const void *buf, size_t count) {
+static ssize_t write_encrypted(int fd, pair_cipher_bundle *ctx, const void *buf, size_t count) {
   uint8_t *encrypted;
   size_t encrypted_len;
 
@@ -1170,9 +1170,9 @@ static ssize_t write_encrypted(rtsp_conn_info *conn, const void *buf, size_t cou
   size_t encrypted_len;
 
   ssize_t ret =
-      pair_encrypt(&encrypted, &encrypted_len, buf, count, conn->ap2_control_pairing.cipher_ctx);
+      pair_encrypt(&encrypted, &encrypted_len, buf, count, conn->ap2_pairing_context.cipher_ctx);
   if (ret < 0) {
-    debug(1, pair_cipher_errmsg(conn->ap2_control_pairing.cipher_ctx));
+    debug(1, pair_cipher_errmsg(conn->ap2_pairing_context.cipher_ctx));
     return -1;
   }
 
@@ -1193,9 +1193,9 @@ static ssize_t write_encrypted(rtsp_conn_info *conn, const void *buf, size_t cou
 
 ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
 #ifdef CONFIG_AIRPLAY_2
-  if (conn->ap2_control_pairing.cipher_ctx) {
-    conn->ap2_control_pairing.is_encrypted = 1;
-    return read_encrypted(conn->fd, &conn->ap2_control_pairing, buf, count);
+  if (conn->ap2_pairing_context.control_cipher_bundle.cipher_ctx) {
+    conn->ap2_pairing_context.control_cipher_bundle.is_encrypted = 1;
+    return read_encrypted(conn->fd, &conn->ap2_pairing_context.control_cipher_bundle, buf, count);
   } else {
     return read(conn->fd, buf, count);
   }
@@ -1452,8 +1452,8 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
 
 #ifdef CONFIG_AIRPLAY_2
   ssize_t reply;
-  if (conn->ap2_control_pairing.is_encrypted) {
-    reply = write_encrypted(conn->fd, &conn->ap2_control_pairing, pkt, p - pkt);
+  if (conn->ap2_pairing_context.control_cipher_bundle.is_encrypted) {
+    reply = write_encrypted(conn->fd, &conn->ap2_pairing_context.control_cipher_bundle, pkt, p - pkt);
   } else {
     reply = write(conn->fd, pkt, p - pkt);
   }
@@ -2062,29 +2062,29 @@ void handle_pair_verify(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *r
   debug(2, "Connection %d: pair-verify Content-Length %d", conn->connection_number,
         req->contentlength);
 
-  if (!conn->ap2_control_pairing.verify_ctx) {
-    conn->ap2_control_pairing.verify_ctx =
+  if (!conn->ap2_pairing_context.verify_ctx) {
+    conn->ap2_pairing_context.verify_ctx =
         pair_verify_new(PAIR_SERVER_HOMEKIT, NULL, NULL, NULL, config.airplay_device_id);
-    if (!conn->ap2_control_pairing.verify_ctx) {
+    if (!conn->ap2_pairing_context.verify_ctx) {
       debug(1, "Error creating verify context");
       resp->respcode = 500; // Internal Server Error
       goto out;
     }
   }
 
-  ret = pair_verify(&body, &body_len, conn->ap2_control_pairing.verify_ctx,
+  ret = pair_verify(&body, &body_len, conn->ap2_pairing_context.verify_ctx,
                     (const uint8_t *)req->content, req->contentlength);
   if (ret < 0) {
-    debug(1, pair_verify_errmsg(conn->ap2_control_pairing.verify_ctx));
+    debug(1, pair_verify_errmsg(conn->ap2_pairing_context.verify_ctx));
     resp->respcode = 470; // Connection Authorization Required
     goto out;
   }
 
-  ret = pair_verify_result(&result, conn->ap2_control_pairing.verify_ctx);
+  ret = pair_verify_result(&result, conn->ap2_pairing_context.verify_ctx);
   if (ret == 0 && result->shared_secret_len > 0) {
-    conn->ap2_control_pairing.cipher_ctx =
+    conn->ap2_pairing_context.control_cipher_bundle.cipher_ctx =
         pair_cipher_new(PAIR_SERVER_HOMEKIT, 2, result->shared_secret, result->shared_secret_len);
-    if (!conn->ap2_control_pairing.cipher_ctx) {
+    if (!conn->ap2_pairing_context.control_cipher_bundle.cipher_ctx) {
       debug(1, "Error setting up rtsp control channel ciphering\n");
       goto out;
     }
@@ -2106,31 +2106,31 @@ void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *re
   debug(2, "Connection %d: pair-setup Content-Length %d", conn->connection_number,
         req->contentlength);
 
-  if (!conn->ap2_control_pairing.setup_ctx) {
-    conn->ap2_control_pairing.setup_ctx = pair_setup_new(PAIR_SERVER_HOMEKIT, config.airplay_pin,
+  if (!conn->ap2_pairing_context.setup_ctx) {
+    conn->ap2_pairing_context.setup_ctx = pair_setup_new(PAIR_SERVER_HOMEKIT, config.airplay_pin,
                                                          NULL, NULL, config.airplay_device_id);
-    if (!conn->ap2_control_pairing.setup_ctx) {
+    if (!conn->ap2_pairing_context.setup_ctx) {
       debug(1, "Error creating setup context");
       resp->respcode = 500; // Internal Server Error
       goto out;
     }
   }
 
-  ret = pair_setup(&body, &body_len, conn->ap2_control_pairing.setup_ctx,
+  ret = pair_setup(&body, &body_len, conn->ap2_pairing_context.setup_ctx,
                    (const uint8_t *)req->content, req->contentlength);
   if (ret < 0) {
-    debug(1, pair_setup_errmsg(conn->ap2_control_pairing.setup_ctx));
+    debug(1, pair_setup_errmsg(conn->ap2_pairing_context.setup_ctx));
     resp->respcode = 470; // Connection Authorization Required
     goto out;
   }
 
-  ret = pair_setup_result(NULL, &result, conn->ap2_control_pairing.setup_ctx);
+  ret = pair_setup_result(NULL, &result, conn->ap2_pairing_context.setup_ctx);
   if (ret == 0 && result->shared_secret_len > 0) {
     // Transient pairing completed (pair-setup step 2), prepare encryption, but
     // don't activate yet, the response to this request is still plaintext
-    conn->ap2_control_pairing.cipher_ctx =
+    conn->ap2_pairing_context.control_cipher_bundle.cipher_ctx =
         pair_cipher_new(PAIR_SERVER_HOMEKIT, 2, result->shared_secret, result->shared_secret_len);
-    if (!conn->ap2_control_pairing.cipher_ctx) {
+    if (!conn->ap2_pairing_context.control_cipher_bundle.cipher_ctx) {
       debug(1, "Error setting up rtsp control channel ciphering\n");
       goto out;
     }
@@ -4819,11 +4819,11 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   }
 
 #ifdef CONFIG_AIRPLAY_2
-  buf_drain(&conn->ap2_control_pairing.plain_buf, -1);
-  buf_drain(&conn->ap2_control_pairing.encrypted_buf, -1);
-  pair_setup_free(conn->ap2_control_pairing.setup_ctx);
-  pair_verify_free(conn->ap2_control_pairing.verify_ctx);
-  pair_cipher_free(conn->ap2_control_pairing.cipher_ctx);
+  buf_drain(&conn->ap2_pairing_context.control_cipher_bundle.plaintext_read_buffer, -1);
+  buf_drain(&conn->ap2_pairing_context.control_cipher_bundle.encrypted_read_buffer, -1);
+  pair_cipher_free(conn->ap2_pairing_context.control_cipher_bundle.cipher_ctx);
+  pair_setup_free(conn->ap2_pairing_context.setup_ctx);
+  pair_verify_free(conn->ap2_pairing_context.verify_ctx);
   if (conn->airplay_gid) {
     free(conn->airplay_gid);
     conn->airplay_gid = NULL;
