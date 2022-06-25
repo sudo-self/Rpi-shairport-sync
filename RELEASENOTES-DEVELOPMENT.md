@@ -1,3 +1,7 @@
+Version 4.1-dev-357-gf551274a
+====
+Explore remote control a bit more. No progress to report...
+
 Version 4.1-dev-352-g4d608216
 ====
 **Bug Fix**
