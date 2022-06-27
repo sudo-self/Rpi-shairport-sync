@@ -23,6 +23,7 @@ AirPlay 2 support needs a slightly more powerful CPU for decoding and synchronis
 Here are some guidelines: 
 * Full access, including `root` privileges, to a system at least as powerful as a Raspberry Pi 2 or a Raspberry Pi Zero 2 W.
 * A fully up-to-date Linux or FreeBSD. This is important, as some of the libraries must be the latest available.
+* Shairport Sync will not run on a Mac because NQPTP, on which it relies, needs ports 319 and 320, which are already used by macOS.
 * A version of the [ffmpeg](https://www.ffmpeg.org) library with an AAC decoder capable of decoding Floating Planar -- `fltp` -- material. There is a guide [here](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only) to help you find out if your system has it. (At the time of writing, Debian, Ubuntu, Raspberry Pi OS and FreeBSD all include this decoder. Fedora 36 does not.)
 * An audio output, for example an `alsa` device (or `sndio` in FreeBSD). You can use an application called [`sps-alsa-explore`](https://github.com/mikebrady/sps-alsa-explore) to test the suitability of hardware `alsa` audio devices on your device. Other backends continue to work as with "classic" Shairport Sync.
 
