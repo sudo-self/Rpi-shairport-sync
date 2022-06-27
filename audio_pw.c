@@ -35,6 +35,10 @@
 
 #include <math.h>
 
+#define PW_TIMEOUT_S 5
+#define SECONDS_TO_NANOSECONDS 1000000000L
+#define PW_TIMEOUT_NS (PW_TIMEOUT_S * SECONDS_TO_NANOSECONDS)
+
 struct pw_data {
   struct pw_thread_loop *mainloop;
   struct pw_context *context;
@@ -178,6 +182,8 @@ static void deinit() {
     pw_properties_free(data.props);
     data.props = NULL;
   }
+
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
 static int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
@@ -230,6 +236,7 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
     die("pw: pw_properties_new() failed: %m");
   }
 
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   pw_thread_loop_lock(data.mainloop);
 
   if (pw_thread_loop_start(data.mainloop) != 0) {
@@ -256,6 +263,7 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
   data.sync = pw_core_sync(data.core, 0, data.sync);
 
   pw_thread_loop_unlock(data.mainloop);
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
   return 0;
 }
@@ -336,6 +344,8 @@ static const char *spa_format_to_str(enum spa_audio_format audio_format) {
 
 static void start(int sample_rate, int sample_format) {
 
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
   pw_thread_loop_lock(data.mainloop);
 
   const struct spa_pod *params[1];
@@ -406,33 +416,49 @@ static void start(int sample_rate, int sample_format) {
     if (stream_state == PW_STREAM_STATE_PAUSED)
       break;
 
-    pw_thread_loop_wait(data.mainloop);
+    struct timespec abstime;
+
+    pw_thread_loop_get_time(data.mainloop, &abstime, PW_TIMEOUT_NS);
+
+    ret = pw_thread_loop_timed_wait_full(data.mainloop, &abstime);
+    if (ret == -ETIMEDOUT) {
+      deinit();
+      die("pw: pw_thread_loop_timed_wait_full timed out: %s", strerror(ret));
+    }
   }
 
   pw_thread_loop_unlock(data.mainloop);
+
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
 static void stop() {
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   pw_thread_loop_lock(data.mainloop);
 
   pw_stream_flush(data.stream, true);
 
   pw_thread_loop_unlock(data.mainloop);
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
 static void flush() {
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   pw_thread_loop_lock(data.mainloop);
 
   pw_stream_flush(data.stream, false);
 
   pw_thread_loop_unlock(data.mainloop);
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
 static int play(void *buf, int samples) {
   struct pw_buffer *pw_buffer;
   struct spa_buffer *spa_buffer;
   struct spa_data *spa_data;
+  int ret;
 
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
   pw_thread_loop_lock(data.mainloop);
 
   if (pw_stream_get_state(data.stream, NULL) == PW_STREAM_STATE_PAUSED)
@@ -443,7 +469,16 @@ static int play(void *buf, int samples) {
     if (pw_buffer)
       break;
 
-    pw_thread_loop_wait(data.mainloop);
+    struct timespec abstime;
+
+    pw_thread_loop_get_time(data.mainloop, &abstime, PW_TIMEOUT_NS);
+
+    ret = pw_thread_loop_timed_wait_full(data.mainloop, &abstime);
+    if (ret == -ETIMEDOUT) {
+      pw_thread_loop_unlock(data.mainloop);
+      pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+      return ret;
+    }
   }
 
   spa_buffer = pw_buffer->buffer;
@@ -467,6 +502,8 @@ static int play(void *buf, int samples) {
   pw_stream_queue_buffer(data.stream, pw_buffer);
 
   pw_thread_loop_unlock(data.mainloop);
+
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
   return 0;
 }
