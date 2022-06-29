@@ -3252,10 +3252,10 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
     conn->software_mute_enabled = 0;
 
     debug(2,
-          "player_volume_without_notification: volume mode is %d, airplay volume is %f, "
-          "software_attenuation: %f, hardware_attenuation: %f, muting "
+          "player_volume_without_notification: volume mode is %d, airplay volume is %.2f, "
+          "software_attenuation dB: %.2f, hardware_attenuation dB: %.2f, muting "
           "is disabled.",
-          volume_mode, airplay_volume, software_attenuation, hardware_attenuation);
+          volume_mode, airplay_volume, software_attenuation / 100.0, hardware_attenuation / 100.0);
   }
   // here, store the volume for possible use in the future
   config.airplay_volume = airplay_volume;
