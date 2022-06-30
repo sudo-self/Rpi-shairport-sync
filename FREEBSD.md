@@ -4,7 +4,7 @@ Shairport Sync runs natively on FreeBSD using the `sndio` back end, thanks to th
 
 [`sndio`](http://www.sndio.org) is *"a small audio and MIDI framework part of the OpenBSD project and ported to FreeBSD, Linux and NetBSD"* developed by Alexandre Ratchov (see also [this paper](http://www.openbsd.org/papers/asiabsdcon2010_sndio.pdf) for more details).
 
-The build instructions here build Shaiport Sync to output to the `sndio` and/or the `ALSA` sound systems. `ALSA` is the [Advanced Linux Sound Architecture](https://www.alsa-project.org/wiki/Main_Page), so it is not "native" to FreeBSD, but it has been ported to some architectures under FreeBSD. 
+The build instructions here build Shairport Sync to output to the `sndio` and/or the `ALSA` sound systems. `ALSA` is the [Advanced Linux Sound Architecture](https://www.alsa-project.org/wiki/Main_Page), so it is not "native" to FreeBSD, but it has been ported to some architectures under FreeBSD. 
 
 Build instructions are different from previous versions of Shairport Sync and may change further. For now, leave the settings in the configuration file at default except as noted below.
 
