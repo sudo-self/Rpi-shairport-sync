@@ -2,7 +2,7 @@ Shairport Sync on FreeBSD
 ----
 This guide, for a recent FreeBSD system, is to build Shairport Sync to output to the [`sndio`](https://sndio.org) and/or the [ALSA](https://www.alsa-project.org/wiki/Main_Page) sound systems.
 
-The `sndio` back end is based on the work of [Tobias Kortkamp (t6)](https://github.com/t6).
+The `sndio` back end is based on the work of [Tobias Kortkamp](https://github.com/t6).
 
 ALSA is not "native" to FreeBSD, but it has been ported to some architectures.
 
