@@ -23,7 +23,7 @@ AirPlay 2 support needs a slightly more powerful CPU for decoding and synchronis
 
 Here are some guidelines: 
 * Full access, including `root` privileges, to a system at least as powerful as a Raspberry Pi 2 or a Raspberry Pi Zero 2 W.
-* Ports 319 and 320 must be free to use (i.e. they muist not be in use by another service such as a PTP service) and must not be blocked by a firewall.
+* Ports 319 and 320 must be free to use (i.e. they must not be in use by another service such as a PTP service) and must not be blocked by a firewall.
 * An up-to-date Linux or FreeBSD. This is important, as some of the libraries must be the latest available.
 * Shairport Sync will not run on a Mac because NQPTP, on which it relies, needs ports 319 and 320, which are already used by macOS.
 * A version of the [ffmpeg](https://www.ffmpeg.org) library with an AAC decoder capable of decoding Floating Planar -- `fltp` -- material. There is a guide [here](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only) to help you find out if your system has it.
