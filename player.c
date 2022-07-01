@@ -2257,7 +2257,9 @@ void *player_thread_func(void *arg) {
 
               switch (config.playback_mode) {
               case ST_mono: {
-                int64_t both = ls + rs;
+                int64_t lsl = ls;
+                int64_t rsl = rs;
+                int64_t both = lsl + rsl;
                 both = both >> 1;
                 uint32_t both32 = both;
                 ll = both32;
