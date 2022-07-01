@@ -1,7 +1,7 @@
-Version 4.1-dev-373-g2ab4895f
+Version 4.1-dev-376-gca6e768f
 ====
 **Bug Fix**
-* Fix a bug that introduces clipping when stereo is mixed to mono.
+* Fix a bug that introduces clipping when 16- or 32-bit stereo is mixed to mono.
 
 Version 4.1-dev-357-gf551274a
 ====
