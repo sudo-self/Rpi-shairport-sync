@@ -2201,7 +2201,9 @@ void *player_thread_func(void *arg) {
 
               switch (config.playback_mode) {
               case ST_mono: {
-                int32_t both = ls + rs;
+                int32_t lsl = ls;
+                int32_t rsl = rs;
+                int32_t both = lsl + rsl;
                 both = both << (16 - 1); // keep all 17 bits of the sum of the 16bit left and right
                                          // -- the 17th bit will influence dithering later
                 ll = both;
