@@ -1,3 +1,8 @@
+Version 4.1-dev-373-g2ab4895f
+====
+**Bug Fix**
+* Fix a bug that introduces clipping when stereo is mixed to mono.
+
 Version 4.1-dev-357-gf551274a
 ====
 Explore remote control a bit more. No progress to report...
