@@ -10,6 +10,8 @@ Shairport Sync can be built as an AirPlay 2 player (with [some limitations](http
 
 Overall, you'll be building and installing two programs. The first one is NQPTP, a companion app that Shairport Sync uses for AirPlay 2 timing, and the second one is Shairport Sync itself. Build and install NQPTP first. If you are building Classic Shairport Sync, NQPTP is unnecessary and can be omitted.
 
+In the commands below, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `freebsd-update fetch` in superuser mode and you are in user mode, enter `sudo freebsd-update fetch`.
+
 General
 ----
 This build was done on a default build of `freebsd 12.3-RELEASE-p5`.
