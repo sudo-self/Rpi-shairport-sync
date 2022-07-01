@@ -1,14 +1,19 @@
 Fedora Installation Guide [Needs updating for Airplay 2]
 -----
+
 Update everything...
 ```
 # yum update
 ```
-Install the toolchain and pre-requisites, if necessary:
+Install the toolchain and prerequisites, if necessary:
 ```
 # yum install make automake gcc gcc-c++ kernel-devel
 # yum install alsa-lib-devel autoconf automake avahi-devel libconfig-devel \
-    libdaemon-devel openssl-devel popt-devel soxr-devel rpmbuild
+    openssl-devel popt-devel soxr-devel rpmbuild
+```
+For AirPlay 2, you'll also need to install the following prerequisites:
+```
+# yum install ffmpeg ffmpeg-devel libplist-devel libsodium-devel libgcrypt-devel libuuid-devel vim-common
 ```
 Download the tarball from the "releases" tab on github or use `wget` and then use `rpmbuild`. Alternatively, download a tarball of the `master` branch, as in this example:
 ```
