@@ -10,7 +10,7 @@ Install the toolchain and prerequisites, if necessary:
 # yum install alsa-lib-devel autoconf automake avahi-devel libconfig-devel \
     openssl-devel popt-devel soxr-devel
 ```
-For AirPlay 2, you'll also need to install the following prerequisites:
+For AirPlay 2, you'll also need to install the following prerequisites. But first, ensure you have enabled the RPM Fusion software repositories to the "Free" level. See [here](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) for details and a guide.
 ```
 # yum install ffmpeg ffmpeg-devel libplist-devel libsodium-devel libgcrypt-devel libuuid-devel vim-common
 ```
