@@ -12,6 +12,9 @@ For AirPlay 2, ensure you have enabled the RPM Fusion software repositories to t
 # yum install make automake gcc gcc-c++
 # yum install alsa-lib-devel autoconf automake avahi-devel libconfig-devel \
     openssl-devel popt-devel soxr-devel
+# yum install pulseaudio-libs-devel
+# yum install pipewire-devel
+
 ```
 For AirPlay 2 operation, install extra libraries as follows. Before doing this, ensure the RPM Fusion software repositories at least to the "Free" level.
 ```
