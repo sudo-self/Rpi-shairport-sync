@@ -112,6 +112,9 @@ The user doesn't need to be privileged, but must be a member of the `audio` grou
 
 Follow the steps in [ADDINGTOHOME.md](https://github.com/mikebrady/shairport-sync/blob/development/ADDINGTOHOME.md) to add your Shairport Sync device to the Apple Home system.
 
+## Check Firewall
+Fedora installs a firewall by default. To enable Shairport Sync to run properly, ports 319 and 320 must be open for UDP traffic in both directions – this is often referred to as the PTP service in firewall rules. Port 5000 must be open for TCP traffic for AirPlay, and port 7000 for AirPlay 2. 
+
 ## Update Your Mac!
 
 Many AirPlay 2 bugs have been fixed in recent versions of macOS, so it is strongly recommended that you update your Mac.
