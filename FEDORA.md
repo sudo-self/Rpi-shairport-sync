@@ -1,16 +1,19 @@
 # Fedora Installation Guide [Needs updating for Airplay 2]
 
-Update everything...
+## Enable RPM Fusion Software Repositories (AirPlay 2 Only)
+For AirPlay 2, ensure you have enabled the RPM Fusion software repositories to the "Free" level. See [here](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) for details and a guide.
+
+## Update Everything
 ```
 # yum update
 ```
-Install the toolchain and prerequisites, if necessary:
+## Install Toolchain and Libraries
 ```
 # yum install make automake gcc gcc-c++
 # yum install alsa-lib-devel autoconf automake avahi-devel libconfig-devel \
     openssl-devel popt-devel soxr-devel
 ```
-For AirPlay 2, you'll also need to install the following prerequisites. But first, ensure you have enabled the RPM Fusion software repositories to the "Free" level. See [here](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) for details and a guide.
+For AirPlay 2 operation, install extra libraries as follows. Before doing this, ensure the RPM Fusion software repositories at least to the "Free" level.
 ```
 # yum install ffmpeg ffmpeg-devel libplist-devel libsodium-devel libgcrypt-devel libuuid-devel vim-common
 ```
