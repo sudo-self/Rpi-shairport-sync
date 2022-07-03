@@ -4,6 +4,8 @@ Fedora uses PipeWire for audio management [since Fedora 34](https://fedoramagazi
 
 Shairport Sync also offers PipeWire (`--with-pw`) and PulseAudio (`--with-pa`) backends that may be used. The PipeWire backend is new and still undergoing development.
 
+Unfortunately, the use of PipeWire, even indirectly, means that Shairport Sync can not be installed as a system service (aka a system daemon). Instead it must be started by a user after login or installed as a user service. It means that the user must log in for the Shairport Sync service to become available.
+
 ## Enable RPM Fusion Software Repositories (AirPlay 2 Only)
 For AirPlay 2, it is important to [enable](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) the RPM Fusion software repositories, at least to the "Free" level. This is so that [ffmpeg](https://ffmpeg.org) libraries will be installed that include a suitable AAC decoder.
 
@@ -70,18 +72,11 @@ By default when you start Shairport Sync, it will play to the default output dev
 
 ### Automatic Start
 
-To enable Shairport Sync to start automatically on boot up:
-```
-# systemctl enable shairport-sync
-```
-Now, either reboot or start the `shairport-sync` service:
-```
-# systemctl start shairport-sync
-```
+To run automatically after user login, Shairport Sync must be installed as a user service.
 
 ### Running From the Command Line
 
-You may wish to run Shairport Sync from the command line (but remember to ensure it is not already running as a daemon). To enable debug messages and statistics, use the following:
+You may wish to run Shairport Sync from the command line. To enable debug messages and statistics, use the following:
 
 ```
 $ shairport-sync -v --statistics
