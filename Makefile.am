@@ -228,13 +228,13 @@ endif
 endif
 if INSTALL_SYSTEMV
 	getent group shairport-sync &>/dev/null || groupadd -r shairport-sync >/dev/null
-	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/bin/nologin -G audio shairport-sync >/dev/null
+	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/sbin/nologin -G audio shairport-sync >/dev/null
 	[ -e $(DESTDIR)$(sysconfdir)/init.d ] || mkdir -p $(DESTDIR)$(sysconfdir)/init.d
 	[ -e $(DESTDIR)$(sysconfdir)/init.d/shairport-sync ] || cp scripts/shairport-sync $(DESTDIR)$(sysconfdir)/init.d/
 endif
 if INSTALL_SYSTEMD
 	getent group shairport-sync &>/dev/null || groupadd -r shairport-sync >/dev/null
-	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/bin/nologin -G audio shairport-sync >/dev/null
+	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/sbin/nologin -G audio shairport-sync >/dev/null
 	[ -e $(DESTDIR)$(systemdsystemunitdir) ] || mkdir -p $(DESTDIR)$(systemdsystemunitdir)
 if USE_AVAHI
 	[ -e $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service ] || cp scripts/shairport-sync.service-avahi $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service
