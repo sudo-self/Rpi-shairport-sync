@@ -1657,6 +1657,9 @@ char *get_version_string() {
 #ifdef CONFIG_PA
     strcat(version_string, "-pa");
 #endif
+#ifdef CONFIG_PW
+    strcat(version_string, "-pw");
+#endif
 #ifdef CONFIG_SOUNDIO
     strcat(version_string, "-soundio");
 #endif
