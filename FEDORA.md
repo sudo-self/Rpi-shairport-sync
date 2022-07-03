@@ -1,17 +1,11 @@
 # Fedora Installation Guide
 
-Fedora uses PipeWire for audio management [since Fedora 34](https://fedoramagazine.org/pipewire-the-new-audio-and-video-daemon-in-fedora-linux-34/). Shairport Sync offers a native PipeWire backend (`--with-pw`) for access to system audio output on PipeWire-based systems. The PulseAudio backend (`--with-pa`) can also be used, as PipeWire is PulseAudio compatible at this level. (The PipeWire backend is new and still undergoing development, whereas the PulseAudio backend is more mature.)
+Fedora uses PipeWire for audio management [since Fedora 34](https://fedoramagazine.org/pipewire-the-new-audio-and-video-daemon-in-fedora-linux-34/). An [adapter](https://wiki.archlinux.org/title/PipeWire#ALSA_clients) for ALSA-compatible software is included which creates a virtual ALSA output device to route audio from ALSA-compatible sources into the PipeWire infrastructure. It is recommended that Shairport Sync is built with the standard ALSA backend (`--with-alsa`).
 
-ALSA is also installed in a standard Fedora installation, but it can not access the default audio device, since PipeWire has exclusive access to it. 
-
-The PipeWire installation on Fedora includes an [adapter](https://wiki.archlinux.org/title/PipeWire#ALSA_clients) for ALSA-compatible software that creates a virtual ALSA output device that, in reality, routes the audio that is sent to it into the PipeWire infrastructure. Unfortunately, this does not work with Shairport Sync's ALSA backend. This means that while you can build, run, connect to and play through Shairport Sync with the ALSA backend, no audio will be heard through the default ALSA output provided by PipeWire. Instead, for output to system audio on a PipeWire based system, you must use the PipeWire or PulseAudio backends.
-
-Note, however, that if you want to use an *extra* audio card -- say a USB audio card -- Shairport Sync's ALSA backend can be used to access it.
-
-In summary, use the PipeWire or PulseAudio backend for output to System Audio. Use the ALSA backend with a dedicated extra sound card. 
+Shairport Sync also offers PipeWire (`--with-pw`) and PulseAudio (`--with-pa`) backends that may be used. The PipeWire backend is new and still undergoing development.
 
 ## Enable RPM Fusion Software Repositories (AirPlay 2 Only)
-For AirPlay 2, ensure you [enable](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) the RPM Fusion software repositories at least to the "Free" level.
+For AirPlay 2, it is important to [enable](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) the RPM Fusion software repositories, at least to the "Free" level. This is so that [ffmpeg](https://ffmpeg.org) libraries will be installed that include a suitable AAC decoder.
 
 ## Update Everything
 ```
@@ -19,18 +13,15 @@ For AirPlay 2, ensure you [enable](https://docs.fedoraproject.org/en-US/quick-do
 ```
 ## Install Toolchain and Libraries
 
-Note that the last three steps are optional, though you must select one of them.
-
 ```
 # yum install make automake gcc gcc-c++
 # yum install autoconf automake avahi-devel libconfig-devel openssl-devel popt-devel soxr-devel
-
-# yum install alsa-lib-devel # perform this step if you intend to build the ALSA back end
-# yum install pulseaudio-libs-devel # perform this step if you intend to build the PulseAudio back end
-# yum install pipewire-devel # perform this step if you intend to build the PipeWire back end
-
+# yum install alsa-lib-devel # for the ALSA back end -- used in this build
 ```
-For AirPlay 2 operation, extra libraries must be installed. Before taking this step, once again please ensure the you have [enabled](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) RPM Fusion software repositories at least to the "Free" level. If this is not done, [ffmpeg](https://ffmpeg.org) libraries will be installed that lack a suitable AAC decoder, preventing Shairport Sync from working. (Check the situation using [this troubleshooting hint](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only).)
+(To build the PipeWire backend, install the `pipewire-devel` library; for the PulseAudio backend, you'll need the `pulseaudio-libs-devel` library.)
+
+For AirPlay 2 operation, extra libraries must be installed. Before taking this step, once again please ensure the you have [enabled](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) RPM Fusion software repositories at least to the "Free" level. If this is not done, ffmpeg libraries will be installed that lack a suitable AAC decoder, preventing Shairport Sync from working.
+
 Install the extra libraries with the following command:
 ```
 # yum install ffmpeg ffmpeg-devel libplist-devel libsodium-devel libgcrypt-devel libuuid-devel vim-common
@@ -38,7 +29,7 @@ Install the extra libraries with the following command:
 
 ## Build
 ### NQPTP
-**Note:** Skip this section if you are building Classic Shairport Sync – NQPTP is not used by Classic Shairport Sync.
+Skip this section if you are building Classic Shairport Sync – NQPTP is not used by Classic Shairport Sync.
 
 Download, install, enable and start NQPTP from [here](https://github.com/mikebrady/nqptp). By the way, Fedora has a firewall running by default, so make sure you eneable UDP traffic to and from ports 319 and 320, as noted in the NQPTP guide.
 
@@ -48,34 +39,34 @@ Download, install, enable and start NQPTP from [here](https://github.com/mikebra
 As you probably know, you can download the repository in two ways: (1) using `git` to clone it  -- recommended -- or (2) downloading the repository as a ZIP archive. Please use the `git` method. The reason it that when you use `git`, the build process can incorporate the `git` build information in the version string you get when you execute the command `$ shairport-sync -V`. This will be very useful for identifying the exact build if you are making comments or bug reports. Here is an example:
 ```
 Version with git information:
-4.1-dev-389-gf317161a-AirPlay2-OpenSSL-Avahi-pw-soxr-sysconfdir:/etc
+4.1-dev-389-gf317161a-AirPlay2-OpenSSL-Avahi-ALSA-soxr-sysconfdir:/etc
 
 Version without git information:
-4.1-dev-AirPlay2-OpenSSL-Avahi-pw-soxr-sysconfdir:/etc
+4.1-dev-AirPlay2-OpenSSL-Avahi-ALSA-soxr-sysconfdir:/etc
 ```
 
 #### Build and Install
 Download Shairport Sync, check out the `development` branch and configure, compile and install it.
 
 * Omit `--with-airplay-2` from the `./configure` options to build Classic Shairport Sync.
-* Omit `--with-pw` from the `./configure` options if you do not want the PipeWire backend.
-* Add `--with-pa` in the `./configure` options to include the PulseAudio backend.
-* Add `--with-alsa` in the `./configure` options to include the ALSA backend.
 
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
 $ git checkout development
 $ autoreconf -fi
-$ ./configure --sysconfdir=/etc --with-pw \
+$ ./configure --sysconfdir=/etc --with-alsa \
     --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
+```
+If you get errors during the `./configure` step, check again that you have installed the toolchain and libraries correctly.
+```
 $ make -j
 # make install
 ```
 By the way, the `autoreconf` step may take quite a while – please be patient!
 
 ## Configuration
-By default when you start Shairport Sync, it will play to the default output device on the default backend. You can configure Shairport Sync to use a different backend or device using settings in the configuration file, installed during the `# make install` step at `/etc/shairport-sync.conf` along with a sample at `/etc/shairport-sync.conf.sample`.
+By default when you start Shairport Sync, it will play to the default output device, which is just what is needed here -- the default ALSA device routes audio into Fedora's PipeWire infrastructure. You can configure many Shairport Sync settings in the configuration file, installed during the `# make install` step at `/etc/shairport-sync.conf` along with a sample at `/etc/shairport-sync.conf.sample`.
 
 ### Automatic Start
 
@@ -95,7 +86,7 @@ You may wish to run Shairport Sync from the command line (but remember to ensure
 ```
 $ shairport-sync -v --statistics
 ```
-The user doesn't need to be privileged, but must be a member of the `audio` group if access is needed to the `alsa` subsystem.
+The user doesn't need to be privileged, but must be a member of the `audio` group to access the `alsa` subsystem.
 
 ### Adding to Home
 
