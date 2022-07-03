@@ -1,31 +1,46 @@
-# Fedora Installation Guide [Needs updating for Airplay 2]
+# Fedora Installation Guide
+
+Fedora uses PipeWire for audio management [since Fedora 34](https://fedoramagazine.org/pipewire-the-new-audio-and-video-daemon-in-fedora-linux-34/). Shairport Sync offers a native PipeWire backend (`--with-pw`) for access to system audio output on PipeWire-based systems. The PulseAudio backend (`--with-pa`) can also be used, as PipeWire is PulseAudio compatible at this level. (The PipeWire backend is new and still undergoing development, whereas the PulseAudio backend is more mature.)
+
+ALSA is also installed in a standard Fedora installation, but it can not access the default audio device, since PipeWire has exclusive access to it. 
+
+The PipeWire installation on Fedora includes an [adapter](https://wiki.archlinux.org/title/PipeWire#ALSA_clients) for ALSA-compatible software that creates a virtual ALSA output device that, in reality, routes the audio that is sent to it into the PipeWire infrastructure. Unfortunately, this does not work with Shairport Sync's ALSA backend. This means that while you can build, run, connect to and play through Shairport Sync with the ALSA backend, no audio will be heard through the default ALSA output provided by PipeWire. Instead, for output to system audio on a PipeWire based system, you must use the PipeWire or PulseAudio backends.
+
+Note, however, that if you want to use an *extra* audio card -- say a USB audio card -- Shairport Sync's ALSA backend can be used to access it.
+
+In summary, use the PipeWire or PulseAudio backend for output to System Audio. Use the ALSA backend with a dedicated extra sound card. 
 
 ## Enable RPM Fusion Software Repositories (AirPlay 2 Only)
-For AirPlay 2, ensure you have enabled the RPM Fusion software repositories to the "Free" level. See [here](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) for details and a guide.
+For AirPlay 2, ensure you [enable](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) the RPM Fusion software repositories at least to the "Free" level.
 
 ## Update Everything
 ```
 # yum update
 ```
 ## Install Toolchain and Libraries
-```
-# yum install make automake gcc gcc-c++
-# yum install alsa-lib-devel autoconf automake avahi-devel libconfig-devel \
-    openssl-devel popt-devel soxr-devel
-# yum install pulseaudio-libs-devel
-# yum install pipewire-devel
+
+Note that the last three steps are optional, though you must select one of them.
 
 ```
-For AirPlay 2 operation, install extra libraries as follows. Before doing this, ensure the RPM Fusion software repositories at least to the "Free" level.
+# yum install make automake gcc gcc-c++
+# yum install autoconf automake avahi-devel libconfig-devel openssl-devel popt-devel soxr-devel
+
+# yum install alsa-lib-devel # perform this step if you intend to build the ALSA back end
+# yum install pulseaudio-libs-devel # perform this step if you intend to build the PulseAudio back end
+# yum install pipewire-devel # perform this step if you intend to build the PipeWire back end
+
+```
+For AirPlay 2 operation, extra libraries must be installed. Before taking this step, once again please ensure the you have [enabled](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) RPM Fusion software repositories at least to the "Free" level. If this is not done, [ffmpeg](https://ffmpeg.org) libraries will be installed that lack a suitable AAC decoder, preventing Shairport Sync from working. (Check the situation using [this troubleshooting hint](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only).)
+Install the extra libraries with the following command:
 ```
 # yum install ffmpeg ffmpeg-devel libplist-devel libsodium-devel libgcrypt-devel libuuid-devel vim-common
 ```
 
 ## Build
 ### NQPTP
-**Note:** Skip this section if you are building Classic Shairport Sync.
+**Note:** Skip this section if you are building Classic Shairport Sync – NQPTP is not used by Classic Shairport Sync.
 
-Download, install, enable and start NQPTP from [here](https://github.com/mikebrady/nqptp).
+Download, install, enable and start NQPTP from [here](https://github.com/mikebrady/nqptp). By the way, Fedora has a firewall running by default, so make sure you eneable UDP traffic to and from ports 319 and 320, as noted in the NQPTP guide.
 
 ### Shairport Sync
 
@@ -33,23 +48,26 @@ Download, install, enable and start NQPTP from [here](https://github.com/mikebra
 As you probably know, you can download the repository in two ways: (1) using `git` to clone it  -- recommended -- or (2) downloading the repository as a ZIP archive. Please use the `git` method. The reason it that when you use `git`, the build process can incorporate the `git` build information in the version string you get when you execute the command `$ shairport-sync -V`. This will be very useful for identifying the exact build if you are making comments or bug reports. Here is an example:
 ```
 Version with git information:
-4.0-dev-138-g2789572-AirPlay2-OpenSSL-Avahi-ALSA-soxr-sysconfdir:/etc
+4.1-dev-389-gf317161a-AirPlay2-OpenSSL-Avahi-pw-soxr-sysconfdir:/etc
 
 Version without git information:
-4.0-dev-AirPlay2-OpenSSL-Avahi-ALSA-soxr-sysconfdir:/etc
+4.1-dev-AirPlay2-OpenSSL-Avahi-pw-soxr-sysconfdir:/etc
 ```
 
 #### Build and Install
 Download Shairport Sync, check out the `development` branch and configure, compile and install it.
 
-Omit the `--with-airplay-2` from the `./configure` options if you are building Classic Shairport Sync:
+* Omit `--with-airplay-2` from the `./configure` options to build Classic Shairport Sync.
+* Omit `--with-pw` from the `./configure` options if you do not want the PipeWire backend.
+* Add `--with-pa` in the `./configure` options to include the PulseAudio backend.
+* Add `--with-alsa` in the `./configure` options to include the ALSA backend.
 
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
 $ git checkout development
 $ autoreconf -fi
-$ ./configure --sysconfdir=/etc --with-alsa \
+$ ./configure --sysconfdir=/etc --with-pw \
     --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
 $ make -j
 # make install
@@ -57,41 +75,7 @@ $ make -j
 By the way, the `autoreconf` step may take quite a while – please be patient!
 
 ## Configuration
-By default when you start Shairport Sync, it will play to the default output device. You can configure Shairport Sync to use a different device -- for instance, if you have a special high-quality DAC, you may wish for Shairport Sync to use it instead.
-
-Furthermore, by default, Shairport Sync will not use any hardware attenuator (aka "mixer") an output device may have. A mixer is used to implement volume control. Without a mixer, Shairport Sync will use a built-in software-based attenuator to control output level. The catch here is that if there is really a mixer and Shairport Sync isn't using it, the level the mixer happens to be set to represents the highest output Shairport Sync can attain. It may be set too low to be heard. You can use an external program such as `alsamixer` to look for and set the levels of mixers, but Shairport Sync can control a mixer directly if you configure it.
-
-Here is an example, based on using the standard `alsa` backend, of configuring Shairport Sync's output device and mixer. 
-A list of `alsa` output devices is given at the end of the help information. For example, at the end of the output from the command `$ shairport-sync -h`, the following might appear:
-
-```
-...
-Available audio backends:
-    alsa (default)
-
-Settings and options for the audio backend "alsa":
-    -d output-device    set the output device, default is "default".
-    -c mixer-control    set the mixer control name, default is to use no mixer.
-    -m mixer-device     set the mixer device, default is the output device.
-    -i mixer-index      set the mixer index, default is 0.
-    hardware output devices:
-      "hw:AudioPCI"
-```
-Using a program such as `alsamixer`, the name of a mixer (i.e. an attenuator or volume control that could be used to control the output level) can be determined. In this case, the name of the mixer is `Master`.
-
-Here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`. Note that everything is case-sensitive:
-```
-// Sample Configuration File for Shairport Sync using the built-in soundcard's DAC
-
-alsa =
-{
-  output_device = "hw:AudioPCI";
-  mixer_control_name = "Headphone";
-};
-
-```
-
-(There are lots more settings you can make in the configuration file – please take a look at `/etc/shairport-sync.conf.sample`.)
+By default when you start Shairport Sync, it will play to the default output device on the default backend. You can configure Shairport Sync to use a different backend or device using settings in the configuration file, installed during the `# make install` step at `/etc/shairport-sync.conf` along with a sample at `/etc/shairport-sync.conf.sample`.
 
 ### Automatic Start
 
@@ -111,12 +95,11 @@ You may wish to run Shairport Sync from the command line (but remember to ensure
 ```
 $ shairport-sync -v --statistics
 ```
-The user doesn't need to be privileged, but must be a member of the `audio` group for access to the `alsa` subsystem.
-
+The user doesn't need to be privileged, but must be a member of the `audio` group if access is needed to the `alsa` subsystem.
 
 ### Adding to Home
 
-Follow the steps in [ADDINGTOHOME.md](https://github.com/mikebrady/shairport-sync/blob/development/ADDINGTOHOME.md) to add your Shairport Sync device to the Apple Home system.
+If you have built it for AirPlay 2, you can follow the steps in [ADDINGTOHOME.md](https://github.com/mikebrady/shairport-sync/blob/development/ADDINGTOHOME.md) to add your Shairport Sync device to the Apple Home system.
 
 ## Update Your Mac!
 
@@ -124,6 +107,6 @@ Many AirPlay 2 bugs have been fixed in recent versions of macOS, so it is strong
 
 ## Using Shairport Sync
 
-The Shairport Sync AirPlay service should appear on the network with a service name made from the machine's hostname with the first letter capitalised, e.g. hostname `ubuntu` gives a service name `Fedora`. You can change the service name in the configuration file.
+The Shairport Sync AirPlay service should appear on the network with a service name made from the machine's hostname with the first letter capitalised, e.g. hostname `fedora` gives a service name `Fedora`. You can change the service name in the configuration file.
 
 Connect and enjoy...
