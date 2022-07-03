@@ -33,7 +33,7 @@ Install the extra libraries with the following command:
 ### NQPTP
 Skip this section if you are building Classic Shairport Sync – NQPTP is not used by Classic Shairport Sync.
 
-Download, install, enable and start NQPTP from [here](https://github.com/mikebrady/nqptp). By the way, Fedora has a firewall running by default, so make sure you eneable UDP traffic to and from ports 319 and 320, as noted in the NQPTP guide.
+Download, install, enable and start NQPTP from [here](https://github.com/mikebrady/nqptp). By the way, Fedora has a firewall running by default, so make sure you enable UDP traffic to and from ports 319 and 320, as noted in the NQPTP guide.
 
 ### Shairport Sync
 
