@@ -331,7 +331,7 @@ Supported sample formats: fltp
 ```
 towards the bottom. This means that the AAC decoder is suitable for use by Shairport Sync
 
-Here are the same commands, performed on Fedora 36, which, by default, does not support `fltp` decoding:
+Here are the same commands, performed on a system which does not support `fltp` decoding:
 ```
 $ ffmpeg -decoders | grep -i aac
 ffmpeg version 5.0.1 Copyright (c) 2000-2022 the FFmpeg developers
