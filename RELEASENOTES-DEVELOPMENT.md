@@ -1,7 +1,7 @@
 Version 4.1-dev-376-gca6e768f
 ====
 **Bug Fix**
-* Fix a bug that may permit clipping when 16- or 32-bit stereo is mixed to mono. Thanks to [xStatts](https://github.com/xStatts) for the [report](https://github.com/mikebrady/shairport-sync/issues/1491) and for checking the fix.
+* Fix a bug that permitted clipping to occur when the `playback_mode` as set to `mono`. Thanks to [xStatts](https://github.com/xStatts) for the [report](https://github.com/mikebrady/shairport-sync/issues/1491) and for checking the fix.
 
 Version 4.1-dev-357-gf551274a
 ====
