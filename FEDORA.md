@@ -72,7 +72,7 @@ By default when you start Shairport Sync, it will play to the default output dev
 
 ### Automatic Start
 
-To run automatically after user login, Shairport Sync must be installed as a user service.
+To run automatically after user login, Shairport Sync can be installed as a user service.
 
 ### Running From the Command Line
 
