@@ -51,6 +51,7 @@ If you removed any installations of Shairport Sync or any of its startup script 
 
 
 ## Install Toolchain and Libraries
+Okay, now let's get the tools and libraries for building and installing Shairport Sync (and NQPTP).
 
 ```
 # yum install make automake gcc gcc-c++
