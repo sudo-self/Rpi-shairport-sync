@@ -2,7 +2,7 @@
 
 Fedora uses PipeWire for audio management [since Fedora 34](https://fedoramagazine.org/pipewire-the-new-audio-and-video-daemon-in-fedora-linux-34/). An [adapter](https://wiki.archlinux.org/title/PipeWire#ALSA_clients) for ALSA-compatible software is included which creates a virtual ALSA output device to route audio from ALSA-compatible sources into the PipeWire infrastructure. It is recommended that Shairport Sync is built with the standard ALSA backend (`--with-alsa`).
 
-Shairport Sync also offers a PipeWire (`--with-pw`) backend -- still new and still under development. The PulseAudio (`--with-pa`) backend may also be used thanks to a PulseAudio-to-PipeWire adapter.
+Shairport Sync also offers a PipeWire (`--with-pw`) backend – still new and still under development. The PulseAudio (`--with-pa`) backend may also be used thanks to a PulseAudio-to-PipeWire adapter.
 
 The use of PipeWire, even indirectly, means that Shairport Sync can not be installed as a system service (aka a system daemon). Instead it must be started by a user after login or installed as a user service. It means that the user must log in for the Shairport Sync service to become available.
 
@@ -38,7 +38,7 @@ Download, install, enable and start NQPTP from [here](https://github.com/mikebra
 ### Shairport Sync
 
 #### Please use `git` to clone the repository!
-As you probably know, you can download the repository in two ways: (1) using `git` to clone it  -- recommended -- or (2) downloading the repository as a ZIP archive. Please use the `git` method. The reason it that when you use `git`, the build process can incorporate the `git` build information in the version string you get when you execute the command `$ shairport-sync -V`. This will be very useful for identifying the exact build if you are making comments or bug reports. Here is an example:
+As you probably know, you can download the repository in two ways: (1) using `git` to clone it  – recommended – or (2) downloading the repository as a ZIP archive. Please use the `git` method. The reason it that when you use `git`, the build process can incorporate the `git` build information in the version string you get when you execute the command `$ shairport-sync -V`. This will be very useful for identifying the exact build if you are making comments or bug reports. Here is an example:
 ```
 Version with git information:
 4.1-dev-389-gf317161a-AirPlay2-OpenSSL-Avahi-ALSA-soxr-sysconfdir:/etc
@@ -68,11 +68,13 @@ $ make -j
 By the way, the `autoreconf` step may take quite a while – please be patient!
 
 ## Configuration
-By default when you start Shairport Sync, it will play to the default output device, which is just what is needed here -- the default ALSA device routes audio into Fedora's PipeWire infrastructure. You can configure many Shairport Sync settings in the configuration file, installed during the `# make install` step at `/etc/shairport-sync.conf` along with a sample at `/etc/shairport-sync.conf.sample`.
+By default when you start Shairport Sync, it will play to the default output device, which is just what is needed here – the default ALSA device routes audio into Fedora's PipeWire infrastructure. You can configure many Shairport Sync settings in the configuration file, installed during the `# make install` step at `/etc/shairport-sync.conf` along with a sample at `/etc/shairport-sync.conf.sample`.
 
 ### Automatic Start
 
 To run automatically after user login, Shairport Sync can be installed as a user service.
+
+Placeholder: please refer to the discussion in [Issue #1260](https://github.com/mikebrady/shairport-sync/issues/1260).
 
 ### Running From the Command Line
 
