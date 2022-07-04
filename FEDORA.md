@@ -110,7 +110,7 @@ By default when you start Shairport Sync, it will play to the default output dev
 
 ### Automatic Start
 
-To run automatically after user login, Shairport Sync can be installed as a user service.
+To run automatically after user login, Shairport Sync can be set up as a user service.
 
 Placeholder: please refer to the discussion in [Issue #1260](https://github.com/mikebrady/shairport-sync/issues/1260).
 
