@@ -1,6 +1,6 @@
 # Fedora Installation Guide
 
-Fedora uses PipeWire for audio management [since Fedora 34](https://fedoramagazine.org/pipewire-the-new-audio-and-video-daemon-in-fedora-linux-34/). An [adapter](https://wiki.archlinux.org/title/PipeWire#ALSA_clients) for ALSA-compatible software is included which creates a virtual ALSA output device to route audio from ALSA-compatible sources into the PipeWire infrastructure. It is recommended that Shairport Sync is built with the standard ALSA backend (`--with-alsa`).
+Fedora uses PipeWire for audio management [since Fedora 34](https://fedoramagazine.org/pipewire-the-new-audio-and-video-daemon-in-fedora-linux-34/). An [adapter](https://wiki.archlinux.org/title/PipeWire#ALSA_clients) is included which creates a virtual ALSA output device to route audio from ALSA-compatible sources into the PipeWire infrastructure. It is recommended that Shairport Sync is built with the standard ALSA backend (`--with-alsa`).
 
 Shairport Sync also offers a PipeWire (`--with-pw`) backend – still new and still under development. The PulseAudio (`--with-pa`) backend may also be used thanks to a PulseAudio-to-PipeWire adapter.
 
