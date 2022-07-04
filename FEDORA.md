@@ -30,6 +30,26 @@ For AirPlay 2, it is important to [enable](https://docs.fedoraproject.org/en-US/
 ```
 # yum update
 ```
+## Remove Old Stuff
+### Remove Old Copies of Shairport Sync
+Before you begin building Shairport Sync, it's best to search for and remove any existing copies of the application, called `shairport-sync`. Use the command `$ which shairport-sync` to find them. For example, if `shairport-sync` has been installed previously, this might happen:
+```
+$ which shairport-sync
+/usr/local/bin/shairport-sync
+```
+Remove it as follows:
+```
+# rm /usr/local/bin/shairport-sync
+```
+Do this until no more copies of `shairport-sync` are found.
+
+### Remove Old Service Files
+You should also remove any of the following service files that may be present: `/etc/systemd/system/shairport-sync.service`, `/lib/systemd/system/shairport-sync.service`, `/etc/dbus-1/system.d/shairport-sync-dbus.conf`, `/etc/dbus-1/system.d/shairport-sync-mpris.conf`, and `/etc/init.d/shairport-sync`. New ones will be installed if necessary.
+
+### Reboot after Cleaning Up
+If you removed any installations of Shairport Sync or any of its startup script files in the last two steps, you should reboot.
+
+
 ## Install Toolchain and Libraries
 
 ```
