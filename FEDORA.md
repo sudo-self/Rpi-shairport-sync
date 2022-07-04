@@ -1,10 +1,10 @@
 # Fedora Installation Guide
 
-Fedora uses PipeWire for audio management [since Fedora 34](https://fedoramagazine.org/pipewire-the-new-audio-and-video-daemon-in-fedora-linux-34/). An [adapter](https://wiki.archlinux.org/title/PipeWire#ALSA_clients) is included which creates a virtual ALSA output device to route audio from ALSA-compatible sources into the PipeWire infrastructure. It is recommended that Shairport Sync is built with the standard ALSA backend (`--with-alsa`).
+Fedora uses PipeWire for audio management [since Fedora 34](https://fedoramagazine.org/pipewire-the-new-audio-and-video-daemon-in-fedora-linux-34/). An [adapter](https://wiki.archlinux.org/title/PipeWire#ALSA_clients) is included to route audio from ALSA-compatible sources into the PipeWire infrastructure. It is recommended that Shairport Sync is built with the standard ALSA backend (`--with-alsa`).
 
 Shairport Sync also offers a PipeWire (`--with-pw`) backend – still new and still under development. The PulseAudio (`--with-pa`) backend may also be used thanks to a PulseAudio-to-PipeWire adapter.
 
-The use of PipeWire, even indirectly, means that Shairport Sync can not be installed as a system service (aka a system daemon). Instead it must be started by a user after login or installed as a user service. It means that the user must log in for the Shairport Sync service to become available.
+The use of PipeWire, even indirectly, means that Shairport Sync can not be installed as a system service (aka a system daemon). The user must log in through the Fedora GUI for AirPlay audio received by Shairport Sync to be routed to the system audio output, e.g. the onboard speakers.
 
 ## Enable RPM Fusion Software Repositories (AirPlay 2 Only)
 For AirPlay 2, it is important to [enable](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) the RPM Fusion software repositories, at least to the "Free" level. This is so that [ffmpeg](https://ffmpeg.org) libraries will be installed that include a suitable AAC decoder.
