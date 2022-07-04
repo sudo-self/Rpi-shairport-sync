@@ -1,10 +1,27 @@
 # Fedora Installation Guide
+This guide is for a recent version of Fedora Linux (Fedora 36) outputting to the PipeWire sound system through a built-in ALSA adapter.
 
-Fedora uses PipeWire for audio management [since Fedora 34](https://fedoramagazine.org/pipewire-the-new-audio-and-video-daemon-in-fedora-linux-34/). An [adapter](https://wiki.archlinux.org/title/PipeWire#ALSA_clients) is included to route audio from ALSA-compatible sources into the PipeWire infrastructure. It is recommended that Shairport Sync is built with the standard ALSA backend (`--with-alsa`).
+Shairport Sync can be built as an AirPlay 2 player (with [some limitations](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md#features-and-limitations)) or as "classic" Shairport Sync – a player for the older, but still supported, AirPlay (aka "AirPlay 1") protocol.
+
+Fedora uses PipeWire for audio management [since Fedora 34](https://fedoramagazine.org/pipewire-the-new-audio-and-video-daemon-in-fedora-linux-34/). An [adapter](https://wiki.archlinux.org/title/PipeWire#ALSA_clients) is included to route audio from ALSA-compatible sources into the PipeWire infrastructure.
+
+It is recommended that Shairport Sync is built with the standard ALSA backend (`--with-alsa`).
 
 Shairport Sync also offers a PipeWire (`--with-pw`) backend – still new and still under development. The PulseAudio (`--with-pa`) backend may also be used thanks to a PulseAudio-to-PipeWire adapter.
 
-The use of PipeWire, even indirectly, means that Shairport Sync can not be installed as a system service (aka a system daemon). The user must log in through the Fedora GUI for AirPlay audio received by Shairport Sync to be routed to the system audio output, e.g. the onboard speakers.
+**Note:** The use of PipeWire, even indirectly, means that Shairport Sync can not be installed as a system service (aka a system daemon). The user must log in through the Fedora GUI for the audio received by Shairport Sync to be routed to the system audio output, e.g. the onboard speakers.
+
+Overall, you'll be building and installing two programs. The first one is NQPTP, a companion app that Shairport Sync uses for AirPlay 2 timing, and the second one is Shairport Sync itself. Build and install NQPTP first. If you are building classic Shairport Sync, NQPTP is unnecessary and can be omitted.
+
+In the commands below, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `yum update` in superuser mode and you are in user mode, enter `sudo yum update`.
+
+## Turn Off WiFi Power Management
+If you are using WiFi, you should turn off WiFi Power Management, e.g. if the WiFi device name is `wlp5s0b1`:
+
+```
+# iw dev wlp5s0b1 set power_save off
+```
+The reason for this is that WiFi Power Management will put the WiFi system in low-power mode when the WiFi system is considered inactive. In this mode, the system may not respond to events initiated from the network, such as AirPlay requests. Hence, WiFi Power Management should be turned off. (See [TROUBLESHOOTING.md](https://github.com/mikebrady/shairport-sync/blob/master/TROUBLESHOOTING.md#wifi-adapter-running-in-power-saving--low-power-mode) for more details.)
 
 ## Enable RPM Fusion Software Repositories (AirPlay 2 Only)
 For AirPlay 2, it is important to [enable](https://docs.fedoraproject.org/en-US/quick-docs/setup_rpmfusion) the RPM Fusion software repositories, at least to the "Free" level. This is so that [ffmpeg](https://ffmpeg.org) libraries will be installed that include a suitable AAC decoder.
