@@ -52,3 +52,6 @@ gitversion.h
 
 # separate build directory
 build
+
+# vscode
+.vscode
