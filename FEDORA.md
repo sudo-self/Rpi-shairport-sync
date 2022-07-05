@@ -121,7 +121,6 @@ You may wish to run Shairport Sync from the command line. To enable debug messag
 ```
 $ shairport-sync -v --statistics
 ```
-The user doesn't need to be privileged, but must be a member of the `audio` group to access the `alsa` subsystem.
 
 ### Adding to Home
 
