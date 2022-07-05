@@ -50,3 +50,5 @@ shairport-sync.xcodeproj
 # version string generation
 gitversion.h
 
+# separate build directory
+build
