@@ -161,7 +161,7 @@ noinst_HEADERS += $(BUILT_SOURCES)
 CLEANFILES += $(BUILT_SOURCES)
 
 dbus-interface.c:  org.gnome.ShairportSync.xml
-	gdbus-codegen --interface-prefix org.gnome --generate-c-code dbus-interface org.gnome.ShairportSync.xml
+	gdbus-codegen --interface-prefix org.gnome --generate-c-code dbus-interface $<
 dbus-interface.h: dbus-interface.c
 	touch dbus-interface.h
 endif
@@ -178,7 +178,7 @@ noinst_HEADERS += $(BUILT_SOURCES)
 CLEANFILES += $(BUILT_SOURCES)
 
 mpris-interface.c:  org.mpris.MediaPlayer2.xml
-	gdbus-codegen --interface-prefix org.mpris --generate-c-code mpris-interface org.mpris.MediaPlayer2.xml
+	gdbus-codegen --interface-prefix org.mpris --generate-c-code mpris-interface $<
 mpris-interface.h: mpris-interface.c
 	touch mpris-interface.h
 endif
