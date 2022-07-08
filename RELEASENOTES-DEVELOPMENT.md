@@ -1,3 +1,8 @@
+Version 4.1-dev-409-g6bfeb49f
+====
+**Bug Fix**
+* Shorten the settling time (from 5.0 seconds to 0.75 seconds) allowed when a new AirPlay 2 player, with its own clock, is added or removed from the devices currently playing. The problem was that if something else happens during the settling time, the changeover to the new clock may fail. This doesn't eliminate the issue, but hopefully it stops it being a problem for the user.
+
 Version 4.1-dev-376-gca6e768f
 ====
 **Bug Fix**
