@@ -1363,21 +1363,16 @@ int get_ptp_anchor_local_time_info(rtsp_conn_info *conn, uint32_t *anchorRTP,
         debug(3, "Current master clock %" PRIx64 " and anchor_clock %" PRIx64 " are different",
               actual_clock_id, conn->anchor_clock);
         // the anchor clock and the actual clock are different
-        // this could happen because the master clock has changed or
-        // because the anchor clock has changed (this can happen with a Realtime Stream)
 
         if (conn->last_anchor_info_is_valid != 0) {
           int64_t time_since_last_update =
               get_absolute_time_in_ns() - conn->last_anchor_time_of_update;
-          if (time_since_last_update > 5000000000) {
+          if (time_since_last_update > 750000000) {
             int64_t duration_of_mastership = time_now - start_of_mastership;
             debug(2,
                   "Connection %d: Master clock has changed to %" PRIx64
                   ". History: %.3f milliseconds.",
                   conn->connection_number, actual_clock_id, 0.000001 * duration_of_mastership);
-            // Here we adjust the time of the anchor rtptime.
-            // We know its local time, so we use the new clocks's offset to
-            // calculate what time that must be on the new clock.
 
             // Now, the thing is that while the anchor clock and master clock for a
             // buffered session start off the same,
