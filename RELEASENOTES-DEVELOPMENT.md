@@ -1,3 +1,11 @@
+Version 4.1-dev-412-gf218a4d4
+====
+
+**Note** -- A bug has been fixed in NQPTP -- please update it.
+
+**Reversion**
+* The change to the allowed settling time mentioned below has been reverted back to 5.0 seconds – the issue this was meant to address turned out to be a bug in NQPTP.
+
 Version 4.1-dev-409-g6bfeb49f
 ====
 **Bug Fix**
