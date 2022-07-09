@@ -1880,7 +1880,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       pthread_cleanup_push(mutex_unlock, &conn->flush_mutex);
       conn->ap2_rate = rate;
       if ((rate & 1) != 0) {
-        debug(2, "Connection %d: Start playing.", conn->connection_number);
+        debug(2, "Connection %d: Start playing, with anchor clock %" PRIx64 ".", conn->connection_number, conn->networkTimeTimelineID);
         activity_monitor_signify_activity(1);
         conn->ap2_play_enabled = 1;
       } else {
