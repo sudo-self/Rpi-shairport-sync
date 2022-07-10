@@ -1,3 +1,9 @@
+Version 4.1-dev-418-g5011dc09
+====
+**Enhancement**
+* The `Makefile.am` file has been updated to allow allow building and installing from a separate build directory. Thanks to [Lukas Rusak](https://github.com/lrusak) for the [contribution](https://github.com/mikebrady/shairport-sync/pull/1493).
+**Note** After pulling this update, you should rerun the `$ autotools -fi` and `$ ./configure...` steps.
+
 Version 4.1-dev-412-gf218a4d4
 ====
 
