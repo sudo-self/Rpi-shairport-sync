@@ -161,7 +161,7 @@ noinst_HEADERS += $(BUILT_SOURCES)
 CLEANFILES += $(BUILT_SOURCES)
 
 dbus-interface.c:  org.gnome.ShairportSync.xml
-	gdbus-codegen --interface-prefix org.gnome --generate-c-code dbus-interface $<
+	gdbus-codegen --interface-prefix org.gnome --generate-c-code dbus-interface org.gnome.ShairportSync.xml
 dbus-interface.h: dbus-interface.c
 	touch dbus-interface.h
 endif
@@ -178,7 +178,7 @@ noinst_HEADERS += $(BUILT_SOURCES)
 CLEANFILES += $(BUILT_SOURCES)
 
 mpris-interface.c:  org.mpris.MediaPlayer2.xml
-	gdbus-codegen --interface-prefix org.mpris --generate-c-code mpris-interface $<
+	gdbus-codegen --interface-prefix org.mpris --generate-c-code mpris-interface org.mpris.MediaPlayer2.xml
 mpris-interface.h: mpris-interface.c
 	touch mpris-interface.h
 endif
@@ -199,98 +199,59 @@ shairport_sync_mpris_test_client_SOURCES = shairport-sync-mpris-test-client.c
 shairport_sync_mpris_test_client_LDADD = lib_mpris_interface.a
 endif
 
-if INSTALL_CONFIG_FILES
-
-configdir = $(sysconfdir)
-config_DATA = scripts/shairport-sync.conf
-
+install-exec-hook:
 if BUILD_FOR_LINUX
-dbusdir = /etc/dbus-1/system.d
+DBUS_POLICY_DIR=$(DESTDIR)/etc/dbus-1/system.d
 else
-dbusdir = $(sysconfdir)/dbus-1/system.d
+DBUS_POLICY_DIR=$(DESTDIR)$(sysconfdir)/dbus-1/system.d
 endif
-
+if INSTALL_CONFIG_FILES
+	[ -e $(DESTDIR)$(sysconfdir) ] || mkdir $(DESTDIR)$(sysconfdir)
+	cp scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf.sample
+	[ -f $(DESTDIR)$(sysconfdir)/shairport-sync.conf ] || cp scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf
 if USE_DBUS
-
+	[ -e $(DBUS_POLICY_DIR) ] || mkdir -p $(DBUS_POLICY_DIR)
 if INSTALL_CYGWIN_SERVICE
-dbus_DATA = scripts/shairport-sync-dbus-policy-cygwin.conf
+	cp scripts/shairport-sync-dbus-policy-cygwin.conf $(DBUS_POLICY_DIR)/shairport-sync-dbus.conf
 else
-dbus_DATA = scripts/shairport-sync-dbus-policy.conf
-endif # INSTALL_CYGWIN_SERVIC
-
-endif # USE_DBUS
-
+	cp scripts/shairport-sync-dbus-policy.conf $(DBUS_POLICY_DIR)/shairport-sync-dbus.conf
+endif
+endif
 if USE_MPRIS
-
-mprisdir = $(dbusdir)
-
+	[ -e $(DBUS_POLICY_DIR) ] || mkdir -p $(DBUS_POLICY_DIR)
 if INSTALL_CYGWIN_SERVICE
-mpris_DATA = scripts/shairport-sync-mpris-policy-cygwin.conf
+	cp scripts/shairport-sync-mpris-policy-cygwin.conf $(DBUS_POLICY_DIR)/shairport-sync-mpris.conf
 else
-mpris_DATA = scripts/shairport-sync-mpris-policy.conf
-endif # INSTALL_CYGWIN_SERVICE
-
-endif # USE_MPRIS
-
-endif # INSTALL_CONFIG_FILES
-
-INSTALL_GROUP_TARGET = install-group-local
-
-$(INSTALL_GROUP_TARGET):
-	getent group shairport-sync &>/dev/null || groupadd -r shairport-sync >/dev/null
-
-INSTALL_USER_TARGET = install-user-local
-
-$(INSTALL_USER_TARGET): $(INSTALL_GROUP_TARGET)
-	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/sbin/nologin -G audio shairport-sync >/dev/null
-
+	cp scripts/shairport-sync-mpris-policy.conf $(DBUS_POLICY_DIR)/shairport-sync-mpris.conf
+endif
+endif
+endif
 if INSTALL_SYSTEMV
-
-INSTALL_SYSTEMV_TARGET = install-systemv-local
-
-$(INSTALL_SYSTEMV_TARGET): scripts/shairport-sync $(INSTALL_USER_TARGET)
-	install -d $(DESTDIR)$(sysconfdir)/init.d
-	install -m 0644 $< $(DESTDIR)$(sysconfdir)/init.d
-
-endif # INSTALL_SYSTEMV
-
+	getent group shairport-sync &>/dev/null || groupadd -r shairport-sync >/dev/null
+	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/sbin/nologin -G audio shairport-sync >/dev/null
+	[ -e $(DESTDIR)$(sysconfdir)/init.d ] || mkdir -p $(DESTDIR)$(sysconfdir)/init.d
+	[ -e $(DESTDIR)$(sysconfdir)/init.d/shairport-sync ] || cp scripts/shairport-sync $(DESTDIR)$(sysconfdir)/init.d/
+endif
 if INSTALL_SYSTEMD
-
+	getent group shairport-sync &>/dev/null || groupadd -r shairport-sync >/dev/null
+	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/sbin/nologin -G audio shairport-sync >/dev/null
+	[ -e $(DESTDIR)$(systemdsystemunitdir) ] || mkdir -p $(DESTDIR)$(systemdsystemunitdir)
 if USE_AVAHI
-SYSTEMD_SERVICE = shairport-sync.service-avahi
+	[ -e $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service ] || cp scripts/shairport-sync.service-avahi $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service
 else
-SYSTEMD_SERVICE = shairport-sync.service
-endif # USE_AVAHI
-
-INSTALL_SYSTEMD_TARGET = install-systemd-local
-
-$(INSTALL_SYSTEMD_TARGET): scripts/$(SYSTEMD_SERVICE) $(INSTALL_USER_TARGET)
-	install -d $(DESTDIR)$(systemdsystemunitdir)
-	install -m 0644 $< $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service
-
-endif # INSTALL_SYSTEMD
-
+	[ -e $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service ] || cp scripts/shairport-sync.service $(DESTDIR)$(systemdsystemunitdir)
+endif
+endif
 if INSTALL_FREEBSD_SERVICE
-
-# Choose a uid and gid of 801 completely arbitrarity, except that it should be below 1000. FreeBSD doesn't seem to allow you to say "an ID in the range of..."
-install-freebsd-user-local:
+  # Choose a uid and gid of 801 completely arbitrarity, except that it should be below 1000. FreeBSD doesn't seem to allow you to say "an ID in the range of..."
 	pw showgroup shairport-sync > /dev/null 2>&1 || pw addgroup -n shairport-sync -g 801 > /dev/null 2>&1
 	pw showuser shairport-sync > /dev/null 2>&1 || pw adduser -c "shairport-sync unprivileged user" -n shairport-sync -u 801 -s /usr/sbin/nologin -d /nonexistent > /dev/null 2>&1
-
-INSTALL_FREEBSD_TARGET = install-freebsd-local
-
-$(INSTALL_FREEBSD_TARGET): scripts/shairport-sync.freebsd install-freebsd-user-local
-	install -d -o shairport-sync -g shairport-sync $(DESTDIR)/var/run/shairport-sync
-	install -d $(DESTDIR)/usr/local/etc/rc.d/
-	install -m 0555 $< $(DESTDIR)/usr/local/etc/rc.d/shairport_sync
-
-endif # INSTALL_FREEBSD_SERVICE
-
+	[ -e /var/run/shairport-sync ] || mkdir -p /var/run/shairport-sync
+	chown shairport-sync:shairport-sync /var/run/shairport-sync
+  # Always update the startup script -- this is different to the Linux systemd situation, where the startup script is untouched if it exists.
+	cp scripts/shairport-sync.freebsd /usr/local/etc/rc.d/shairport_sync
+	chmod 555 /usr/local/etc/rc.d/shairport_sync
+endif
 if INSTALL_CYGWIN_SERVICE
-cygwindir = /usr/local/bin
-cygwin_DATA = scripts/shairport-sync-config
-endif # INSTALL_CYGWIN_SERVICE
-
-install-exec-hook: $(INSTALL_SYSTEMV_TARGET) \
-                   $(INSTALL_SYSTEMD_TARGET) \
-                   $(INSTALL_FREEBSD_TARGET)
+	[ -e /usr/local/bin/shairport-sync-config ] || cp scripts/shairport-sync-config /usr/local/bin
+endif
