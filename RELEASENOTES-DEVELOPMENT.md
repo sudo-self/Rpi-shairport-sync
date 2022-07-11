@@ -1,3 +1,9 @@
+Version 4.1-dev-420-g23d0502f
+====
+**Bug Fix**
+* This commit reverses the enhancement in Version 4.1-dev-418-g5011dc09 because it doesn't work properly. Specifically, some service files are not being renamed and installed correctly. Apologies for the inconvenience.
+**Note** After pulling this update, you should rerun the `$ autotools -fi` and `$ ./configure...` steps.
+
 Version 4.1-dev-418-g5011dc09
 ====
 **Enhancement**
