@@ -1,7 +1,7 @@
 /*
  * libalsa output driver. This file is part of Shairport.
  * Copyright (c) Muffinman, Skaman 2013
- * Copyright (c) Mike Brady 2014 -- 2021
+ * Copyright (c) Mike Brady 2014 -- 2022
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -131,6 +131,7 @@ yndk_type precision_delay_available_status =
     YNDK_DONT_KNOW; // initially, we don't know if the device can do precision delay
 
 snd_pcm_t *alsa_handle = NULL;
+int alsa_handle_status = ENODEV; // if alsa_handle is NULL, this should say why with a unix error code
 static snd_pcm_hw_params_t *alsa_params = NULL;
 static snd_pcm_sw_params_t *alsa_swparams = NULL;
 static snd_ctl_t *ctl = NULL;
@@ -416,8 +417,17 @@ int actual_open_alsa_device(int do_auto_setup) {
     audio_alsa.delay = NULL;
 
   ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK, 0);
-  if (ret < 0) {
-    if (ret == -ENOENT) {
+  if (ret == 0) {
+    if (alsa_handle_status == -EBUSY)
+      warn("The output device \"%s\" is no longer busy and will be used by Shairport Sync.", alsa_out_dev);
+    alsa_handle_status = ret; // all cool
+  } else {
+    alsa_handle = NULL; // to be sure to be sure
+    if (ret == -EBUSY) {
+      if (alsa_handle_status != -EBUSY)
+        warn("The output device \"%s\" is busy and can't be used by Shairport Sync at present.", alsa_out_dev);
+      debug(2, "the alsa output_device \"%s\" is busy.", alsa_out_dev);
+    } else if (ret == -ENOENT) {
       die("the alsa output_device \"%s\" can not be found.", alsa_out_dev);
     } else {
       char errorstring[1024];
@@ -425,6 +435,8 @@ int actual_open_alsa_device(int do_auto_setup) {
       die("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring,
           alsa_out_dev);
     }
+    alsa_handle_status = ret;
+    frames_sent_break_occurred = 1;
     return ret;
   }
 
@@ -1413,7 +1425,7 @@ static void start(__attribute__((unused)) int i_sample_rate,
 
 int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
                               yndk_type *using_update_timestamps) {
-  int ret = ENODEV;
+  int ret = alsa_handle_status;
   if (using_update_timestamps)
     *using_update_timestamps = YNDK_NO;
 
@@ -1451,7 +1463,7 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
   snd_pcm_sframes_t delay_temp = 0;
   if (using_update_timestamps)
     *using_update_timestamps = YNDK_DONT_KNOW;
-  int ret = ENODEV;
+  int ret = alsa_handle_status;
 
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
@@ -1601,8 +1613,7 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
     }
 
   } else {
-    debug(1, "alsa_handle is NULL in precision_delay_and_status!");
-    // already set to ret = ENODEV;
+    debug(2, "alsa_handle is NULL in precision_delay_and_status!");
   }
   if (delay != NULL)
     *delay = delay_temp;
@@ -1631,10 +1642,7 @@ int delay(long *the_delay) {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
 
-  if (alsa_handle == NULL)
-    ret = ENODEV;
-  else
-    ret = delay_and_status(&state, &my_delay, NULL);
+  ret = delay_and_status(&state, &my_delay, NULL);
 
   debug_mutex_unlock(&alsa_mutex, 0);
   pthread_cleanup_pop(0);
@@ -1666,7 +1674,7 @@ int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, 
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
 
   if (alsa_handle == NULL) {
-    ret = ENODEV;
+    ret = alsa_handle_status;
   } else {
     *raw_measurement_time =
         get_absolute_time_in_ns(); // this is not conditioned ("disciplined") by NTP
@@ -1834,6 +1842,7 @@ int do_close() {
     if ((derr = snd_pcm_close(alsa_handle)))
       debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
     alsa_handle = NULL;
+    alsa_handle_status = ENODEV; // no device open
   } else {
     debug(1, "alsa: do_close() -- output device already closed.");
   }
