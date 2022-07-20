@@ -1,3 +1,9 @@
+Version 4.1-dev-424-g4729e325
+====
+**Enhancements**
+* Shairport Sync should no longer terminate if the ALSA output device is or becomes busy. This is useful when using ALSA devices in systems with sound servers such as PulseAudio or PipeWire. Sometimes the main ALSA device will go busy when the sound server uses it. Shairport Sync should no longer terminate if it encounters a busy output device. Instead it will simply wait until it becomes available and use it then.
+* Wait up to ten seconds (was two seconds) for NQPTP to come online when starting up -- AirPlay 2 only.
+
 Version 4.1-dev-420-g23d0502f
 ====
 **Bug Fix**
