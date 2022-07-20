@@ -2323,12 +2323,12 @@ int main(int argc, char **argv) {
   ptp_send_control_message_string("T"); // get nqptp to create the named shm interface
   int ptp_check_times = 0;
   const int ptp_wait_interval_us = 5000;
-  // wait for up to two seconds for NQPTP to come online
+  // wait for up to ten seconds for NQPTP to come online
   do {
     ptp_send_control_message_string("T"); // get nqptp to create the named shm interface
     usleep(ptp_wait_interval_us);
     ptp_check_times++;
-  } while ((ptp_shm_interface_open() != 0) && (ptp_check_times < (2000000 / ptp_wait_interval_us)));
+  } while ((ptp_shm_interface_open() != 0) && (ptp_check_times < (10000000 / ptp_wait_interval_us)));
 
   if (ptp_shm_interface_open() != 0) {
     die("Can't access NQPTP! Is it installed and running?");
