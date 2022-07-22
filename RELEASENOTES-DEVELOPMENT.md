@@ -1,3 +1,8 @@
+Version 4.1-dev-429-g449e024c
+====
+**Enhancement**
+* With the ALSA backend, if the `default` device isn't available, Shairport Sync will now try to use `"hw:0"` instead. Background: the default  ALSA device is sometimes a pseudo device provided by a sound server such as PipeWire or PulseAudio to play audio from ALSA-compatible programs. But it's not always available to all users, especially daemons like Shairport Sync. This simple change will try to use the first ALSA hardware device -- card 0 -- if the default output device is inaccessible with error code `EHOSTDOWN`. It allows Shairport Sync to work on default settings with Fedora 36.
+ 
 Version 4.1-dev-424-g4729e325
 ====
 **Enhancements**
