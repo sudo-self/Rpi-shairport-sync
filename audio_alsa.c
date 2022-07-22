@@ -131,7 +131,8 @@ yndk_type precision_delay_available_status =
     YNDK_DONT_KNOW; // initially, we don't know if the device can do precision delay
 
 snd_pcm_t *alsa_handle = NULL;
-int alsa_handle_status = ENODEV; // if alsa_handle is NULL, this should say why with a unix error code
+int alsa_handle_status =
+    ENODEV; // if alsa_handle is NULL, this should say why with a unix error code
 static snd_pcm_hw_params_t *alsa_params = NULL;
 static snd_pcm_sw_params_t *alsa_swparams = NULL;
 static snd_ctl_t *ctl = NULL;
@@ -417,15 +418,27 @@ int actual_open_alsa_device(int do_auto_setup) {
     audio_alsa.delay = NULL;
 
   ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK, 0);
+  // EHOSTDOWN seems to signify that it's a PipeWire pseudo device that can't be accessed by this
+  // user. So, try the first device ALSA device and log it.
+  if ((ret == -EHOSTDOWN) && (strcmp(alsa_out_dev, "default") == 0)) {
+    ret = snd_pcm_open(&alsa_handle, "hw:0", SND_PCM_STREAM_PLAYBACK, 0);
+    if ((ret == 0) || (ret == -EBUSY)) {
+      // being busy should be okay
+      inform("the default ALSA device is inaccessible -- \"hw:0\" used instead.", alsa_out_dev);
+      set_alsa_out_dev("hw:0");
+    }
+  }
   if (ret == 0) {
     if (alsa_handle_status == -EBUSY)
-      warn("The output device \"%s\" is no longer busy and will be used by Shairport Sync.", alsa_out_dev);
+      warn("The output device \"%s\" is no longer busy and will be used by Shairport Sync.",
+           alsa_out_dev);
     alsa_handle_status = ret; // all cool
   } else {
     alsa_handle = NULL; // to be sure to be sure
     if (ret == -EBUSY) {
       if (alsa_handle_status != -EBUSY)
-        warn("The output device \"%s\" is busy and can't be used by Shairport Sync at present.", alsa_out_dev);
+        warn("The output device \"%s\" is busy and can't be used by Shairport Sync at present.",
+             alsa_out_dev);
       debug(2, "the alsa output_device \"%s\" is busy.", alsa_out_dev);
     } else if (ret == -ENOENT) {
       die("the alsa output_device \"%s\" can not be found.", alsa_out_dev);
