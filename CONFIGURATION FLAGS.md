@@ -17,7 +17,7 @@ AirPlay (aka AirPlay 1) is an older version of the AirPlay protocol. If offers m
 
 To build Shairport Sync for AirPlay 2, include the `--with-airplay-2` option in the `./configure ...` options. You will also have to include extra libraries. Omitting this option will cause Shairport Sync to be built for the older AirPlay protocol.
 
-## Audio Output
+## Audio Output Backends
 | Flags |
 | ----- |
 | `--with-alsa` |
