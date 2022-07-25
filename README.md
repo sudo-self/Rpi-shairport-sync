@@ -8,7 +8,7 @@ Metadata such as artist information and cover art can be requested and provided 
 Shairport Sync does not support AirPlay video or photo streaming.
 
 # Quick Start
-* A building guide is available [here](https://github.com/mikebrady/spsdoc/blob/main/BUILD.md).
+* A building guide is available [here](BUILD.md).
 * A Docker image is available on the Docker Hub in [this repository](https://hub.docker.com/repository/docker/mikebrady/shairport-sync).
 * Next Steps and Advanced Topics are [here](ADVANCED%20TOPICS/README.md).
 * Build configuration options are detailed in [CONFIGURATION FLAGS.md](CONFIGURATION%20FLAGS.md).
