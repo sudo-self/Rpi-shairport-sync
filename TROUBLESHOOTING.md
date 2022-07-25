@@ -6,7 +6,14 @@ In this brief document will be listed some problems and some solutions, some pro
 
 1. Before starting, ensure that your software is up-to-date. This document always refers to the most recent version of Shairport Sync -- see [here](https://github.com/mikebrady/shairport-sync/releases) for information about the most recent release.
 2. If you have set `interpolation` in the `general` section of the configuration file to to `soxr`, comment it out or set it to `auto` or `basic` as the `soxr` setting can cause lower-powered devices to bog down at critical times, e.g. see [this report](https://github.com/mikebrady/shairport-sync/issues/631#issuecomment-366305203).
-3. Ensure the volume setting of your output device is set to some reasonable value and ensure it is not muted. For ALSA devices, the `alsamixer` command-line tool is very good for this. For other sound systems, please consult the relevant documentation.
+
+### No/Low Sound
+Let's say you've just installed or updated Shairport Sync and you are testing it for the first time after installing or updating.
+If you are using the default ALSA backend, don't forget to check two simple things:
+1. Check that the volume on the output device is turned up. If the output device has a "mixer" i.e. a volume control, Shairport Sync does not, by default, try to control it. Therefore, if it happens to be very low or even at zero, you might not hear audio that is actually coming through to the device. (You can get Shairport Sync to control a mixer -- see [here](https://github.com/mikebrady/spsdoc/blob/main/ADVANCED%20TOPICS/InitialConfiguration.md) for some hints.)
+2. Check that the output device is not muted. Some audio applications (including very old versions of Shairport Sync) leave the output device mixer in a muted state after use to minimise the possibility of noise. However, this is not generally compatible with other audio players using the same device, as they generally expect the device to be unmuted. 
+
+You can use `alsamixer` for both of theses checks. A muted output has the letter(s) `M` as its value. Select it and type `M` again to unmute. 
 
 ### WiFi adapter running in power-saving / low-power mode
 
@@ -70,9 +77,13 @@ An iOS device that is being used as a WiFi hotspot can not play audio to another
 
 You can play from other devices but not from your Windows PC.
 
-**Possible Solution**
+**Possible Issue -- AirPlay 2**
+iTunes on Windows is not compatible with Shairport Sync when it is built for AirPlay 2. This is unlikely to change, unfortunately. However, iTunes on Windows remains compatible with "classical" Shairport Sync.
 
-Allow network discovery. This setting creates a private type network and enables Windows to access the ports and protocols necessary to use Shairport Sync.
+**Possible Issue -- AirPlay**
+The Windows Firewall is preventing access to Shairport Sync.
+
+Solution: Allow network discovery. This setting creates a private type network and enables Windows to access the ports and protocols necessary to use Shairport Sync.
 
 ### UFW firewall blocking ports (commonly includes Raspberry Pi)
 
@@ -86,7 +97,7 @@ You have installed Shairport Sync successfully, the daemon is running, you can s
 
   `sudo ufw disable`
 
-- Try to launch a song from your remote device on the Shairport-sync one, if this works, proceed to the next step and follow the ones described below, in the solution section.
+- Try to launch a song from your remote device on the Shairport Sync one. If this works, proceed to the next step and follow the ones described below, in the solution section.
 
 - Enable UFW through the following command:
 

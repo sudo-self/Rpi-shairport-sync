@@ -1,5 +1,5 @@
 # Configuration Flags
-When the application is being built, the *compilation configuration options* determine what capabilities are included in Shairport Sync.
+When the application is being built, these flags determine what capabilities are included in Shairport Sync.
 For example, to include DSP capabilities – needed for a loudness filter – you would include the `--with-convolution` flag in the list of
 options at the `./configure ...` stage when building the application. 
 
@@ -17,7 +17,7 @@ AirPlay (aka AirPlay 1) is an older version of the AirPlay protocol. If offers m
 
 To build Shairport Sync for AirPlay 2, include the `--with-airplay-2` option in the `./configure ...` options. You will also have to include extra libraries. Omitting this option will cause Shairport Sync to be built for the older AirPlay protocol.
 
-## Audio Output Backends
+## Audio Output
 | Flags |
 | ----- |
 | `--with-alsa` |
@@ -36,7 +36,7 @@ Here are the audio backend configuration options:
 
 - `--with-alsa` Output to the Advanced Linux Sound Architecture ([ALSA](https://www.alsa-project.org/wiki/Main_Page)) system. This is recommended for highest quality.
 - `--with-sndio` Output to the FreeBSD-native [sndio](https://sndio.org) system.
-- `--with-pa` Include the PulseAudio audio back end. This is recommended only if your Linux installation already has [PulseAudio](https://www.freedesktop.org/wiki/Software/PulseAudio/) installed. Although ALSA would be better, it requires direct and exclusive access to to a real (hardware) soundcard, and this is often impractical if PulseAudio is installed.
+- `--with-pa` Include the PulseAudio audio back end.
 - `--with-pw` Output to the [PipeWire](https://pipewire.org) system.
 - `--with-ao` Output to the [libao](https://xiph.org/ao/) system. No synchronisation.
 - `--with-jack` Output to the [Jack Audio](https://jackaudio.org) system.
@@ -44,40 +44,12 @@ Here are the audio backend configuration options:
 - `--with-stdout` Include an optional backend module to enable raw audio to be output through standard output (`STDOUT`).
 - `--with-pipe` Include an optional backend module to enable raw audio to be output through a unix pipe.
 
-### PulseAudio
-Many recent Linux distributions that have a GUI – including Ubuntu, Debian and others – use PulseAudio to handle sound. In such cases, it is inadvisable to attempt to disable or remove PulseAudio. Therefore, if your system uses PulseAudio, you should build Shairport Sync with the PulseAudio backend. However, there are two issues with the use of PulseAudio.
-* First, the PulseAudio sound system may not always be available.  In its normal configuration, PulseAudio only becomes available when a user logs in via the GUI or a terminal window and disappears when the user logs out; it is not available in time when the system starts up. This means that Shairport Sync can not be installed as a daemon (see "Daemonisation" below) in a PulseAudio-based system unless PulseAudio is [configured](https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/User/SystemWide) as a system-wide daemon.
-* Second, the fidelity of the audio is unknown: once audio is delivered to PulseAudio, it is unknown what happens to it as it is processed through PulseAudio to arrives evenutally at the loudspeakers.
+### PulseAudio and PipeWire
+Many recent Linux distributions with a GUI -- "desktop" Linuxes -- use PulseAudio or PipeWire to handle sound. There are two things to consider with these sound servers: 
+1. They may not always be available: a sound server generally becomes available when a user logs in via the GUI and disappears when the user logs out; it is not available when the system starts up and it is not available to non-GUI users. This means that Shairport Sync can not run as a daemon (see "Daemonisation" below) using a sound server unless the sound server is configured as a system-wide service.
+2. The fidelity of the audio is unknown: once audio is delivered to the sound server, it is unknown what happens to it as it is processed through PulseAudio to arrives eventually at the loudspeakers.
 
-In summary, Shairport Sync will work with PulseAudio, which is installed in many desktop Linuxes. PulseAudio normally runs in the *user mode* but can be configured to run in *system mode*, though this is [not recommended](https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/User/WhatIsWrongWithSystemWide).
-
-#### Checking for PulseAudio
-You can check to see if PulseAudio is running by opening a Terminal window and entering the command `$ pactl info`. Here is an example of what you'll get if PulseAudio is installed, though the exact details may vary:
-```
-$ pactl info
-Server String: /run/user/1000/pulse/native
-Library Protocol Version: 35
-Server Protocol Version: 35
-Is Local: yes
-Client Index: 8
-Tile Size: 65472
-User Name: mike
-Host Name: ubuntu2204
-Server Name: pulseaudio
-Server Version: 15.99.1
-Default Sample Specification: s16le 2ch 44100Hz
-Default Channel Map: front-left,front-right
-Default Sink: alsa_output.pci-0000_02_02.0.analog-stereo
-Default Source: alsa_input.pci-0000_02_02.0.analog-stereo
-Cookie: 5a9f:56ee
-```
-If PulseAudio in not installed, you'll get something like this:
-```
-$  pactl info
--bash: pactl: command not found
-$
-```
-If your system does not use PulseAudio, it is likely that it uses the Advanced Linux Sound Architecture (ALSA), so you should build Shairport Sync with the ALSA backend. By the way, many systems with PulseAudio also have ALSA (in fact, PulseAudio is effectively a client of ALSA); in those cases you should choose the PulseAudio backend because PulseAudio will require exclusive access to the ALSA device being used as the output device.
+It should be noted that both PulseAudio and PipeWire provide a default ALSA pseudo device that enables ALSA-compatible programs to send audio. Shairport Sync can therefore use the ALSA backend with PulseAudio- or PipeWire-based systems. 
 
 ## Audio Options
 | Flags |
@@ -203,3 +175,4 @@ The Zeroconf-related options are as follows:
 | `--with-os=<OSType>`   | Specifies the Operating System to target: One of `linux` (default), `freebsd`, `openbsd` or `darwin`. |
 | `--with-configfiles` | Installs configuration files (including a sample configuration file) during `make install`. |
 | `--with-pkg-config`  | Specifies the use of `pkg-config` to find libraries. (Obselete for AirPlay 2. Special purpose use only.) |
+
