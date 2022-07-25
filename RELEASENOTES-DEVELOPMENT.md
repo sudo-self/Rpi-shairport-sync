@@ -1,3 +1,7 @@
+Version 4.1-dev-439-gb7a11cae
+====
+Documentation update. Comments, corrections and suggestions welcome.
+
 Version 4.1-dev-429-g449e024c
 ====
 **Enhancement**
