@@ -96,7 +96,7 @@ Finally, edit `/usr/local/etc/shairport-sync.conf` to customise your installatio
 ```
 shairport_sync_enable="YES"
 ```
-You can launch the service as superuser, or simply reboot the machine.
+You can launch the service as superuser, or simply reboot the machine. 
 
 Using the `sndio` backend
 ----
