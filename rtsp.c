@@ -2439,6 +2439,12 @@ void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp
   char timing_list_message[4096];
   timing_list_message[0] = 'T';
   timing_list_message[1] = 0;
+  
+  // ensure the client itself is first -- it's okay if it's duplicated later
+  strncat(timing_list_message, " ",
+        sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+  strncat(timing_list_message, (const char *)&conn->client_ip_string,
+        sizeof(timing_list_message) - 1 - strlen(timing_list_message));
 
   plist_t addresses_array = NULL;
   plist_from_memory(req->content, req->contentlength, &addresses_array);
@@ -2801,6 +2807,13 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           char timing_list_message[4096];
           timing_list_message[0] = 'T';
           timing_list_message[1] = 0;
+
+          // ensure the client itself is first -- it's okay if it's duplicated later
+          strncat(timing_list_message, " ",
+                sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+          strncat(timing_list_message, (const char *)&conn->client_ip_string,
+                sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+
 
           plist_t timing_peer_info = plist_dict_get_item(messagePlist, "timingPeerInfo");
           if (timing_peer_info) {
