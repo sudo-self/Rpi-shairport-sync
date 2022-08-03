@@ -1274,8 +1274,16 @@ void rtp_request_resend(seq_t first, uint32_t count, rtsp_conn_info *conn) {
 
 void set_ptp_anchor_info(rtsp_conn_info *conn, uint64_t clock_id, uint32_t rtptime,
                          uint64_t networktime) {
-  // debug(1,"set_ptp_anchor_info: clock: %" PRIx64 ", rtptime: %" PRIu32 ", networktime: %" PRIx64
-  // ".", clock_id, rtptime, networktime);
+  if ((conn->anchor_clock != 0) && (conn->anchor_clock == clock_id) && (conn->anchor_remote_info_is_valid != 0)) {
+    // check change in timing
+    int64_t time_difference = networktime - conn->anchor_time;
+    int32_t frame_difference = rtptime - conn->anchor_rtptime;
+    double time_difference_in_frames = (1.0 * time_difference * conn->input_rate) / 1000000000;
+    double frame_change = frame_difference - time_difference_in_frames;
+    debug(2,"set_ptp_anchor_info: clock: %" PRIx64 ", rtptime: %" PRIu32 ", networktime: %" PRIx64 ", frame adjustment: %7.3f.", clock_id, rtptime, networktime, frame_change);
+  } else {
+    debug(2,"set_ptp_anchor_info: clock: %" PRIx64 ", rtptime: %" PRIu32 ", networktime: %" PRIx64 ".", clock_id, rtptime, networktime);
+  }
   if (conn->anchor_clock != clock_id) {
     debug(2, "Connection %d: Set Anchor Clock: %" PRIx64 ".", conn->connection_number, clock_id);
   }
@@ -1719,6 +1727,13 @@ void *rtp_ap2_control_receiver(void *arg) {
     SOCKADDR from_sock_addr;
     socklen_t from_sock_addr_length = sizeof(SOCKADDR);
     memset(&from_sock_addr, 0, sizeof(SOCKADDR));
+    
+    
+    struct timeval tv;
+    tv.tv_sec = 3;
+    tv.tv_usec = 0;
+    setsockopt(conn->ap2_control_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
+
 
     nread = recvfrom(conn->ap2_control_socket, packet, sizeof(packet), 0,
                      (struct sockaddr *)&from_sock_addr, &from_sock_addr_length);
@@ -1743,7 +1758,7 @@ void *rtp_ap2_control_receiver(void *arg) {
           }
         }
         // debug(1,"rtp_ap2_control_receiver coded: %u, %u", packet[0], packet[1]);
-
+        if (packet_number >= 2) {
         if ((config.diagnostic_drop_packet_fraction == 0.0) ||
             (drand48() > config.diagnostic_drop_packet_fraction)) {
           // store the from_sock_addr if we haven't already done so
@@ -1842,15 +1857,25 @@ void *rtp_ap2_control_receiver(void *arg) {
             free(packet_in_hex_cstring);
           } break;
           }
+
         } else {
           debug(1, "AP2 Control Receiver -- dropping a packet.");
+        }
         }
       }
     } else if (nread == 0) {
       debug(1, "AP2 Control Receiver -- connection closed.");
       keep_going = 0;
     } else {
-      debug(1, "AP2 Control Receiver -- error %d receiving a packet.", errno);
+      if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+        if (conn->airplay_stream_type == realtime_stream) {
+          debug(2, "Connection %d: resetting anchor info", conn->connection_number);
+          reset_ptp_anchor_info(conn);
+          packet_number = 0; // start over in allowing the packet to set anchor information
+        }
+      } else {
+        debug(1, "AP2 Control Receiver -- error %d receiving a packet.", errno);
+      }
     }
   }
   debug(1, "AP2 Control RTP thread \"normal\" exit -- this can't happen. Hah!");
@@ -1900,7 +1925,8 @@ void *rtp_realtime_audio_receiver(void *arg) {
         uint8_t marker = (packet[1] & 0b1000000) >> 7;
         uint8_t payload_type = packet[1] & 0b01111111;
         */
-
+        // if (have_ptp_timing_information(conn)) {
+        if (1) {
         int32_t seqno = decipher_player_put_packet(packet + 2, nread - 2, conn);
         if (seqno >= 0) {
           if (last_seqno == -1) {
@@ -1913,6 +1939,7 @@ void *rtp_realtime_audio_receiver(void *arg) {
           }
         } else {
           debug(1, "Realtime Audio Receiver -- bad packet dropped.");
+        }
         }
       } else {
         debug(3, "Realtime Audio Receiver -- dropping a packet.");
