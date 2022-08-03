@@ -408,7 +408,7 @@ void get_audio_buffer_size_and_occupancy(unsigned int *size, unsigned int *occup
 
 void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timestamp, uint8_t *data,
                        int len, rtsp_conn_info *conn) {
-
+  
   // if it's original format, it has a valid seqno and must be decoded
   // otherwise, it can take the next seqno and doesn't need decoding.
 
@@ -1031,7 +1031,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
           if (conn->ab_buffering) {  // if we are getting packets but not yet forwarding them to the
                                      // player
             if (conn->first_packet_timestamp == 0) { // if this is the very first packet
-              // debug(1,"First frame seen with timestamp...");
               conn->first_packet_timestamp =
                   curframe->given_timestamp; // we will keep buffering until we are
                                              // supposed to start playing this
@@ -1066,7 +1065,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
               int64_t lt = conn->first_packet_time_to_play - local_time_now;
 
               if (lt < 100000000) {
-                debug(1,
+                debug(2,
                       "Connection %d: Short lead time for first frame %" PRId64
                       ": %f seconds. Flushing 0.5 seconds",
                       conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
@@ -1295,11 +1294,12 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
       if (do_wait == 0)
         if ((conn->ab_synced != 0) && (conn->ab_read == conn->ab_write)) { // the buffer is empty!
           if (notified_buffer_empty == 0) {
-            debug(1, "Connection %d: Buffer Empty", conn->connection_number);
+            debug(2, "Connection %d: Buffer Empty", conn->connection_number);
             notified_buffer_empty = 1;
             // reset_input_flow_metrics(conn); // don't do a full flush parameters reset
             conn->initial_reference_time = 0;
             conn->initial_reference_timestamp = 0;
+            conn->first_packet_timestamp = 0; // make sure the first packet isn't late            
           }
           do_wait = 1;
         }
@@ -2574,6 +2574,10 @@ void *player_thread_func(void *arg) {
             // interpreted as a signed number, should yield the difference _and_ the ordering.
 
             sync_error = should_be_frame - will_be_frame; // this is done in int64_t form
+            
+            // int64_t t_ping = should_be_frame - conn->anchor_rtptime;
+            // if (t_ping < 0)
+            //   debug(1, "Frame %" PRIu64 " is %" PRId64 " frames before anchor time %" PRIu64 ".", should_be_frame, -t_ping, conn->anchor_rtptime);
 
             // sign-extend the r-bit unsigned int calculation by treating it as an r-bit signed
             // integer
@@ -2692,8 +2696,8 @@ void *player_thread_func(void *arg) {
                       " frames (%f seconds), at frame: %" PRIu32 ".",
                       sync_error, (sync_error * 1.0) / config.output_rate,
                       inframe->given_timestamp);
-                debug(1, "%" PRId64 " frames sent to DAC. DAC buffer contains %" PRId64 " frames.",
-                      frames_sent_for_play, actual_delay);
+                //debug(1, "%" PRId64 " frames sent to DAC. DAC buffer contains %" PRId64 " frames.",
+                //      frames_sent_for_play, actual_delay);
                 // the sync error is output frames, but we have to work out how many source frames
                 // to drop there may be a multiple (the conn->output_sample_ratio) of output frames
                 // per input frame...
