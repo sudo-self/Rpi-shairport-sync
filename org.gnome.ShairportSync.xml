@@ -11,6 +11,7 @@
     <property name="ConvolutionGain" type="d" access="readwrite" />
     <property name="ConvolutionImpulseResponseFile" type="s" access="readwrite" />
     <property name="DriftTolerance" type="d" access="readwrite" />
+    <property name='Volume' type='d' access='readwrite'/>
     <method name="RemoteCommand">
       <arg name="command" type="s" direction="in" />
       <arg name="reply" type="i" direction="out" />
