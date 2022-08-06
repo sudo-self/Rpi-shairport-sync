@@ -92,6 +92,11 @@
 #include "ptp-utilities.h"
 #endif
 
+#ifdef CONFIG_DBUS_INTERFACE
+#include "dbus-service.h"
+#endif
+
+
 #include "mdns.h"
 
 // mDNS advertisement strings
@@ -497,44 +502,57 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
 
 #endif
 
+void lock_player() {
+  debug_mutex_lock(&playing_conn_lock, 1000000, 3);
+}
+
+void unlock_player() {
+  debug_mutex_unlock(&playing_conn_lock, 3);
+}
+
+
 int have_play_lock(rtsp_conn_info *conn) {
   int response = 0;
-  debug_mutex_lock(&playing_conn_lock, 1000000, 3);
+  lock_player();
   if (playing_conn == conn) // this connection definitely has the play lock
     response = 1;
-  debug_mutex_unlock(&playing_conn_lock, 3);
+  unlock_player();
   return response;
 }
 
+/*
 // return 0 if the playing_conn isn't already locked by someone else and if
 // it belongs to the conn passed in.
 // remember to release it!
-int try_to_hold_play_lock(rtsp_conn_info *conn) {
+int try_to_get_and_lock_playing_conn(rtsp_conn_info **conn) {
   int response = -1;
   if (pthread_mutex_trylock(&playing_conn_lock) == 0) {
-    if (playing_conn == conn) {
-      response = 0;
-    } else {
-      pthread_mutex_unlock(&playing_conn_lock);
-    }
+    response = 0;
+    *conn = playing_conn;
   }
   return response;
 }
+
 
 void release_hold_on_play_lock(__attribute__((unused)) rtsp_conn_info *conn) {
   pthread_mutex_unlock(&playing_conn_lock);
 }
 
+*/
+
+// make conn no longer the playing_conn
 void release_play_lock(rtsp_conn_info *conn) {
   debug(2, "Connection %d: release play lock.", conn->connection_number);
-  debug_mutex_lock(&playing_conn_lock, 1000000, 3);
+  lock_player();
   if (playing_conn == conn) { // if we have the player
     playing_conn = NULL;      // let it go
     debug(2, "Connection %d: release play lock.", conn->connection_number);
   }
-  debug_mutex_unlock(&playing_conn_lock, 3);
+  unlock_player();
 }
 
+
+// make conn the playing_conn, 
 int get_play_lock(rtsp_conn_info *conn) {
   debug(2, "Connection %d: request play lock.", conn->connection_number);
   // returns -1 if it failed, 0 if it succeeded and 1 if it succeeded but
@@ -547,7 +565,7 @@ int get_play_lock(rtsp_conn_info *conn) {
 
   // try to become the current playing_conn
 
-  debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
+  lock_player(); // don't let it change while we are looking at it...
 
   if (playing_conn == NULL) {
     playing_conn = conn;
@@ -572,18 +590,18 @@ int get_play_lock(rtsp_conn_info *conn) {
     should_wait = 1;
     pthread_cancel(playing_conn->thread); // asking the RTSP thread to exit
   }
-  debug_mutex_unlock(&playing_conn_lock, 3);
+  unlock_player();
 
   if (should_wait) {
     int time_remaining = 3000000; // must be signed, as it could go negative...
 
     while ((time_remaining > 0) && (have_the_player == 0)) {
-      debug_mutex_lock(&playing_conn_lock, 1000000, 3); // get it
+      lock_player(); // get it
       if (playing_conn == NULL) {
         playing_conn = conn;
         have_the_player = 1;
       }
-      debug_mutex_unlock(&playing_conn_lock, 3);
+      unlock_player();
 
       if (have_the_player == 0) {
         usleep(100000);
@@ -3392,14 +3410,16 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
       debug(2, "Connection %d: request to set AirPlay Volume to: %f.", conn->connection_number,
             volume);
       // if we are playing, go ahead and change the volume
-      if (try_to_hold_play_lock(conn) == 0) {
+      lock_player();
+      config.airplay_volume = volume;
+      if (playing_conn == conn)
         player_volume(volume, conn);
-        release_hold_on_play_lock(conn);
-      } else {
-        // otherwise use the volume as the initial setting for when/if the player starts
-        conn->initial_airplay_volume = volume;
-        conn->initial_airplay_volume_set = 1;
+      unlock_player();
+#ifdef CONFIG_DBUS_INTERFACE
+      if (dbus_service_is_running()) {
+        shairport_sync_set_volume(shairportSyncSkeleton, config.airplay_volume);
       }
+#endif        
     } else if (strncmp(cp, "progress: ", strlen("progress: ")) ==
                0) { // this can be sent even when metadata is not solicited
 
@@ -4140,7 +4160,7 @@ static void handle_get_parameter(__attribute__((unused)) rtsp_conn_info *conn, r
 
   if ((req->content) && (req->contentlength == strlen("volume\r\n")) &&
       strstr(req->content, "volume") == req->content) {
-    debug(2, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
+    debug(1, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
           config.airplay_volume);
     char *p = malloc(128); // will be automatically deallocated with the response is deleted
     if (p) {
