@@ -1,6 +1,6 @@
 /*
  * This file is part of Shairport Sync.
- * Copyright (c) Mike Brady 2018 -- 2019
+ * Copyright (c) Mike Brady 2018 -- 2022
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -1007,6 +1007,12 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 //  else
 //    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton),
 //    NULL);
+#endif
+
+#ifdef CONFIG_AIRPLAY_2
+  shairport_sync_set_protocol(SHAIRPORT_SYNC(shairportSyncSkeleton), "AirPlay 2");
+#else
+  shairport_sync_set_protocol(SHAIRPORT_SYNC(shairportSyncSkeleton), "AirPlay");
 #endif
 
   shairport_sync_set_version(SHAIRPORT_SYNC(shairportSyncSkeleton), PACKAGE_VERSION);

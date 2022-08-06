@@ -22,6 +22,7 @@
     <property name="ALACDecoder" type="s" access="readwrite" />
     <property name="Version" type="s" access="read" />
     <property name="VersionString" type="s" access="read" />
+    <property name="Protocol" type="s" access="read" />
   </interface>
   <interface name="org.gnome.ShairportSync.Diagnostics">
     <property name="Verbosity" type="i" access="readwrite" />
