@@ -562,11 +562,30 @@ gboolean notify_drift_tolerance_callback(ShairportSync *skeleton,
                                          __attribute__((unused)) gpointer user_data) {
   gdouble dt = shairport_sync_get_drift_tolerance(skeleton);
   if ((dt >= 0.0) && (dt <= 2.0)) {
-    debug(1, ">> setting drift tolerance to %f seconds", dt);
+    debug(1, ">> setting drift tolerance to %f seconds.", dt);
     config.tolerance = dt;
   } else {
     debug(1, ">> invalid drift tolerance: %f seconds. Ignored.", dt);
     shairport_sync_set_drift_tolerance(skeleton, config.tolerance);
+  }
+  return TRUE;
+}
+
+gboolean notify_volume_callback(ShairportSync *skeleton,
+                                         __attribute__((unused)) gpointer user_data) {
+  gdouble iv = shairport_sync_get_volume(skeleton);
+  if (((iv >= -30.0) && (iv <= 0.0)) || (iv == -144.0)) {
+    debug(1, ">> setting volume to %6.3f.", iv);
+    
+    lock_player();
+    config.airplay_volume = iv;
+    if (playing_conn != NULL)
+      player_volume(iv, playing_conn);
+    unlock_player();
+    
+  } else {
+    debug(1, ">> invalid volume: %f. Ignored.", iv);
+    shairport_sync_set_volume(skeleton, config.airplay_volume);
   }
   return TRUE;
 }
@@ -835,6 +854,8 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(notify_loudness_threshold_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::drift-tolerance",
                    G_CALLBACK(notify_drift_tolerance_callback), NULL);
+  g_signal_connect(shairportSyncSkeleton, "notify::volume",
+                   G_CALLBACK(notify_volume_callback), NULL);
 
   g_signal_connect(shairportSyncSkeleton, "handle-quit", G_CALLBACK(on_handle_quit), NULL);
 
@@ -899,6 +920,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   shairport_sync_set_loudness_threshold(SHAIRPORT_SYNC(shairportSyncSkeleton),
                                         config.loudness_reference_volume_db);
   shairport_sync_set_drift_tolerance(SHAIRPORT_SYNC(shairportSyncSkeleton), config.tolerance);
+  shairport_sync_set_volume(SHAIRPORT_SYNC(shairportSyncSkeleton), config.airplay_volume);
 
 #ifdef CONFIG_APPLE_ALAC
   if (config.use_apple_decoder == 0) {
