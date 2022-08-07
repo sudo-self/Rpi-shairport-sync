@@ -34,6 +34,12 @@ typedef enum {
 } dbus_session_type;
 #endif
 
+typedef enum {
+  TOE_normal,
+  TOE_emergency,
+  TOE_dbus        // a dbus request was made -- don't wait for the dbus thread to exit
+} type_of_exit_type;
+
 #define sps_extra_code_output_stalled 32768
 #define sps_extra_code_output_state_cannot_make_ready 32769
 
@@ -400,7 +406,7 @@ extern pthread_t main_thread_id;
 
 extern shairport_cfg config;
 extern config_t config_file_stuff;
-extern int emergency_exit;
+extern int type_of_exit_cleanup; // normal, emergency, dbus requested...
 
 int config_set_lookup_bool(config_t *cfg, char *where, int *dst);
 

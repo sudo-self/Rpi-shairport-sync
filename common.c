@@ -108,7 +108,7 @@ void set_alsa_out_dev(char *);
 #endif
 
 config_t config_file_stuff;
-int emergency_exit;
+int type_of_exit_cleanup;
 pthread_t main_thread_id;
 uint64_t ns_time_at_startup, ns_time_at_last_debug_message;
 
@@ -478,7 +478,7 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
   va_end(args);
   sps_log(LOG_ERR, "%s", b);
   pthread_setcancelstate(oldState, NULL);
-  emergency_exit = 1;
+  type_of_exit_cleanup = TOE_emergency;
   exit(EXIT_FAILURE);
 }
 

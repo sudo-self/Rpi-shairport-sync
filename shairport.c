@@ -1536,7 +1536,7 @@ void exit_rtsp_listener() {
 
 void exit_function() {
 
-  if (emergency_exit == 0) {
+  if (type_of_exit_cleanup != TOE_emergency) {
     // the following is to ensure that if libdaemon has been included
     // that most of this code will be skipped when the parent process is exiting
     // exec
@@ -1569,7 +1569,12 @@ void exit_function() {
       if (g_main_loop) {
         debug(2, "Stopping D-Bus Loop Thread");
         g_main_loop_quit(g_main_loop);
-        pthread_join(dbus_thread, NULL);
+        
+        // If the request to exit has come from the D-Bus system, 
+        // the D-Bus Loop Thread will not exit until the request is completed
+        // so don't wait for it 
+        if (type_of_exit_cleanup != TOE_dbus)
+          pthread_join(dbus_thread, NULL);
       }
 #endif
 
@@ -1743,7 +1748,7 @@ int main(int argc, char **argv) {
   setlogmask(LOG_UPTO(LOG_DEBUG));
   openlog(NULL, 0, LOG_DAEMON);
 #endif
-  emergency_exit = 0; // what to do or skip in the exit_function
+  type_of_exit_cleanup = TOE_normal; // what kind of exit cleanup needed
   atexit(exit_function);
 
   // set defaults

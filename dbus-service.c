@@ -772,11 +772,9 @@ gboolean notify_loop_status_callback(ShairportSyncAdvancedRemoteControl *skeleto
 static gboolean on_handle_quit(ShairportSync *skeleton, GDBusMethodInvocation *invocation,
                                __attribute__((unused)) const gchar *command,
                                __attribute__((unused)) gpointer user_data) {
-  debug(1, "quit requested (native interface)");
-  if (main_thread_id)
-    debug(1, "Cancelling main thread results in %d.", pthread_cancel(main_thread_id));
-  else
-    debug(1, "Main thread ID is NULL.");
+  debug(1, ">> quit requested");
+  type_of_exit_cleanup = TOE_dbus; // request an exit cleanup that is compatible with dbus
+  exit(EXIT_SUCCESS);
   shairport_sync_complete_quit(skeleton, invocation);
   return TRUE;
 }
