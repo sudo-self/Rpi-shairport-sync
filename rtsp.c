@@ -542,19 +542,30 @@ void release_hold_on_play_lock(__attribute__((unused)) rtsp_conn_info *conn) {
 
 // make conn no longer the playing_conn
 void release_play_lock(rtsp_conn_info *conn) {
-  debug(2, "Connection %d: release play lock.", conn->connection_number);
+  if (conn != NULL)
+    debug(2, "Connection %d: release play lock.", conn->connection_number);
+  else
+    debug(2, "Release play lock.");
   lock_player();
   if (playing_conn == conn) { // if we have the player
+    if (conn != NULL)
+      debug(2, "Connection %d: play lock released.", conn->connection_number);
+    else
+      debug(2, "Play lock released.");
     playing_conn = NULL;      // let it go
-    debug(2, "Connection %d: release play lock.", conn->connection_number);
   }
   unlock_player();
 }
 
 
-// make conn the playing_conn, 
-int get_play_lock(rtsp_conn_info *conn) {
-  debug(2, "Connection %d: request play lock.", conn->connection_number);
+// make conn the playing_conn, and kill the current session if permitted
+int get_play_lock(rtsp_conn_info *conn, int allow_session_interruption) {
+  if (conn != NULL)
+    debug(2, "Connection %d: request play lock.", conn->connection_number);
+  else if (playing_conn != NULL)
+    debug(2, "Connection %d: request release.", playing_conn->connection_number);
+  else
+    debug(2, "Request release of non-existent player.");
   // returns -1 if it failed, 0 if it succeeded and 1 if it succeeded but
   // interrupted an existing session
   int response = 0;
@@ -572,19 +583,14 @@ int get_play_lock(rtsp_conn_info *conn) {
     have_the_player = 1;
   } else if (playing_conn == conn) {
     have_the_player = 1;
-    warn("Duplicate attempt to acquire the player by the same connection, by the look of it!");
+    if (conn != NULL)
+      warn("Duplicate attempt to acquire the player by the same connection, by the look of it!");
   } else if (playing_conn->stop) {
     debug(1, "Connection %d: Waiting for Connection %d to stop playing.", conn->connection_number,
           playing_conn->connection_number);
     should_wait = 1;
-#ifdef CONFIG_AIRPLAY_2
-  } else { // ignore the allow_session_interruption in AirPlay 2 -- it is always permissible, it
-           // seems
-#else
-  } else if (config.allow_session_interruption == 1) {
-#endif
-    debug(2, "Connection %d: Asking Connection %d to stop playing.", conn->connection_number,
-          playing_conn->connection_number);
+  } else if (allow_session_interruption != 0) {
+    debug(2, "Asking Connection %d to stop playing.", playing_conn->connection_number);
     playing_conn->stop = 1;
     interrupting_current_session = 1;
     should_wait = 1;
@@ -608,18 +614,23 @@ int get_play_lock(rtsp_conn_info *conn) {
         time_remaining -= 100000;
       }
     }
-
     if ((have_the_player == 1) && (interrupting_current_session == 1)) {
-      debug(2, "Connection %d: Got player lock", conn->connection_number);
+      if (conn != NULL)
+        debug(2, "Connection %d: Got player lock", conn->connection_number);
+      else
+        debug(2, "Player released.");
       response = 1;
     } else {
-      debug(1, "Connection %d: failed to get player lock after waiting.", conn->connection_number);
+      debug(2, "Connection %d: failed to get player lock after waiting.", conn->connection_number);
       response = -1;
     }
   }
 
   if ((have_the_player == 1) && (interrupting_current_session == 0)) {
-    debug(2, "Connection %d: Got player lock.", conn->connection_number);
+    if (conn != NULL)
+      debug(2, "Connection %d: Got player lock.", conn->connection_number);
+    else
+      debug(2, "Player released.");      
     response = 0;
   }
   return response;
@@ -2609,7 +2620,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     } else {
       teardown_phase_one(conn); // try to do phase one anyway
       teardown_phase_two(conn);
-      debug(2, "Connection %d: TEARDOWN phase two complete", conn->connection_number);
+      debug(1, "Connection %d: TEARDOWN phase two complete", conn->connection_number);
     }
     //} else {
     //  warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
@@ -2751,7 +2762,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           send_ssnc_metadata('conn', conn->client_ip_string, strlen(conn->client_ip_string),
                              1); // before disconnecting an existing play
 #endif
-          get_play_lock(conn);
+          get_play_lock(conn, 1); // airplay 2 always allows interruption
 #ifdef CONFIG_METADATA
           send_ssnc_metadata('clip', conn->client_ip_string, strlen(conn->client_ip_string), 1);
           send_ssnc_metadata('svip', conn->self_ip_string, strlen(conn->self_ip_string), 1);
@@ -4269,7 +4280,7 @@ static void handle_set_parameter(rtsp_conn_info *conn, rtsp_message *req, rtsp_m
 
 static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   debug(3, "Connection %d: ANNOUNCE", conn->connection_number);
-  int get_play_status = get_play_lock(conn);
+  int get_play_status = get_play_lock(conn, config.allow_session_interruption);
   if (get_play_status != -1) {
     debug(3, "Connection %d: ANNOUNCE has acquired play lock.", conn->connection_number);
 

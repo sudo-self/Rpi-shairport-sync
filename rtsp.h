@@ -11,6 +11,9 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg);
 void lock_player();
 void unlock_player();
 
+// this can be used to forcibly stop a play session
+int get_play_lock(rtsp_conn_info *conn, int allow_session_interruption);
+
 // initialise and completely delete the metadata stuff
 
 void metadata_init(void);

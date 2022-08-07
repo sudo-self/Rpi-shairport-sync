@@ -807,6 +807,16 @@ static gboolean on_handle_remote_command(ShairportSync *skeleton, GDBusMethodInv
   return TRUE;
 }
 
+static gboolean on_handle_drop_session(ShairportSync *skeleton,
+                                       GDBusMethodInvocation *invocation,
+                                       __attribute__((unused)) gpointer user_data) {
+  if (playing_conn != NULL)
+    debug(1, ">> stopping current play session");
+  get_play_lock(NULL, 1); // stop any current session and don't replace it
+  shairport_sync_complete_drop_session(skeleton, invocation);
+  return TRUE;
+}
+
 static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name,
                                   __attribute__((unused)) gpointer user_data) {
 
@@ -861,6 +871,9 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 
   g_signal_connect(shairportSyncSkeleton, "handle-remote-command",
                    G_CALLBACK(on_handle_remote_command), NULL);
+
+  g_signal_connect(shairportSyncSkeleton, "handle-drop-session",
+                   G_CALLBACK(on_handle_drop_session), NULL);
 
   g_signal_connect(shairportSyncDiagnosticsSkeleton, "notify::verbosity",
                    G_CALLBACK(notify_verbosity_callback), NULL);
