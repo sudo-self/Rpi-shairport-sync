@@ -723,7 +723,7 @@ void *rtp_timing_receiver(void *arg) {
   // for getting mean and sd of return times
   int32_t stat_n = 0;
   double stat_mean = 0.0;
-  double stat_M2 = 0.0;
+  // double stat_M2 = 0.0;
 
   while (1) {
     nread = recv(conn->timing_socket, packet, sizeof(packet), 0);
@@ -813,7 +813,7 @@ void *rtp_timing_receiver(void *arg) {
             stat_n += 1;
             double stat_delta = return_time - stat_mean;
             stat_mean += stat_delta / stat_n;
-            stat_M2 += stat_delta * (return_time - stat_mean);
+            // stat_M2 += stat_delta * (return_time - stat_mean);
             // debug(1, "Timing packet return time stats: current, mean and standard deviation over
             // %d packets: %.1f, %.1f, %.1f (nanoseconds).",
             //        stat_n,return_time,stat_mean, sqrtf(stat_M2 / (stat_n - 1)));
