@@ -3,7 +3,7 @@ Version 4.1-dev-468-gcb03d5c6
 **Updates and Enhancements**
 * The `development` branch now builds again on macOS with [brew](https://brew.sh). (Remember, though, that Shairport Sync [will not function in AirPlay 2 mode on a Mac](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md)).
 * The `libao` backend has been updated to address an issue with the system becoming unavailable. The biggest change was to close the driver as soon as playing stops, reopening it when playing restarts.
-* The `libao` drivers are now listed in the help text. If available, the `alsa` driver is preferred over the `pulseaudio` driver.
+* The `libao` drivers are now listed in the help text. If available, it is suggested that the `alsa` driver should be used in preference to the `pulseaudio` driver.
 
 Version 4.1-dev-466-g05dfcdfd
 ====
