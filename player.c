@@ -2414,7 +2414,7 @@ void *player_thread_func(void *arg) {
             double moving_average_correction = 0.0;
             double moving_average_insertions_plus_deletions = 0.0;
             if (number_of_statistics == 0) {
-              debug(1, "number_of_statistics is zero!");
+              debug(2, "number_of_statistics is zero!");
             } else {
               moving_average_sync_error = (1.0 * tsum_of_sync_errors) / number_of_statistics;
               moving_average_correction = (1.0 * tsum_of_corrections) / number_of_statistics;
