@@ -1454,6 +1454,11 @@ int parse_options(int argc, char **argv) {
   // now, do the substitutions in the service name
   char hostname[100];
   gethostname(hostname, 100);
+  
+  // strip off a terminating .<anything>, e.g. .local from the hostname
+  char *last_dot = strrchr(hostname,'.');
+  if (last_dot != NULL)
+    *last_dot = '\0';
 
   char *i0;
   if (raw_service_name == NULL)
