@@ -62,6 +62,9 @@
 #endif
 
 #ifdef COMPILE_FOR_OSX
+#include <net/if_dl.h>
+#include <net/if_types.h>
+#include <netinet/in.h>
 #include <CoreServices/CoreServices.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -1220,7 +1223,6 @@ uint64_t get_monotonic_time_in_ns() {
 
 #ifdef COMPILE_FOR_OSX
   uint64_t time_now_mach;
-  uint64_t elapsedNano;
   static mach_timebase_info_data_t sTimebaseInfo = {0, 0};
 
   // this actually give you a monotonic clock
@@ -1238,7 +1240,7 @@ uint64_t get_monotonic_time_in_ns() {
   }
 
   if (sTimebaseInfo.denom == 0)
-    die("could not initialise Mac timebase info in get_monotonic_time_in_ns().")
+    die("could not initialise Mac timebase info in get_monotonic_time_in_ns().");
 
         // Do the maths. We hope that the multiplication doesn't
         // overflow; the price you pay for working in fixed point.
@@ -1283,7 +1285,6 @@ uint64_t get_absolute_time_in_ns() {
 
 #ifdef COMPILE_FOR_OSX
   uint64_t time_now_mach;
-  uint64_t elapsedNano;
   static mach_timebase_info_data_t sTimebaseInfo = {0, 0};
 
   // this actually give you a monotonic clock
@@ -1303,7 +1304,7 @@ uint64_t get_absolute_time_in_ns() {
   // overflow; the price you pay for working in fixed point.
 
   if (sTimebaseInfo.denom == 0)
-    die("could not initialise Mac timebase info in get_absolute_time_in_ns().")
+    die("could not initialise Mac timebase info in get_absolute_time_in_ns().");
 
         // this gives us nanoseconds
         time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
@@ -1949,20 +1950,20 @@ int get_device_id(uint8_t *id, int int_length) {
   }
 
   if (getifaddrs(&ifaddr) == -1) {
-    debug(1, "getifaddrs");
     response = -1;
   } else {
     t = id;
     int found = 0;
-    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+    
+    for (ifa = ifaddr; ((ifa != NULL) && (found == 0)); ifa = ifa->ifa_next) {
 #ifdef AF_PACKET
       if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
         struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
-        if ((strcmp(ifa->ifa_name, "lo") != 0) && (found == 0)) {
+        if ((strcmp(ifa->ifa_name, "lo") != 0)) {
+          found = 1;
           for (i = 0; ((i < s->sll_halen) && (i < int_length)); i++) {
             *t++ = s->sll_addr[i];
           }
-          found = 1;
         }
       }
 #else
@@ -1970,16 +1971,16 @@ int get_device_id(uint8_t *id, int int_length) {
       struct sockaddr_dl *sdl = (struct sockaddr_dl *)ifa->ifa_addr;
       if ((sdl) && (sdl->sdl_family == AF_LINK)) {
         if (sdl->sdl_type == IFT_ETHER) {
-          char *s = LLADDR(sdl);
-          for (i = 0; i < sdl->sdl_alen; i++) {
-            debug(1, "char %d: \"%c\".", i, *s);
-            *t++ = (uint8_t)*s++;
-          }
           found = 1;
+          uint8_t *s = (uint8_t *)LLADDR(sdl);
+          for (i = 0; ((i < sdl->sdl_alen) && (i < int_length)); i++) {
+            *t++ = *s++;
+          }
         }
       }
 #endif
 #endif
+
     }
     freeifaddrs(ifaddr);
   }

@@ -1454,6 +1454,11 @@ int parse_options(int argc, char **argv) {
   // now, do the substitutions in the service name
   char hostname[100];
   gethostname(hostname, 100);
+  
+  // strip off a terminating .<anything>, e.g. .local from the hostname
+  char *last_dot = strrchr(hostname,'.');
+  if (last_dot != NULL)
+    *last_dot = '\0';
 
   char *i0;
   if (raw_service_name == NULL)
@@ -1698,6 +1703,7 @@ void termHandler(__attribute__((unused)) int k) {
 }
 
 int main(int argc, char **argv) {
+  memset(&config, 0, sizeof(config)); // also clears all strings, BTW
   /* Check if we are called with -V or --version parameter */
   if (argc >= 2 && ((strcmp(argv[1], "-V") == 0) || (strcmp(argv[1], "--version") == 0))) {
     print_version();
@@ -1731,7 +1737,6 @@ int main(int argc, char **argv) {
   config.log_fd = -1;
   conns = NULL; // no connections active
   memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
-  memset(&config, 0, sizeof(config)); // also clears all strings, BTW
   ns_time_at_startup = get_absolute_time_in_ns();
   ns_time_at_last_debug_message = ns_time_at_startup;
   // this is a bit weird, but necessary -- basename() may modify the argument passed in

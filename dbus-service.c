@@ -575,7 +575,7 @@ gboolean notify_volume_callback(ShairportSync *skeleton,
                                          __attribute__((unused)) gpointer user_data) {
   gdouble iv = shairport_sync_get_volume(skeleton);
   if (((iv >= -30.0) && (iv <= 0.0)) || (iv == -144.0)) {
-    debug(1, ">> setting volume to %6.3f.", iv);
+    debug(2, ">> setting volume to %7.4f.", iv);
     
     lock_player();
     config.airplay_volume = iv;

@@ -2620,7 +2620,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     } else {
       teardown_phase_one(conn); // try to do phase one anyway
       teardown_phase_two(conn);
-      debug(1, "Connection %d: TEARDOWN phase two complete", conn->connection_number);
+      debug(2, "Connection %d: TEARDOWN phase two complete", conn->connection_number);
     }
     //} else {
     //  warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
