@@ -1950,15 +1950,17 @@ int get_device_id(uint8_t *id, int int_length) {
   }
 
   if (getifaddrs(&ifaddr) == -1) {
-    debug(1, "getifaddrs");
     response = -1;
   } else {
     t = id;
-    for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+    int found = 0;
+    
+    for (ifa = ifaddr; ((ifa != NULL) && (found == 0)); ifa = ifa->ifa_next) {
 #ifdef AF_PACKET
       if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
         struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
-        if ((strcmp(ifa->ifa_name, "lo") != 0) && (found == 0)) {
+        if ((strcmp(ifa->ifa_name, "lo") != 0)) {
+          found = 1;
           for (i = 0; ((i < s->sll_halen) && (i < int_length)); i++) {
             *t++ = s->sll_addr[i];
           }
@@ -1969,15 +1971,16 @@ int get_device_id(uint8_t *id, int int_length) {
       struct sockaddr_dl *sdl = (struct sockaddr_dl *)ifa->ifa_addr;
       if ((sdl) && (sdl->sdl_family == AF_LINK)) {
         if (sdl->sdl_type == IFT_ETHER) {
-          char *s = LLADDR(sdl);
-          for (i = 0; i < sdl->sdl_alen; i++) {
-            debug(1, "char %d: \"%c\".", i, *s);
-            *t++ = (uint8_t)*s++;
+          found = 1;
+          uint8_t *s = (uint8_t *)LLADDR(sdl);
+          for (i = 0; ((i < sdl->sdl_alen) && (i < int_length)); i++) {
+            *t++ = *s++;
           }
         }
       }
 #endif
 #endif
+
     }
     freeifaddrs(ifaddr);
   }
