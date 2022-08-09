@@ -1,3 +1,11 @@
+Version 4.1-dev-454-ga774a6fc
+====
+**Enhancement**
+* Strip the trailing dot and everything after it in the hostname when using it as the basis for a service name. E.g. `freebsd.local` becomes `freebsd`.
+
+**Bug Fixes**
+* Fix a few compilation bugs and portability issues, and turn off deprecation warnings when compiling for Mac OS.
+
 Version 4.1-dev-439-gb7a11cae
 ====
 Documentation update. Comments, corrections and suggestions welcome.
