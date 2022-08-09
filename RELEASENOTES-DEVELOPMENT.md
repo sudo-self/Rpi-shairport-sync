@@ -1,3 +1,12 @@
+Version 4.1-dev-466-g05dfcdfd
+====
+**Enhancements**
+
+These are for advanced users.
+* Add a new `Protocol` property to the D-Bus interface. Values: `AirPlay` if built for AirPlay and `AirPlay 2` if build for AirPlay 2.
+* Add a new `Volume` property to the D-Bus interface. This enables you to get and set the volume _locally_. Use this carefully: it means that you can set the volume of the player without changing it at the source. The source will not be informed of the change, so the volume it sets and and the actual volume may not necessarity be the same. If remote control available, it is preferable to "ask" the player to change the volume.
+* Add a new `DropSession` method. This will immediately and forcibly terminate a playing session without informing the source. Use it carefully. If remote control available, it is preferable to "ask" the player to stop playing.
+
 Version 4.1-dev-454-ga774a6fc
 ====
 **Enhancement**
