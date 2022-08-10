@@ -5,14 +5,6 @@
 
 # Additionally, the following are examples of using the CLI command "dbus-send" to send D-Bus commands to Shairport Sync:
 
-# Control the player using Remote Control. Remote Control commands are sent as requests to the player (iOS, iTunes, macOS Music, etc.).
-# Different versions of the players implement different subsets of the following commands. iOS seems to implement most of them (the first nine in the list).
-dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.RemoteControl.Play
-#Remote Control commands include: Play, Pause, PlayPause, Resume, Stop, Next, Previous, VolumeUp, VolumeDown, ToggleMute, FastForward, Rewind, ShuffleSongs
-
-# Set Airplay Volume using Remote Control. Airplay Volume is between -30.0 and 0.0 and maps linearly onto the slider, with -30.0 being lowest and 0.0 being highest.
-dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.RemoteControl.SetAirplayVolume double:-10.0
-
 # Get Log Verbosity
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync.Diagnostics string:Verbosity
 # Return Log Verbosity
@@ -69,6 +61,30 @@ dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/Shair
 
 # Set Convolution Impulse Response File:
 dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync string:ConvolutionImpulseResponseFile variant:string:"/etc/shairport-sync/boom.wav"
+
+# Get the Protocol Shairport Sync was built for -- AirPlay or AirPlay 2:
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync string:Protocol
+
+# Get the current volume level. This returns a value between -30.0 and 0.0, which is linear on the UI volume control. It can also return -144.0 to indicate mute.
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Get string:org.gnome.ShairportSync string:Volume
+
+# Set the current volume level. This should be a value between -30.0 and 0.0. Set a value of -144.0 to mute. Note that all this is done locally on
+# the Shairport Sync device itself. The volume control of audio source (e.g. iTunes / macOS Music / iOS) is not updated to reflect any changes.
+
+dbus-send --print-reply --system --dest=org.gnome.ShairportSync /org/gnome/ShairportSync org.freedesktop.DBus.Properties.Set string:org.gnome.ShairportSync string:Volume variant:double:-10.0
+
+# Drop the current session immediately. Shairport Sync will immediately stop playing and drop the connection from the audio source.
+# This may show up as an error at the source.
+
+dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.DropSession
+
+# Control the player using Remote Control. Remote Control commands are sent as requests to the player (iOS, iTunes, macOS Music, etc.).
+# Different versions of the players implement different subsets of the following commands. iOS seems to implement most of them (the first nine in the list).
+dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.RemoteControl.Play
+#Remote Control commands include: Play, Pause, PlayPause, Resume, Stop, Next, Previous, VolumeUp, VolumeDown, ToggleMute, FastForward, Rewind, ShuffleSongs
+
+# Set Airplay Volume using Remote Control. Airplay Volume is between -30.0 and 0.0 and maps linearly onto the slider, with -30.0 being lowest and 0.0 being highest.
+dbus-send --system --print-reply --type=method_call --dest=org.gnome.ShairportSync '/org/gnome/ShairportSync' org.gnome.ShairportSync.RemoteControl.SetAirplayVolume double:-10.0
 
 # AdvancedRemoteControl interface.
 # Some commands and properties are accessible only through the AdvancedRemoteControl interface.
