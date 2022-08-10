@@ -38,8 +38,9 @@
 
 static struct mdnsd *svr = NULL;
 
-static int mdns_tinysvcmdns_register(char *apname, int port,
-                                     __attribute__((unused)) char **txt_records) {
+static int mdns_tinysvcmdns_register(char *ap1name, __attribute__((unused)) char *ap2name, int port,
+                                __attribute__((unused)) char **txt_records,
+                                __attribute__((unused)) char **secondary_txt_records) {
   struct ifaddrs *ifalist;
   struct ifaddrs *ifa;
 
@@ -146,7 +147,7 @@ static int mdns_tinysvcmdns_register(char *apname, int port,
   strcat(extendedregtype, ".local");
 
   struct mdns_service *svc =
-      mdnsd_register_svc(svr, apname, extendedregtype, port, NULL,
+      mdnsd_register_svc(svr, ap1name, extendedregtype, port, NULL,
                          (const char **)txt); // TTL should be 75 minutes, i.e. 4500 seconds
   mdns_service_destroy(svc);
 

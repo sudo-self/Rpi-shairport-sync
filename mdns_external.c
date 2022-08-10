@@ -80,15 +80,17 @@ static int fork_execvp(const char *file, char *const argv[]) {
   return response;
 }
 
-static int mdns_external_avahi_register(char *apname, __attribute__((unused)) int port,
-                                        __attribute__((unused)) char **txt_records) {
+static int mdns_external_avahi_register(char *ap1name, __attribute__((unused)) char *ap2name,
+                                __attribute__((unused)) int port,
+                                __attribute__((unused)) char **txt_records,
+                                __attribute__((unused)) char **secondary_txt_records) {
   char mdns_port[6];
   snprintf(mdns_port, sizeof(mdns_port), "%d", config.port);
 
   char *argvwithoutmetadata[] = {
-      NULL, apname, config.regtype, mdns_port, MDNS_RECORD_WITHOUT_METADATA, NULL};
+      NULL, ap1name, config.regtype, mdns_port, MDNS_RECORD_WITHOUT_METADATA, NULL};
 #ifdef CONFIG_METADATA
-  char *argvwithmetadata[] = {NULL, apname, config.regtype, mdns_port, MDNS_RECORD_WITH_METADATA,
+  char *argvwithmetadata[] = {NULL, ap1name, config.regtype, mdns_port, MDNS_RECORD_WITH_METADATA,
                               NULL};
 #endif
   char **argv;
@@ -120,16 +122,18 @@ static int mdns_external_avahi_register(char *apname, __attribute__((unused)) in
   return -1;
 }
 
-static int mdns_external_dns_sd_register(char *apname, __attribute__((unused)) int port,
-                                         __attribute__((unused)) char **txt_records) {
+static int mdns_external_dns_sd_register(char *ap1name, __attribute__((unused)) char *ap2name,
+                                __attribute__((unused)) int port,
+                                __attribute__((unused)) char **txt_records,
+                                __attribute__((unused)) char **secondary_txt_records) {
   char mdns_port[6];
   snprintf(mdns_port, sizeof(mdns_port), "%d", config.port);
 
   char *argvwithoutmetadata[] = {
-      NULL, apname, config.regtype, mdns_port, MDNS_RECORD_WITHOUT_METADATA, NULL};
+      NULL, ap1name, config.regtype, mdns_port, MDNS_RECORD_WITHOUT_METADATA, NULL};
 
 #ifdef CONFIG_METADATA
-  char *argvwithmetadata[] = {NULL, apname, config.regtype, mdns_port, MDNS_RECORD_WITH_METADATA,
+  char *argvwithmetadata[] = {NULL, ap1name, config.regtype, mdns_port, MDNS_RECORD_WITH_METADATA,
                               NULL};
 #endif
 
