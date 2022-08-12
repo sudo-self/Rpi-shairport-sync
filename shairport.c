@@ -560,7 +560,7 @@ int parse_options(int argc, char **argv) {
   // Set to NULL to work with transient pairing
   config.airplay_pin = NULL;
 
-  // use the start of the config.hw_addr and the PID to generate the default airplay_device_id
+  // use the MAC address placed in config.hw_addr to generate the default airplay_device_id
   uint64_t temporary_airplay_id = nctoh64(config.hw_addr);
   temporary_airplay_id =
       temporary_airplay_id >> 16; // we only use the first 6 bytes but have imported 8.
