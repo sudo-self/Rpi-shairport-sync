@@ -5,9 +5,9 @@ If your car audio has an AUX input, you can get AirPlay in your car using Shairp
 
 The basic idea is to use a small Linux computer to create an isolated WiFi network for the car and to run Shairport Sync on it to provide an AirPlay service. The audio goes via a DAC to the AUX input of your car audio system.
 
-The car WiFi network you create is isolated and local to your car, and since it isn't connected to the Internet, you don't really need to secure it with a password. Likewise, you don't really have to use a password to connect to the AirPlay service.
+The car WiFi network you create is isolated and local to your car, and since it isn't connected to the Internet, you don't really need to secure it with a password.
 
-When an iPhone or an iPad with cellular capability is connected to an isolated WiFi network like this, it can use its cellular connection to access the Internet.
+When an iPhone or an iPad with cellular capability is connected to an isolated WiFi network, it can use its cellular connection to access the Internet.
 This means it can connect to internet radio, YouTube, Apple Music, Spotify, etc. over the cellular network and play the audio through the car network to the AirPlay service provided by Shairport Sync.
 
 Note that Android devices can not, so far, do this trick of using the two networks simultaneously.
