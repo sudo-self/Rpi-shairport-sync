@@ -19,28 +19,18 @@ In this example, a Raspberry Pi Zero 2 W and a Pimoroni PHAT DAC are used. Shair
 Please note that some of the details of setting up networks are specific to the version of Linux used -- Rasberry Pi OS (Bullseye) Lite or later.
 
 ### Prepare the initial SD Image
-* Download the latest version of Raspberry Pi OS (Lite) -- Bullseye (Lite) of 2022-04-04 at the time of writing -- and install it onto an SD Card. The Lite version is preferable to the Desktop version as it doesn't include a sound server like PulseAudio or PipeWire that can prevent direct access to the audio output device.
-* Mount the card on a Linux machine. Two drives should appear -- a `boot` drive and a `rootfs` drive. Both of these need a little modification.
-* Enable SSH service by creating a file called `ssh` on the `boot` drive. To do this, mount the drive and CD to its `boot` partition (since my username is `mike`, the drive is at `/media/mike/boot`):
-```
-$ touch ssh
-```
-* Also in the `boot` drive, edit the `config.txt` file to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used and it needs the following entry to be added:
+* Download the latest version of Raspberry Pi OS (Lite) -- Bullseye (Lite) of 2022-04-04 at the time of writing -- and install it onto an SD Card using `Raspberry Pi Imager`. The Lite version is preferable to the Desktop version as it doesn't include a sound server like PulseAudio or PipeWire that can prevent direct access to the audio output device.
+* Before writing the image to the card, use the Settings control on `Raspberry Pi Imager`. You can specify a wireless network that the Pi will connect to it when it boots up. Later on the Pi will be configured to start its own isolated network. 
+* Mount the card on a Linux machine. Two drives should appear -- a `boot` drive and a `rootfs` drive. 
+* CD to the `boot` drive (since my username is `mike`, it will be at `/media/mike/boot`):
+* Edit the `config.txt` file to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used and it needs the following entry to be added:
 ```
 dtoverlay=hifiberry-dac
 ```
-* Next, some modifications need to be done to the `rootfs` drive to make the Pi connect to your main WiFi network. (This is a temporary measure to enable you to connect the Pi to your main network so that you can do all the software installation and updating of the software necessary. Later, the Pi will be configured to start its own isolated network.) On the `rootfs` drive, edit the file `etc/wpa_supplicant/wpa_supplicant.conf` (you'll need root privileges) and add the name and password of your main WiFi network (substitute your own network name and password in, but keep the quotation marks):
-```
-network={
-    ssid="Network Name"
-    psk="Password"
-}
-
-```
-Close the file and carefully dismount and eject the two drives. Remove the SD card from the Linux machine, insert it into the Pi and reboot. After a short time, the Pi should appear on your network and you can SSH into it. To check that it has appeared on the network, try to ping it at `raspberrypi.local`. It may take a minute or so to appear. Once it has appeared on your network you can SSH into it and configure it.
+Close the file and carefully dismount and eject the two drives. Remove the SD card from the Linux machine, insert it into the Pi and reboot. After a short time, the Pi should appear on your network and you can SSH into it. To check that it has appeared on the network, try to ping it at the hostname yoou gave it appended with `.local`, e.g. if the hostname is `bmw` then try `bmw.local`. It may take a minute or so to appear. Once it has appeared on your network you can SSH into it and configure it.
 
 ### Boot, Configure, Update 
-The first thing to do on a Pi would be to use the `raspi-config` tool to expand the file system to use the entire card. It might be useful to change the `hostname` too. Next, do the usual update and upgrade:
+The first thing to do on a Pi would be to use the `raspi-config` tool to expand the file system to use the entire card. Next, do the usual update and upgrade:
 ```
 # apt-get update
 # apt-get upgrade
