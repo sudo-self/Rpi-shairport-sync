@@ -24,9 +24,9 @@ Please note that some of the details of setting up networks are specific to the 
 * Mount the card on a Linux machine. Two drives should appear -- a `boot` drive and a `rootfs` drive. 
 * CD to the `boot` drive (since my username is `mike`, it will be at `/media/mike/boot`):
 * Edit the `config.txt` file to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used and it needs the following entry to be added:
-```
-dtoverlay=hifiberry-dac
-```
+  ```
+  dtoverlay=hifiberry-dac
+  ```
 
    Close the file and carefully dismount and eject the two drives. Remove the SD card from the Linux machine, insert it into the Pi and reboot. After a short time, the Pi should appear on your network and you can SSH into it. To check that it has appeared on the network, try to ping it at the hostname you gave it appended with `.local`, e.g. if the hostname is `bmw` then try `bmw.local`. It may take a minute or so to appear. Once it has appeared on your network you can SSH into it and configure it.
 
