@@ -27,7 +27,7 @@ Please note that some of the details of setting up networks are specific to the 
 ```
 dtoverlay=hifiberry-dac
 ```
-Close the file and carefully dismount and eject the two drives. Remove the SD card from the Linux machine, insert it into the Pi and reboot. After a short time, the Pi should appear on your network and you can SSH into it. To check that it has appeared on the network, try to ping it at the hostname yoou gave it appended with `.local`, e.g. if the hostname is `bmw` then try `bmw.local`. It may take a minute or so to appear. Once it has appeared on your network you can SSH into it and configure it.
+  Close the file and carefully dismount and eject the two drives. Remove the SD card from the Linux machine, insert it into the Pi and reboot. After a short time, the Pi should appear on your network and you can SSH into it. To check that it has appeared on the network, try to ping it at the hostname you gave it appended with `.local`, e.g. if the hostname is `bmw` then try `bmw.local`. It may take a minute or so to appear. Once it has appeared on your network you can SSH into it and configure it.
 
 ### Boot, Configure, Update 
 The first thing to do on a Pi would be to use the `raspi-config` tool to expand the file system to use the entire card. Next, do the usual update and upgrade:
