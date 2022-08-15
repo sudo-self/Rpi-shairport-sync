@@ -14,7 +14,7 @@ Note that Android devices can not, so far, do this trick of using the two networ
 
 ## Example
 
-In this example, a Raspberry Pi Zero 2 W and a Pimoroni PHAT DAC are used. Shairport Sync will be built to support AirPlay 2, but you will also be shown how to build it for "classic" AirPlay (aka AirPlay 1) if you prefer. BTW, the requirments for classic Airplay are less stringent: for classic AirPlay, a Pi Zero W is powerful enough, and Raspbian Stretch (Lite) or later is fine.
+In this example, a Raspberry Pi Zero 2 W and a Pimoroni PHAT DAC are used. Shairport Sync will be built for AirPlay 2 operation, but you will also see how to build it for "classic" AirPlay (aka AirPlay 1) operation if you prefer. The requirments for classic Airplay are less stringent: a Pi Zero W is powerful enough, and Raspbian Stretch (Lite) or later is fine.
 
 Please note that some of the details of setting up networks are specific to the version of Linux used -- Rasberry Pi OS (Bullseye) Lite or later.
 
