@@ -57,7 +57,7 @@ If you are building classic Shairport Sync, the list of packages is shorter:
 #### NQPTP
 Skip this section if you are building classic Shairport Sync – NQPTP is not needed for classic Shairport Sync.
 
-Download, install, enable and start NQPTP from [here](https://github.com/mikebrady/nqptp).
+Download, install, enable and start NQPTP from [here](https://github.com/mikebrady/nqptp) following the guide for Linux.
 
 #### Shairport Sync
 Download Shairport Sync, check out the `development` branch and configure, compile and install it.
