@@ -1,5 +1,5 @@
-# Shairport Sync for Cars [Needs updating for Airplay 2]
-If your car audio has an AUX input, you can get AirPlay in your car using Shairport Sync. Together, Shairport Sync and an iPhone can give you access to internet radio, YouTube, Apple Music, Spotify, etc. on the move. While Shairport Sync is  no substitute for CarPlay, the audio quality is often much better than Bluetooth. Your passengers can enjoy movies with the soundtrack on the car speakers. You can even listen to Siri's traffic directions on your car audio. 
+# Shairport Sync for Cars
+If your car audio has an AUX input, you can get AirPlay in your car using Shairport Sync. Together, Shairport Sync and an iPhone can give you access to internet radio, YouTube, Apple Music, Spotify, etc. on the move. While Shairport Sync is no substitute for CarPlay, the audio quality is often much better than Bluetooth.
 
 ## The Basic Idea
 
@@ -14,10 +14,12 @@ Note that Android devices can not, so far, do this trick of using the two networ
 
 ## Example
 
-In this example, a Raspberry Pi Zero W and a Pimoroni PHAT DAC are used. This combination has been tested for over two years. Please note that some of the details of setting up networks are specific to the version of Linux used -- Raspbian Stretch or later.
+In this example, a Raspberry Pi Zero 2 W and a Pimoroni PHAT DAC are used. Shairport Sync will be built to support AirPlay 2, but you will also be shown how to build it for "classic" AirPlay (aka AirPlay 1) if you prefer. BTW, the requirments for classic Airplay are less stringent: for classic AirPlay, a Pi Zero W is powerful enough, and Raspbian Stretch (Lite) or later is fine.
+
+Please note that some of the details of setting up networks are specific to the version of Linux used -- Rasberry Pi OS (Bullseye) Lite or later.
 
 ### Prepare the initial SD Image
-* Download the latest version of Raspbian Lite -- Stretch Lite of 2018-03-13 at the time of writing -- and install it onto an SD Card.
+* Download the latest version of Raspberry Pi OS (Lite) -- Bullseye (Lite) of 2022-04-04 at the time of writing -- and install it onto an SD Card. The Lite version is preferable to the Desktop version as it doesn't include a sound server like PulseAudio or PipeWire that can prevent direct access to the audio output device.
 * Mount the card on a Linux machine. Two drives should appear -- a `boot` drive and a `rootfs` drive. Both of these need a little modification.
 * Enable SSH service by creating a file called `ssh` on the `boot` drive. To do this, mount the drive and CD to its `boot` partition (since my username is `mike`, the drive is at `/media/mike/boot`):
 ```
@@ -44,23 +46,45 @@ The first thing to do on a Pi would be to use the `raspi-config` tool to expand 
 # apt-get upgrade
 ``` 
 
-### Shairport Sync
-First, install the packages needed by Shairport Sync:
+### Build and Install 
+Let's get the tools and libraries for building and installing Shairport Sync (and NQPTP).
+
 ```
-# apt install --no-install-recommends build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
+# apt install --no-install-recommends build-essential git xmltoman autoconf automake libtool \
+    libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
+    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd
 ```
-Next, download Shairport Sync, configure it, compile and install it:
+If you are building classic Shairport Sync, the list of packages is shorter:
+```
+# apt-get install --no-install-recommends build-essential git xmltoman autoconf automake libtool \
+    libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
+```
+
+#### NQPTP
+Skip this section if you are building classic Shairport Sync – NQPTP is not needed for classic Shairport Sync.
+
+Download, install, enable and start NQPTP from [here](https://github.com/mikebrady/nqptp).
+
+#### Shairport Sync
+Download Shairport Sync, check out the `development` branch and configure, compile and install it.
+
+* Omit the `--with-airplay-2` from the `./configure` options if you are building classic Shairport Sync.
+
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
+$ git checkout development
 $ autoreconf -fi
-$ ./configure --sysconfdir=/etc --with-alsa --with-avahi --with-ssl=openssl --with-soxr --with-systemd
+$ ./configure --sysconfdir=/etc --with-alsa \
+    --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
 $ make
-$ sudo make install
+# make install
 ```
-*Do not* enable Shairport Sync to automatically start at boot time -- startup is organised differently.
+The `autoreconf` step may take quite a while – please be patient!
 
-Third, finish by configuring Shairport Sync.
+**Note:** *Do not* enable Shairport Sync to start automatically at boot time -- later on in this installation, we will arrange for it to start after the network has been set up.
+
+### Configure Shairport Sync
 Here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`:
 ```
 // Sample Configuration File for Shairport Sync for Car Audio with a Pimoroni PHAT
