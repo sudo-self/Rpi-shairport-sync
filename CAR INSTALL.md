@@ -20,7 +20,7 @@ Please note that some of the details of setting up networks are specific to the 
 
 ### Prepare the initial SD Image
 * Download the latest version of Raspberry Pi OS (Lite) -- Bullseye (Lite) of 2022-04-04 at the time of writing -- and install it onto an SD Card using `Raspberry Pi Imager`. The Lite version is preferable to the Desktop version as it doesn't include a sound server like PulseAudio or PipeWire that can prevent direct access to the audio output device.
-* Before writing the image to the card, use the Settings control on `Raspberry Pi Imager`. You can specify a wireless network that the Pi will connect to it when it boots up. Later on the Pi will be configured to start its own isolated network. 
+* Before writing the image to the card, use the Settings control on `Raspberry Pi Imager` to set hostname, enable SSH and provide a username and password to use while building the system. Similarly, you can specify a wireless network the Pi will connect to while building the system. Later on the Pi will be configured to start its own isolated network. 
 * Mount the card on a Linux machine. Two drives should appear -- a `boot` drive and a `rootfs` drive. 
 * CD to the `boot` drive (since my username is `mike`, it will be at `/media/mike/boot`):
 * Edit the `config.txt` file to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used and it needs the following entry to be added:
