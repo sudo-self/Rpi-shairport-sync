@@ -128,8 +128,8 @@ ssid=BMW
 # Use the 2.4GHz band
 hw_mode=g
 
-# Use channel 6
-channel=9
+# Use channel 6 or some other channel of your choice
+channel=6
 
 # Enable 802.11n
 ieee80211n=1
@@ -160,6 +160,7 @@ ignore_broadcast_ssid=0
 
 # Use AES, instead of TKIP
 #rsn_pairwise=CCMP
+
 ```
 #### Configure DHCP server
 
@@ -201,6 +202,7 @@ Configure the startup sequence by adding commands to `/etc/rc.local` to start `h
 /bin/systemctl start shairport-sync
 
 exit 0
+
 ```
 As you can see, the effect of these commands is to start the WiFi transmitter, give the base station the IP address `10.0.10.1`, start a DHCP server and finally start the Shairport Sync service.
 
