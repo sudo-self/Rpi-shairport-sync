@@ -3,12 +3,7 @@ If your car audio has an AUX input, you can get AirPlay in your car using Shairp
 
 ## The Basic Idea
 
-The basic idea is to use a small Linux computer to create an isolated WiFi network for the car and to run Shairport Sync on it to provide an AirPlay service. The audio goes via a DAC to the AUX input of your car audio system.
-
-The car WiFi network you create is isolated and local to your car, and since it isn't connected to the Internet, you don't really need to secure it with a password.
-
-When an iPhone or an iPad with cellular capability is connected to an isolated WiFi network, it can use its cellular connection to access the Internet.
-This means it can connect to internet radio, YouTube, Apple Music, Spotify, etc. over the cellular network and play the audio through the car network to the AirPlay service provided by Shairport Sync.
+The basic idea is to use a small Linux computer to create an isolated WiFi network (a "car network") and run Shairport Sync on it to provide an AirPlay service. An iPhone or an iPad with cellular capability can simultaneously connect to internet radio, YouTube, Apple Music, Spotify, etc. over the cellular network and send AirPlay audio through the car network to the AirPlay service provided by Shairport Sync. This sends the audio to the computer's DAC which is connected to the AUX input of your car audio.
 
 Note that Android devices can not, so far, do this trick of using the two networks simultaneously.
 
@@ -116,52 +111,35 @@ Disable both of these services from starting at boot time (this is because we wi
 #### Configure HostAPD
 Configure `hostapd` by creating `/etc/hostapd/hostapd.conf` with the following contents which will set up an open network with the name BMW. You might wish to change the name:
 ``` 
-# This is the name of the WiFi interface we configured above
+# Thanks to https://wiki.gentoo.org/wiki/Hostapd#802.11b.2Fg.2Fn_triple_AP
+
+# The interface used by the AP
 interface=wlan0
 
-# Use the nl80211 driver with the brcmfmac driver
-driver=nl80211
-
-# This is the name of the network -- yours might be different
+# This is the name of the network -- yours may be different
 ssid=BMW
 
-# Use the 2.4GHz band
+# "g" simply means 2.4GHz band
 hw_mode=g
 
-# Use channel 6 or some other channel of your choice
-channel=6
+# Channel to use
+channel=11
 
-# Enable 802.11n
+# Limit the frequencies used to those allowed in the country
+ieee80211d=1
+
+# The country code
+country_code=IE
+
+# Enable 802.11n support
 ieee80211n=1
 
-# Enable WMM
+# QoS support, also required for full speed on 802.11n/ac/ax
 wmm_enabled=1
 
-# Enable 40MHz channels with 20ns guard interval
-#ht_capab=[HT40][SHORT-GI-20][DSSS_CCK-40]
-
-# Accept all MAC addresses
-macaddr_acl=0
-
-# Use WPA authentication
-#auth_algs=1
-
-# Require clients to know the network name
-ignore_broadcast_ssid=0
-
-# Use WPA2
-#wpa=2
-
-# Use a pre-shared key
-#wpa_key_mgmt=WPA-PSK
-
-# The network passphrase
-#wpa_passphrase=none
-
-# Use AES, instead of TKIP
-#rsn_pairwise=CCMP
-
 ```
+Note that, since car network is isolated from the Internet, you don't really need to secure it with a password.
+
 #### Configure DHCP server
 
 First,  replace the contents of `/etc/dhcp/dhcpd.conf` with this:
