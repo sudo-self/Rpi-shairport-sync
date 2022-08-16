@@ -1456,9 +1456,9 @@ int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
       // delay_temp = 0;
       ret = 0;
     }
-  } else {
-    debug(1, "alsa_handle is NULL in standard_delay_and_status.");
-  }
+  } // else {
+    // debug(1, "alsa_handle is NULL in standard_delay_and_status.");
+  // }
 
   stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
   stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
