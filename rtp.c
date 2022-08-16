@@ -2362,7 +2362,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   uint8_t *pcm_audio = NULL;  // the S16 output
   unsigned char *data_to_process;
   ssize_t data_remaining;
-  uint32_t seq_no; // audio packet number
+  uint32_t seq_no = 0; // audio packet number. Initialised to avoid a "possibly uninitialised" warning.
   // uint32_t previous_seq_no = 0;
   int new_buffer_needed = 0;
   ssize_t nread;
@@ -2380,10 +2380,10 @@ void *rtp_buffered_audio_processor(void *arg) {
   uint64_t blocks_read_since_flush = 0;
   int flush_requested = 0;
 
-  uint32_t timestamp;
+  uint32_t timestamp = 0; // initialised to avoid a "possibly uninitialised" warning.
   int streaming_has_started = 0;
   int play_enabled = 0;
-  uint32_t flush_from_timestamp;
+  uint32_t flush_from_timestamp = 0; // initialised to avoid a "possibly uninitialised" warning.
   double requested_lead_time = 0.0; // normal lead time minimum -- maybe  it should be about 0.1
 
   // wait until our timing information is valid
