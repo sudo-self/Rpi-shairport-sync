@@ -1,7 +1,7 @@
 Version 4.1-dev-494-gd34db2a4
 ====
 * The [CAR INSTALL.md](https://github.com/mikebrady/shairport-sync/blob/development/CAR%20INSTALL.md) guide has been updated for AirPlay 2 and for Raspberry Pi OS (Bullseye).
-* A few noisy debug messages have been removed or quietened.
+* A few noisy debug messages have been removed or quietened. Thanks to [David Leibovic](https://github.com/dasl-) for [the report](https://github.com/mikebrady/shairport-sync/issues/1513).
 
 Version 4.1-dev-468-gcb03d5c6
 ====
