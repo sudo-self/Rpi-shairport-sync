@@ -1746,8 +1746,8 @@ void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
   uint64_t previous_frames_played;
-  uint64_t previous_raw_measurement_time;
-  uint64_t previous_corrected_measurement_time;
+  uint64_t previous_raw_measurement_time = 0; // initialised to avoid a "possibly uninitialised" warning
+  uint64_t previous_corrected_measurement_time = 0; // initialised to avoid a "possibly uninitialised" warning
   int previous_frames_played_valid = 0;
 
   // pthread_cleanup_push(player_thread_initial_cleanup_handler, arg);
