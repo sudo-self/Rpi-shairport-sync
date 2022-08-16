@@ -1,5 +1,5 @@
 # Shairport Sync for Cars
-If your car audio has an AUX input, you can get AirPlay in your car using Shairport Sync. Together, Shairport Sync and an iPhone can give you access to internet radio, YouTube, Apple Music, Spotify, etc. on the move. While Shairport Sync is no substitute for CarPlay, the audio quality is often much better than Bluetooth.
+If your car audio has an AUX input, you can get AirPlay in your car using Shairport Sync. Together, Shairport Sync and an iPhone or an iPad with cellular capability can give you access to internet radio, YouTube, Apple Music, Spotify, etc. on the move. While Shairport Sync is no substitute for CarPlay, the audio quality is often much better than Bluetooth.
 
 ## The Basic Idea
 
@@ -14,24 +14,24 @@ Note that Android devices can not, so far, do this trick of using the two networ
 
 ## Example
 
-In this example, a Raspberry Pi Zero 2 W and a Pimoroni PHAT DAC are used. Shairport Sync will be built for AirPlay 2 operation, but you will also see how to build it for "classic" AirPlay (aka AirPlay 1) operation if you prefer. The requirments for classic Airplay are less stringent: a Pi Zero W is powerful enough, and Raspbian Stretch (Lite) or later is fine.
+In this example, a Raspberry Pi Zero 2 W and a Pimoroni PHAT DAC are used. Shairport Sync will be built for AirPlay 2 operation, but you can build it for "classic" AirPlay (aka AirPlay 1) operation if you prefer. A Pi Zero W is powerful enough for classic AirPlay.
 
 Please note that some of the details of setting up networks are specific to the version of Linux used -- Rasberry Pi OS (Bullseye) Lite or later.
 
 ### Prepare the initial SD Image
 * Download the latest version of Raspberry Pi OS (Lite) -- Bullseye (Lite) of 2022-04-04 at the time of writing -- and install it onto an SD Card using `Raspberry Pi Imager`. The Lite version is preferable to the Desktop version as it doesn't include a sound server like PulseAudio or PipeWire that can prevent direct access to the audio output device.
-* Before writing the image to the card, use the Settings control on `Raspberry Pi Imager` to set hostname, enable SSH and provide a username and password to use while building the system. Similarly, you can specify a wireless network the Pi will connect to while building the system. Later on the Pi will be configured to start its own isolated network. 
-* Mount the card on a Linux machine. Two drives should appear -- a `boot` drive and a `rootfs` drive. 
-* CD to the `boot` drive (since my username is `mike`, it will be at `/media/mike/boot`):
-* Edit the `config.txt` file to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used and it needs the following entry to be added:
-  ```
-  dtoverlay=hifiberry-dac
-  ```
-
-* Close the file and carefully dismount and eject the two drives.
+* Before writing the image to the card, use the Settings control on `Raspberry Pi Imager` to set hostname, enable SSH and provide a username and password to use while building the system. Similarly, you can specify a wireless network the Pi will connect to while building the system. Later on the Pi will be configured to start its own isolated network.
+* The next few steps are to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used. If you do not need to add an overlay, skip these steps.
+  * Mount the card on a Linux machine. Two drives should appear -- a `boot` drive and a `rootfs` drive.
+  * `cd` to the `boot` drive (since my username is `mike`, it will be `$ cd /media/mike/boot`).
+  * Edit the `config.txt` file to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used and it needs the following entry to be added:
+    ```
+    dtoverlay=hifiberry-dac
+    ```
+  * Close the file and carefully dismount and eject the two drives. *Be sure to dismount and eject the drives properly; otherwise they may be corrupted.*
 * Remove the SD card from the Linux machine, insert it into the Pi and reboot.
 
-After a short time, the Pi should appear on your network and you can SSH into it. To check that it has appeared on the network, try to ping it at the `<hostname>.local`, e.g. if the hostname is `bmw` then use `bmw.local`. It may take a minute or so to appear. Once it has appeared on your network you can SSH into it and configure it.
+After a short time, the Pi should appear on your network -- it may take a minute or so. To check, try to `ping` it at the `<hostname>.local`, e.g. if the hostname is `bmw` then use `$ ping bmw.local`. Once it has appeared, you can SSH into it and configure it.
 
 ### Boot, Configure, Update 
 The first thing to do on a Pi would be to use the `raspi-config` tool to expand the file system to use the entire card. Next, do the usual update and upgrade:
