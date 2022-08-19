@@ -35,7 +35,7 @@ RUN apk -U add \
 ##### ALAC #####
 RUN git clone https://github.com/mikebrady/alac
 WORKDIR /alac
-RUN autoreconf -fi
+RUN autoreconf -i
 RUN ./configure
 RUN make
 RUN make install
@@ -46,7 +46,7 @@ WORKDIR /
 RUN git clone https://github.com/mikebrady/nqptp
 WORKDIR /nqptp
 RUN git checkout "$NQPTP_BRANCH"
-RUN autoreconf -fi
+RUN autoreconf -i
 RUN ./configure
 RUN make
 RUN make install
@@ -57,18 +57,19 @@ WORKDIR /
 WORKDIR /shairport-sync
 COPY . .
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
-RUN autoreconf -fi
-RUN ./configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-airplay-2 \
+WORKDIR /shairport-sync/build
+RUN autoreconf -i ../
+RUN ../configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-airplay-2 \
         --with-metadata --with-dummy --with-pipe --with-dbus-interface \
         --with-stdout --with-mpris-interface --with-mqtt-client \
         --with-apple-alac --with-convolution
-RUN make -j
-RUN make install
+RUN make -j $(nproc)
+RUN DESTDIR=install make install
 WORKDIR /
 ##### SPS END #####
 
 # Shairport Sync Runtime System
-FROM crazymax/alpine-s6:3.12-3.0.0.2
+FROM crazymax/alpine-s6:3.12-3.1.1.2
 
 RUN apk -U add \
         alsa-lib \
@@ -88,13 +89,14 @@ RUN apk -U add \
         libgcrypt
 
 # Copy build files.
-COPY --from=builder /usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
+COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
 COPY --from=builder /usr/local/bin/nqptp /usr/local/bin/nqptp
 COPY --from=builder /usr/local/lib/libalac.* /usr/local/lib/
-COPY --from=builder /etc/dbus-1/system.d/shairport-sync-dbus.conf /etc/dbus-1/system.d/
-COPY --from=builder /etc/dbus-1/system.d/shairport-sync-mpris.conf /etc/dbus-1/system.d/
+COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-dbus.conf /etc/dbus-1/system.d/
+COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-mpris.conf /etc/dbus-1/system.d/
 
 COPY ./docker/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
+RUN chmod +x /etc/s6-overlay/s6-rc.d/startup/script.sh
 
 # Create non-root user for running the container -- running as the user 'shairport-sync' also allows
 # Shairport Sync to provide the D-Bus and MPRIS interfaces within the container
@@ -110,4 +112,4 @@ RUN rm -rf /lib/apk/db/*
 
 ENTRYPOINT [ "/init" ]
 
-CMD /usr/local/bin/shairport-sync -vu --statistics
+CMD [ "/usr/local/bin/shairport-sync",  "-v",  "--statistics" ]

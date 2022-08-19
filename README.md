@@ -9,7 +9,7 @@ Shairport Sync does not support AirPlay video or photo streaming.
 
 # Quick Start
 * A building guide is available [here](BUILD.md).
-* A Docker image is available on the [Docker Hub](https://hub.docker.com/repository/docker/mikebrady/shairport-sync).
+* A Docker image is available on the [Docker Hub](https://hub.docker.com/r/mikebrady/shairport-sync).
 * Next Steps and Advanced Topics are [here](ADVANCED%20TOPICS/README.md).
 * Runtime settings are documented [here](scripts/shairport-sync.conf).
 * Build configuration options are detailed in [CONFIGURATION FLAGS.md](CONFIGURATION%20FLAGS.md).

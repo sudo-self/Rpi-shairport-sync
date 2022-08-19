@@ -1,5 +1,5 @@
 # Builds & pushes a docker image when a commit is made to one of the branches specified below.
-# Tag pattern: 'unstable-[BRANCH NAME]' & 'unstable-[BRANCH NAME]-airplay1'
+# Tag pattern: 'unstable-[BRANCH NAME]' & 'unstable-[BRANCH NAME]-classic'
 
 name: Build and push docker image based on commit to specified branches.
 
@@ -43,6 +43,14 @@ jobs:
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
           password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
 
+      - name: Set tag start (part 1).
+        if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'master' }}
+        run: echo "IMAGE_TAG_BASE=unstable" >> $GITHUB_ENV
+
+      - name: Set tag start (part 2).
+        if: ${{ env.SHAIRPORT_SYNC_BRANCH != 'master' }}
+        run: echo "IMAGE_TAG_BASE=unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}" >> $GITHUB_ENV
+
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
@@ -50,7 +58,7 @@ jobs:
           file: ./docker/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
           push: true
-          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG_BASE }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
             NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
@@ -59,9 +67,9 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: ./
-          file: ./docker/airplay1/Dockerfile
+          file: ./docker/classic/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
           push: true
-          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}-airplay1
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG_BASE }}-classic
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}

@@ -1,9 +1,8 @@
-#!/bin/sh
-avahi-daemon --check
-if [ $? -eq 0 ]; then
-  echo "Reloading avahi-daemon."
-  exec avahi-daemon --no-chroot --reload
-else
-  echo "Starting avahi-daemon."
-  exec avahi-daemon --no-chroot
-fi
+#!/command/with-contenv sh
+sleep 5
+while [ ! -f /var/run/dbus.pid ]; do
+  "dbus is not running, sleeping for 5 seconds before trying to start avahi"
+  sleep 5
+done
+echo "Starting avahi"
+exec avahi-daemon --no-chroot

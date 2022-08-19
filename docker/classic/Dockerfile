@@ -41,7 +41,7 @@ COPY --from=builder-alac /usr/local/lib/libalac.* /usr/local/lib/
 COPY --from=builder-alac /usr/local/lib/pkgconfig/alac.pc /usr/local/lib/pkgconfig/alac.pc
 COPY --from=builder-alac /usr/local/include /usr/local/include
 
-WORKDIR shairport-sync
+WORKDIR /shairport-sync
 COPY . .
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
 RUN autoreconf -fi
@@ -80,7 +80,7 @@ RUN apk -U add \
         libgcc \
         libgc++
 
-RUN rm -rf  /lib/apk/db/*
+RUN rm -rf /lib/apk/db/*
 
 COPY --from=builder-alac /usr/local/lib/libalac.* /usr/local/lib/
 COPY --from=builder-sps /etc/shairport-sync* /etc/
@@ -97,7 +97,7 @@ RUN adduser -D shairport-sync -G shairport-sync
 # Add the shairport-sync user to the pre-existing audio group, which has ID 29, for access to the ALSA stuff
 RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio
 
-COPY ./docker/airplay1/start.sh /
+COPY ./docker/classic/start.sh /
 RUN chmod +x /start.sh
 
 ENTRYPOINT [ "/start.sh" ]
