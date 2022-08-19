@@ -14,6 +14,7 @@ Shairport Sync offers AirPlay 2 support for audio sources on iOS devices, Macs f
 ## What Does Not Work
 - No AirPlay 2 for Windows iTunes.
 - Remote control facilities are not implemented.
+- AirPlay 2 from macOS prior to 10.15 (Catalina) is not supported.
 
 ## General
 Shairport Sync uses a companion application called [NQPTP](https://github.com/mikebrady/nqptp) ("Not Quite PTP")
