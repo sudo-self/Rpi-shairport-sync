@@ -298,10 +298,10 @@ int open_mixer() {
             debug(1, "Failed to load mixer element");
             response = -4;
           } else {
-            debug(3, "Mixer Control name is \"%s\".", alsa_mix_ctrl);
+            debug(3, "Mixer control is \"%s\",%d.", alsa_mix_ctrl, alsa_mix_index);
             alsa_mix_elem = snd_mixer_find_selem(alsa_mix_handle, alsa_mix_sid);
             if (!alsa_mix_elem) {
-              warn("failed to find mixer control \"%s\".", alsa_mix_ctrl);
+              warn("failed to find mixer control \"%s\",%d.", alsa_mix_ctrl, alsa_mix_index);
               response = -5;
             } else {
               response = 1; // we found a hardware mixer and successfully opened it
@@ -1053,6 +1053,16 @@ static int init(int argc, char **argv) {
     if (config_lookup_string(config.cfg, "alsa.mixer_control_name", &str)) {
       alsa_mix_ctrl = (char *)str;
     }
+
+
+    // Get the Mixer Control Index
+    if (config_lookup_int(config.cfg, "alsa.mixer_control_index", &value)) {
+      alsa_mix_index = value;
+    }
+
+
+
+
 
     /* Get the disable_synchronization setting. */
     if (config_lookup_string(config.cfg, "alsa.disable_synchronization", &str)) {

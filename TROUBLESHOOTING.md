@@ -8,6 +8,15 @@ In this brief document will be listed some problems and some solutions, some pro
 2. If you have set `interpolation` in the `general` section of the configuration file to to `soxr`, comment it out or set it to `auto` or `basic` as the `soxr` setting can cause lower-powered devices to bog down at critical times, e.g. see [this report](https://github.com/mikebrady/shairport-sync/issues/631#issuecomment-366305203).
 3. Ensure the volume setting of your output device is set to some reasonable value and ensure it is not muted. For ALSA devices, the `alsamixer` command-line tool is very good for this. For other sound systems, please consult the relevant documentation.
 
+### Audio is Delayed!
+If the audio from your Shairport Sync device is delayed slightly by comparison with audio from other devices, it may be that the output device being fed by Shairport Sync is introducing a delay while it processes the audio. If your output device include any digital processing component, it probably delays the audio while it processing occurs. 
+
+For instance, if your output device is a HDMI-connected device such as a TV or an AV Receiver, it will almost certainly delay audio by anything up to several hundred milliseconds.
+
+The fix for this is to ask Shairport Sync to provide the audio to the output device _slightly ahead of time_, so that by the time the output device has processed it, the audio emerges at exactly the right time. The setting to look for is in the `general` section of the Shairport Sync configuration file and is called `audio_backend_latency_offset_in_seconds`. By default it is `0.0` seconds.
+
+For example, if your output device is delaying audio by 100 milliseconds (0.1 seconds), set the `audio_backend_latency_offset_in_seconds` to `-0.1`, so that audio is provided to your output device 0.1 seconds early. Remember to uncomment the line by removing the initial `//` and then restart Shairport Sync (or reboot the device) for the changed setting to take effect.
+
 ### WiFi adapter running in power-saving / low-power mode
 
 **Check Throughput**

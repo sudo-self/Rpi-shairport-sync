@@ -92,6 +92,18 @@ Note that the installation uses the libao library and so synchronisation is not 
 
 **Cygwin:** Please see the guide at [CYGWIN.md](https://github.com/mikebrady/shairport-sync/blob/master/CYGWIN.md).
 
+**OpenBSD:** A port exists for Shairport Sync.  Packages are available for users of -current OpenBSD, the first release to include this port will be OpenBSD 7.2.  To install, simply run
+
+```
+pkg_add shairport_sync
+```
+Configure your system to start the service at boot time with
+```
+rcctl enable messagebus avahi_daemon shairport_sync
+```
+
+Note that the README for this port includes instructions on how to share access to the audio device between Shairport Sync and another user.
+
 Sincere thanks to all package contributors!
 
 If you wish to build and install the latest version of Shairport Sync on Debian, Ubuntu, Fedora or Arch platforms, please continue to follow these instructions. When the program has been compiled and installed, refer to the section on Configuring Shairport Sync that follows. To build Shairport Sync from sources on FreeBSD please refer to [FREEBSD.md](https://github.com/mikebrady/shairport-sync/blob/master/FREEBSD.md).
@@ -191,7 +203,7 @@ $ autoreconf -i -f
 - `--with-stdout` include an optional backend module to enable raw audio to be output through standard output (stdout).
 - `--with-pipe` include an optional backend module to enable raw audio to be output through a unix pipe.
 - `--with-soundio` include an optional backend module to enable raw audio to be output through the soundio system.
-- `--with-avahi` or `--with-tinysvcmdns` for mdns support. Avahi is a widely-used system-wide zero-configuration networking (zeroconf) service — it may already be in your system. If you don't have Avahi, or similar, then consider including tinysvcmdns, which is a tiny zeroconf service embedded inside the shairport-sync application itself. To enable multicast for `tinysvcmdns`, you may have to add a default route with the following command: `route add -net 224.0.0.0 netmask 224.0.0.0 eth0` (substitute the correct network port for `eth0`). You should not have more than one zeroconf service on the same system — bad things may happen, according to RFC 6762, §15.
+- `--with-avahi` or `--with-tinysvcmdns` for mdns support. Avahi is a widely-used system-wide zero-configuration networking (zeroconf) service — it may already be in your system. If you don't have Avahi, or similar, then consider including tinysvcmdns, which is a tiny zeroconf service embedded inside the shairport-sync application itself. To enable multicast for `tinysvcmdns`, you may have to add a default route with the following command: `route add -net 224.0.0.0 netmask 224.0.0.0 eth0` (substitute the correct network port for `eth0`). You should not have more than one zeroconf service on the same system — bad things may happen, according to RFC 6762, §15. If you need to use an external zeroconf service (`--with-external-mdns`) to avoid this problem, you may need to install avahi-utils or avahi-tools to get the `avahi-publish-service` tool for your system.
 - `--with-ssl=openssl`, `--with-ssl=mbedtls` or `--with-ssl=polarssl` (deprecated) for encryption and related utilities using either OpenSSL, mbed TLS or PolarSSL.
 - `--with-libdaemon` include a demonising library needed if you want to be able to demonise Shairport Sync with the `-d` option. Not needed for `systemd`-based systems which demonise programs differently.
 - `--with-soxr` for libsoxr-based resampling.
