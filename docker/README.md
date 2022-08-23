@@ -21,10 +21,11 @@ $ docker run -d --restart unless-stopped --net host --device /dev/snd \
 
 ### Options
 
-Any options you add to the command above will be passed to Shairport Sync. Here is an example:
+You can change the default commands passed to Shairport Sync. Here is an example:
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
-    mikebrady/shairport-sync -a DenSystem -- -d hw:0 -c PCM
+    mikebrady/shairport-sync:unstable-development shairport-sync -v \
+    --statistics -a DenSystem -d hw:0 -c PCM
 ```
 This will sent audio to alsa hardware device `hw:0` and make use of the that device's mixer control called `PCM`. The service will be visible as `DenSystem` on the network.
 
