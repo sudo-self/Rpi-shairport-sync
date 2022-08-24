@@ -79,6 +79,7 @@ RUN apk -U add \
         mbedtls \
         soxr \
         avahi \
+        avahi-tools \
         libconfig \
         libsndfile \
         mosquitto \
