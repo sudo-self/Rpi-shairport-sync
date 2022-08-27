@@ -23,7 +23,7 @@ body:
   - type: textarea
     id: os
     attributes:
-      label: Operatiing System?
+      label: Operating System?
       description: What Operating System are you running on ? (`uname -a`)
     validations:
       required: true
@@ -40,7 +40,7 @@ body:
       label: How did you install Shairport Sync?
       options:
         - Homebrew for Mac
-        - A package manager (`apt`, `yum`, `pkg`, ...)
+        - A package manager (e.g. apt, yum, pkg, ...)
         - Built from source
     validations:
       required: true
