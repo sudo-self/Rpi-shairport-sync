@@ -1,12 +1,12 @@
-name: Bug Report
-description: File a bug report
-title: "[Bug]: "
-labels: ["bug"]
+name: Issue Report
+description: File an Issue
+title: "[Problem]: "
+labels: ["troubleshooting"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
+        Thanks for taking the time to fill out this issue report!
   - type: textarea
     id: what-happened
     attributes:
@@ -20,6 +20,11 @@ body:
       label: Relevant log output
       description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
       render: shell
+  - type: textarea
+    id: os
+    attributes:
+      label: Operatiing System?
+      description: What Operating System are you running on ? (`uname -a`)
   - type: textarea
     id: version
     attributes:
