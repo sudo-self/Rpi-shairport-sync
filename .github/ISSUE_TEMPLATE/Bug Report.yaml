@@ -5,7 +5,8 @@ labels: ["troubleshooting"]
 body:
   - type: markdown
     attributes:
-      value: Thanks for taking the time to fill out this report!
+      value: |
+        Thanks for taking the time to fill out this issue report!
   - type: textarea
     id: what-happened
     attributes:
@@ -22,27 +23,16 @@ body:
   - type: textarea
     id: os
     attributes:
-      label: Operating System?
-      description: Please tell us what Operating System are you running on. (`$ uname -a`)
+      label: Operatiing System?
+      description: What Operating System are you running on ? (`uname -a`)
   - type: textarea
     id: version
     attributes:
       label: Version?
-      description: Please tell us what version of Shairport Sync are you running. (`$ shairport-sync -V`)
+      description: What version of Shairport Sync are you running? (`shairport-sync -V`)
     validations:
       required: true
-  body:
-- type: dropdown
-  id: download
-  attributes:
-    label: How did you install Shairport Sync?
-    options:
-      - A Package Manager, e.g. `apt`, `yum`, `pkg`, ...
-      - Homebrew for Mac
-      - Built from source
-  validations:
-    required: true
-- type: checkboxes
+  - type: checkboxes
     id: checked-current-issues
     attributes:
       label: Check previous issues
