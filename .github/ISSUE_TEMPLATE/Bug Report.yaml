@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this issue report!
+        Thanks for taking the time to fill out this report!
   - type: textarea
     id: what-happened
     attributes:
@@ -25,11 +25,23 @@ body:
     attributes:
       label: Operatiing System?
       description: What Operating System are you running on ? (`uname -a`)
+    validations:
+      required: true
   - type: textarea
     id: version
     attributes:
       label: Version?
       description: What version of Shairport Sync are you running? (`shairport-sync -V`)
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install Shairport Sync?
+      options:
+        - Homebrew for Mac
+        - A package manager (`apt`, `yum`, `pkg`, ...)
+        - Built from source
     validations:
       required: true
   - type: checkboxes
