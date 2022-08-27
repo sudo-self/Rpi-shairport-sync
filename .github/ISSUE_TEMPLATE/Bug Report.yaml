@@ -23,16 +23,27 @@ body:
   - type: textarea
     id: os
     attributes:
-      label: Operatiing System?
-      description: What Operating System are you running on ? (`uname -a`)
+      label: Operating System?
+      description: Please tell us what Operating System are you running on. (`$ uname -a`)
   - type: textarea
     id: version
     attributes:
       label: Version?
-      description: What version of Shairport Sync are you running? (`shairport-sync -V`)
+      description: Please tell us what version of Shairport Sync are you running. (`$ shairport-sync -V`)
     validations:
       required: true
-  - type: checkboxes
+  body:
+- type: dropdown
+  id: download
+  attributes:
+    label: How did you install Shairport Sync?
+    options:
+      - A Package Manager, e.g. `apt`, `yum`, `pkg`, ...
+      - Homebrew for Mac
+      - Built from source
+  validations:
+    required: true
+- type: checkboxes
     id: checked-current-issues
     attributes:
       label: Check previous issues
