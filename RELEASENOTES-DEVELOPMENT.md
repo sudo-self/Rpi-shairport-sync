@@ -1,3 +1,11 @@
+Version 4.1-dev-516-ga617e607
+====
+**Updates and Enhancements**
+* The Docker image has been enhanced. Thanks, as always, to [Charles Omer](https://github.com/charlesomer). More changes are on the way here.
+
+**Bug Fixes**
+* With Realtime Streams, if even one timing control packet was missing, Shairport Sync would work as if the sender had disappeared and cause a playback interruption. This has been modified so that it takes at least three missing control packets in a row to conclude that the sender was gone. Thanks to [Devid Leibovic](https://github.com/dasl-) for a [very thorough investigation](https://github.com/mikebrady/shairport-sync/issues/1515) of this issue.
+
 Version 4.1-dev-494-gd34db2a4
 ====
 * The [CAR INSTALL.md](https://github.com/mikebrady/shairport-sync/blob/development/CAR%20INSTALL.md) guide has been updated for AirPlay 2 and for Raspberry Pi OS (Bullseye).
@@ -9,6 +17,9 @@ Version 4.1-dev-468-gcb03d5c6
 * The `development` branch now builds again on macOS with [brew](https://brew.sh). (Remember, though, that Shairport Sync [will not function in AirPlay 2 mode on a Mac](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md)).
 * The `libao` backend has been updated to address an issue with the system becoming unavailable. The biggest change was to close the driver as soon as playing stops, reopening it when playing restarts.
 * The `libao` drivers are now listed in the help text. If available, it is suggested that the `alsa` driver be used in preference to the `pulseaudio` driver.
+
+**Bug Fixes**
+* The classic AirPlay build now works properly again with `tinysvcmdns` and `dns_sd`.
 
 Version 4.1-dev-466-g05dfcdfd
 ====
