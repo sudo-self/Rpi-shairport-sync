@@ -1730,7 +1730,7 @@ void *rtp_ap2_control_receiver(void *arg) {
     
     
     struct timeval tv;
-    tv.tv_sec = 3;
+    tv.tv_sec = 7; // wait this many seconds for a packet, which should come every two seconds
     tv.tv_usec = 0;
     setsockopt(conn->ap2_control_socket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
 
@@ -1738,10 +1738,11 @@ void *rtp_ap2_control_receiver(void *arg) {
     nread = recvfrom(conn->ap2_control_socket, packet, sizeof(packet), 0,
                      (struct sockaddr *)&from_sock_addr, &from_sock_addr_length);
     uint64_t time_now = get_absolute_time_in_ns();
-
     int64_t time_since_start = time_now - start_time;
+    
+    // debug(1,"Connection %d: AP2 Control Packet received.", conn->connection_number);
 
-    if (nread > 0) {
+    if (nread >= 28) { // must have at least 28 bytes for the timing information
       if ((time_since_start < 2000000) && ((packet[0] & 0x10) == 0)) {
         debug(1,
               "Dropping what looks like a (non-sentinel) packet left over from a previous session "
@@ -1863,18 +1864,19 @@ void *rtp_ap2_control_receiver(void *arg) {
         }
         }
       }
-    } else if (nread == 0) {
-      debug(1, "AP2 Control Receiver -- connection closed.");
-      keep_going = 0;
     } else {
-      if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
-        if (conn->airplay_stream_type == realtime_stream) {
-          debug(2, "Connection %d: resetting anchor info", conn->connection_number);
-          reset_ptp_anchor_info(conn);
-          packet_number = 0; // start over in allowing the packet to set anchor information
+      if (nread == -1) {
+        if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+          if (conn->airplay_stream_type == realtime_stream) {
+            debug(2, "Connection %d: no control packets for the last 10 seconds -- resetting anchor info", conn->connection_number);
+            reset_ptp_anchor_info(conn);
+            packet_number = 0; // start over in allowing the packet to set anchor information
+          }
+        } else {
+          debug(2, "Connection %d: AP2 Control Receiver -- error %d receiving a packet.", conn->connection_number, errno);
         }
       } else {
-        debug(1, "AP2 Control Receiver -- error %d receiving a packet.", errno);
+          debug(2, "Connection %d: AP2 Control Receiver -- malformed packet, %d bytes long.", conn->connection_number, nread);
       }
     }
   }
