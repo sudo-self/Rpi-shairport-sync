@@ -1,7 +1,7 @@
 name: Issue Report
 description: File an Issue
 title: "[Problem]: "
-labels: ["troubleshooting"]
+labels: ["new issue"]
 body:
   - type: markdown
     attributes:
