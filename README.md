@@ -56,7 +56,7 @@ Shairport Sync will work with PulseAudio, which is installed in many desktop Lin
 
 Shairport Sync runs natively on FreeBSD and OpenBSD using the `sndio` sound system.
 
-Shairport Sync runs on Ubuntu, OpenWrt, Debian, Arch Linux, Fedora, FreeBSD and OpenBSD inside VMWare Fusion on a Mac, but synchronisation in inaccurate — possibly because the sound card is being emulated.
+Shairport Sync runs on Ubuntu, OpenWrt, Debian, Arch Linux, Fedora, FreeBSD and OpenBSD inside VMWare Fusion on a Mac, but synchronisation is inaccurate — possibly because the sound card is being emulated.
 
 For information about changes and updates, please refer to the RELEASENOTES.md file in the distribution.
 
