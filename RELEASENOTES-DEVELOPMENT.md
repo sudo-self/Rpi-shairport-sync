@@ -1,3 +1,8 @@
+Version 4.1-dev-535-gdafd1726
+====
+**Bug Fix**
+* Fix yet another bug in the Makefile.am. Thanks to [Isioma Nnodum](https://github.com/mikebrady/shairport-sync/issues?q=is%3Apr+author%3Aicompuiz) for finding and [fixing](https://github.com/mikebrady/shairport-sync/pull/1536) it.
+
 Version 4.1-dev-520-g1092a8c1
 ====
 **Enhancements**
