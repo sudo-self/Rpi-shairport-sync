@@ -211,7 +211,7 @@ CONFIG_FILE_INSTALL_TARGET = config-file-install-local
 $(CONFIG_FILE_INSTALL_TARGET): scripts/shairport-sync.conf
 	install -d $(DESTDIR)$(sysconfdir)
 	install -m 0644 $(top_srcdir)/scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf.sample
-	[ -f $(DESTDIR)$(sysconfdir)/shairport-sync.conf ] || cp scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf
+	[ -f $(DESTDIR)$(sysconfdir)/shairport-sync.conf ] || cp $(top_srcdir)/scripts/shairport-sync.conf $(DESTDIR)$(sysconfdir)/shairport-sync.conf
 
 if BUILD_FOR_LINUX
 DBUS_POLICY_DIR = /etc/dbus-1/system.d
