@@ -1,3 +1,9 @@
+Version 4.1-dev-520-g1092a8c1
+====
+**Enhancements**
+* It is now possible to build Shairport Sync in a separate directory, thanks mainly to the work [#1493](https://github.com/mikebrady/shairport-sync/pull/1493) and [#1500](https://github.com/mikebrady/shairport-sync/pull/1500) of [Lukas Rusak](https://github.com/lrusak). A number of subsequent changes were necessary to make it work for FreeBSD.
+* Shairport Sync should build on piCore. Thanks to [jackaroo](https://github.com/94jackaroo) for [reporting](https://github.com/mikebrady/shairport-sync/pull/1528) and checking.
+
 Version 4.1-dev-516-ga617e607
 ====
 **Updates and Enhancements**
