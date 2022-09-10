@@ -285,7 +285,7 @@ INSTALL_SYSTEMD_TARGET = install-systemd-local
 
 $(INSTALL_SYSTEMD_TARGET): scripts/$(SYSTEMD_SERVICE) $(INSTALL_USER_TARGET)
 	install -d $(DESTDIR)$(systemdsystemunitdir)
-	[ -e $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service ] || install -m 0644 $(top_srcdir)/cripts/$(SYSTEMD_SERVICE) $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service
+	[ -e $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service ] || install -m 0644 $(top_srcdir)/scripts/$(SYSTEMD_SERVICE) $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service
 
 endif # INSTALL_SYSTEMD
 
