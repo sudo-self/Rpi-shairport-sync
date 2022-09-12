@@ -164,7 +164,9 @@ static void start(int sample_rate, int sample_format) {
   debug(1, "libsoundio output started\n");
 }
 
-static int play(void *buf, int samples) {
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime) {
   // int err;
   int free_bytes = soundio_ring_buffer_free_count(ring_buffer);
   int written_bytes = 0;

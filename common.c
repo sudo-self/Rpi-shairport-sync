@@ -62,12 +62,12 @@
 #endif
 
 #ifdef COMPILE_FOR_OSX
-#include <net/if_dl.h>
-#include <net/if_types.h>
-#include <netinet/in.h>
 #include <CoreServices/CoreServices.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
+#include <net/if_dl.h>
+#include <net/if_types.h>
+#include <netinet/in.h>
 #endif
 
 #ifdef CONFIG_OPENSSL
@@ -455,9 +455,10 @@ char *generate_preliminary_string(char *buffer, size_t buffer_length, double tss
   return insertion_point;
 }
 
-void _die(const char *filename, const int linenumber, const char *format, ...) {
+void _die(const char *thefilename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+
   char b[16384];
   b[0] = 0;
   char *s;
@@ -468,9 +469,12 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
     uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
     ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
+    char *basec = strdup(thefilename);
+    char *filename = basename(basec);
     s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
                                     1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *fatal error: ");
+    free(basec);
   } else {
     strncpy(b, "fatal error: ", sizeof(b));
     s = b + strlen(b);
@@ -485,7 +489,7 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
   exit(EXIT_FAILURE);
 }
 
-void _warn(const char *filename, const int linenumber, const char *format, ...) {
+void _warn(const char *thefilename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char b[16384];
@@ -498,9 +502,12 @@ void _warn(const char *filename, const int linenumber, const char *format, ...) 
     uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
     ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
+    char *basec = strdup(thefilename);
+    char *filename = basename(basec);
     s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
                                     1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *warning: ");
+    free(basec);
   } else {
     strncpy(b, "warning: ", sizeof(b));
     s = b + strlen(b);
@@ -513,11 +520,12 @@ void _warn(const char *filename, const int linenumber, const char *format, ...) 
   pthread_setcancelstate(oldState, NULL);
 }
 
-void _debug(const char *filename, const int linenumber, int level, const char *format, ...) {
+void _debug(const char *thefilename, const int linenumber, int level, const char *format, ...) {
   if (level > debuglev)
     return;
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+
   char b[16384];
   b[0] = 0;
   pthread_mutex_lock(&debug_timing_lock);
@@ -526,9 +534,12 @@ void _debug(const char *filename, const int linenumber, int level, const char *f
   uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
   ns_time_at_last_debug_message = time_now;
   pthread_mutex_unlock(&debug_timing_lock);
+  char *basec = strdup(thefilename);
+  char *filename = basename(basec);
   char *s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
                                         1.0 * time_since_last_debug_message / 1000000000, filename,
                                         linenumber, " ");
+  free(basec);
   va_list args;
   va_start(args, format);
   vsnprintf(s, sizeof(b) - (s - b), format, args);
@@ -537,7 +548,7 @@ void _debug(const char *filename, const int linenumber, int level, const char *f
   pthread_setcancelstate(oldState, NULL);
 }
 
-void _inform(const char *filename, const int linenumber, const char *format, ...) {
+void _inform(const char *thefilename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   char b[16384];
@@ -550,9 +561,12 @@ void _inform(const char *filename, const int linenumber, const char *format, ...
     uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
     ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
+    char *basec = strdup(thefilename);
+    char *filename = basename(basec);
     s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
                                     1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " ");
+    free(basec);
   } else {
     s = b;
   }
@@ -1242,11 +1256,11 @@ uint64_t get_monotonic_time_in_ns() {
   if (sTimebaseInfo.denom == 0)
     die("could not initialise Mac timebase info in get_monotonic_time_in_ns().");
 
-        // Do the maths. We hope that the multiplication doesn't
-        // overflow; the price you pay for working in fixed point.
+  // Do the maths. We hope that the multiplication doesn't
+  // overflow; the price you pay for working in fixed point.
 
-        // this gives us nanoseconds
-        time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
+  // this gives us nanoseconds
+  time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
 #endif
 
   return time_now_ns;
@@ -1306,8 +1320,8 @@ uint64_t get_absolute_time_in_ns() {
   if (sTimebaseInfo.denom == 0)
     die("could not initialise Mac timebase info in get_absolute_time_in_ns().");
 
-        // this gives us nanoseconds
-        time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
+  // this gives us nanoseconds
+  time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
 #endif
 
   return time_now_ns;
@@ -1520,21 +1534,20 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
     return pthread_mutex_lock(mutex);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-   if (debuglevel != 0)
+  if (debuglevel != 0)
     _debug(filename, line, 3, "mutex_lock \"%s\".", mutexname); // only if you really ask for it!
   int result = sps_pthread_mutex_timedlock(mutex, dally_time);
   if (result == ETIMEDOUT) {
-    _debug(filename, line, debuglevel,
-          "mutex_lock \"%s\" failed to lock after %f ms -- now waiting unconditionally to lock it.",
-          mutexname, dally_time * 1E-3);
+    _debug(
+        filename, line, debuglevel,
+        "mutex_lock \"%s\" failed to lock after %f ms -- now waiting unconditionally to lock it.",
+        mutexname, dally_time * 1E-3);
     result = pthread_mutex_lock(mutex);
     if (result == 0)
-      _debug(filename, line, debuglevel,
-            " ...mutex_lock \"%s\" locked successfully.",
-            mutexname);
+      _debug(filename, line, debuglevel, " ...mutex_lock \"%s\" locked successfully.", mutexname);
     else
-      _debug(filename, line, debuglevel,
-            " ...mutex_lock \"%s\" exited with error code: %u", mutexname, result);
+      _debug(filename, line, debuglevel, " ...mutex_lock \"%s\" exited with error code: %u",
+             mutexname, result);
   }
   pthread_setcancelstate(oldState, NULL);
   return result;
@@ -1954,7 +1967,7 @@ int get_device_id(uint8_t *id, int int_length) {
   } else {
     t = id;
     int found = 0;
-    
+
     for (ifa = ifaddr; ((ifa != NULL) && (found == 0)); ifa = ifa->ifa_next) {
 #ifdef AF_PACKET
       if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
@@ -1980,7 +1993,6 @@ int get_device_id(uint8_t *id, int int_length) {
       }
 #endif
 #endif
-
     }
     freeifaddrs(ifaddr);
   }

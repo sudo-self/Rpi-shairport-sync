@@ -572,17 +572,17 @@ gboolean notify_drift_tolerance_callback(ShairportSync *skeleton,
 }
 
 gboolean notify_volume_callback(ShairportSync *skeleton,
-                                         __attribute__((unused)) gpointer user_data) {
+                                __attribute__((unused)) gpointer user_data) {
   gdouble iv = shairport_sync_get_volume(skeleton);
   if (((iv >= -30.0) && (iv <= 0.0)) || (iv == -144.0)) {
     debug(2, ">> setting volume to %7.4f.", iv);
-    
+
     lock_player();
     config.airplay_volume = iv;
     if (playing_conn != NULL)
       player_volume(iv, playing_conn);
     unlock_player();
-    
+
   } else {
     debug(1, ">> invalid volume: %f. Ignored.", iv);
     shairport_sync_set_volume(skeleton, config.airplay_volume);
@@ -805,8 +805,7 @@ static gboolean on_handle_remote_command(ShairportSync *skeleton, GDBusMethodInv
   return TRUE;
 }
 
-static gboolean on_handle_drop_session(ShairportSync *skeleton,
-                                       GDBusMethodInvocation *invocation,
+static gboolean on_handle_drop_session(ShairportSync *skeleton, GDBusMethodInvocation *invocation,
                                        __attribute__((unused)) gpointer user_data) {
   if (playing_conn != NULL)
     debug(1, ">> stopping current play session");
@@ -862,16 +861,16 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(notify_loudness_threshold_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::drift-tolerance",
                    G_CALLBACK(notify_drift_tolerance_callback), NULL);
-  g_signal_connect(shairportSyncSkeleton, "notify::volume",
-                   G_CALLBACK(notify_volume_callback), NULL);
+  g_signal_connect(shairportSyncSkeleton, "notify::volume", G_CALLBACK(notify_volume_callback),
+                   NULL);
 
   g_signal_connect(shairportSyncSkeleton, "handle-quit", G_CALLBACK(on_handle_quit), NULL);
 
   g_signal_connect(shairportSyncSkeleton, "handle-remote-command",
                    G_CALLBACK(on_handle_remote_command), NULL);
 
-  g_signal_connect(shairportSyncSkeleton, "handle-drop-session",
-                   G_CALLBACK(on_handle_drop_session), NULL);
+  g_signal_connect(shairportSyncSkeleton, "handle-drop-session", G_CALLBACK(on_handle_drop_session),
+                   NULL);
 
   g_signal_connect(shairportSyncDiagnosticsSkeleton, "notify::verbosity",
                    G_CALLBACK(notify_verbosity_callback), NULL);

@@ -81,9 +81,9 @@ static int fork_execvp(const char *file, char *const argv[]) {
 }
 
 static int mdns_external_avahi_register(char *ap1name, __attribute__((unused)) char *ap2name,
-                                __attribute__((unused)) int port,
-                                __attribute__((unused)) char **txt_records,
-                                __attribute__((unused)) char **secondary_txt_records) {
+                                        __attribute__((unused)) int port,
+                                        __attribute__((unused)) char **txt_records,
+                                        __attribute__((unused)) char **secondary_txt_records) {
   char mdns_port[6];
   snprintf(mdns_port, sizeof(mdns_port), "%d", config.port);
 
@@ -123,9 +123,9 @@ static int mdns_external_avahi_register(char *ap1name, __attribute__((unused)) c
 }
 
 static int mdns_external_dns_sd_register(char *ap1name, __attribute__((unused)) char *ap2name,
-                                __attribute__((unused)) int port,
-                                __attribute__((unused)) char **txt_records,
-                                __attribute__((unused)) char **secondary_txt_records) {
+                                         __attribute__((unused)) int port,
+                                         __attribute__((unused)) char **txt_records,
+                                         __attribute__((unused)) char **secondary_txt_records) {
   char mdns_port[6];
   snprintf(mdns_port, sizeof(mdns_port), "%d", config.port);
 

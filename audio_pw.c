@@ -1,6 +1,6 @@
 /*
  * Asynchronous Pipewire Backend. This file is part of Shairport Sync.
- * Copyright (c) Shairport Sync 2021
+ * Copyright (c) Shairport Sync 2021--2022
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -452,8 +452,10 @@ static void flush() {
   pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
-static int play(void *buf, int samples) {
-  struct pw_buffer *pw_buffer;
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime) {
+  struct pw_buffer *pw_buffer = NULL;
   struct spa_buffer *spa_buffer;
   struct spa_data *spa_data;
   int ret;

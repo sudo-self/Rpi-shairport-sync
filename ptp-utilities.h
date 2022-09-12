@@ -27,6 +27,7 @@
 #define __PTP_UTILITIES_H
 
 #include "config.h"
+#include "nqptp-shm-structures.h"
 #include <stdint.h>
 
 int ptp_get_clock_info(uint64_t *actual_clock_id, uint64_t *time_of_sample, uint64_t *raw_offset,

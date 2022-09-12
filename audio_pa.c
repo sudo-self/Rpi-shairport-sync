@@ -223,7 +223,9 @@ static void start(__attribute__((unused)) int sample_rate,
   pa_threaded_mainloop_unlock(mainloop);
 }
 
-static int play(void *buf, int samples) {
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime) {
   // debug(1,"pa_play of %d samples.",samples);
   // copy the samples into the queue
   size_t bytes_to_transfer = samples * 2 * 2;

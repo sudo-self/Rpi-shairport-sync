@@ -147,7 +147,9 @@ static void start(__attribute__((unused)) int sample_rate,
   // debug(1,"libao start");
 }
 
-static int play(void *buf, int samples) {
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime) {
   int response = 0;
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable

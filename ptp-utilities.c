@@ -39,11 +39,9 @@
 #endif
 #define __STDC_FORMAT_MACROS
 #include "common.h"
+#include "ptp-utilities.h"
 #include <inttypes.h>
 #include <unistd.h>
-
-#include "nqptp-shm-structures.h"
-#include "ptp-utilities.h"
 
 int shm_fd;
 void *mapped_addr = NULL;

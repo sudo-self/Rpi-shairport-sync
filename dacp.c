@@ -206,7 +206,8 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
       pthread_cleanup_push(addrinfo_cleanup, (void *)&res);
       // only do this one at a time -- not sure it is necessary, but better safe than sorry
 
-      // int mutex_reply = sps_pthread_mutex_timedlock(&dacp_conversation_lock, 2000000, command, 1);
+      // int mutex_reply = sps_pthread_mutex_timedlock(&dacp_conversation_lock, 2000000, command,
+      // 1);
       int mutex_reply = debug_mutex_lock(&dacp_conversation_lock, 2000000, 1);
       // int mutex_reply = pthread_mutex_lock(&dacp_conversation_lock);
       if (mutex_reply == 0) {

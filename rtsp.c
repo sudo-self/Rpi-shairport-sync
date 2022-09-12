@@ -96,7 +96,6 @@
 #include "dbus-service.h"
 #endif
 
-
 #include "mdns.h"
 
 // mDNS advertisement strings
@@ -502,14 +501,9 @@ int pc_queue_get_item(pc_queue *the_queue, void *the_stuff) {
 
 #endif
 
-void lock_player() {
-  debug_mutex_lock(&playing_conn_lock, 1000000, 3);
-}
+void lock_player() { debug_mutex_lock(&playing_conn_lock, 1000000, 3); }
 
-void unlock_player() {
-  debug_mutex_unlock(&playing_conn_lock, 3);
-}
-
+void unlock_player() { debug_mutex_unlock(&playing_conn_lock, 3); }
 
 int have_play_lock(rtsp_conn_info *conn) {
   int response = 0;
@@ -552,11 +546,10 @@ void release_play_lock(rtsp_conn_info *conn) {
       debug(2, "Connection %d: play lock released.", conn->connection_number);
     else
       debug(2, "Play lock released.");
-    playing_conn = NULL;      // let it go
+    playing_conn = NULL; // let it go
   }
   unlock_player();
 }
-
 
 // make conn the playing_conn, and kill the current session if permitted
 int get_play_lock(rtsp_conn_info *conn, int allow_session_interruption) {
@@ -630,7 +623,7 @@ int get_play_lock(rtsp_conn_info *conn, int allow_session_interruption) {
     if (conn != NULL)
       debug(2, "Connection %d: Got player lock.", conn->connection_number);
     else
-      debug(2, "Player released.");      
+      debug(2, "Player released.");
     response = 0;
   }
   return response;
@@ -1220,7 +1213,18 @@ static ssize_t write_encrypted(rtsp_conn_info *conn, const void *buf, size_t cou
 */
 #endif
 
-ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
+ssize_t timed_read_from_rtsp_connection(rtsp_conn_info *conn, uint64_t wait_time, void *buf,
+                                        size_t count) {
+  struct timeval tv;
+  tv.tv_sec = wait_time / 1000000000;           // seconds
+  tv.tv_usec = (wait_time % 1000000000) / 1000; // microseconds
+  if (setsockopt(conn->fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) != 0) {
+    char errorstring[1024];
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    debug(1, "could not set time limit on timed_read_from_rtsp_connection -- error %d \"%s\".",
+          errno, errorstring);
+  }
+
 #ifdef CONFIG_AIRPLAY_2
   if (conn->ap2_pairing_context.control_cipher_bundle.cipher_ctx) {
     conn->ap2_pairing_context.control_cipher_bundle.is_encrypted = 1;
@@ -1231,6 +1235,34 @@ ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count)
 #else
   return read(conn->fd, buf, count);
 #endif
+}
+
+ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
+  // first try to read with a timeout, to see if there is any traffic...
+  ssize_t response = timed_read_from_rtsp_connection(conn, 4000000000L, buf, count);
+  if ((response == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
+    if (conn->rtsp_link_is_idle == 0) {
+      conn->rtsp_link_is_idle = 1;
+#ifdef CONFIG_AIRPLAY_2
+      conn->last_anchor_info_is_valid = 0;
+#endif
+      conn->anchor_remote_info_is_valid = 0;
+      conn->udp_clock_sender_is_initialised = 0;
+      conn->udp_clock_is_initialised = 0;
+      debug(1, "Connection %d: RTSP connection is idle.", conn->connection_number);
+    }
+    response = timed_read_from_rtsp_connection(conn, 0, buf, count);
+  }
+  if (conn->rtsp_link_is_idle == 1) {
+    conn->local_to_remote_time_difference_measurement_time = 0;
+    conn->local_to_remote_time_difference = 0;
+    conn->rtsp_link_is_idle = 0;
+    conn->first_packet_timestamp = 0;
+    conn->input_frame_rate_starting_point_is_valid = 0;
+    ab_resync(conn);
+    debug(1, "Connection %d: RTSP connection traffic has resumed.", conn->connection_number);
+  }
+  return response;
 }
 
 enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_message **the_packet) {
@@ -1418,6 +1450,7 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
                                    {403, "Unauthorized"},
                                    {404, "Not Found"},
                                    {451, "Unavailable"},
+                                   {456, "Header Field Not Valid for Resource"},
                                    {500, "Internal Server Error"},
                                    {501, "Not Implemented"}};
   // 451 is really "Unavailable For Legal Reasons"!
@@ -1482,7 +1515,8 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
 #ifdef CONFIG_AIRPLAY_2
   ssize_t reply;
   if (conn->ap2_pairing_context.control_cipher_bundle.is_encrypted) {
-    reply = write_encrypted(conn->fd, &conn->ap2_pairing_context.control_cipher_bundle, pkt, p - pkt);
+    reply =
+        write_encrypted(conn->fd, &conn->ap2_pairing_context.control_cipher_bundle, pkt, p - pkt);
   } else {
     reply = write(conn->fd, pkt, p - pkt);
   }
@@ -1909,7 +1943,8 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       pthread_cleanup_push(mutex_unlock, &conn->flush_mutex);
       conn->ap2_rate = rate;
       if ((rate & 1) != 0) {
-        debug(2, "Connection %d: Start playing, with anchor clock %" PRIx64 ".", conn->connection_number, conn->networkTimeTimelineID);
+        debug(2, "Connection %d: Start playing, with anchor clock %" PRIx64 ".",
+              conn->connection_number, conn->networkTimeTimelineID);
         activity_monitor_signify_activity(1);
         conn->ap2_play_enabled = 1;
       } else {
@@ -2313,6 +2348,9 @@ void handle_configure(rtsp_conn_info *conn __attribute__((unused)),
 
 void handle_feedback(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                      __attribute__((unused)) rtsp_message *resp) {
+  debug(2, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
+        req->contentlength);
+  debug_log_rtsp_message(2, NULL, req);
   if (conn->airplay_stream_category == remote_control_stream) {
     plist_t array_plist = plist_new_array();
 
@@ -2349,7 +2387,9 @@ void handle_feedback(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
 
 void handle_command(__attribute__((unused)) rtsp_conn_info *conn, rtsp_message *req,
                     __attribute__((unused)) rtsp_message *resp) {
-  debug_log_rtsp_message(3, "POST /command", req);
+  debug(2, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
+        req->contentlength);
+  debug_log_rtsp_message(2, NULL, req);
   if (rtsp_message_contains_plist(req)) {
     plist_t command_dict = NULL;
     plist_from_memory(req->content, req->contentlength, &command_dict);
@@ -2468,12 +2508,11 @@ void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp
   char timing_list_message[4096];
   timing_list_message[0] = 'T';
   timing_list_message[1] = 0;
-  
+
   // ensure the client itself is first -- it's okay if it's duplicated later
-  strncat(timing_list_message, " ",
-        sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+  strncat(timing_list_message, " ", sizeof(timing_list_message) - 1 - strlen(timing_list_message));
   strncat(timing_list_message, (const char *)&conn->client_ip_string,
-        sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+          sizeof(timing_list_message) - 1 - strlen(timing_list_message));
 
   plist_t addresses_array = NULL;
   plist_from_memory(req->content, req->contentlength, &addresses_array);
@@ -2542,32 +2581,36 @@ void teardown_phase_two(rtsp_conn_info *conn) {
   // we are being asked to disconnect
   // this can be called more than once on the same connection --
   // by the player itself but also by the play seesion being killed
-    debug(2, "Connection %d: TEARDOWN a %s connection.", conn->connection_number,
-          get_category_string(conn->airplay_stream_category));
+  debug(2, "Connection %d: TEARDOWN %s connection.", conn->connection_number,
+        get_category_string(conn->airplay_stream_category));
   if (conn->airplay_stream_category == remote_control_stream) {
     if (conn->rtp_data_thread) {
-      debug(2, "Connection %d (RC): TEARDOWN Delete Data Thread.", conn->connection_number);
+      debug(2, "Connection %d: TEARDOWN %s Delete Data Thread.", conn->connection_number,
+            get_category_string(conn->airplay_stream_category));
       pthread_cancel(*conn->rtp_data_thread);
       pthread_join(*conn->rtp_data_thread, NULL);
       free(conn->rtp_data_thread);
       conn->rtp_data_thread = NULL;
     }
-    debug(2, "Connection %d: TEARDOWN Close Data Socket.", conn->connection_number);
     if (conn->data_socket) {
+      debug(2, "Connection %d: TEARDOWN %s Close Data Socket.", conn->connection_number,
+            get_category_string(conn->airplay_stream_category));
       close(conn->data_socket);
       conn->data_socket = 0;
     }
   }
 
   if (conn->rtp_event_thread) {
-    debug(2, "Connection %d: TEARDOWN Delete Event Thread.", conn->connection_number);
+    debug(2, "Connection %d: TEARDOWN %s Delete Event Thread.", conn->connection_number,
+          get_category_string(conn->airplay_stream_category));
     pthread_cancel(*conn->rtp_event_thread);
     pthread_join(*conn->rtp_event_thread, NULL);
     free(conn->rtp_event_thread);
     conn->rtp_event_thread = NULL;
   }
-  debug(2, "Connection %d: TEARDOWN Close Event Socket.", conn->connection_number);
   if (conn->event_socket) {
+    debug(2, "Connection %d: TEARDOWN %s Close Event Socket.", conn->connection_number,
+          get_category_string(conn->airplay_stream_category));
     close(conn->event_socket);
     conn->event_socket = 0;
   }
@@ -2611,16 +2654,20 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
     plist_t streams = plist_dict_get_item(messagePlist, "streams");
 
     if (streams) {
-      debug(2, "Connection %d: TEARDOWN a %s.", conn->connection_number,
+      debug(2, "Connection %d: TEARDOWN %s Close the stream.", conn->connection_number,
             get_category_string(conn->airplay_stream_category));
       // we are being asked to close a stream
       teardown_phase_one(conn);
       plist_free(streams);
-      debug(2, "Connection %d: TEARDOWN phase one complete", conn->connection_number);
+      debug(2, "Connection %d: TEARDOWN %s Close the stream complete", conn->connection_number,
+            get_category_string(conn->airplay_stream_category));
     } else {
+      debug(2, "Connection %d: TEARDOWN %s Close the connection.", conn->connection_number,
+            get_category_string(conn->airplay_stream_category));
       teardown_phase_one(conn); // try to do phase one anyway
       teardown_phase_two(conn);
-      debug(2, "Connection %d: TEARDOWN phase two complete", conn->connection_number);
+      debug(2, "Connection %d: TEARDOWN %s Close the connection complete", conn->connection_number,
+            get_category_string(conn->airplay_stream_category));
     }
     //} else {
     //  warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
@@ -2672,7 +2719,6 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
 }
 
 void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
-  // TODO -- don't know what this is for in AP2
   debug_log_rtsp_message(2, "FLUSH request", req);
   debug(3, "Connection %d: FLUSH", conn->connection_number);
   char *p = NULL;
@@ -2698,11 +2744,7 @@ void handle_flush(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
       send_metadata('ssnc', 'flsr', NULL, 0, NULL, 0);
 #endif
 
-// hack -- ignore it for airplay 2
-#ifdef CONFIG_AIRPLAY_2
-    if (conn->airplay_type != ap_2)
-#endif
-      player_flush(rtptime, conn); // will not crash even it there is no player thread.
+    player_flush(rtptime, conn); // will not crash even it there is no player thread.
     resp->respcode = 200;
 
   } else {
@@ -2839,10 +2881,9 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
           // ensure the client itself is first -- it's okay if it's duplicated later
           strncat(timing_list_message, " ",
-                sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+                  sizeof(timing_list_message) - 1 - strlen(timing_list_message));
           strncat(timing_list_message, (const char *)&conn->client_ip_string,
-                sizeof(timing_list_message) - 1 - strlen(timing_list_message));
-
+                  sizeof(timing_list_message) - 1 - strlen(timing_list_message));
 
           plist_t timing_peer_info = plist_dict_get_item(messagePlist, "timingPeerInfo");
           if (timing_peer_info) {
@@ -2988,7 +3029,11 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           debug(2, "Connection %d SETUP (RC): TCP Remote Control event port opened: %u.",
                 conn->connection_number, conn->local_event_port);
           if (conn->rtp_event_thread != NULL)
-            debug(1, "previous rtp_event_thread allocation not freed, it seems.");
+            debug(1,
+                  "Connection %d SETUP (RC): previous rtp_event_thread allocation not freed, it "
+                  "seems.",
+                  conn->connection_number);
+
           conn->rtp_event_thread = malloc(sizeof(pthread_t));
           if (conn->rtp_event_thread == NULL)
             die("Couldn't allocate space for pthread_t");
@@ -3209,8 +3254,10 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_dict_set_item(setupResponsePlist, "streams", streams_array);
       resp->respcode = 200;
     } else if (conn->airplay_stream_category == remote_control_stream) {
-      debug(2, "Connection %d (RC): SETUP: Remote Control Stream received.", conn->connection_number);
-
+      debug(2, "Connection %d (RC): SETUP: Remote Control Stream received from %s.",
+            conn->connection_number, conn->client_ip_string);
+      debug_log_rtsp_message(2, "Remote Control Stream SETUP incoming message", req);
+      /*
       // get a port to use as an data port
       // bind a new TCP port and get a socket
       conn->local_data_port = 0; // any port
@@ -3226,10 +3273,9 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       debug(1, "Connection %d SETUP (RC): TCP Remote Control data port opened: %u.",
             conn->connection_number, conn->local_data_port);
       if (conn->rtp_data_thread != NULL)
-        debug(1, "previous rtp_data_thread allocation not freed, it seems.");
-      conn->rtp_data_thread = malloc(sizeof(pthread_t));
-      if (conn->rtp_data_thread == NULL)
-        die("Couldn't allocate space for pthread_t");
+        debug(1, "Connection %d SETUP (RC): previous rtp_data_thread allocation not freed, it
+      seems.", conn->connection_number); conn->rtp_data_thread = malloc(sizeof(pthread_t)); if
+      (conn->rtp_data_thread == NULL) die("Couldn't allocate space for pthread_t");
 
       pthread_create(conn->rtp_data_thread, NULL, &rtp_data_receiver, (void *)conn);
 
@@ -3241,6 +3287,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_t coreResponseArray = plist_new_array();
       plist_array_append_item(coreResponseArray, coreResponseDict);
       plist_dict_set_item(setupResponsePlist, "streams", coreResponseArray);
+      */
       resp->respcode = 200;
     } else {
       debug(1, "Connection %d: SETUP: Stream received but no airplay category set. Nothing done.",
@@ -3430,7 +3477,7 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
       if (dbus_service_is_running()) {
         shairport_sync_set_volume(shairportSyncSkeleton, config.airplay_volume);
       }
-#endif        
+#endif
     } else if (strncmp(cp, "progress: ", strlen("progress: ")) ==
                0) { // this can be sent even when metadata is not solicited
 
@@ -4171,7 +4218,7 @@ static void handle_get_parameter(__attribute__((unused)) rtsp_conn_info *conn, r
 
   if ((req->content) && (req->contentlength == strlen("volume\r\n")) &&
       strstr(req->content, "volume") == req->content) {
-    debug(1, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
+    debug(2, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
           config.airplay_volume);
     char *p = malloc(128); // will be automatically deallocated with the response is deleted
     if (p) {
@@ -4401,11 +4448,13 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     if ((paesiv == NULL) && (prsaaeskey == NULL)) {
       // debug(1,"Unencrypted session requested?");
       conn->stream.encrypted = 0;
-    } else {
+    } else if ((paesiv != NULL) && (prsaaeskey != NULL)){
       conn->stream.encrypted = 1;
       // debug(1,"Encrypted session requested");
+    } else {
+      warn("Invalid Announce message -- missing paesiv or prsaaeskey.");
+      goto out;
     }
-
     if (conn->stream.encrypted) {
       int len, keylen;
       uint8_t *aesiv = base64_dec(paesiv, &len);

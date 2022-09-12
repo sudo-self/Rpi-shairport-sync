@@ -1,6 +1,6 @@
 /*
  * jack output driver. This file is part of Shairport Sync.
- * Copyright (c) 2019 Mike Brady <mikebrady@iercom.net>,
+ * Copyright (c) 2019 -- 2022 Mike Brady <4265913+mikebrady@users.noreply.github.com>,
  *                    Jörn Nettingsmeier <nettings@luchtbeweging.nl>
  *
  * All rights reserved.
@@ -40,49 +40,25 @@ typedef jack_default_audio_sample_t sample_t;
 #define jack_sample_size sizeof(sample_t)
 
 // Two-channel, 32bit audio:
-static const int bytes_per_frame = NPORTS * jack_sample_size;
+const int bytes_per_frame = NPORTS * jack_sample_size;
 
-static pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-int jack_init(int, char **);
-void jack_deinit(void);
-void jack_start(int, int);
-int play(void *, int);
-void jack_stop(void);
-int jack_delay(long *);
-void jack_flush(void);
-
-audio_output audio_jack = {.name = "jack",
-                           .help = NULL,
-                           .init = &jack_init,
-                           .deinit = &jack_deinit,
-                           .prepare = NULL,
-                           .start = &jack_start,
-                           .stop = NULL,
-                           .is_running = NULL,
-                           .flush = &jack_flush,
-                           .delay = &jack_delay,
-                           .stats = NULL,
-                           .play = &play,
-                           .volume = NULL,
-                           .parameters = NULL,
-                           .mute = NULL};
+pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t client_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 // This also affects deinterlacing.
 // So make it exactly the number of incoming audio channels!
-static jack_port_t *port[NPORTS];
-static const char *port_name[NPORTS] = {"out_L", "out_R"};
+jack_port_t *port[NPORTS];
+const char *port_name[NPORTS] = {"out_L", "out_R"};
 
-static jack_client_t *client;
-static jack_nframes_t sample_rate;
-static jack_nframes_t jack_latency;
+jack_client_t *client;
+jack_nframes_t sample_rate;
+jack_nframes_t jack_latency;
 
-static jack_ringbuffer_t *jackbuf;
-static int flush_please = 0;
+jack_ringbuffer_t *jackbuf;
+int flush_please = 0;
 
-static jack_latency_range_t latest_latency_range[NPORTS];
-static int64_t time_of_latest_transfer;
+jack_latency_range_t latest_latency_range[NPORTS];
+int64_t time_of_latest_transfer;
 
 #ifdef CONFIG_SOXR
 typedef struct soxr_quality {
@@ -90,9 +66,9 @@ typedef struct soxr_quality {
   const char *name;
 } soxr_quality_t;
 
-static soxr_quality_t soxr_quality_table[] = {{SOXR_VHQ, "very high"}, {SOXR_HQ, "high"},
-                                              {SOXR_MQ, "medium"},     {SOXR_LQ, "low"},
-                                              {SOXR_QQ, "quick"},      {-1, NULL}};
+soxr_quality_t soxr_quality_table[] = {{SOXR_VHQ, "very high"}, {SOXR_HQ, "high"},
+                                       {SOXR_MQ, "medium"},     {SOXR_LQ, "low"},
+                                       {SOXR_QQ, "quick"},      {-1, NULL}};
 
 static int parse_soxr_quality_name(const char *name) {
   for (soxr_quality_t *s = soxr_quality_table; s->name != NULL; ++s) {
@@ -103,9 +79,9 @@ static int parse_soxr_quality_name(const char *name) {
   return -1;
 }
 
-static soxr_t soxr = NULL;
-static soxr_quality_spec_t quality_spec;
-static soxr_io_spec_t io_spec;
+soxr_t soxr = NULL;
+soxr_quality_spec_t quality_spec;
+soxr_io_spec_t io_spec;
 #endif
 
 static inline sample_t sample_conv(short sample) {
@@ -204,7 +180,7 @@ static void error(const char *desc) { warn("JACK error: \"%s\"", desc); }
 // This is the function JACK will call in case of a non-critical event in the library.
 static void info(const char *desc) { inform("JACK information: \"%s\"", desc); }
 
-int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
+static int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
   int i;
   int bufsz = -1;
   config.audio_backend_latency_offset = 0;
@@ -332,7 +308,7 @@ int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) char **a
   return 0;
 }
 
-void jack_deinit() {
+static void jack_deinit() {
   pthread_mutex_lock(&client_mutex);
   if (jack_deactivate(client))
     warn("Error deactivating jack client");
@@ -348,7 +324,7 @@ void jack_deinit() {
 #endif
 }
 
-void jack_start(int i_sample_rate, __attribute__((unused)) int i_sample_format) {
+static void jack_start(int i_sample_rate, __attribute__((unused)) int i_sample_format) {
   // Nothing to do, JACK client has already been set up at jack_init().
   // Also, we have no say over the sample rate or sample format of JACK,
   // We convert the 16bit samples to float, and die if the sample rate is != 44k1 without soxr.
@@ -367,13 +343,13 @@ void jack_start(int i_sample_rate, __attribute__((unused)) int i_sample_format) 
 #endif
 }
 
-void jack_flush() {
+static void jack_flush() {
   debug(2, "Only the consumer can safely flush a lock-free ringbuffer. Asking the"
            " process callback to do it...");
   flush_please = 1;
 }
 
-int jack_delay(long *the_delay) {
+static int jack_delay(long *the_delay) {
   // Semantics change: we now look at the last transfer into the lock-free
   // ringbuffer, not into the jack buffers directly (because locking those would
   // violate real-time constraints). On average, that should lead to  just a
@@ -399,7 +375,9 @@ int jack_delay(long *the_delay) {
   return 0;
 }
 
-int play(void *buf, int samples) {
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime) {
   jack_ringbuffer_data_t v[2] = {0};
   size_t i, j, c;
   jack_nframes_t thisbuf;
@@ -445,3 +423,19 @@ int play(void *buf, int samples) {
   }
   return 0;
 }
+
+audio_output audio_jack = {.name = "jack",
+                           .help = NULL,
+                           .init = &jack_init,
+                           .deinit = &jack_deinit,
+                           .prepare = NULL,
+                           .start = &jack_start,
+                           .stop = NULL,
+                           .is_running = NULL,
+                           .flush = &jack_flush,
+                           .delay = &jack_delay,
+                           .stats = NULL,
+                           .play = &play,
+                           .volume = NULL,
+                           .parameters = NULL,
+                           .mute = NULL};

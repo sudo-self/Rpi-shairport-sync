@@ -47,11 +47,10 @@
 #include <avahi-client/lookup.h>
 #include <avahi-common/alternative.h>
 
-
 void threaded_poll_unlock(void *arg) { avahi_threaded_poll_unlock((AvahiThreadedPoll *)arg); }
 
-#define pthread_avahi_threaded_poll_lock_and_push(mu)                    \
-  avahi_threaded_poll_lock(mu);                                          \
+#define pthread_avahi_threaded_poll_lock_and_push(mu)                                              \
+  avahi_threaded_poll_lock(mu);                                                                    \
   pthread_cleanup_push(threaded_poll_unlock, (void *)mu)
 
 #define check_avahi_response(debugLevelArg, veryUnLikelyArgumentName)                              \
@@ -347,8 +346,8 @@ static int avahi_update(char **txt_records, char **secondary_txt_records) {
   else
     selected_interface = AVAHI_IF_UNSPEC;
   pthread_avahi_threaded_poll_lock_and_push(tpoll);
-  //avahi_threaded_poll_lock(tpoll);
-  //pthread_cleanup_push(threaded_poll_unlock, (void *)tpoll)
+  // avahi_threaded_poll_lock(tpoll);
+  // pthread_cleanup_push(threaded_poll_unlock, (void *)tpoll)
 
   if (txt_records != NULL) {
     if (text_record_string_list)

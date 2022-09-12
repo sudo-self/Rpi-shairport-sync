@@ -66,7 +66,9 @@ static void start(__attribute__((unused)) int sample_rate,
   }
 }
 
-static int play(void *buf, int samples) {
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime) {
   // if the file is not open, try to open it.
   char errorstring[1024];
   if (fd == -1) {

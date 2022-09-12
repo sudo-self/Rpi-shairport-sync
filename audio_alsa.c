@@ -52,32 +52,34 @@ typedef struct {
   int frame_size;
 } format_record;
 
-static void help(void);
-static int init(int argc, char **argv);
-static void deinit(void);
-static void start(int i_sample_rate, int i_sample_format);
-static int play(void *buf, int samples);
-static void stop(void);
-static void flush(void);
-int delay(long *the_delay);
-int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, uint64_t *the_delay,
-          uint64_t *frames_sent_to_dac);
-
-void *alsa_buffer_monitor_thread_code(void *arg);
-
-static void volume(double vol);
-void do_volume(double vol);
-int prepare(void);
-int do_play(void *buf, int samples);
-
-static void parameters(audio_parameters *info);
-int mute(int do_mute); // returns true if it actually is allowed to use the mute
-static double set_volume;
-static int output_method_signalled = 0; // for reporting whether it's using mmap or not
+int output_method_signalled = 0; // for reporting whether it's using mmap or not
 int delay_type_notified = -1; // for controlling the reporting of whether the output device can do
                               // precision delays (e.g. alsa->pulsaudio virtual devices can't)
 int use_monotonic_clock = 0;  // this value will be set when the hardware is initialised
 
+static void help(void);
+static int init(int argc, char **argv);
+static void deinit(void);
+static void start(int i_sample_rate, int i_sample_format);
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime);
+static void stop(void);
+static void flush(void);
+static int delay(long *the_delay);
+static int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time,
+                 uint64_t *the_delay, uint64_t *frames_sent_to_dac);
+
+static void *alsa_buffer_monitor_thread_code(void *arg);
+
+static void volume(double vol);
+static void do_volume(double vol);
+static int prepare(void);
+static int do_play(void *buf, int samples);
+
+static void parameters(audio_parameters *info);
+static int mute(int do_mute); // returns true if it actually is allowed to use the mute
+static double set_volume;
 audio_output audio_alsa = {
     .name = "alsa",
     .help = &help,
@@ -98,8 +100,8 @@ audio_output audio_alsa = {
     .volume = NULL,      // a function will be provided if it can do hardware volume
     .parameters = NULL}; // a function will be provided if it can do hardware volume
 
-static pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t alsa_mixer_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t alsa_mixer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t alsa_buffer_monitor_thread;
 
@@ -121,7 +123,7 @@ long stall_monitor_frame_count;         // set to delay at start of time, increm
 uint64_t stall_monitor_error_threshold; // if the time is longer than this, it's
                                         // an error
 
-static snd_output_t *output = NULL;
+snd_output_t *output = NULL;
 int frame_size; // in bytes for interleaved stereo
 
 int alsa_device_initialised; // boolean to ensure the initialisation is only
@@ -133,25 +135,25 @@ yndk_type precision_delay_available_status =
 snd_pcm_t *alsa_handle = NULL;
 int alsa_handle_status =
     ENODEV; // if alsa_handle is NULL, this should say why with a unix error code
-static snd_pcm_hw_params_t *alsa_params = NULL;
-static snd_pcm_sw_params_t *alsa_swparams = NULL;
-static snd_ctl_t *ctl = NULL;
-static snd_ctl_elem_id_t *elem_id = NULL;
-static snd_mixer_t *alsa_mix_handle = NULL;
-static snd_mixer_elem_t *alsa_mix_elem = NULL;
-static snd_mixer_selem_id_t *alsa_mix_sid = NULL;
-static long alsa_mix_minv, alsa_mix_maxv;
-static long alsa_mix_mindb, alsa_mix_maxdb;
+snd_pcm_hw_params_t *alsa_params = NULL;
+snd_pcm_sw_params_t *alsa_swparams = NULL;
+snd_ctl_t *ctl = NULL;
+snd_ctl_elem_id_t *elem_id = NULL;
+snd_mixer_t *alsa_mix_handle = NULL;
+snd_mixer_elem_t *alsa_mix_elem = NULL;
+snd_mixer_selem_id_t *alsa_mix_sid = NULL;
+long alsa_mix_minv, alsa_mix_maxv;
+long alsa_mix_mindb, alsa_mix_maxdb;
 
-static char *alsa_out_dev = "default";
-static char *alsa_mix_dev = NULL;
-static char *alsa_mix_ctrl = NULL;
-static int alsa_mix_index = 0;
-static int has_softvol = 0;
+char *alsa_out_dev = "default";
+char *alsa_mix_dev = NULL;
+char *alsa_mix_ctrl = NULL;
+int alsa_mix_index = 0;
+int has_softvol = 0;
 
 int64_t dither_random_number_store = 0;
 
-static int volume_set_request = 0; // set when an external request is made to set the volume.
+int volume_set_request = 0; // set when an external request is made to set the volume.
 
 int mixer_volume_setting_gives_mute = 0; // set when it is discovered that
                                          // particular mixer volume setting
@@ -164,10 +166,10 @@ int volume_based_mute_is_active =
 // use this to allow the use of snd_pcm_writei or snd_pcm_mmap_writei
 snd_pcm_sframes_t (*alsa_pcm_write)(snd_pcm_t *, const void *, snd_pcm_uframes_t) = snd_pcm_writei;
 
-int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                               yndk_type *using_update_timestamps);
-int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                              yndk_type *using_update_timestamps);
+static int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
+                                      yndk_type *using_update_timestamps);
+static int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
+                                     yndk_type *using_update_timestamps);
 
 // use this to allow the use of standard or precision delay calculations, with standard the, uh,
 // standard.
@@ -182,7 +184,7 @@ int (*delay_and_status)(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
 // If you want it to check again, set precision_delay_available_status to YNDK_DONT_KNOW
 // first.
 
-int precision_delay_available() {
+static int precision_delay_available() {
   if (precision_delay_available_status == YNDK_DONT_KNOW) {
     // this is very crude -- if the device is a hardware device, then it's assumed the delay is
     // precise
@@ -247,16 +249,16 @@ int precision_delay_available() {
 
 int alsa_characteristics_already_listed = 0;
 
-static snd_pcm_uframes_t period_size_requested, buffer_size_requested;
-static int set_period_size_request, set_buffer_size_request;
+snd_pcm_uframes_t period_size_requested, buffer_size_requested;
+int set_period_size_request, set_buffer_size_request;
 
-static uint64_t frames_sent_for_playing;
+uint64_t frames_sent_for_playing;
 
 // set to true if there has been a discontinuity between the last reported frames_sent_for_playing
 // and the present reported frames_sent_for_playing
 // Note that it will be set when the device is opened, as any previous figures for
 // frames_sent_for_playing (which Shairport Sync might hold) would be invalid.
-static int frames_sent_break_occurred;
+int frames_sent_break_occurred;
 
 static void help(void) {
   printf("    -d output-device    set the output device, default is \"default\".\n"
@@ -270,10 +272,10 @@ static void help(void) {
     debug(2, "error %d executing a script to list alsa hardware device names", r);
 }
 
-void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; }
+void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; } // ugh -- not static!
 
 // assuming pthread cancellation is disabled
-int open_mixer() {
+static int open_mixer() {
   int response = 0;
   if (alsa_mix_ctrl != NULL) {
     debug(3, "Open Mixer");
@@ -317,7 +319,7 @@ int open_mixer() {
 }
 
 // assuming pthread cancellation is disabled
-void close_mixer() {
+static void close_mixer() {
   if (alsa_mix_handle) {
     snd_mixer_close(alsa_mix_handle);
     alsa_mix_handle = NULL;
@@ -325,7 +327,7 @@ void close_mixer() {
 }
 
 // assuming pthread cancellation is disabled
-void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double vol) {
+static void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double vol) {
   if (snd_mixer_selem_set_playback_dB_all(mix_elem, vol, 0) != 0) {
     debug(1, "Can't set playback volume accurately to %f dB.", vol);
     if (snd_mixer_selem_set_playback_dB_all(mix_elem, vol, -1) != 0)
@@ -386,7 +388,7 @@ sps_format_t auto_format_check_sequence[] = {
 // assuming pthread cancellation is disabled
 // if do_auto_setting is true and auto format or auto speed has been requested,
 // select the settings as appropriate and store them
-int actual_open_alsa_device(int do_auto_setup) {
+static int actual_open_alsa_device(int do_auto_setup) {
   // the alsa mutex is already acquired when this is called
   const snd_pcm_uframes_t minimal_buffer_headroom =
       352 * 2; // we accept this much headroom in the hardware buffer, but we'll
@@ -867,7 +869,7 @@ int actual_open_alsa_device(int do_auto_setup) {
   return 0;
 }
 
-int open_alsa_device(int do_auto_setup) {
+static int open_alsa_device(int do_auto_setup) {
   int result;
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -876,7 +878,7 @@ int open_alsa_device(int do_auto_setup) {
   return result;
 }
 
-int prepare_mixer() {
+static int prepare_mixer() {
   int response = 0;
   // do any alsa device initialisation (general case)
   // at present, this is only needed if a hardware mixer is being used
@@ -991,7 +993,7 @@ int prepare_mixer() {
   return response;
 }
 
-int alsa_device_init() { return prepare_mixer(); }
+static int alsa_device_init() { return prepare_mixer(); }
 
 static int init(int argc, char **argv) {
   // for debugging
@@ -1383,7 +1385,7 @@ static void deinit(void) {
   pthread_setcancelstate(oldState, NULL);
 }
 
-int set_mute_state() {
+static int set_mute_state() {
   int response = 1; // some problem expected, e.g. no mixer or not allowed to use it or disconnected
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1436,8 +1438,8 @@ static void start(__attribute__((unused)) int i_sample_rate,
   }
 }
 
-int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                              yndk_type *using_update_timestamps) {
+static int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
+                                     yndk_type *using_update_timestamps) {
   int ret = alsa_handle_status;
   if (using_update_timestamps)
     *using_update_timestamps = YNDK_NO;
@@ -1470,8 +1472,8 @@ int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
   return ret;
 }
 
-int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                               yndk_type *using_update_timestamps) {
+static int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
+                                      yndk_type *using_update_timestamps) {
   snd_pcm_state_t state_temp = SND_PCM_STATE_DISCONNECTED;
   snd_pcm_sframes_t delay_temp = 0;
   if (using_update_timestamps)
@@ -1635,7 +1637,7 @@ int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
   return ret;
 }
 
-int delay(long *the_delay) {
+static int delay(long *the_delay) {
   // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or
   // SND_PCM_STATE_PREPARED
   // or SND_PCM_STATE_DRAINING
@@ -1667,8 +1669,8 @@ int delay(long *the_delay) {
   return ret;
 }
 
-int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, uint64_t *the_delay,
-          uint64_t *frames_sent_to_dac) {
+static int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time,
+                 uint64_t *the_delay, uint64_t *frames_sent_to_dac) {
   // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or
   // SND_PCM_STATE_PREPARED
   // or SND_PCM_STATE_DRAINING.
@@ -1709,7 +1711,7 @@ int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time, 
   return ret;
 }
 /*
-int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
+static int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
   // elapsed_time is in nanoseconds
   int response = 0; // zero means okay
   if (measurement_data_is_valid) {
@@ -1724,7 +1726,7 @@ int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
 }
 */
 
-int do_play(void *buf, int samples) {
+static int do_play(void *buf, int samples) {
   // assuming the alsa_mutex has been acquired
   // debug(3,"audio_alsa play called.");
   int oldState;
@@ -1809,7 +1811,7 @@ int do_play(void *buf, int samples) {
   return ret;
 }
 
-int do_open(int do_auto_setup) {
+static int do_open(int do_auto_setup) {
   int ret = 0;
   if (alsa_backend_state != abm_disconnected)
     debug(1, "alsa: do_open() -- opening the output device when it is already "
@@ -1838,7 +1840,7 @@ int do_open(int do_auto_setup) {
   return ret;
 }
 
-int do_close() {
+static int do_close() {
   debug(2, "alsa: do_close()");
   if (alsa_backend_state == abm_disconnected)
     debug(1, "alsa: do_close() -- closing the output device when it is already "
@@ -1863,7 +1865,7 @@ int do_close() {
   return derr;
 }
 
-int sub_flush() {
+static int sub_flush() {
   if (alsa_backend_state == abm_disconnected)
     debug(1, "alsa: do_flush() -- closing the output device when it is already "
              "disconnected");
@@ -1882,7 +1884,9 @@ int sub_flush() {
   return derr;
 }
 
-int play(void *buf, int samples) {
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime) {
 
   // play() will change the state of the alsa_backend_mode to abm_playing
   // also, if the present alsa_backend_state is abm_disconnected, then first the
@@ -1919,7 +1923,7 @@ int play(void *buf, int samples) {
   return ret;
 }
 
-int prepare(void) {
+static int prepare(void) {
   // this will leave the DAC open / connected.
   int ret = 0;
 
@@ -1973,8 +1977,8 @@ static void parameters(audio_parameters *info) {
   info->maximum_volume_dB = alsa_mix_maxdb;
 }
 
-void do_volume(double vol) { // caller is assumed to have the alsa_mutex when
-                             // using this function
+static void do_volume(double vol) { // caller is assumed to have the alsa_mutex when
+                                    // using this function
   debug(3, "Setting volume db to %f.", vol);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -2014,7 +2018,7 @@ void do_volume(double vol) { // caller is assumed to have the alsa_mutex when
   pthread_setcancelstate(oldState, NULL);
 }
 
-void volume(double vol) {
+static void volume(double vol) {
   volume_set_request = 1; // an external request has been made to set the volume
   do_volume(vol);
 }
@@ -2038,7 +2042,7 @@ linear_volume;
 }
 */
 
-int mute(int mute_state_requested) {                // these would be for external reasons, not
+static int mute(int mute_state_requested) {         // these would be for external reasons, not
                                                     // because of the
                                                     // state of the backend.
   mute_requested_externally = mute_state_requested; // request a mute for external reasons
@@ -2046,13 +2050,13 @@ int mute(int mute_state_requested) {                // these would be for extern
   return set_mute_state();
 }
 /*
-void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
+static void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
 *arg) {
   debug(1, "alsa: alsa_buffer_monitor_thread_cleanup_function called.");
 }
 */
 
-void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
+static void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
   int frame_count = 0;
   int error_count = 0;
   int error_detected = 0;

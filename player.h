@@ -128,7 +128,6 @@ typedef struct {
   int is_encrypted;
 } pair_cipher_bundle; // cipher context and buffers
 
-
 typedef struct {
   struct pair_setup_context *setup_ctx;
   struct pair_verify_context *verify_ctx;
@@ -151,6 +150,7 @@ typedef struct flush_request_t {
 typedef struct {
   int connection_number; // for debug ID purposes, nothing else...
   int resend_interval;   // this is really just for debugging
+  int rtsp_link_is_idle; // if true, this indicates if the client asleep
   char *UserAgent;       // free this on teardown
   int AirPlayVersion;    // zero if not an AirPlay session. Used to help calculate latency
   int latency_warning_issued;
@@ -286,6 +286,9 @@ typedef struct {
   int64_t latency_delayed_timestamp; // this is for debugging only...
 
   // this is what connects an rtp timestamp to the remote time
+
+  int udp_clock_is_initialised;
+  int udp_clock_sender_is_initialised;
 
   int anchor_remote_info_is_valid;
 
@@ -425,6 +428,8 @@ void get_audio_buffer_size_and_occupancy(unsigned int *size, unsigned int *occup
                                          rtsp_conn_info *conn);
 
 int32_t modulo_32_offset(uint32_t from, uint32_t to);
+
+void ab_resync(rtsp_conn_info *conn);
 
 int player_prepare_to_play(rtsp_conn_info *conn);
 int player_play(rtsp_conn_info *conn);
