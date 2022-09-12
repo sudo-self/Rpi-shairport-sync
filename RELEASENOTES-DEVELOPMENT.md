@@ -4,7 +4,7 @@ Version 4.1-dev-526-gfd880056
 
 * **Important**. Please update and re-enable NQPTP. The Shared Memory Interface protocol that Shairport Sync and NQPTP use to communicate with one another has been updated to reflect changes in NQPTP's operation.
 
-Apart from moving to the new SMI iinterface for NQPTP, this update consists of many small enhancements and bug fixes.
+Apart from moving to the new SMI iinterface for NQPTP, this update consists of many small enhancements and bug fixes. (Yeah, and the version number really did go backwards...)
 
 Version 4.1-dev-535-gdafd1726
 ====
