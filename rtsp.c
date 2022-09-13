@@ -1297,7 +1297,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
     if (nread == 0) {
       // a blocking read that returns zero means eof -- implies connection closed
-      debug(3, "Connection %d: -- connection closed.", conn->connection_number);
+      debug(1, "Connection %d: connection closed.", conn->connection_number);
       reply = rtsp_read_request_response_channel_closed;
       goto shutdown;
     }
@@ -5407,7 +5407,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
           inet_ntop(conn->connection_ip_family, self_addr, conn->self_ip_string,
                     sizeof(conn->self_ip_string));
 
-          debug(2, "Connection %d: new connection from %s:%u to self at %s:%u.",
+          debug(1, "Connection %d: new connection from %s:%u to self at %s:%u.",
                 conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                 conn->self_ip_string, conn->self_rtsp_port);
           conn->connection_start_time = get_absolute_time_in_ns();
