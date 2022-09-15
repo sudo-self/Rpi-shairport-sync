@@ -1,3 +1,11 @@
+Version 4.1-dev-532-g8dfebea2
+====
+**Enhancements**
+* Improve the response of Shairport Sync when a Mac is woken up from sleep and continues playing e.g. a YouTube video. Shairport Sync should resume play in most circumstances. (BTW, the HomePod mini does not resume in these circumstances.)
+
+**Bug Fix**
+* Make the RTSP idle checker a bit more resilient -- wait for the full timeout even if interrupted by e.g. `SIGINT`. Also signal to NQPTP when to stop listening when a session goes idle or stops.
+
 Version 4.1-dev-526-gfd880056
 ====
 ***Pesky Changes You Can't Ignore***
