@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Comment -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>audioLatencies</key>
+	<array>
+		<dict>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>default</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>media</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>100</integer>
+		</dict>
+		<dict>
+			<key>audioType</key>
+			<string>media</string>
+			<key>inputLatencyMicros</key>
+			<integer>0</integer>
+			<key>outputLatencyMicros</key>
+			<integer>400000</integer>
+			<key>type</key>
+			<integer>102</integer>
+		</dict>
+	</array>
+	<key>keepAliveLowPower</key>
+	<true/>
+	<key>keepAliveSendStatsAsBody</key>
+	<true/>
+	<key>manufacturer</key>
+	<string>Shairport Sync</string>
+	<key>nameIsFactoryDefault</key>
+	<false/>
+	<key>protocolVersion</key>
+	<string>1.1</string>
+	<key>sdk</key>
+	<string>AirPlay;2.0.2</string>
+	<key>sourceVersion</key>
+	<string>366.0</string>
+	<key>statusFlags</key>
+	<integer>4</integer>
+	<!-- key values for deviceID, features, pi, name, model and a txtAirPlay data field are added programatically -->
+	<!-- key values for firmwareBuildDate (string), build (string) and PTPInfo (string)
+	 should be added programatically -->
+</dict>
+</plist>

@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef _COMMON_H
 #define _COMMON_H
 
@@ -29,6 +33,12 @@ typedef enum {
   DBT_session,    // use the system bus
 } dbus_session_type;
 #endif
+
+typedef enum {
+  TOE_normal,
+  TOE_emergency,
+  TOE_dbus // a dbus request was made -- don't wait for the dbus thread to exit
+} type_of_exit_type;
 
 #define sps_extra_code_output_stalled 32768
 #define sps_extra_code_output_state_cannot_make_ready 32769
@@ -147,8 +157,9 @@ typedef struct {
   int mqtt_publish_parsed;
   int mqtt_publish_cover;
   int mqtt_enable_remote;
+  char *mqtt_empty_payload_substitute;
 #endif
-  uint8_t hw_addr[6];
+  uint8_t hw_addr[8]; // only needs 6 but 8 is handy when converting this to a number
   int port;
   int udp_port_base;
   int udp_port_range;
@@ -205,9 +216,11 @@ typedef struct {
   // char *errfile;
   char *configfile;
   char *regtype; // The regtype is the service type followed by the protocol, separated by a dot, by
-                 // default “_raop._tcp.”.
-  char *interface;     // a string containg the interface name, or NULL if nothing specified
-  int interface_index; // only valid if the interface string is non-NULL
+                 // default “_raop._tcp.” for AirPlay 1.
+  char *regtype2;  // The regtype is the service type followed by the protocol, separated by a dot,
+                   // by default “_raop._tcp.” for AirPlay 2.
+  char *interface; // a string containg the interface name, or NULL if nothing specified
+  int interface_index;                        // only valid if the interface string is non-NULL
   double audio_backend_buffer_desired_length; // this will be the length in seconds of the
                                               // audio backend buffer -- the DAC buffer for ALSA
   double audio_backend_buffer_interpolation_threshold_in_seconds; // below this, soxr interpolation
@@ -289,14 +302,24 @@ typedef struct {
                    // can't use IP numbers as they might be given to different devices
                    // can't get hold of MAC addresses.
                    // can't define the nvll linked list struct here
+
+#ifdef CONFIG_AIRPLAY_2
+  uint64_t airplay_features;
+  uint32_t airplay_statusflags;
+  char *airplay_device_id; // for the Bonjour advertisement and the GETINFO PList
+  char *airplay_pin;       // non-NULL, 4 char PIN, if required for pairing
+  char *airplay_pi;        // UUID in the Bonjour advertisement and the GETINFO Plist
+  char *nqptp_shared_memory_interface_name; // client name for nqptp service
+#endif
 } shairport_cfg;
 
 // accessors to config for multi-thread access
 double get_config_airplay_volume();
 void set_config_airplay_volume(double v);
 
-uint32_t nctohl(const uint8_t *p); // read 4 characters from *p and do ntohl on them
-uint16_t nctohs(const uint8_t *p); // read 2 characters from *p and do ntohs on them
+uint32_t nctohl(const uint8_t *p);  // read 4 characters from *p and do ntohl on them
+uint16_t nctohs(const uint8_t *p);  // read 2 characters from *p and do ntohs on them
+uint64_t nctoh64(const uint8_t *p); // read 8 characters from *p to a uint64_t
 
 void memory_barrier();
 
@@ -363,9 +386,13 @@ double flat_vol2attn(double vol, long max_db, long min_db);
 // dB), return an attenuation depending on the transfer function
 double vol2attn(double vol, long max_db, long min_db);
 
-// return a monolithic (always increasing) time in nanoseconds
-// uint64_t get_absolute_time_in_fp(void); // obselete
-uint64_t get_absolute_time_in_ns(void);
+// return a time in nanoseconds
+#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
+// Not defined for macOS
+uint64_t get_realtime_in_ns(void);
+#endif
+uint64_t get_absolute_time_in_ns(void);  // monotonic_raw or monotonic
+uint64_t get_monotonic_time_in_ns(void); // NTP-disciplined
 
 // time at startup for debugging timing
 extern uint64_t ns_time_at_startup, ns_time_at_last_debug_message;
@@ -379,7 +406,7 @@ extern pthread_t main_thread_id;
 
 extern shairport_cfg config;
 extern config_t config_file_stuff;
-extern int emergency_exit;
+extern int type_of_exit_cleanup; // normal, emergency, dbus requested...
 
 int config_set_lookup_bool(config_t *cfg, char *where, int *dst);
 
@@ -402,8 +429,8 @@ extern pthread_mutex_t the_conn_lock;
   pthread_mutex_unlock(&the_conn_lock);
 
 // wait for the specified time in microseconds -- it checks every 20 milliseconds
-int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
-                                const char *debugmessage, int debuglevel);
+// int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
+//                                 const char *debugmessage, int debuglevel);
 // wait for the specified time, checking every 20 milliseconds, and block if it can't acquire the
 // lock
 int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexName,
@@ -447,4 +474,43 @@ int string_update_with_size(char **str, int *flag, char *s, size_t len);
 // from https://stackoverflow.com/questions/13663617/memdup-function-in-c, with thanks
 void *memdup(const void *mem, size_t size);
 
+int bind_socket_and_port(int type, int ip_family, const char *self_ip_address, uint32_t scope_id,
+                         uint16_t *port, int *sock);
+
+uint16_t bind_UDP_port(int ip_family, const char *self_ip_address, uint32_t scope_id, int *sock);
+
+void socket_cleanup(void *arg);
+void mutex_unlock(void *arg);
+void mutex_cleanup(void *arg);
+void cv_cleanup(void *arg);
+void thread_cleanup(void *arg);
+#ifdef CONFIG_AIRPLAY_2
+void plist_cleanup(void *arg);
+#endif
+
+char *debug_malloc_hex_cstring(void *packet, size_t nread);
+
+// from https://stackoverflow.com/questions/13663617/memdup-function-in-c, with thanks
+// allocates memory and copies the content to it
+// analogous to strndup;
+void *memdup(const void *mem, size_t size);
+
+// the difference between two unsigned 32-bit modulo values as a signed 32-bit result
+// now, if the two numbers are constrained to be within 2^(n-1)-1 of one another,
+// we can use their as a signed 2^n bit number which will be positive
+// if the first number is the same or "after" the second, and
+// negative otherwise
+
+int32_t mod32Difference(uint32_t a, uint32_t b);
+
+int get_device_id(uint8_t *id, int int_length);
+
+#ifdef CONFIG_USE_GIT_VERSION_STRING
+extern char git_version_string[];
+#endif
+
 #endif // _COMMON_H
+
+#ifdef __cplusplus
+}
+#endif

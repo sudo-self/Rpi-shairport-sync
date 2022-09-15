@@ -206,7 +206,9 @@ int dacp_send_command(const char *command, char **body, ssize_t *bodysize) {
       pthread_cleanup_push(addrinfo_cleanup, (void *)&res);
       // only do this one at a time -- not sure it is necessary, but better safe than sorry
 
-      int mutex_reply = sps_pthread_mutex_timedlock(&dacp_conversation_lock, 2000000, command, 1);
+      // int mutex_reply = sps_pthread_mutex_timedlock(&dacp_conversation_lock, 2000000, command,
+      // 1);
+      int mutex_reply = debug_mutex_lock(&dacp_conversation_lock, 2000000, 1);
       // int mutex_reply = pthread_mutex_lock(&dacp_conversation_lock);
       if (mutex_reply == 0) {
         pthread_cleanup_push(mutex_lock_cleanup, (void *)&dacp_conversation_lock);
@@ -415,10 +417,12 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
     // This is different to other AirPlay clients
     // which return immediately with a 403 code if there are no changes.
     dacp_server.always_use_revision_number_1 = 0;
-    char *p = strstr(conn->UserAgent, "forked-daapd");
-    if ((p != 0) &&
-        (p == conn->UserAgent)) { // must exist and be at the start of the UserAgent string
-      dacp_server.always_use_revision_number_1 = 1;
+    if (conn->UserAgent != NULL) {
+      char *p = strstr(conn->UserAgent, "forked-daapd");
+      if ((p != 0) &&
+          (p == conn->UserAgent)) { // must exist and be at the start of the UserAgent string
+        dacp_server.always_use_revision_number_1 = 1;
+      }
     }
 
     metadata_hub_modify_prolog();
@@ -463,7 +467,7 @@ void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
         "dacp_monitor_port_update_callback with Remote ID \"%s\", target ID \"%s\" and port "
         "number %d.",
         dacp_id, dacp_server.dacp_id, port);
-  if ((dacp_id == NULL) || (dacp_server.dacp_id == NULL)) {
+  if ((dacp_id == NULL) || (dacp_server.dacp_id[0] == '\0')) {
     warn("dacp_id or dacp_server.dacp_id NULL detected");
   } else {
     if (strcmp(dacp_id, dacp_server.dacp_id) == 0) {
@@ -479,16 +483,11 @@ void dacp_monitor_port_update_callback(char *dacp_id, uint16_t port) {
       //    metadata_store.dacp_server_active = dacp_server.scan_enable;
       //    metadata_hub_modify_epilog(ch);
     } else {
-      debug(1, "dacp port monitor reporting on an out-of-use remote.");
+      debug(2, "dacp port monitor reporting on an out-of-use remote.");
     }
   }
   pthread_cond_signal(&dacp_server_information_cv);
   debug_mutex_unlock(&dacp_server_information_lock, 3);
-}
-
-void dacp_monitor_thread_code_cleanup(__attribute__((unused)) void *arg) {
-  // debug(1, "dacp_monitor_thread_code_cleanup called.");
-  pthread_mutex_unlock(&dacp_server_information_lock);
 }
 
 void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
@@ -502,12 +501,8 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
   int idle_scan_count = 0;
   while (1) {
     int result = 0;
-    sps_pthread_mutex_timedlock(
-        &dacp_server_information_lock, 500000,
-        "dacp_monitor_thread_code couldn't get DACP server information lock in 0.5 second!.", 2);
     int32_t the_volume;
-
-    pthread_cleanup_push(dacp_monitor_thread_code_cleanup, NULL);
+    pthread_cleanup_debug_mutex_lock(&dacp_server_information_lock, 500000, 2);
     if (dacp_server.scan_enable == 0) {
       metadata_hub_modify_prolog();
       int ch = (metadata_store.dacp_server_active != 0) ||
@@ -527,7 +522,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
           (uint64_t)(1000000000 * config.missing_port_dacp_scan_interval_seconds);
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-      uint64_t time_of_wakeup_ns = get_absolute_time_in_ns() + time_to_wait_for_wakeup_ns;
+      uint64_t time_of_wakeup_ns = get_realtime_in_ns() + time_to_wait_for_wakeup_ns;
       uint64_t sec = time_of_wakeup_ns / 1000000000;
       uint64_t nsec = time_of_wakeup_ns % 1000000000;
 #endif
@@ -568,7 +563,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
     pthread_cleanup_pop(1);
 
     if (result == 490) { // 490 means no port was specified
-      if (((char *)dacp_server.dacp_id != NULL) && (strlen(dacp_server.dacp_id) != 0)) {
+      if (strlen(dacp_server.dacp_id) != 0) {
         // debug(1,"mdns_dacp_monitor_set_id");
         mdns_dacp_monitor_set_id(dacp_server.dacp_id);
       }
@@ -936,18 +931,9 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
 void dacp_monitor_start() {
   int rc;
 
-#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-  pthread_condattr_t attr;
-  pthread_condattr_init(&attr);
-  pthread_condattr_setclock(&attr, CLOCK_MONOTONIC); // can't do this in OS X, and don't need it.
-  rc = pthread_cond_init(&dacp_server_information_cv, &attr);
+  rc = pthread_cond_init(&dacp_server_information_cv, NULL);
   if (rc)
     debug(1, "Error initialising the DACP Server Information Condition Variable");
-  pthread_condattr_destroy(&attr);
-#endif
-#ifdef COMPILE_FOR_OSX
-  rc = pthread_cond_init(&dacp_server_information_cv, NULL);
-#endif
 
   pthread_mutexattr_t mta;
 
@@ -1358,12 +1344,14 @@ int dacp_set_volume(int32_t vo) {
                     machine_number,
                     highest_other_volume); // set the overall volume to the highest one
               }
-              int32_t desired_relative_volume =
-                  (vo * 100 + (highest_other_volume / 2)) / highest_other_volume;
-              debug(2, "Set our speaker volume relative to the highest volume.");
-              http_response = dacp_set_speaker_volume(
-                  machine_number,
-                  desired_relative_volume); // set the overall volume to the highest one
+              if (highest_other_volume != 0) {
+                int32_t desired_relative_volume =
+                    (vo * 100 + (highest_other_volume / 2)) / highest_other_volume;
+                debug(2, "Set our speaker volume relative to the highest volume.");
+                http_response = dacp_set_speaker_volume(
+                    machine_number,
+                    desired_relative_volume); // set the overall volume to the highest one
+              }
             }
           }
         }

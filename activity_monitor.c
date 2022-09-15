@@ -74,11 +74,8 @@ void going_active(int block) {
 #ifdef CONFIG_DBUS_INTERFACE
     if (dbus_service_is_running())
       shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
-    else
-      config.keep_dac_busy = 1;
-#else
-    config.keep_dac_busy = 1;
 #endif
+    config.keep_dac_busy = 1;
   }
 }
 
@@ -101,21 +98,18 @@ void going_inactive(int block) {
 #ifdef CONFIG_DBUS_INTERFACE
     if (dbus_service_is_running())
       shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
-    else
-      config.keep_dac_busy = 0;
-#else
-    config.keep_dac_busy = 0;
 #endif
+    config.keep_dac_busy = 0;
   }
 }
 
 void activity_monitor_signify_activity(int active) {
-  // this could be pthread_cancelled and they is likely to be cancellation points in the
+  // this could be pthread_cancelled and there is likely to be cancellation points in the
   // hooked-on procedures
-  pthread_cleanup_debug_mutex_lock(&activity_monitor_mutex, 10000, 1);
+  pthread_mutex_lock(&activity_monitor_mutex);
   player_state = active == 0 ? ps_inactive : ps_active;
   // Now, although we could simply let the state machine in the activity monitor thread
-  // look after eveything, we will change state here in two situations:
+  // look after everything, we will change state here in two situations:
   // 1. If the state machine is am_inactive and the player is ps_active
   // we will change the state to am_active and execute the going_active() function.
   // 2. If the state machine is am_active and the player is ps_inactive and
@@ -126,18 +120,23 @@ void activity_monitor_signify_activity(int active) {
   // and wait for them to complete before continuing. If they were performed in the
   // activity monitor thread, then we couldn't wait for them to complete.
 
-  // Thus, the only time the thread will execute a going_... function is when a non-zero
-  // timeout actually matures.
+  // So, if the active end procedure is on a timer, it will be executed when the
+  // timeout occurs and the "blocking" status is ignored.
 
   if ((state == am_inactive) && (player_state == ps_active)) {
-    going_active(
-        config.cmd_blocking); // note -- will be executed with the mutex locked, but that's okay
+    state = am_active;
+    pthread_mutex_unlock(&activity_monitor_mutex);
+    going_active(config.cmd_blocking);
   } else if ((state == am_active) && (player_state == ps_inactive) &&
              (config.active_state_timeout == 0.0)) {
-    going_inactive(
-        config.cmd_blocking); // note -- will be executed with the mutex locked, but that's okay
+    state = am_inactive;
+    pthread_mutex_unlock(&activity_monitor_mutex);
+    going_inactive(config.cmd_blocking);
+  } else {
+    pthread_mutex_unlock(&activity_monitor_mutex);
   }
-
+  // lock the mutex again to send a signal
+  pthread_cleanup_debug_mutex_lock(&activity_monitor_mutex, 10000, 1);
   pthread_cond_signal(&activity_monitor_cv);
   pthread_cleanup_pop(1); // release the mutex
 }
@@ -153,18 +152,7 @@ void *activity_monitor_thread_code(void *arg) {
   if (rc)
     die("activity_monitor: error %d initialising activity_monitor_mutex.", rc);
 
-// set the flowcontrol condition variable to wait on a monotonic clock
-#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-  pthread_condattr_t attr;
-  pthread_condattr_init(&attr);
-  pthread_condattr_setclock(&attr, CLOCK_MONOTONIC); // can't do this in OS X, and don't need it.
-  rc = pthread_cond_init(&activity_monitor_cv, &attr);
-  pthread_condattr_destroy(&attr);
-
-#endif
-#ifdef COMPILE_FOR_OSX
   rc = pthread_cond_init(&activity_monitor_cv, NULL);
-#endif
   if (rc)
     die("activity_monitor: error %d initialising activity_monitor_cv.");
   pthread_cleanup_push(activity_thread_cleanup_handler, arg);
@@ -180,26 +168,25 @@ void *activity_monitor_thread_code(void *arg) {
   do {
     switch (state) {
     case am_inactive:
-      // debug(1,"am_state: am_inactive");
+      debug(2, "am_state: am_inactive");
       while (player_state != ps_active)
         pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);
-      state = am_active;
-      // going_active(); // this is done in activity_monitor_signify_activity
+      // state = am_active; this is done by the activity_monitor_signify_activity(1) function
+      debug(2, "am_state: am_active");
       break;
     case am_active:
       // debug(1,"am_state: am_active");
       while (player_state != ps_inactive)
         pthread_cond_wait(&activity_monitor_cv, &activity_monitor_mutex);
-      if (config.active_state_timeout == 0.0) {
-        state = am_inactive;
-        // going_inactive(); // this is done in activity_monitor_signify_activity
-      } else {
+
+      // if it's not already am_inactive, the it should be beginning to time out...
+      if (state != am_inactive) {
         state = am_timing_out;
 
         uint64_t time_to_wait_for_wakeup_ns = (uint64_t)(config.active_state_timeout * 1000000000);
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-        uint64_t time_of_wakeup_ns = get_absolute_time_in_ns() + time_to_wait_for_wakeup_ns;
+        uint64_t time_of_wakeup_ns = get_realtime_in_ns() + time_to_wait_for_wakeup_ns;
         sec = time_of_wakeup_ns / 1000000000;
         nsec = time_of_wakeup_ns % 1000000000;
         time_for_wait.tv_sec = sec;
@@ -215,7 +202,6 @@ void *activity_monitor_thread_code(void *arg) {
       }
       break;
     case am_timing_out:
-      // debug(1,"am_state: am_timing_out");
       rc = 0;
       while ((player_state != ps_active) && (rc != ETIMEDOUT)) {
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD

@@ -1,8 +1,8 @@
 # Builds & pushes a docker image when a tag occurs.
 # It seems this yaml has to exist on the branch the tag refers to.
 
-# The following tags are created & pushed:
-# [RELEASE TAG] and latest
+# The following docker tags are created & pushed:
+# [RELEASE TAG], [RELEASE TAG]-classic,
 
 name: Build and push docker images on releases.
 
@@ -31,6 +31,14 @@ jobs:
 
       - name: Set tag env
         run: echo "GIT_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+      - name: Determine NQPTP env (part 1).
+        if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
+        run: echo "NQPTP_BRANCH=development" >> $GITHUB_ENV
+      
+      - name: Determine NQPTP env (part 2).
+        if: ${{ env.SHAIRPORT_SYNC_BRANCH != 'development' }}
+        run: echo "NQPTP_BRANCH=main" >> $GITHUB_ENV
         
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -49,9 +57,21 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: ./
-          file: ./docker/airplay1/Dockerfile
+          file: ./docker/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
           push: true
-          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:latest, ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}
+          build-args: |
+            SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
+            NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
+
+      - name: Build and push (Classic)
+        uses: docker/build-push-action@v2
+        with:
+          context: ./
+          file: ./docker/classic/Dockerfile
+          platforms: ${{ env.DOCKER_PLATFORMS }}
+          push: true
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}-classic
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}

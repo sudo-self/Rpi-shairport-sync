@@ -9,20 +9,16 @@
 name="shairport_sync"
 rcvar="shairport_sync_enable"
 
-start_cmd="${name}_start"
-stop_cmd="${name}_stop"
+# NOTE the difference between the service name shairport_sync and the application and script file names shairport-sync.
+# This seems to be necessary in FreeBSD, as the startup system doesn't seem to like dashes ("-") in service names.
 
-shairport_sync_start()
-{
-    checkyesno shairport_sync_enable && echo "Starting shairport-sync." && \
-    su -m shairport-sync -c "/usr/local/bin/shairport-sync -d"
-}
+pidfile="/var/run/shairport-sync.pid"
+apptodaemonise="/usr/local/bin/shairport-sync --log-to-syslog"
 
-shairport_sync_stop()
-{
-    checkyesno shairport_sync_enable && echo "Stopping shairport-sync." && \
-    /usr/local/bin/shairport-sync -k
-}
+command="/usr/sbin/daemon"
+# -S log to syslog; -P store the supervisor PID; -u to specify the user to run the service under
+command_args="-u shairport-sync -S -T shairport-sync -P ${pidfile} ${apptodaemonise}"
 
 load_rc_config $name
 run_rc_command "$1"
+

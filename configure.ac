@@ -2,24 +2,33 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.50])
-AC_INIT([shairport-sync], [3.3.9], [4265913+mikebrady@users.noreply.github.com])
+AC_INIT([shairport-sync], [4.1-dev], [4265913+mikebrady@users.noreply.github.com])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_SRCDIR([shairport.c])
 AC_CONFIG_HEADERS([config.h])
 AC_PROG_RANLIB
 
+AC_CHECK_PROGS([GIT], [git])
+if test -n "$GIT" && test -e "$srcdir/.git/index" ; then
+  AC_DEFINE([CONFIG_USE_GIT_VERSION_STRING], 1, [Use the version string produced by running 'git describe --dirty'.])
+fi
+AM_CONDITIONAL([USE_GIT_VERSION], [test -n "$GIT" && test -e "$srcdir/.git/index" ])
+
 # Derived from the Avahi configure.ac file
 # Specifying the OS type, defaulting to linux.
 #
-AC_ARG_WITH(os, AS_HELP_STRING([--with-os=OSType],[Specify the distribution to target: One of linux freebsd or darwin]))
+AC_ARG_WITH(os, AS_HELP_STRING([--with-os=OSType],[Specify the distribution to target: One of linux, freebsd, openbsd or darwin]))
 if test "z$with_os" = "z"; then
   with_os="linux"
 fi
 with_os=`echo ${with_os} | tr '[[:upper:]]' '[[:lower:]]' `
-
-if test "x${with_os}" != xlinux && "x${with_os}" != xfreebsd && "x${with_os}" != xdarwin ; then
-	AC_MSG_ERROR(--with-os=<arg> argument must linux, freebsd, openbsd or darwin)
-fi
+case "x${with_os}" in
+xlinux|xfreebsd|xopenbsd|xdarwin)
+  ;;
+*)
+  AC_MSG_ERROR([--with-os=<arg> argument must be one of linux, freebsd, openbsd or darwin])
+  ;;
+esac
 
 # Checks for programs.
 AC_PROG_CC
@@ -37,10 +46,11 @@ if test "x${with_os}" = xopenbsd ; then
  AC_CHECK_LIB([c],[clock_gettime], , AC_MSG_ERROR(libc needed))
 fi
 
+# Pass the conditionals to automake
 AM_CONDITIONAL([BUILD_FOR_LINUX], [test "x${with_os}" = xlinux ])
 AM_CONDITIONAL([BUILD_FOR_FREEBSD], [test "x${with_os}" = xfreebsd ])
 AM_CONDITIONAL([BUILD_FOR_OPENBSD], [test "x${with_os}" = xopenbsd ])
-
+AM_CONDITIONAL([BUILD_FOR_DARWIN], [test "x${with_os}" = xdarwin ])
 
 ##### Some build systems are not fully using pkg-config, so we can use the flag ${with_pkg_config} on a case-by-case basis
 ##### to control how to deal with them
@@ -65,21 +75,18 @@ fi
 
 AC_ARG_WITH([dummy],[AS_HELP_STRING([--with-dummy],[include the dummy audio back end])])
 if test "x$with_dummy" = "xyes" ; then
-  AC_MSG_RESULT(include the dummy audio back end)
   AC_DEFINE([CONFIG_DUMMY], 1, [Include a fake audio backend.])
 fi
 AM_CONDITIONAL([USE_DUMMY], [test "x$with_dummy" = "xyes" ])
 
 AC_ARG_WITH([stdout],[AS_HELP_STRING([--with-stdout],[include the stdout audio back end])])
 if test "x$with_stdout" = "xyes" ; then
-  AC_MSG_RESULT(include the stdout audio back end)
   AC_DEFINE([CONFIG_STDOUT], 1, [Include an audio backend to output to standard output (stdout).])
 fi
 AM_CONDITIONAL([USE_STDOUT], [test "x$with_stdout" = "xyes"])
 
 AC_ARG_WITH([pipe],[AS_HELP_STRING([--with-pipe],[include the pipe audio back end])])
 if test "x$with_pipe" = "xyes" ; then
-  AC_MSG_RESULT(include the pipe audio back end)
   AC_DEFINE([CONFIG_PIPE], 1, [Include an audio backend to output to a unix pipe.])
 fi
 AM_CONDITIONAL([USE_PIPE], [test "x$with_pipe" = "xyes" ])
@@ -221,6 +228,9 @@ if test "x$with_avahi" = "xyes" ; then
   AC_DEFINE([CONFIG_AVAHI], 1, [Include Avahi-based mDNS support.])
   AC_CHECK_LIB([avahi-client], [avahi_client_new], , AC_MSG_ERROR(Avahi support requires the avahi-client library!))
   AC_CHECK_LIB([avahi-common],[avahi_strerror], , AC_MSG_ERROR(Avahi support requires the avahi-common library!))
+  AC_CONFIG_FILES([scripts/shairport-sync.service-avahi])
+else
+  AC_CONFIG_FILES([scripts/shairport-sync.service])
 fi
 AM_CONDITIONAL([USE_AVAHI], [test "x$with_avahi" = "xyes"])
 
@@ -299,11 +309,33 @@ if test "x$with_pa" = "xyes" ; then
 fi
 AM_CONDITIONAL([USE_PA], [test "x$with_pa" = "xyes"])
 
+# Look for pipewire flag
+AC_ARG_WITH(pw, [AS_HELP_STRING([--with-pw],[choose Pipewire support.])])
+if test "x$with_pw" = "xyes" ; then
+  AC_DEFINE([CONFIG_PW], 1, [Include Pipewire support.])
+  if  test "x${with_pkg_config}" = xyes ; then
+    PKG_CHECK_MODULES(
+      [PIPEWIRE], [libpipewire-0.3 >= 0.3.24],
+      [CFLAGS="${PIPEWIRE_CFLAGS} ${CFLAGS} -Wno-missing-field-initializers" LIBS="${PIPEWIRE_LIBS} ${LIBS}"],
+      [AC_MSG_ERROR(Pipewire support requires the libpipewire library -- libpipewire-0.3-dev suggested!)])
+  else
+    AC_CHECK_LIB([pipewire], [pw_stream_queue_buffer], , AC_MSG_ERROR(Pipewire support requires the libpipewire library -- libpipewire-0.3-dev suggested!))
+  fi
+fi
+AM_CONDITIONAL([USE_PW], [test "x$with_pw" = "xyes"])
+
 # Look for Convolution flag
 AC_ARG_WITH(convolution, [AS_HELP_STRING([--with-convolution],[choose audio DSP convolution support])])
 if test "x$with_convolution" = "xyes" ; then
   AC_DEFINE([CONFIG_CONVOLUTION], 1, [Include audio DSP convolution support.])
-  AC_CHECK_LIB([sndfile], [sf_open], , AC_MSG_ERROR(Convolution support requires the sndfile library -- libsndfile1-dev suggested!))
+  if  test "x${with_pkg_config}" = xyes ; then
+    PKG_CHECK_MODULES(
+      [sndfile], [sndfile],
+      [CFLAGS="${sndfile_CFLAGS} ${CFLAGS}"
+      LIBS="${sndfile_LIBS} ${LIBS}"], AC_MSG_ERROR(Convolution support requires the sndfile library -- libsndfile1-dev suggested!))
+  else
+    AC_CHECK_LIB([sndfile], [sf_open], , AC_MSG_ERROR(Convolution support requires the sndfile library -- libsndfile1-dev suggested!))
+  fi
 fi
 AM_CONDITIONAL([USE_CONVOLUTION], [test "x$with_convolution" = "xyes"])
 
@@ -342,7 +374,7 @@ AC_ARG_WITH(mpris-test-client, [AS_HELP_STRING([--with-mpris-test-client],[compi
 AM_CONDITIONAL([USE_MPRIS_CLIENT], [test "x$with_mpris_test_client" = "xyes"])
 
 if test "x$with_mpris_test_client" = "xyes" || test "x$with_dbus_test_client" = "xyes" || test "x$with_mpris_interface" = "xyes" || test "x$with_dbus_interface" = "xyes" ; then
-  PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(MPRIS client support requires the glib 2.0 library -- libglib2.0-dev suggested!)])
+  PKG_CHECK_MODULES([glib], [gio-unix-2.0 >= 2.30.0],[CFLAGS="${glib_CFLAGS} ${CFLAGS}" LIBS="${glib_LIBS} ${LIBS}"],[AC_MSG_ERROR(the glib 2.0 library is required -- libglib2.0-dev suggested!)])
 fi
 
 # Look for mqtt flag
@@ -370,6 +402,31 @@ if test "x$REQUESTED_EXTENDED_METADATA_SUPPORT" = "x1" || test "x$with_metadata"
 fi
 AM_CONDITIONAL([USE_METADATA], [test "x$with_metadata" = "xyes"])
 
+# Look for AirPlay 2 flag
+AC_ARG_WITH(airplay-2, [AS_HELP_STRING([--with-airplay-2],[Build for AirPlay 2])])
+if test "x$with_airplay_2" = "xyes" ; then
+  AC_DEFINE([CONFIG_AIRPLAY_2], 1, [Build for AirPlay 2])
+  PKG_CHECK_MODULES([libplist], [libplist >= 2.0.0],[CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],[
+    PKG_CHECK_MODULES([libplist], [libplist-2.0 >= 2.0.0],[CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],[
+      AC_MSG_ERROR(AirPlay 2 support requires libplist 2.0.0 or later -- search for pkg libplist-dev on Debian or libplist-2.2.0 or later on FreeBSD!)
+    ])
+  ])
+  PKG_CHECK_MODULES([libsodium], [libsodium],[CFLAGS="${libsodium_CFLAGS} ${CFLAGS}" LIBS="${libsodium_LIBS} ${LIBS}"],[AC_MSG_ERROR(AirPlay 2 support requires libsodium -- libsodium-dev suggested)])
+  PKG_CHECK_MODULES([libgcrypt], [libgcrypt],[CFLAGS="${libgcrypt_CFLAGS} ${CFLAGS}" LIBS="${libgcrypt_LIBS} ${LIBS}"],[
+    AC_CHECK_LIB([gcrypt], [gcry_control], [], [
+      AC_MSG_ERROR([Airplay 2 support requires libgcrypt -- libgcrypt-dev suggested])
+    ])
+  ])
+  PKG_CHECK_MODULES([libavutil], [libavutil],[CFLAGS="${libavutil_CFLAGS} ${CFLAGS}" LIBS="${libavutil_LIBS} ${LIBS}"],[
+      AC_MSG_ERROR(AirPlay 2 support requires libavutil -- libavutil-dev suggested)])
+  PKG_CHECK_MODULES([libavcodec], [libavcodec],[CFLAGS="${libavcodec_CFLAGS} ${CFLAGS}" LIBS="${libavcodec_LIBS} ${LIBS}"],[
+      AC_MSG_ERROR(AirPlay 2 support requires libavcodec -- libavcodec-dev suggested)])
+  AC_CHECK_LIB([avformat],[avformat_new_stream], [], [AC_MSG_ERROR([AirPlay 2 support requires libavformat -- libavformat-dev suggested])])
+  AC_CHECK_LIB([swresample],[swr_convert], [], [AC_MSG_ERROR([AirPlay 2 support requires libswresample -- libswresample-dev suggested])])
+  AC_CHECK_LIB([uuid],[uuid_generate], [], [AC_MSG_ERROR([AirPlay 2 support requires the uuid library -- uuid-dev suggested])])
+fi
+AM_CONDITIONAL([USE_AIRPLAY_2], [test "x$with_airplay_2" = "xyes"])
+
 if  test "x${with_systemd}" = xyes ; then
   # Find systemd unit dir
   AC_ARG_WITH([systemdsystemunitdir],
@@ -395,7 +452,6 @@ fi
 AM_CONDITIONAL([HAVE_XMLTOMAN], [test -n "$XMLTOMAN"])
 
 # Checks for header files.
-AC_HEADER_STDC
 AC_CHECK_HEADERS([getopt_long.h])
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h mach/mach.h memory.h netdb.h netinet/in.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h sys/time.h syslog.h unistd.h])
 
@@ -418,6 +474,7 @@ AC_FUNC_ERROR_AT_LINE
 AC_FUNC_FORK
 AC_CHECK_FUNCS([atexit clock_gettime gethostname inet_ntoa memchr memmove memset mkfifo pow select socket stpcpy strcasecmp strchr strdup strerror strstr strtol strtoul])
 
-AC_CONFIG_FILES([Makefile man/Makefile scripts/shairport-sync.service])
+# Note -- there are AC_CONFIG_FILES directives further back, conditional on Avahi
+AC_CONFIG_FILES([Makefile man/Makefile])
 AC_CONFIG_FILES([scripts/shairport-sync],[chmod +x scripts/shairport-sync])
 AC_OUTPUT

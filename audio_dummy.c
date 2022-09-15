@@ -4,7 +4,7 @@
  * All rights reserved.
  *
  * Modifications for audio synchronisation
- * and related work, copyright (c) Mike Brady 2014
+ * and related work, copyright (c) Mike Brady 2014 -- 2022
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -30,6 +30,7 @@
 
 #include "audio.h"
 #include "common.h"
+#include <inttypes.h> // for PRId64 and friends
 #include <stdio.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -41,8 +42,26 @@ static void deinit(void) {}
 static void start(int sample_rate, __attribute__((unused)) int sample_format) {
   debug(1, "dummy audio output started at %d frames per second.", sample_rate);
 }
+// clang-format off
+// Here is a brief explanation of the parameters:
+// sample_type is 'play_samples_are_untimed' or 'play_samples_are_timed' defined in audio.h.
+//   untimed samples are typically silence used by Shairport Sync itself to set up synchronisation or to fill for missing packets of audio -- the timestamp and playtime are zero.
+//   timed samples come from the client.
+// timestamp is the RTP timestamp given to the first frame by the client
+// playtime is when the first frame should to be played. It is given in "local time".
+// local time is CLOCK_MONOTONIC_RAW if available, or CLOCK_MONOTONIC otherwise, expressed in nanoseconds as an unsigned 64-bit integer (See get_absolute_time_in_ns() in common.c)
+// clang-format on
 
-static int play(__attribute__((unused)) void *buf, __attribute__((unused)) int samples) {
+static int play(__attribute__((unused)) void *buf, __attribute__((unused)) int samples,
+                int sample_type, uint32_t timestamp, uint64_t playtime) {
+
+  // sample code using some of the extra information
+  if (sample_type == play_samples_are_timed) {
+    int64_t lead_time = playtime - get_absolute_time_in_ns();
+    debug(1, "leadtime for frame %u is %" PRId64 " nanoseconds, i.e. %f seconds.", timestamp,
+          lead_time, 0.000000001 * lead_time);
+  }
+
   return 0;
 }
 
@@ -58,6 +77,7 @@ audio_output audio_dummy = {.name = "dummy",
                             .is_running = NULL,
                             .flush = NULL,
                             .delay = NULL,
+                            .stats = NULL,
                             .play = &play,
                             .volume = NULL,
                             .parameters = NULL,

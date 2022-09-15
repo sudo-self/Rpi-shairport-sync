@@ -22,6 +22,8 @@ static void write_callback(struct SoundIoOutStream *outstream, int frame_count_m
 
   char *read_ptr = soundio_ring_buffer_read_ptr(ring_buffer);
   int fill_bytes = soundio_ring_buffer_fill_count(ring_buffer);
+  if (outstream->bytes_per_frame == 0)
+    die("soundio: outstream->bytes_per_frame is zero.");
   int fill_count = fill_bytes / outstream->bytes_per_frame;
 
   debug(3,
@@ -162,7 +164,9 @@ static void start(int sample_rate, int sample_format) {
   debug(1, "libsoundio output started\n");
 }
 
-static int play(void *buf, int samples) {
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime) {
   // int err;
   int free_bytes = soundio_ring_buffer_free_count(ring_buffer);
   int written_bytes = 0;
@@ -216,6 +220,7 @@ audio_output audio_soundio = {.name = "soundio",
                               .is_running = NULL,
                               .flush = &flush,
                               .delay = NULL,
+                              .stats = NULL,
                               .play = &play,
                               .volume = NULL,
                               .parameters = &parameters,

@@ -47,6 +47,12 @@
 #include <avahi-client/lookup.h>
 #include <avahi-common/alternative.h>
 
+void threaded_poll_unlock(void *arg) { avahi_threaded_poll_unlock((AvahiThreadedPoll *)arg); }
+
+#define pthread_avahi_threaded_poll_lock_and_push(mu)                                              \
+  avahi_threaded_poll_lock(mu);                                                                    \
+  pthread_cleanup_push(threaded_poll_unlock, (void *)mu)
+
 #define check_avahi_response(debugLevelArg, veryUnLikelyArgumentName)                              \
   {                                                                                                \
     int rc = veryUnLikelyArgumentName;                                                             \
@@ -61,6 +67,9 @@ typedef struct {
 
 dacp_browser_struct private_dbs;
 
+AvahiStringList *text_record_string_list = NULL;
+AvahiStringList *ap2_text_record_string_list = NULL;
+
 // static AvahiServiceBrowser *sb = NULL;
 static AvahiClient *client = NULL;
 // static AvahiClient *service_client = NULL;
@@ -69,6 +78,8 @@ static AvahiThreadedPoll *tpoll = NULL;
 // static AvahiThreadedPoll *service_poll = NULL;
 
 static char *service_name = NULL;
+char *ap2_service_name = NULL;
+
 static int port = 0;
 
 static void resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIndex interface,
@@ -107,7 +118,7 @@ static void resolve_callback(AvahiServiceResolver *r, AVAHI_GCC_UNUSED AvahiIfIn
           char portstring[20];
           memset(portstring, 0, sizeof(portstring));
           snprintf(portstring, sizeof(portstring), "%u", port);
-          send_ssnc_metadata('dapo', strdup(portstring), strlen(portstring), 0);
+          send_ssnc_metadata('dapo', portstring, strlen(portstring), 0);
 #endif
         }
       } else {
@@ -185,7 +196,7 @@ static void egroup_callback(AvahiEntryGroup *g, AvahiEntryGroupState state,
 
     /* A service name collision with a remote service
      * happened. Let's pick a new name */
-    debug(2, "avahi name collision -- look for another");
+    debug(1, "avahi name collision -- look for another");
     n = avahi_alternative_service_name(service_name);
     if (service_name)
       avahi_free(service_name);
@@ -229,36 +240,38 @@ static void register_service(AvahiClient *c) {
     if (!avahi_entry_group_is_empty(group))
       return;
 
-    int ret;
+    int ret = 0;
+
     AvahiIfIndex selected_interface;
     if (config.interface != NULL)
       selected_interface = config.interface_index;
     else
       selected_interface = AVAHI_IF_UNSPEC;
-#ifdef CONFIG_METADATA
-    if (config.metadata_enabled) {
-      ret = avahi_entry_group_add_service(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
-                                          service_name, config.regtype, NULL, NULL, port,
-                                          MDNS_RECORD_WITH_METADATA, NULL);
-      if (ret == 0)
-        debug(2, "avahi: request to add \"%s\" service with metadata", config.regtype);
-    } else {
-#endif
-      ret = avahi_entry_group_add_service(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
-                                          service_name, config.regtype, NULL, NULL, port,
-                                          MDNS_RECORD_WITHOUT_METADATA, NULL);
-      if (ret == 0)
-        debug(2, "avahi: request to add \"%s\" service without metadata", config.regtype);
-#ifdef CONFIG_METADATA
+    if (ap2_text_record_string_list) {
+      ret = avahi_entry_group_add_service_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
+                                                 ap2_service_name, config.regtype2, NULL, NULL,
+                                                 port, ap2_text_record_string_list);
+      if (ret == AVAHI_ERR_COLLISION) {
+        die("Error: AirPlay 2 name \"%s\" is already in use.", ap2_service_name);
+      }
     }
-#endif
-
-    if (ret < 0)
-      debug(1, "avahi: avahi_entry_group_add_service failed");
-    else {
+    if ((ret == 0) && (text_record_string_list)) {
+      ret = avahi_entry_group_add_service_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC, 0,
+                                                 service_name, config.regtype, NULL, NULL, port,
+                                                 text_record_string_list);
+      if (ret == AVAHI_ERR_COLLISION) {
+        die("Error: AirPlay 1 name \"%s\" is already in use.", service_name);
+      }
+    }
+    if (ret == 0) {
       ret = avahi_entry_group_commit(group);
+      debug(2, "avahi: avahi_entry_group_commit %d", ret);
       if (ret < 0)
         debug(1, "avahi: avahi_entry_group_commit failed");
+    } else if (ret < 0) {
+      debug(1, "avahi: avahi_entry_group_add_service failed");
+    } else {
+      debug(1, "avahi: unexpected positive return");
     }
   }
 }
@@ -317,9 +330,65 @@ static void client_callback(AvahiClient *c, AvahiClientState state,
   }
 }
 
-static int avahi_register(char *srvname, int srvport) {
+static int avahi_update(char **txt_records, char **secondary_txt_records) {
+  // debug(1, "avahi_update.");
+
+  /*
+    service_name = strdup(ap1name);
+    if (ap2name != NULL)
+      ap2_service_name = strdup(ap2name);
+    port = srvport;
+  */
+  int err = 0;
+  AvahiIfIndex selected_interface;
+  if (config.interface != NULL)
+    selected_interface = config.interface_index;
+  else
+    selected_interface = AVAHI_IF_UNSPEC;
+  pthread_avahi_threaded_poll_lock_and_push(tpoll);
+  // avahi_threaded_poll_lock(tpoll);
+  // pthread_cleanup_push(threaded_poll_unlock, (void *)tpoll)
+
+  if (txt_records != NULL) {
+    if (text_record_string_list)
+      avahi_string_list_free(text_record_string_list);
+    text_record_string_list = avahi_string_list_new_from_array((const char **)txt_records, -1);
+    err = avahi_entry_group_update_service_txt_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC,
+                                                      0, service_name, config.regtype, NULL,
+                                                      text_record_string_list);
+    if (err != 0)
+      debug(1, "avahi_update error updating primary txt records.");
+  }
+
+  if (secondary_txt_records != NULL) {
+    if (ap2_text_record_string_list)
+      avahi_string_list_free(ap2_text_record_string_list);
+    ap2_text_record_string_list =
+        avahi_string_list_new_from_array((const char **)secondary_txt_records, -1);
+    err = avahi_entry_group_update_service_txt_strlst(group, selected_interface, AVAHI_PROTO_UNSPEC,
+                                                      0, ap2_service_name, config.regtype2, NULL,
+                                                      ap2_text_record_string_list);
+    if (err != 0)
+      debug(1, "avahi_update error updating secondary txt records.");
+  }
+
+  pthread_cleanup_pop(1); // unlock the avahi_threaded_poll_lock
+  return 0;
+}
+
+static int avahi_register(char *ap1name, char *ap2name, int srvport, char **txt_records,
+                          char **secondary_txt_records) {
   // debug(1, "avahi_register.");
-  service_name = strdup(srvname);
+  service_name = strdup(ap1name);
+  if (ap2name != NULL)
+    ap2_service_name = strdup(ap2name);
+
+  text_record_string_list = avahi_string_list_new_from_array((const char **)txt_records, -1);
+
+  if (secondary_txt_records != NULL)
+    ap2_text_record_string_list =
+        avahi_string_list_new_from_array((const char **)secondary_txt_records, -1);
+
   port = srvport;
 
   int err;
@@ -342,7 +411,7 @@ static int avahi_register(char *srvname, int srvport) {
 }
 
 static void avahi_unregister(void) {
-  // debug(1, "avahi_unregister.");
+  debug(2, "avahi_unregister.");
   if (tpoll) {
     debug(2, "avahi: stop the threaded poll.");
     avahi_threaded_poll_stop(tpoll);
@@ -364,15 +433,34 @@ static void avahi_unregister(void) {
   if (service_name) {
     debug(2, "avahi: free the service name.");
     free(service_name);
+    service_name = NULL;
   } else
     debug(1, "avahi attempt to free NULL service name");
-  service_name = NULL;
+
+  if (ap2_service_name) {
+    debug(2, "avahi: free the ap2 service_name.");
+    free(ap2_service_name);
+    ap2_service_name = NULL;
+  }
+
+  if (text_record_string_list) {
+    debug(2, "avahi free text_record_string_list");
+    avahi_string_list_free(text_record_string_list);
+    text_record_string_list = NULL;
+  } else
+    debug(1, "avahi attempt to free NULL text_record_string_list");
+
+  if (ap2_text_record_string_list) {
+    debug(2, "avahi free ap_2text_record_string_list");
+    avahi_string_list_free(ap2_text_record_string_list);
+    ap2_text_record_string_list = NULL;
+  }
 }
 
 void avahi_dacp_monitor_start(void) {
   // debug(1, "avahi_dacp_monitor_start.");
   memset((void *)&private_dbs, 0, sizeof(dacp_browser_struct));
-  debug(1, "avahi_dacp_monitor_start Avahi DACP monitor successfully started");
+  debug(2, "avahi_dacp_monitor_start Avahi DACP monitor successfully started");
   return;
 }
 
@@ -380,27 +468,35 @@ void avahi_dacp_monitor_set_id(const char *dacp_id) {
   // debug(1, "avahi_dacp_monitor_set_id: Search for DACP ID \"%s\".", t);
   dacp_browser_struct *dbs = &private_dbs;
 
-  if (dbs->dacp_id)
-    free(dbs->dacp_id);
-  if (dacp_id == NULL)
-    dbs->dacp_id = NULL;
-  else {
-    char *t = strdup(dacp_id);
-    if (t) {
-      dbs->dacp_id = t;
-      avahi_threaded_poll_lock(tpoll);
-      if (dbs->service_browser)
-        avahi_service_browser_free(dbs->service_browser);
+  if (((dbs->dacp_id) && (dacp_id) && (strcmp(dbs->dacp_id, dacp_id) == 0)) ||
+      ((dbs->dacp_id == NULL) && (dacp_id == NULL))) {
+    debug(3, "no change...");
+  } else {
+    if (dbs->dacp_id)
+      free(dbs->dacp_id);
+    if (dacp_id == NULL)
+      dbs->dacp_id = NULL;
+    else {
+      char *t = strdup(dacp_id);
+      if (t) {
+        dbs->dacp_id = t;
+        pthread_avahi_threaded_poll_lock_and_push(tpoll);
+        // avahi_threaded_poll_lock(tpoll);
+        if (dbs->service_browser)
+          avahi_service_browser_free(dbs->service_browser);
 
-      if (!(dbs->service_browser =
-                avahi_service_browser_new(client, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, "_dacp._tcp",
-                                          NULL, 0, browse_callback, (void *)dbs))) {
-        warn("failed to create avahi service browser: %s\n",
-             avahi_strerror(avahi_client_errno(client)));
+        if (!(dbs->service_browser =
+                  avahi_service_browser_new(client, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC,
+                                            "_dacp._tcp", NULL, 0, browse_callback, (void *)dbs))) {
+          warn("failed to create avahi service browser: %s\n",
+               avahi_strerror(avahi_client_errno(client)));
+        }
+        pthread_cleanup_pop(1); // unlock the avahi_threaded_poll_lock
+        // avahi_threaded_poll_unlock(tpoll);
+        debug(2, "dacp_monitor for \"%s\"", dacp_id);
+      } else {
+        warn("avahi_dacp_set_id: can not allocate a dacp_id string in dacp_browser_struct.");
       }
-      avahi_threaded_poll_unlock(tpoll);
-    } else {
-      warn("avahi_dacp_set_id: can not allocate a dacp_id string in dacp_browser_struct.");
     }
   }
 }
@@ -409,18 +505,21 @@ void avahi_dacp_monitor_stop() {
   // debug(1, "avahi_dacp_monitor_stop");
   dacp_browser_struct *dbs = &private_dbs;
   // stop and dispose of everything
-  avahi_threaded_poll_lock(tpoll);
+  pthread_avahi_threaded_poll_lock_and_push(tpoll);
+  // avahi_threaded_poll_lock(tpoll);
   if (dbs->service_browser) {
     avahi_service_browser_free(dbs->service_browser);
     dbs->service_browser = NULL;
   }
-  avahi_threaded_poll_unlock(tpoll);
+  pthread_cleanup_pop(1); // unlock the avahi_threaded_poll_lock
+  // avahi_threaded_poll_unlock(tpoll);
   free(dbs->dacp_id);
   debug(2, "avahi_dacp_monitor_stop Avahi DACP monitor successfully stopped");
 }
 
 mdns_backend mdns_avahi = {.name = "avahi",
                            .mdns_register = avahi_register,
+                           .mdns_update = avahi_update,
                            .mdns_unregister = avahi_unregister,
                            .mdns_dacp_monitor_start = avahi_dacp_monitor_start,
                            .mdns_dacp_monitor_set_id = avahi_dacp_monitor_set_id,

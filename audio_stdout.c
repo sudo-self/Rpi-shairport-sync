@@ -43,7 +43,9 @@ static void start(__attribute__((unused)) int sample_rate,
   fd = STDOUT_FILENO;
 }
 
-static int play(void *buf, int samples) {
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime) {
   char errorstring[1024];
   int warned = 0;
   int rc = write(fd, buf, samples * 4);
@@ -84,6 +86,7 @@ audio_output audio_stdout = {.name = "stdout",
                              .is_running = NULL,
                              .flush = NULL,
                              .delay = NULL,
+                             .stats = NULL,
                              .play = &play,
                              .volume = NULL,
                              .parameters = NULL,

@@ -1,6 +1,7 @@
 /*
  * mDNS registration handler. This file is part of Shairport.
  * Copyright (c) James Laird 2013
+ * Modifications, updates and additions (c) Mike Brady 2014 -- 2020
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -63,9 +64,9 @@ static mdns_backend *mdns_backends[] = {
 #endif
     NULL};
 
-void mdns_register(void) {
-  char *mdns_service_name = alloca(strlen(config.service_name) + 14);
-  char *p = mdns_service_name;
+void mdns_register(char **txt_records, char **secondary_txt_records) {
+  char *ap1_service_name = alloca(strlen(config.service_name) + 14);
+  char *p = ap1_service_name;
   int i;
   for (i = 0; i < 6; i++) {
     snprintf(p, 3, "%02X", config.hw_addr[i]);
@@ -80,7 +81,8 @@ void mdns_register(void) {
     for (b = mdns_backends; *b; b++) {
       if (strcmp((*b)->name, config.mdns_name) != 0) // Not the one we are looking for
         continue;
-      int error = (*b)->mdns_register(mdns_service_name, config.port);
+      int error = (*b)->mdns_register(ap1_service_name, config.service_name, config.port,
+                                      txt_records, secondary_txt_records);
       if (error >= 0) {
         config.mdns = *b;
       }
@@ -90,8 +92,10 @@ void mdns_register(void) {
     if (*b == NULL)
       warn("%s mDNS backend not found");
   } else {
+    // default -- pick the first back end
     for (b = mdns_backends; *b; b++) {
-      int error = (*b)->mdns_register(mdns_service_name, config.port);
+      int error = (*b)->mdns_register(ap1_service_name, config.service_name, config.port,
+                                      txt_records, secondary_txt_records);
       if (error >= 0) {
         config.mdns = *b;
         break;
@@ -103,6 +107,13 @@ void mdns_register(void) {
     die("Could not establish mDNS advertisement!");
 
   mdns_dacp_monitor_start(); // create a dacp monitor thread
+}
+
+void mdns_update(char **txt_records, char **secondary_txt_records) {
+  if ((config.mdns) && (config.mdns->mdns_update)) {
+    config.mdns->mdns_update(txt_records, secondary_txt_records);
+  } else
+    debug(1, "Can't mdns_update -- no mdns_update registered.");
 }
 
 void mdns_unregister(void) {

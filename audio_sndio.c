@@ -4,7 +4,7 @@
  * Copyright (c) 2017 Tobias Kortkamp <t@tobik.me>
  *
  * Modifications for audio synchronisation
- * and related work, copyright (c) Mike Brady 2014 -- 2017
+ * and related work, copyright (c) Mike Brady 2014 -- 2022
  * All rights reserved.
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -28,39 +28,14 @@
 #include <string.h>
 #include <unistd.h>
 
-static void help(void);
-static int init(int, char **);
-static void onmove_cb(void *, int);
-static void deinit(void);
-static void start(int, int);
-static int play(void *, int);
-static void stop(void);
-static void onmove_cb(void *, int);
-static int delay(long *);
-static void flush(void);
-
-audio_output audio_sndio = {.name = "sndio",
-                            .help = &help,
-                            .init = &init,
-                            .deinit = &deinit,
-                            .prepare = NULL,
-                            .start = &start,
-                            .stop = &stop,
-                            .is_running = NULL,
-                            .flush = &flush,
-                            .delay = &delay,
-                            .play = &play,
-                            .volume = NULL,
-                            .parameters = NULL,
-                            .mute = NULL};
-
 static pthread_mutex_t sndio_mutex = PTHREAD_MUTEX_INITIALIZER;
 static struct sio_hdl *hdl;
 static int framesize;
 static size_t played;
 static size_t written;
-int64_t time_of_last_onmove_cb;
+uint64_t time_of_last_onmove_cb;
 int at_least_one_onmove_cb_seen;
+
 struct sio_par par;
 
 struct sndio_formats {
@@ -81,9 +56,15 @@ static struct sndio_formats formats[] = {{"S8", SPS_FORMAT_S8, 44100, 8, 1, 1, S
                                          {"S24", SPS_FORMAT_S24, 44100, 24, 4, 1, SIO_LE_NATIVE},
                                          {"S24_3LE", SPS_FORMAT_S24_3LE, 44100, 24, 3, 1, 1},
                                          {"S24_3BE", SPS_FORMAT_S24_3BE, 44100, 24, 3, 1, 0},
-                                         {"S32", SPS_FORMAT_S32, 44100, 24, 4, 1, SIO_LE_NATIVE}};
+                                         {"S32", SPS_FORMAT_S32, 44100, 32, 4, 1, SIO_LE_NATIVE}};
 
 static void help() { printf("    -d output-device    set the output device [default*|...]\n"); }
+
+void onmove_cb(__attribute__((unused)) void *arg, int delta) {
+  time_of_last_onmove_cb = get_absolute_time_in_ns();
+  at_least_one_onmove_cb_seen = 1;
+  played += delta;
+}
 
 static int init(int argc, char **argv) {
   int found, opt, round, rate, bufsz;
@@ -168,8 +149,12 @@ static int init(int argc, char **argv) {
   }
   if (optind < argc)
     die("Invalid audio argument: %s", argv[optind]);
-  pthread_mutex_lock(&sndio_mutex);
-  debug(1, "Output device name is \"%s\".", devname);
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
+  // pthread_mutex_lock(&sndio_mutex);
+  debug(1, "sndio: output device name is \"%s\".", devname);
+  debug(1, "sndio: rate: %u.", par.rate);
+  debug(1, "sndio: bits: %u.", par.bits);
+
   hdl = sio_open(devname, SIO_PLAY, 0);
   if (!hdl)
     die("sndio: cannot open audio device");
@@ -203,57 +188,71 @@ static int init(int argc, char **argv) {
 
   framesize = par.bps * par.pchan;
   config.output_rate = par.rate;
+  if (par.rate == 0) {
+    die("sndio: par.rate set to zero.");
+  }
+
   config.audio_backend_buffer_desired_length = 1.0 * par.bufsz / par.rate;
   config.audio_backend_latency_offset = 0;
 
   sio_onmove(hdl, onmove_cb, NULL);
 
-  pthread_mutex_unlock(&sndio_mutex);
+  // pthread_mutex_unlock(&sndio_mutex);
+  pthread_cleanup_pop(1); // unlock the mutex
+  if (framesize == 0) {
+    die("sndio: framesize set to zero.");
+  }
   return 0;
 }
 
 static void deinit() {
-  pthread_mutex_lock(&sndio_mutex);
+  // pthread_mutex_lock(&sndio_mutex);
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
   sio_close(hdl);
-  pthread_mutex_unlock(&sndio_mutex);
+  // pthread_mutex_unlock(&sndio_mutex);
+  pthread_cleanup_pop(1); // unlock the mutex
 }
 
 static void start(__attribute__((unused)) int sample_rate,
                   __attribute__((unused)) int sample_format) {
-  pthread_mutex_lock(&sndio_mutex);
+  // pthread_mutex_lock(&sndio_mutex);
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
+  at_least_one_onmove_cb_seen = 0;
+  // any previously-reported frame count
+
   if (!sio_start(hdl))
     die("sndio: unable to start");
   written = played = 0;
   time_of_last_onmove_cb = 0;
   at_least_one_onmove_cb_seen = 0;
-  pthread_mutex_unlock(&sndio_mutex);
+  // pthread_mutex_unlock(&sndio_mutex);
+  pthread_cleanup_pop(1); // unlock the mutex
 }
 
-static int play(void *buf, int frames) {
+static int play(void *buf, int frames, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime) {
   if (frames > 0) {
-    pthread_mutex_lock(&sndio_mutex);
+    // pthread_mutex_lock(&sndio_mutex);
+    pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
     written += sio_write(hdl, buf, frames * framesize);
-    pthread_mutex_unlock(&sndio_mutex);
+    // pthread_mutex_unlock(&sndio_mutex);
+    pthread_cleanup_pop(1); // unlock the mutex
   }
   return 0;
 }
 
 static void stop() {
-  pthread_mutex_lock(&sndio_mutex);
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
+
   if (!sio_stop(hdl))
     die("sndio: unable to stop");
   written = played = 0;
-  pthread_mutex_unlock(&sndio_mutex);
+  pthread_cleanup_pop(1); // unlock the mutex
 }
 
-static void onmove_cb(__attribute__((unused)) void *arg, int delta) {
-  time_of_last_onmove_cb = get_absolute_time_in_ns();
-  at_least_one_onmove_cb_seen = 1;
-  played += delta;
-}
-
-static int delay(long *_delay) {
-  pthread_mutex_lock(&sndio_mutex);
+int get_delay(long *delay) {
+  int response = 0;
   size_t estimated_extra_frames_output = 0;
   if (at_least_one_onmove_cb_seen) { // when output starts, the onmove_cb callback will be made
     // calculate the difference in time between now and when the last callback occurred,
@@ -269,15 +268,41 @@ static int delay(long *_delay) {
     // debug(1,"Frames played to last cb: %d, estimated to current time:
     // %d.",played,estimated_extra_frames_output);
   }
-  *_delay = (written / framesize) - (played + estimated_extra_frames_output);
-  pthread_mutex_unlock(&sndio_mutex);
-  return 0;
+  if (delay != NULL)
+    *delay = (written / framesize) - (played + estimated_extra_frames_output);
+  return response;
+}
+
+static int delay(long *delay) {
+  int result = 0;
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
+  result = get_delay(delay);
+  pthread_cleanup_pop(1); // unlock the mutex
+  return result;
 }
 
 static void flush() {
-  pthread_mutex_lock(&sndio_mutex);
+  // pthread_mutex_lock(&sndio_mutex);
+  pthread_cleanup_debug_mutex_lock(&sndio_mutex, 1000, 1);
   if (!sio_stop(hdl) || !sio_start(hdl))
     die("sndio: unable to flush");
   written = played = 0;
-  pthread_mutex_unlock(&sndio_mutex);
+  // pthread_mutex_unlock(&sndio_mutex);
+  pthread_cleanup_pop(1); // unlock the mutex
 }
+
+audio_output audio_sndio = {.name = "sndio",
+                            .help = &help,
+                            .init = &init,
+                            .deinit = &deinit,
+                            .prepare = NULL,
+                            .start = &start,
+                            .stop = &stop,
+                            .is_running = NULL,
+                            .flush = &flush,
+                            .delay = &delay,
+                            .stats = NULL,
+                            .play = &play,
+                            .volume = NULL,
+                            .parameters = NULL,
+                            .mute = NULL};

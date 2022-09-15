@@ -11,6 +11,8 @@
     <property name="ConvolutionGain" type="d" access="readwrite" />
     <property name="ConvolutionImpulseResponseFile" type="s" access="readwrite" />
     <property name="DriftTolerance" type="d" access="readwrite" />
+    <property name='Volume' type='d' access='readwrite'/>
+    <method name="DropSession"/>
     <method name="RemoteCommand">
       <arg name="command" type="s" direction="in" />
       <arg name="reply" type="i" direction="out" />
@@ -21,6 +23,7 @@
     <property name="ALACDecoder" type="s" access="readwrite" />
     <property name="Version" type="s" access="read" />
     <property name="VersionString" type="s" access="read" />
+    <property name="Protocol" type="s" access="read" />
   </interface>
   <interface name="org.gnome.ShairportSync.Diagnostics">
     <property name="Verbosity" type="i" access="readwrite" />

@@ -33,7 +33,9 @@
 
 static DNSServiceRef service;
 
-static int mdns_dns_sd_register(char *apname, int port) {
+static int mdns_dns_sd_register(char *ap1name, __attribute__((unused)) char *ap2name, int port,
+                                __attribute__((unused)) char **txt_records,
+                                __attribute__((unused)) char **secondary_txt_records) {
   char *recordwithoutmetadata[] = {MDNS_RECORD_WITHOUT_METADATA, NULL};
 #ifdef CONFIG_METADATA
   char *recordwithmetadata[] = {MDNS_RECORD_WITH_METADATA, NULL};
@@ -70,7 +72,7 @@ static int mdns_dns_sd_register(char *apname, int port) {
   }
 
   DNSServiceErrorType error;
-  error = DNSServiceRegister(&service, 0, kDNSServiceInterfaceIndexAny, apname, config.regtype, "",
+  error = DNSServiceRegister(&service, 0, kDNSServiceInterfaceIndexAny, ap1name, config.regtype, "",
                              NULL, htons((uint16_t)port), length, buf, NULL, NULL);
 
   free(buf);

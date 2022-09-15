@@ -1,4 +1,4 @@
-Installing Shairport Sync into Cygwin
+Installing Shairport Sync into Cygwin [Airplay 2 Not Supported]
 ====
 
 This guide is based on installing onto a fresh installation of Cygwin 2.895 (64-bit installation) running in Windows 10

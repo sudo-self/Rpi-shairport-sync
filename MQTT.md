@@ -1,3 +1,21 @@
+MQTT in Shairport Sync
+====
+To enable Shairport Sync to act as an MQTT publisher, you need to:
+1. Install the mosquitto library:
+```
+# apt install libmosquitto-dev
+```
+2. Add the configuration flag `--with-mqtt-client` to the list of parameters to the `./configure...` command, for example:
+```
+$ ./configure --with-mqtt-client --sysconfdir=/etc --with-alsa --with-avahi --with-ssl=openssl --with-systemd
+```
+
+If Shairport Sync has MQTT support, it will have the string `mqtt` in its configuration string. For example:
+```
+$ shairport-sync -V
+3.3.8-OpenSSL-Avahi-ALSA-metadata-mqtt-sysconfdir:/etc
+```
+
 Setting Up MQTT Publishing
 ====
 
@@ -77,31 +95,38 @@ The first 4-character code, called the `type`, is either:
 * For `ssnc` metadata, the second 4-character code is used to distinguish the messages. Cover art, coming from the source, is not tagged in the same way as other metadata, it seems, so is sent as an `ssnc` type metadata message with the code `PICT`. Progress information, similarly, is not tagged like other source-originated metadata, so it is sent as an `ssnc` type with the code `prgr`.
 
 Here are some of the `core` codes commonly passed from the source:
- * `asar` -- "artist"
- * `asal` -- "album"
- * `minm` -- "title"
- * `asgn` -- "genre"
- * `asfm` -- "format"
- * `asal` -- "songalbum'
- * `pvol` -- "volume"
- * `clip` -- "client_ip"
+ * `asal` -- album
+ * `asar` -- artist
+ * `ascp` -- composer
+ * `asgn` -- genre
+ * `astm` -- song time
+ * `caps` -- play status (stopped, paused, playing)
+ * `minm` -- title
+ * `mper` -- track persistent id
 
 Here are the 'ssnc' codes defined so far:
  * `PICT` -- the payload is a picture, either a JPEG or a PNG. Check the first few bytes to see which.
- * `clip` -- the payload is the IP number of the client, i.e. the sender of audio. Can be an IPv4 or an IPv6 number.
+ * `acre` -- Active Remote
+ * `cdid` -- Client advertised Device ID
+ * `clip` -- the payload is the IP address of the client, i.e. the sender of audio. Can be an IPv4 or an IPv6 address.
+ * `cmac` -- Client advertised MAC address
+ * `cmod` -- Client advertised model ("iPhone14,2")
+ * `daid` -- DACP ID
+ * `dapo` -- DACP Port
+ * `mden` -- a sequence of metadata has ended. The RTP timestamp associated with the metadata sequence is included as data, if available.
+ * `mdst` -- a sequence of metadata is about to start. The RTP timestamp associated with the metadata sequence is included as data, if available.
  * `pbeg` -- play stream begin. No arguments
+ * `pcen` -- a picture has been sent. The RTP timestamp associated with it is included as data, if available.
+ * `pcst` -- a picture is about to be sent. The RTP timestamp associated with it is included as data, if available.
  * `pend` -- play stream end. No arguments
  * `pfls` -- play stream flush. No arguments
  * `prsm` -- play stream resume. No arguments
- * `pvol` -- play volume. The volume is sent as a string -- "airplay_volume,volume,lowest_volume,highest_volume", where "volume", "lowest_volume" and "highest_volume" are given in dB. The "airplay_volume" is what's sent by the source (e.g. iTunes) to the player, and is from 0.00 down to -30.00, with -144.00 meaning "mute". This is linear on the volume control slider of iTunes or iOS AirPlay. If the volume setting is being ignored by Shairport Sync itself, the volume, lowest_volume and highest_volume values are zero.
  * `prgr` -- progress -- this is metadata from AirPlay consisting of RTP timestamps for the start of the current play sequence, the current play point and the end of the play sequence.
- * `mdst` -- a sequence of metadata is about to start. The RTP timestamp associated with the metadata sequence is included as data, if available.
- * `mden` -- a sequence of metadata has ended. The RTP timestamp associated with the metadata sequence is included as data, if available.
- * `pcst` -- a picture is about to be sent. The RTP timestamp associated with it is included as data, if available.
- * `pcen` -- a picture has been sent. The RTP timestamp associated with it is included as data, if available.
- * `snam` -- a device e.g. "Joe's iPhone" has started a play session. Specifically, it's the "X-Apple-Client-Name" string.
+ * `pvol` -- play volume. The volume is sent as a string -- "airplay_volume,volume,lowest_volume,highest_volume", where "volume", "lowest_volume" and "highest_volume" are given in dB. The "airplay_volume" is what's sent by the source (e.g. iTunes) to the player, and is from 0.00 down to -30.00, with -144.00 meaning "mute". This is linear on the volume control slider of iTunes or iOS AirPlay. If the volume setting is being ignored by Shairport Sync itself, the volume, lowest_volume and highest_volume values are zero.
+ * `snam` -- a device e.g. "Joe's iPhone" has started a play session. Specifically, it's the "X-Apple-Client-Name" string for AP1, or direct from the configuration Plist for AP2.
  * `snua` -- a "user agent" e.g. "iTunes/12..." has started a play session. Specifically, it's the "User-Agent" string.
  * `stal` -- this is an error message meaning that reception of a large piece of metadata, usually a large picture, has stalled; bad things may happen.
+ * `svip` -- the payload is the IP address of the server, i.e. shairport-sync. Can be an IPv4 or an IPv6 address.
 
 
 Parsed Messages
@@ -109,14 +134,21 @@ Parsed Messages
 
 The MQTT service can parse the above raw messages into a subset of human-readable topics that include, 
 
+* `active_remote_id` -- Active Remote ID
 * `artist` -- text of artist name 
 * `album` -- text of album name
-* `title` -- text of song title
-* `genre` -- text of genre
-* `format` -- ??
-* `songalbum` -- 
-* `volume` -- The volume is sent as a string -- "airplay_volume,volume,lowest_volume,highest_volume", where "volume", "lowest_volume" and "highest_volume" are given in dB. (see above)
 * `client_ip` -- IP address of the connected client
+* `client_device_id` -- Client advertised Device ID
+* `client_mac_address` -- Client advertised MAC address
+* `client_model` -- Client advertised model ("iPhone14,2")
+* `client_name` -- Client advertised name ("Joe's iPhone")
+* `dacp_id` -- DACP ID
+* `format` -- ??
+* `genre` -- text of genre
+* `server_ip` -- IP address of shairport-sync that the client is connected to
+* `songalbum` -- 
+* `title` -- text of song title
+* `volume` -- The volume is sent as a string -- "airplay_volume,volume,lowest_volume,highest_volume", where "volume", "lowest_volume" and "highest_volume" are given in dB. (see above)
 
 and empty messages at the following topics are published.
 
@@ -156,7 +188,7 @@ binary_sensor:
     off_delay: 300
 ```
 
-Below parsed data is saved into the Home Assistant database as sensor data.  Please not the conversion of the volume from dB to percentage.
+Below parsed data is saved into the Home Assistant database as sensor data.  Please note the conversion of the volume from dB to percentage.
 
 ```yml
 sensor:

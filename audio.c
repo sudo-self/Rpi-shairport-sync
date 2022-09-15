@@ -43,6 +43,9 @@ extern audio_output audio_ao;
 #ifdef CONFIG_SOUNDIO
 extern audio_output audio_soundio;
 #endif
+#ifdef CONFIG_PW
+extern audio_output audio_pw;
+#endif
 #ifdef CONFIG_PA
 extern audio_output audio_pa;
 #endif
@@ -65,6 +68,9 @@ static audio_output *outputs[] = {
 #endif
 #ifdef CONFIG_SNDIO
     &audio_sndio,
+#endif
+#ifdef CONFIG_PW
+    &audio_pw,
 #endif
 #ifdef CONFIG_PA
     &audio_pa,

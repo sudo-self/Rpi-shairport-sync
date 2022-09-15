@@ -1,7 +1,7 @@
 /*
  * libalsa output driver. This file is part of Shairport.
  * Copyright (c) Muffinman, Skaman 2013
- * Copyright (c) Mike Brady 2014 -- 2019
+ * Copyright (c) Mike Brady 2014 -- 2022
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -52,30 +52,34 @@ typedef struct {
   int frame_size;
 } format_record;
 
-static void help(void);
-static int init(int argc, char **argv);
-static void deinit(void);
-static void start(int i_sample_rate, int i_sample_format);
-static int play(void *buf, int samples);
-static void stop(void);
-static void flush(void);
-int delay(long *the_delay);
-int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played);
-void *alsa_buffer_monitor_thread_code(void *arg);
-
-static void volume(double vol);
-void do_volume(double vol);
-int prepare(void);
-int do_play(void *buf, int samples);
-
-static void parameters(audio_parameters *info);
-int mute(int do_mute); // returns true if it actually is allowed to use the mute
-static double set_volume;
-static int output_method_signalled = 0; // for reporting whether it's using mmap or not
+int output_method_signalled = 0; // for reporting whether it's using mmap or not
 int delay_type_notified = -1; // for controlling the reporting of whether the output device can do
                               // precision delays (e.g. alsa->pulsaudio virtual devices can't)
 int use_monotonic_clock = 0;  // this value will be set when the hardware is initialised
 
+static void help(void);
+static int init(int argc, char **argv);
+static void deinit(void);
+static void start(int i_sample_rate, int i_sample_format);
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime);
+static void stop(void);
+static void flush(void);
+static int delay(long *the_delay);
+static int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time,
+                 uint64_t *the_delay, uint64_t *frames_sent_to_dac);
+
+static void *alsa_buffer_monitor_thread_code(void *arg);
+
+static void volume(double vol);
+static void do_volume(double vol);
+static int prepare(void);
+static int do_play(void *buf, int samples);
+
+static void parameters(audio_parameters *info);
+static int mute(int do_mute); // returns true if it actually is allowed to use the mute
+static double set_volume;
 audio_output audio_alsa = {
     .name = "alsa",
     .help = &help,
@@ -88,14 +92,16 @@ audio_output audio_alsa = {
     .flush = &flush,
     .delay = &delay,
     .play = &play,
-    .rate_info = &get_rate_information,
+    .stats = &stats,     // will also include frames of silence sent to stop
+                         // standby mode
+                         //    .rate_info = NULL,
     .mute = NULL,        // a function will be provided if it can, and is allowed to,
                          // do hardware mute
     .volume = NULL,      // a function will be provided if it can do hardware volume
     .parameters = NULL}; // a function will be provided if it can do hardware volume
 
-static pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t alsa_mixer_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t alsa_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t alsa_mixer_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 pthread_t alsa_buffer_monitor_thread;
 
@@ -117,7 +123,7 @@ long stall_monitor_frame_count;         // set to delay at start of time, increm
 uint64_t stall_monitor_error_threshold; // if the time is longer than this, it's
                                         // an error
 
-static snd_output_t *output = NULL;
+snd_output_t *output = NULL;
 int frame_size; // in bytes for interleaved stereo
 
 int alsa_device_initialised; // boolean to ensure the initialisation is only
@@ -127,25 +133,27 @@ yndk_type precision_delay_available_status =
     YNDK_DONT_KNOW; // initially, we don't know if the device can do precision delay
 
 snd_pcm_t *alsa_handle = NULL;
-static snd_pcm_hw_params_t *alsa_params = NULL;
-static snd_pcm_sw_params_t *alsa_swparams = NULL;
-static snd_ctl_t *ctl = NULL;
-static snd_ctl_elem_id_t *elem_id = NULL;
-static snd_mixer_t *alsa_mix_handle = NULL;
-static snd_mixer_elem_t *alsa_mix_elem = NULL;
-static snd_mixer_selem_id_t *alsa_mix_sid = NULL;
-static long alsa_mix_minv, alsa_mix_maxv;
-static long alsa_mix_mindb, alsa_mix_maxdb;
+int alsa_handle_status =
+    ENODEV; // if alsa_handle is NULL, this should say why with a unix error code
+snd_pcm_hw_params_t *alsa_params = NULL;
+snd_pcm_sw_params_t *alsa_swparams = NULL;
+snd_ctl_t *ctl = NULL;
+snd_ctl_elem_id_t *elem_id = NULL;
+snd_mixer_t *alsa_mix_handle = NULL;
+snd_mixer_elem_t *alsa_mix_elem = NULL;
+snd_mixer_selem_id_t *alsa_mix_sid = NULL;
+long alsa_mix_minv, alsa_mix_maxv;
+long alsa_mix_mindb, alsa_mix_maxdb;
 
-static char *alsa_out_dev = "default";
-static char *alsa_mix_dev = NULL;
-static char *alsa_mix_ctrl = NULL;
-static int alsa_mix_index = 0;
-static int has_softvol = 0;
+char *alsa_out_dev = "default";
+char *alsa_mix_dev = NULL;
+char *alsa_mix_ctrl = NULL;
+int alsa_mix_index = 0;
+int has_softvol = 0;
 
 int64_t dither_random_number_store = 0;
 
-static int volume_set_request = 0; // set when an external request is made to set the volume.
+int volume_set_request = 0; // set when an external request is made to set the volume.
 
 int mixer_volume_setting_gives_mute = 0; // set when it is discovered that
                                          // particular mixer volume setting
@@ -158,10 +166,10 @@ int volume_based_mute_is_active =
 // use this to allow the use of snd_pcm_writei or snd_pcm_mmap_writei
 snd_pcm_sframes_t (*alsa_pcm_write)(snd_pcm_t *, const void *, snd_pcm_uframes_t) = snd_pcm_writei;
 
-int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                               yndk_type *using_update_timestamps);
-int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                              yndk_type *using_update_timestamps);
+static int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
+                                      yndk_type *using_update_timestamps);
+static int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
+                                     yndk_type *using_update_timestamps);
 
 // use this to allow the use of standard or precision delay calculations, with standard the, uh,
 // standard.
@@ -176,7 +184,7 @@ int (*delay_and_status)(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
 // If you want it to check again, set precision_delay_available_status to YNDK_DONT_KNOW
 // first.
 
-int precision_delay_available() {
+static int precision_delay_available() {
   if (precision_delay_available_status == YNDK_DONT_KNOW) {
     // this is very crude -- if the device is a hardware device, then it's assumed the delay is
     // precise
@@ -239,22 +247,18 @@ int precision_delay_available() {
   return (precision_delay_available_status == YNDK_YES);
 }
 
-// static int play_number;
-// static int64_t accumulated_delay, accumulated_da_delay;
 int alsa_characteristics_already_listed = 0;
 
-static snd_pcm_uframes_t period_size_requested, buffer_size_requested;
-static int set_period_size_request, set_buffer_size_request;
+snd_pcm_uframes_t period_size_requested, buffer_size_requested;
+int set_period_size_request, set_buffer_size_request;
 
-static uint64_t measurement_start_time;
-static uint64_t frames_played_at_measurement_start_time;
+uint64_t frames_sent_for_playing;
 
-static uint64_t measurement_time;
-static uint64_t frames_played_at_measurement_time;
-
-static uint64_t frames_sent_for_playing;
-static uint64_t frame_index;
-static int measurement_data_is_valid;
+// set to true if there has been a discontinuity between the last reported frames_sent_for_playing
+// and the present reported frames_sent_for_playing
+// Note that it will be set when the device is opened, as any previous figures for
+// frames_sent_for_playing (which Shairport Sync might hold) would be invalid.
+int frames_sent_break_occurred;
 
 static void help(void) {
   printf("    -d output-device    set the output device, default is \"default\".\n"
@@ -268,10 +272,10 @@ static void help(void) {
     debug(2, "error %d executing a script to list alsa hardware device names", r);
 }
 
-void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; }
+void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; } // ugh -- not static!
 
 // assuming pthread cancellation is disabled
-int open_mixer() {
+static int open_mixer() {
   int response = 0;
   if (alsa_mix_ctrl != NULL) {
     debug(3, "Open Mixer");
@@ -315,7 +319,7 @@ int open_mixer() {
 }
 
 // assuming pthread cancellation is disabled
-void close_mixer() {
+static void close_mixer() {
   if (alsa_mix_handle) {
     snd_mixer_close(alsa_mix_handle);
     alsa_mix_handle = NULL;
@@ -323,28 +327,12 @@ void close_mixer() {
 }
 
 // assuming pthread cancellation is disabled
-void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double vol) {
+static void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double vol) {
   if (snd_mixer_selem_set_playback_dB_all(mix_elem, vol, 0) != 0) {
     debug(1, "Can't set playback volume accurately to %f dB.", vol);
     if (snd_mixer_selem_set_playback_dB_all(mix_elem, vol, -1) != 0)
       if (snd_mixer_selem_set_playback_dB_all(mix_elem, vol, 1) != 0)
         debug(1, "Could not set playback dB volume on the mixer.");
-  }
-}
-
-void actual_close_alsa_device() {
-  debug(1, "actual close");
-  if (alsa_handle) {
-    int derr;
-    if ((derr = snd_pcm_hw_free(alsa_handle)))
-      debug(1,
-            "Error %d (\"%s\") freeing the output device hardware while "
-            "closing it.",
-            derr, snd_strerror(derr));
-
-    if ((derr = snd_pcm_close(alsa_handle)))
-      debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
-    alsa_handle = NULL;
   }
 }
 
@@ -400,7 +388,7 @@ sps_format_t auto_format_check_sequence[] = {
 // assuming pthread cancellation is disabled
 // if do_auto_setting is true and auto format or auto speed has been requested,
 // select the settings as appropriate and store them
-int actual_open_alsa_device(int do_auto_setup) {
+static int actual_open_alsa_device(int do_auto_setup) {
   // the alsa mutex is already acquired when this is called
   const snd_pcm_uframes_t minimal_buffer_headroom =
       352 * 2; // we accept this much headroom in the hardware buffer, but we'll
@@ -432,15 +420,38 @@ int actual_open_alsa_device(int do_auto_setup) {
     audio_alsa.delay = NULL;
 
   ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK, 0);
-  if (ret < 0) {
-    if (ret == -ENOENT) {
-      warn("the alsa output_device \"%s\" can not be found.", alsa_out_dev);
+  // EHOSTDOWN seems to signify that it's a PipeWire pseudo device that can't be accessed by this
+  // user. So, try the first device ALSA device and log it.
+  if ((ret == -EHOSTDOWN) && (strcmp(alsa_out_dev, "default") == 0)) {
+    ret = snd_pcm_open(&alsa_handle, "hw:0", SND_PCM_STREAM_PLAYBACK, 0);
+    if ((ret == 0) || (ret == -EBUSY)) {
+      // being busy should be okay
+      inform("the default ALSA device is inaccessible -- \"hw:0\" used instead.", alsa_out_dev);
+      set_alsa_out_dev("hw:0");
+    }
+  }
+  if (ret == 0) {
+    if (alsa_handle_status == -EBUSY)
+      warn("The output device \"%s\" is no longer busy and will be used by Shairport Sync.",
+           alsa_out_dev);
+    alsa_handle_status = ret; // all cool
+  } else {
+    alsa_handle = NULL; // to be sure to be sure
+    if (ret == -EBUSY) {
+      if (alsa_handle_status != -EBUSY)
+        warn("The output device \"%s\" is busy and can't be used by Shairport Sync at present.",
+             alsa_out_dev);
+      debug(2, "the alsa output_device \"%s\" is busy.", alsa_out_dev);
+    } else if (ret == -ENOENT) {
+      die("the alsa output_device \"%s\" can not be found.", alsa_out_dev);
     } else {
       char errorstring[1024];
       strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
-      warn("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring,
-           alsa_out_dev);
+      die("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring,
+          alsa_out_dev);
     }
+    alsa_handle_status = ret;
+    frames_sent_break_occurred = 1;
     return ret;
   }
 
@@ -475,15 +486,15 @@ int actual_open_alsa_device(int do_auto_setup) {
 
   ret = snd_pcm_hw_params_set_access(alsa_handle, alsa_params, access);
   if (ret < 0) {
-    warn("audio_alsa: Access type not available for device \"%s\": %s", alsa_out_dev,
-         snd_strerror(ret));
+    die("audio_alsa: Access type not available for device \"%s\": %s", alsa_out_dev,
+        snd_strerror(ret));
     return ret;
   }
 
   ret = snd_pcm_hw_params_set_channels(alsa_handle, alsa_params, 2);
   if (ret < 0) {
-    warn("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
-         snd_strerror(ret));
+    die("audio_alsa: Channels count (2) not available for device \"%s\": %s", alsa_out_dev,
+        snd_strerror(ret));
     return ret;
   }
 
@@ -501,8 +512,8 @@ int actual_open_alsa_device(int do_auto_setup) {
     }
     ret = snd_pcm_hw_params_set_format(alsa_handle, alsa_params, sf);
     if (ret < 0) {
-      warn("audio_alsa: Alsa sample format %d not available for device \"%s\": %s", sf,
-           alsa_out_dev, snd_strerror(ret));
+      die("audio_alsa: Alsa sample format %d not available for device \"%s\": %s", sf, alsa_out_dev,
+          snd_strerror(ret));
       return ret;
     }
   } else { // auto format
@@ -525,11 +536,11 @@ int actual_open_alsa_device(int do_auto_setup) {
     }
     if (ret == 0) {
       config.output_format = trial_format;
-      debug(1, "alsa: output format chosen is \"%s\".",
+      debug(2, "alsa: output format chosen is \"%s\".",
             sps_format_description_string(config.output_format));
     } else {
-      warn("audio_alsa: Could not automatically set the output format for device \"%s\": %s",
-           alsa_out_dev, snd_strerror(ret));
+      die("audio_alsa: Could not automatically set the output format for device \"%s\": %s",
+          alsa_out_dev, snd_strerror(ret));
       return ret;
     }
   }
@@ -539,8 +550,8 @@ int actual_open_alsa_device(int do_auto_setup) {
         config.output_rate; // this is the requested rate -- it'll be changed to the actual rate
     ret = snd_pcm_hw_params_set_rate_near(alsa_handle, alsa_params, &actual_sample_rate, &dir);
     if (ret < 0) {
-      warn("audio_alsa: Rate %iHz not available for playback: %s", config.output_rate,
-           snd_strerror(ret));
+      die("audio_alsa: The frame rate of %i frames per second is not available for playback: %s",
+          config.output_rate, snd_strerror(ret));
       return ret;
     }
   } else {
@@ -559,17 +570,19 @@ int actual_open_alsa_device(int do_auto_setup) {
       if (ret == 0) {
         speed_found = 1;
         if (actual_sample_rate != speeds[i])
-          warn("Speed requested: %d. Speed available: %d.", speeds[i], actual_sample_rate);
+          die("The output DAC can not be set to %d frames per second (fps). The nearest speed "
+              "available is %d fps.",
+              speeds[i], actual_sample_rate);
       } else {
         i++;
       }
     }
     if (ret == 0) {
       config.output_rate = actual_sample_rate;
-      debug(1, "alsa: output speed chosen is %d.", config.output_rate);
+      debug(2, "alsa: output speed chosen is %d.", config.output_rate);
     } else {
-      warn("audio_alsa: Could not automatically set the output rate for device \"%s\": %s",
-           alsa_out_dev, snd_strerror(ret));
+      die("audio_alsa: Could not automatically set the output rate for device \"%s\": %s",
+          alsa_out_dev, snd_strerror(ret));
       return ret;
     }
   }
@@ -613,8 +626,8 @@ int actual_open_alsa_device(int do_auto_setup) {
 
   ret = snd_pcm_hw_params(alsa_handle, alsa_params);
   if (ret < 0) {
-    warn("audio_alsa: Unable to set hw parameters for device \"%s\": %s.", alsa_out_dev,
-         snd_strerror(ret));
+    die("audio_alsa: Unable to set hw parameters for device \"%s\": %s.", alsa_out_dev,
+        snd_strerror(ret));
     return ret;
   }
 
@@ -641,7 +654,7 @@ int actual_open_alsa_device(int do_auto_setup) {
   }
 
   if (actual_sample_rate != config.output_rate) {
-    warn("Can't set the D/A converter to sample rate %d.", config.output_rate);
+    die("Can't set the output DAC to the requested frame rate of %d fps.", config.output_rate);
     return -EINVAL;
   }
 
@@ -781,7 +794,8 @@ int actual_open_alsa_device(int do_auto_setup) {
       break;
     }
 
-    if (snd_pcm_hw_params_get_rate_numden(alsa_params, &uval, &uval2) == 0)
+    if ((snd_pcm_hw_params_get_rate_numden(alsa_params, &uval, &uval2) == 0) && (uval2 != 0))
+      // watch for a divide by zero too!
       debug(log_level, "  precise (rational) rate = %.3f frames per second (i.e. %u/%u).", uval,
             uval2, ((double)uval) / uval2);
     else
@@ -855,7 +869,7 @@ int actual_open_alsa_device(int do_auto_setup) {
   return 0;
 }
 
-int open_alsa_device(int do_auto_setup) {
+static int open_alsa_device(int do_auto_setup) {
   int result;
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -864,7 +878,7 @@ int open_alsa_device(int do_auto_setup) {
   return result;
 }
 
-int prepare_mixer() {
+static int prepare_mixer() {
   int response = 0;
   // do any alsa device initialisation (general case)
   // at present, this is only needed if a hardware mixer is being used
@@ -897,7 +911,7 @@ int prepare_mixer() {
           audio_alsa.parameters = &parameters; // likewise the parameters stuff
           if (alsa_mix_mindb == SND_CTL_TLV_DB_GAIN_MUTE) {
             // For instance, the Raspberry Pi does this
-            debug(1, "Lowest dB value is a mute");
+            debug(2, "Lowest dB value is a mute");
             mixer_volume_setting_gives_mute = 1;
             alsa_mix_mute = SND_CTL_TLV_DB_GAIN_MUTE; // this may not be
                                                       // necessary -- it's
@@ -979,7 +993,7 @@ int prepare_mixer() {
   return response;
 }
 
-int alsa_device_init() { return prepare_mixer(); }
+static int alsa_device_init() { return prepare_mixer(); }
 
 static int init(int argc, char **argv) {
   // for debugging
@@ -1054,15 +1068,10 @@ static int init(int argc, char **argv) {
       alsa_mix_ctrl = (char *)str;
     }
 
-
     // Get the Mixer Control Index
     if (config_lookup_int(config.cfg, "alsa.mixer_control_index", &value)) {
       alsa_mix_index = value;
     }
-
-
-
-
 
     /* Get the disable_synchronization setting. */
     if (config_lookup_string(config.cfg, "alsa.disable_synchronization", &str)) {
@@ -1300,16 +1309,16 @@ static int init(int argc, char **argv) {
         warn("Invalid use_precision_timing option choice \"%s\". It should be "
              "\"yes\", \"auto\" or \"no\". "
              "It remains set to \"%s\".",
-             config.use_precision_timing == YNA_NO
-                 ? "no"
-                 : config.use_precision_timing == YNA_AUTO ? "auto" : "yes");
+             config.use_precision_timing == YNA_NO     ? "no"
+             : config.use_precision_timing == YNA_AUTO ? "auto"
+                                                       : "yes");
       }
     }
 
     debug(1, "alsa: disable_standby_mode is \"%s\".",
-          config.disable_standby_mode == disable_standby_off
-              ? "never"
-              : config.disable_standby_mode == disable_standby_always ? "always" : "auto");
+          config.disable_standby_mode == disable_standby_off      ? "never"
+          : config.disable_standby_mode == disable_standby_always ? "always"
+                                                                  : "auto");
     debug(1, "alsa: disable_standby_mode_silence_threshold is %f seconds.",
           config.disable_standby_mode_silence_threshold);
     debug(1, "alsa: disable_standby_mode_silence_scan_interval is %f seconds.",
@@ -1376,7 +1385,7 @@ static void deinit(void) {
   pthread_setcancelstate(oldState, NULL);
 }
 
-int set_mute_state() {
+static int set_mute_state() {
   int response = 1; // some problem expected, e.g. no mixer or not allowed to use it or disconnected
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1417,8 +1426,8 @@ static void start(__attribute__((unused)) int i_sample_rate,
                   __attribute__((unused)) int i_sample_format) {
   debug(3, "audio_alsa start called.");
 
-  frame_index = 0;
-  measurement_data_is_valid = 0;
+  // frame_index = 0;
+  // measurement_data_is_valid = 0;
 
   stall_monitor_start_time = 0;
   stall_monitor_frame_count = 0;
@@ -1429,182 +1438,206 @@ static void start(__attribute__((unused)) int i_sample_rate,
   }
 }
 
-int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                              yndk_type *using_update_timestamps) {
-  int ret = 0;
+static int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
+                                     yndk_type *using_update_timestamps) {
+  int ret = alsa_handle_status;
   if (using_update_timestamps)
     *using_update_timestamps = YNDK_NO;
-  *state = snd_pcm_state(alsa_handle);
-  if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
-    ret = snd_pcm_delay(alsa_handle, delay);
-  } else {
-    // not running, thus no delay information, thus can't check for frame
-    // rates
-    frame_index = 0; // we'll be starting over...
-    measurement_data_is_valid = 0;
-    *delay = 0;
-  }
+
+  snd_pcm_state_t state_temp = SND_PCM_STATE_DISCONNECTED;
+  snd_pcm_sframes_t delay_temp = 0;
+  if (alsa_handle != NULL) {
+    state_temp = snd_pcm_state(alsa_handle);
+    if ((state_temp == SND_PCM_STATE_RUNNING) || (state_temp == SND_PCM_STATE_DRAINING)) {
+      ret = snd_pcm_delay(alsa_handle, &delay_temp);
+    } else {
+      // not running, thus no delay information, thus can't check for frame
+      // rates
+      // frame_index = 0; // we'll be starting over...
+      // measurement_data_is_valid = 0;
+      // delay_temp = 0;
+      ret = 0;
+    }
+  } // else {
+    // debug(1, "alsa_handle is NULL in standard_delay_and_status.");
+  // }
 
   stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
   stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
 
+  if (delay != NULL)
+    *delay = delay_temp;
+  if (state != NULL)
+    *state = state_temp;
   return ret;
 }
 
-int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
-                               yndk_type *using_update_timestamps) {
+static int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
+                                      yndk_type *using_update_timestamps) {
+  snd_pcm_state_t state_temp = SND_PCM_STATE_DISCONNECTED;
+  snd_pcm_sframes_t delay_temp = 0;
+  if (using_update_timestamps)
+    *using_update_timestamps = YNDK_DONT_KNOW;
+  int ret = alsa_handle_status;
+
   snd_pcm_status_t *alsa_snd_pcm_status;
   snd_pcm_status_alloca(&alsa_snd_pcm_status);
 
-  if (using_update_timestamps)
-    *using_update_timestamps = YNDK_DONT_KNOW;
-
   struct timespec tn;                // time now
   snd_htimestamp_t update_timestamp; // actually a struct timespec
+  if (alsa_handle != NULL) {
+    ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
+    if (ret == 0) {
+      snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
 
-  int ret = snd_pcm_status(alsa_handle, alsa_snd_pcm_status);
-  if (ret == 0) {
+      /*
+      // must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
+      #if SND_LIB_MINOR != 0
+          snd_htimestamp_t driver_htstamp;
+          snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &driver_htstamp);
+          uint64_t driver_htstamp_ns = driver_htstamp.tv_sec;
+          driver_htstamp_ns = driver_htstamp_ns * 1000000000;
+          driver_htstamp_ns = driver_htstamp_ns + driver_htstamp.tv_nsec;
+          debug(1,"driver_htstamp: %f.", driver_htstamp_ns * 0.000000001);
+      #endif
+      */
 
-    snd_pcm_status_get_htstamp(alsa_snd_pcm_status, &update_timestamp);
+      state_temp = snd_pcm_status_get_state(alsa_snd_pcm_status);
 
-/*
-// must be 1.1 or later to use snd_pcm_status_get_driver_htstamp
-#if SND_LIB_MINOR != 0
-    snd_htimestamp_t driver_htstamp;
-    snd_pcm_status_get_driver_htstamp(alsa_snd_pcm_status, &driver_htstamp);
-    uint64_t driver_htstamp_ns = driver_htstamp.tv_sec;
-    driver_htstamp_ns = driver_htstamp_ns * 1000000000;
-    driver_htstamp_ns = driver_htstamp_ns + driver_htstamp.tv_nsec;
-    debug(1,"driver_htstamp: %f.", driver_htstamp_ns * 0.000000001);
-#endif
-*/
+      if ((state_temp == SND_PCM_STATE_RUNNING) || (state_temp == SND_PCM_STATE_DRAINING)) {
 
-    *state = snd_pcm_status_get_state(alsa_snd_pcm_status);
+        //     uint64_t update_timestamp_ns =
+        //         update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
 
-    if ((*state == SND_PCM_STATE_RUNNING) || (*state == SND_PCM_STATE_DRAINING)) {
+        uint64_t update_timestamp_ns = update_timestamp.tv_sec;
+        update_timestamp_ns = update_timestamp_ns * 1000000000;
+        update_timestamp_ns = update_timestamp_ns + update_timestamp.tv_nsec;
 
- //     uint64_t update_timestamp_ns =
- //         update_timestamp.tv_sec * (uint64_t)1000000000 + update_timestamp.tv_nsec;
-
-      uint64_t update_timestamp_ns = update_timestamp.tv_sec;
-      update_timestamp_ns = update_timestamp_ns * 1000000000;
-      update_timestamp_ns = update_timestamp_ns + update_timestamp.tv_nsec;
-
-
-      // if the update_timestamp is zero, we take this to mean that the device doesn't report
-      // interrupt timings. (It could be that it's not a real hardware device.)
-      // so we switch to getting the delay the regular way
-      // i.e. using snd_pcm_delay	()
-      if (using_update_timestamps) {
-        if (update_timestamp_ns == 0)
-          *using_update_timestamps = YNDK_NO;
-        else
-          *using_update_timestamps = YNDK_YES;
-      }
-
-      // user information
-      if (update_timestamp_ns == 0) {
-        if (delay_type_notified != 1) {
-          debug(2, "alsa: update timestamps unavailable");
-          delay_type_notified = 1;
+        // if the update_timestamp is zero, we take this to mean that the device doesn't report
+        // interrupt timings. (It could be that it's not a real hardware device.)
+        // so we switch to getting the delay the regular way
+        // i.e. using snd_pcm_delay	()
+        if (using_update_timestamps) {
+          if (update_timestamp_ns == 0)
+            *using_update_timestamps = YNDK_NO;
+          else
+            *using_update_timestamps = YNDK_YES;
         }
-      } else {
-        // diagnostic
-        if (delay_type_notified != 0) {
-          debug(2, "alsa: update timestamps available");
-          delay_type_notified = 0;
-        }
-      }
 
-      if (update_timestamp_ns == 0) {
-        ret = snd_pcm_delay(alsa_handle, delay);
-      } else {
-        snd_pcm_sframes_t delay_temp = snd_pcm_status_get_delay(alsa_snd_pcm_status);
-
-        /*
-        // It seems that the alsa library uses CLOCK_REALTIME before 1.0.28, even though
-        // the check for monotonic returns true. Might have to watch out for this.
-          #if SND_LIB_MINOR == 0 && SND_LIB_SUBMINOR < 28
-                clock_gettime(CLOCK_REALTIME, &tn);
-          #else
-                clock_gettime(CLOCK_MONOTONIC, &tn);
-          #endif
-        */
-
-        if (use_monotonic_clock)
-          clock_gettime(CLOCK_MONOTONIC, &tn);
-        else
-          clock_gettime(CLOCK_REALTIME, &tn);
-
-        // uint64_t time_now_ns = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
-        uint64_t time_now_ns = tn.tv_sec;
-        time_now_ns = time_now_ns * 1000000000;
-        time_now_ns = time_now_ns + tn.tv_nsec;
-
-
-        // see if it's stalled
-
-        if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == delay_temp)) {
-          // hasn't outputted anything since the last call to delay()
-
-          if (((update_timestamp_ns - stall_monitor_start_time) > stall_monitor_error_threshold) ||
-              ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
-            debug(2,
-                  "DAC seems to have stalled with time_now_ns: %" PRIX64
-                  ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
-                  ", stall_monitor_error_threshold %" PRIX64 ".",
-                  time_now_ns, update_timestamp_ns, stall_monitor_start_time,
-                  stall_monitor_error_threshold);
-            debug(2,
-                  "DAC seems to have stalled with time_now: %lx,%lx"
-                  ", update_timestamp: %lx,%lx, stall_monitor_start_time %" PRIX64
-                  ", stall_monitor_error_threshold %" PRIX64 ".",
-                  tn.tv_sec, tn.tv_nsec, update_timestamp.tv_sec, update_timestamp.tv_nsec,
-                  stall_monitor_start_time, stall_monitor_error_threshold);
-            ret = sps_extra_code_output_stalled;
+        // user information
+        if (update_timestamp_ns == 0) {
+          if (delay_type_notified != 1) {
+            debug(2, "alsa: update timestamps unavailable");
+            delay_type_notified = 1;
           }
         } else {
-          stall_monitor_start_time = update_timestamp_ns;
-          stall_monitor_frame_count = delay_temp;
+          // diagnostic
+          if (delay_type_notified != 0) {
+            debug(2, "alsa: update timestamps available");
+            delay_type_notified = 0;
+          }
         }
 
-        if (ret == 0) {
-          uint64_t delta = time_now_ns - update_timestamp_ns;
+        if (update_timestamp_ns == 0) {
+          ret = snd_pcm_delay(alsa_handle, &delay_temp);
+        } else {
+          delay_temp = snd_pcm_status_get_delay(alsa_snd_pcm_status);
 
-//          uint64_t frames_played_since_last_interrupt =
-//              ((uint64_t)config.output_rate * delta) / 1000000000;
+          /*
+          // It seems that the alsa library uses CLOCK_REALTIME before 1.0.28, even though
+          // the check for monotonic returns true. Might have to watch out for this.
+            #if SND_LIB_MINOR == 0 && SND_LIB_SUBMINOR < 28
+                  clock_gettime(CLOCK_REALTIME, &tn);
+            #else
+                  clock_gettime(CLOCK_MONOTONIC, &tn);
+            #endif
+          */
+
+          if (use_monotonic_clock)
+            clock_gettime(CLOCK_MONOTONIC, &tn);
+          else
+            clock_gettime(CLOCK_REALTIME, &tn);
+
+          // uint64_t time_now_ns = tn.tv_sec * (uint64_t)1000000000 + tn.tv_nsec;
+          uint64_t time_now_ns = tn.tv_sec;
+          time_now_ns = time_now_ns * 1000000000;
+          time_now_ns = time_now_ns + tn.tv_nsec;
+
+          // see if it's stalled
+
+          if ((stall_monitor_start_time != 0) && (stall_monitor_frame_count == delay_temp)) {
+            // hasn't outputted anything since the last call to delay()
+
+            if (((update_timestamp_ns - stall_monitor_start_time) >
+                 stall_monitor_error_threshold) ||
+                ((time_now_ns - stall_monitor_start_time) > stall_monitor_error_threshold)) {
+              debug(2,
+                    "DAC seems to have stalled with time_now_ns: %" PRIX64
+                    ", update_timestamp_ns: %" PRIX64 ", stall_monitor_start_time %" PRIX64
+                    ", stall_monitor_error_threshold %" PRIX64 ".",
+                    time_now_ns, update_timestamp_ns, stall_monitor_start_time,
+                    stall_monitor_error_threshold);
+              debug(2,
+                    "DAC seems to have stalled with time_now: %lx,%lx"
+                    ", update_timestamp: %lx,%lx, stall_monitor_start_time %" PRIX64
+                    ", stall_monitor_error_threshold %" PRIX64 ".",
+                    tn.tv_sec, tn.tv_nsec, update_timestamp.tv_sec, update_timestamp.tv_nsec,
+                    stall_monitor_start_time, stall_monitor_error_threshold);
+              ret = sps_extra_code_output_stalled;
+            }
+          } else {
+            stall_monitor_start_time = update_timestamp_ns;
+            stall_monitor_frame_count = delay_temp;
+          }
+
+          if (ret == 0) {
+            uint64_t delta = time_now_ns - update_timestamp_ns;
+
+            //          uint64_t frames_played_since_last_interrupt =
+            //              ((uint64_t)config.output_rate * delta) / 1000000000;
 
             uint64_t frames_played_since_last_interrupt = config.output_rate;
             frames_played_since_last_interrupt = frames_played_since_last_interrupt * delta;
             frames_played_since_last_interrupt = frames_played_since_last_interrupt / 1000000000;
 
-
-          snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
-              frames_played_since_last_interrupt;
-          if ((frames_played_since_last_interrupt_sized < 0) || ((uint64_t)frames_played_since_last_interrupt_sized != frames_played_since_last_interrupt))
-            debug(1,"overflow resizing frames_played_since_last_interrupt % " PRIx64 " to frames_played_since_last_interrupt %lx.", frames_played_since_last_interrupt, frames_played_since_last_interrupt_sized);
-          delay_temp = delay_temp - frames_played_since_last_interrupt_sized;
+            snd_pcm_sframes_t frames_played_since_last_interrupt_sized =
+                frames_played_since_last_interrupt;
+            if ((frames_played_since_last_interrupt_sized < 0) ||
+                ((uint64_t)frames_played_since_last_interrupt_sized !=
+                 frames_played_since_last_interrupt))
+              debug(1,
+                    "overflow resizing frames_played_since_last_interrupt %" PRIx64
+                    " to frames_played_since_last_interrupt %lx.",
+                    frames_played_since_last_interrupt, frames_played_since_last_interrupt_sized);
+            delay_temp = delay_temp - frames_played_since_last_interrupt_sized;
+          }
         }
-        *delay = delay_temp;
-      }
-    } else { // not running, thus no delay information, thus can't check for
-             // stall
-      *delay = 0;
-      stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
-      stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
+      } else { // not running, thus no delay information, thus can't check for
+               // stall
+        delay_temp = 0;
+        stall_monitor_start_time = 0;  // zero if not initialised / not started / zeroed by flush
+        stall_monitor_frame_count = 0; // set to delay at start of time, incremented by any writes
 
-      // not running, thus no delay information, thus can't check for frame
-      // rates
-      frame_index = 0; // we'll be starting over...
-      measurement_data_is_valid = 0;
+        // not running, thus no delay information, thus can't check for frame
+        // rates
+        // frame_index = 0; // we'll be starting over...
+        // measurement_data_is_valid = 0;
+      }
+    } else {
+      debug(1, "alsa: can't get device's status.");
     }
+
   } else {
-    debug(1, "alsa: can't get device's status.");
+    debug(2, "alsa_handle is NULL in precision_delay_and_status!");
   }
+  if (delay != NULL)
+    *delay = delay_temp;
+  if (state != NULL)
+    *state = state_temp;
   return ret;
 }
 
-int delay(long *the_delay) {
+static int delay(long *the_delay) {
   // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or
   // SND_PCM_STATE_PREPARED
   // or SND_PCM_STATE_DRAINING
@@ -1614,6 +1647,36 @@ int delay(long *the_delay) {
   // the error code could be a Unix errno code or a snderror code, or
   // the sps_extra_code_output_stalled or the
   // sps_extra_code_output_state_cannot_make_ready codes
+  int ret = 0;
+  snd_pcm_sframes_t my_delay = 0;
+
+  int oldState;
+
+  snd_pcm_state_t state;
+
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
+
+  ret = delay_and_status(&state, &my_delay, NULL);
+
+  debug_mutex_unlock(&alsa_mutex, 0);
+  pthread_cleanup_pop(0);
+  pthread_setcancelstate(oldState, NULL);
+
+  if (the_delay != NULL)   // can't imagine why this might happen
+    *the_delay = my_delay; // note: snd_pcm_sframes_t is a long
+
+  return ret;
+}
+
+static int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement_time,
+                 uint64_t *the_delay, uint64_t *frames_sent_to_dac) {
+  // returns 0 if the device is in a valid state -- SND_PCM_STATE_RUNNING or
+  // SND_PCM_STATE_PREPARED
+  // or SND_PCM_STATE_DRAINING.
+  // returns the actual delay if running or 0 if prepared in *the_delay
+  // returns the present value of frames_sent_for_playing
+  // otherwise return a non-zero value
   int ret = 0;
   *the_delay = 0;
 
@@ -1625,21 +1688,30 @@ int delay(long *the_delay) {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 0);
 
-  if (alsa_handle == NULL)
-    ret = ENODEV;
-  else
+  if (alsa_handle == NULL) {
+    ret = alsa_handle_status;
+  } else {
+    *raw_measurement_time =
+        get_absolute_time_in_ns(); // this is not conditioned ("disciplined") by NTP
+    *corrected_measurement_time = get_monotonic_time_in_ns(); // this is ("disciplined") by NTP
     ret = delay_and_status(&state, &my_delay, NULL);
-
+  }
+  if (ret == 0)
+    ret = frames_sent_break_occurred; // will be zero unless an error like an underrun occurred
+  else
+    ret = 1;                      // just indicate there was some kind of a break
+  frames_sent_break_occurred = 0; // reset it.
+  if (frames_sent_to_dac != NULL)
+    *frames_sent_to_dac = frames_sent_for_playing;
   debug_mutex_unlock(&alsa_mutex, 0);
   pthread_cleanup_pop(0);
   pthread_setcancelstate(oldState, NULL);
-
-  *the_delay = my_delay; // note: snd_pcm_sframes_t is a long
-
+  uint64_t hd = my_delay; // note: snd_pcm_sframes_t is a long
+  *the_delay = hd;
   return ret;
 }
-
-int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
+/*
+static int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
   // elapsed_time is in nanoseconds
   int response = 0; // zero means okay
   if (measurement_data_is_valid) {
@@ -1652,8 +1724,9 @@ int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
   }
   return response;
 }
+*/
 
-int do_play(void *buf, int samples) {
+static int do_play(void *buf, int samples) {
   // assuming the alsa_mutex has been acquired
   // debug(3,"audio_alsa play called.");
   int oldState;
@@ -1667,47 +1740,42 @@ int do_play(void *buf, int samples) {
 
     if ((samples != 0) && (buf != NULL)) {
 
-      // jut check the state of the DAC
+      // just check the state of the DAC
 
       if ((state != SND_PCM_STATE_PREPARED) && (state != SND_PCM_STATE_RUNNING) &&
           (state != SND_PCM_STATE_XRUN)) {
         debug(1, "alsa: DAC in odd SND_PCM_STATE_* %d prior to writing.", state);
       }
 
-      // debug(3, "write %d frames.", samples);
+      snd_pcm_state_t prior_state = state; // keep this for afterwards....
+      // debug(3, "alsa: write %d frames.", samples);
       ret = alsa_pcm_write(alsa_handle, buf, samples);
+      if (ret > 0)
+        frames_sent_for_playing += ret; // this is the number of frames accepted
       if (ret == samples) {
         stall_monitor_frame_count += samples;
-
-        if (frame_index == 0) {
-          frames_sent_for_playing = samples;
-        } else {
-          frames_sent_for_playing += samples;
-        }
-
-        const uint64_t start_measurement_from_this_frame =
-            (2 * config.output_rate) / 352; // two seconds of frames
-
-        frame_index++;
-
-        if ((frame_index == start_measurement_from_this_frame) ||
-            ((frame_index > start_measurement_from_this_frame) && (frame_index % 32 == 0))) {
-
-          measurement_time = get_absolute_time_in_ns();
-          frames_played_at_measurement_time = frames_sent_for_playing - my_delay - samples;
-
-          if (frame_index == start_measurement_from_this_frame) {
-            // debug(1, "Start frame counting");
-            frames_played_at_measurement_start_time = frames_played_at_measurement_time;
-            measurement_start_time = measurement_time;
-            measurement_data_is_valid = 1;
-          }
-        }
       } else {
-        frame_index = 0;
-        measurement_data_is_valid = 0;
-        if (ret == -EPIPE) { /* underrun */
-          debug(1, "alsa: underrun while writing %d samples to alsa device.", samples);
+        frames_sent_break_occurred = 1; // note than an output error has occurred
+        if (ret == -EPIPE) {            /* underrun */
+
+          // It could be that the DAC was in the SND_PCM_STATE_XRUN state before
+          // sending the samples to be output. If so, it will still be in
+          // the SND_PCM_STATE_XRUN state after the call and it needs to be recovered.
+
+          // The underrun occurred in the past, so flagging an
+          // error at this point is misleading.
+
+          // In fact, having put samples in the buffer, we are about to fix it by now
+          // issuing a snd_pcm_recover().
+
+          // So, if state is SND_PCM_STATE_XRUN now, only report it if the state was
+          // not SND_PCM_STATE_XRUN prior to the call, i.e. report it only
+          // if we are not trying to recover from a previous underrun.
+
+          if (prior_state == SND_PCM_STATE_XRUN)
+            debug(1, "alsa: recovering from a previous underrun.");
+          else
+            debug(1, "alsa: underrun while writing %d samples to alsa device.", samples);
           int tret = snd_pcm_recover(alsa_handle, ret, 1);
           if (tret < 0) {
             warn("alsa: can't recover from SND_PCM_STATE_XRUN: %s.", snd_strerror(tret));
@@ -1737,15 +1805,13 @@ int do_play(void *buf, int samples) {
           "alsa: device status returns fault status %d and SND_PCM_STATE_* "
           "%d  for play.",
           ret, state);
-    frame_index = 0;
-    measurement_data_is_valid = 0;
   }
 
   pthread_setcancelstate(oldState, NULL);
   return ret;
 }
 
-int do_open(int do_auto_setup) {
+static int do_open(int do_auto_setup) {
   int ret = 0;
   if (alsa_backend_state != abm_disconnected)
     debug(1, "alsa: do_open() -- opening the output device when it is already "
@@ -1763,7 +1829,9 @@ int do_open(int do_auto_setup) {
                           // set accordingly
         // do_mute(0); // complete unmute
       }
-
+      frames_sent_break_occurred = 1; // there is a discontinuity with
+      // any previously-reported frame count
+      frames_sent_for_playing = 0;
       alsa_backend_state = abm_connected; // only do this if it really opened it.
     }
   } else {
@@ -1772,7 +1840,8 @@ int do_open(int do_auto_setup) {
   return ret;
 }
 
-int do_close() {
+static int do_close() {
+  debug(2, "alsa: do_close()");
   if (alsa_backend_state == abm_disconnected)
     debug(1, "alsa: do_close() -- closing the output device when it is already "
              "disconnected");
@@ -1781,15 +1850,14 @@ int do_close() {
     // debug(1,"alsa: do_close() -- closing the output device");
     if ((derr = snd_pcm_drop(alsa_handle)))
       debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
-    usleep(5000);
+    usleep(5000); // this make the function pthread cancellable
     if ((derr = snd_pcm_hw_free(alsa_handle)))
       debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
-
-    // flush also closes the device
     debug(2, "alsa: do_close() -- closing alsa handle");
     if ((derr = snd_pcm_close(alsa_handle)))
       debug(1, "Error %d (\"%s\") closing the output device.", derr, snd_strerror(derr));
     alsa_handle = NULL;
+    alsa_handle_status = ENODEV; // no device open
   } else {
     debug(1, "alsa: do_close() -- output device already closed.");
   }
@@ -1797,7 +1865,28 @@ int do_close() {
   return derr;
 }
 
-int play(void *buf, int samples) {
+static int sub_flush() {
+  if (alsa_backend_state == abm_disconnected)
+    debug(1, "alsa: do_flush() -- closing the output device when it is already "
+             "disconnected");
+  int derr = 0;
+  if (alsa_handle) {
+    debug(2, "alsa: do_flush() -- flushing the output device");
+    frames_sent_break_occurred = 1;
+    if ((derr = snd_pcm_drop(alsa_handle)))
+      debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
+    if ((derr = snd_pcm_prepare(alsa_handle)))
+      debug(1, "Error %d (\"%s\") preparing output device after flush.", derr, snd_strerror(derr));
+    alsa_backend_state = abm_connected;
+  } else {
+    debug(1, "alsa: do_flush() -- output device already closed.");
+  }
+  return derr;
+}
+
+static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
+                __attribute__((unused)) uint32_t timestamp,
+                __attribute__((unused)) uint64_t playtime) {
 
   // play() will change the state of the alsa_backend_mode to abm_playing
   // also, if the present alsa_backend_state is abm_disconnected, then first the
@@ -1834,7 +1923,7 @@ int play(void *buf, int samples) {
   return ret;
 }
 
-int prepare(void) {
+static int prepare(void) {
   // this will leave the DAC open / connected.
   int ret = 0;
 
@@ -1859,28 +1948,28 @@ int prepare(void) {
 static void flush(void) {
   // debug(2,"audio_alsa flush called.");
   pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
-  // mute_requested_internally = 1; // request a mute for backend's reasons
-  // debug(2, "flush() set_mute_state");
-  // set_mute_state();
-  // do_mute(1); // mute for backend's own reasons
   if (alsa_backend_state != abm_disconnected) { // must be playing or connected...
-    if (config.keep_dac_busy != 0) {
-      debug(2, "alsa: flush() -- alsa_backend_state => abm_connected.");
-      alsa_backend_state = abm_connected;
-    } else {
-      debug(2, "alsa: flush() -- closing the output device");
-      do_close(); // will change the state to disconnected
-      debug(2, "alsa: flush() -- alsa_backend_state => abm_disconnected.");
+    // do nothing for a flush if config.keep_dac_busy is true
+    if (config.keep_dac_busy == 0) {
+      sub_flush();
     }
-  } else
+  } else {
     debug(3, "alsa: flush() -- called on a disconnected alsa backend");
+  }
   debug_mutex_unlock(&alsa_mutex, 3);
   pthread_cleanup_pop(0); // release the mutex
 }
 
 static void stop(void) {
-  // debug(2,"audio_alsa stop called.");
-  flush(); // flush will also close the device if appropriate
+  pthread_cleanup_debug_mutex_lock(&alsa_mutex, 10000, 1);
+  if (alsa_backend_state != abm_disconnected) { // must be playing or connected...
+    if (config.keep_dac_busy == 0) {
+      do_close();
+    }
+  } else
+    debug(3, "alsa: stop() -- called on a disconnected alsa backend");
+  debug_mutex_unlock(&alsa_mutex, 3);
+  pthread_cleanup_pop(0); // release the mutex
 }
 
 static void parameters(audio_parameters *info) {
@@ -1888,8 +1977,8 @@ static void parameters(audio_parameters *info) {
   info->maximum_volume_dB = alsa_mix_maxdb;
 }
 
-void do_volume(double vol) { // caller is assumed to have the alsa_mutex when
-                             // using this function
+static void do_volume(double vol) { // caller is assumed to have the alsa_mutex when
+                                    // using this function
   debug(3, "Setting volume db to %f.", vol);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
@@ -1929,7 +2018,7 @@ void do_volume(double vol) { // caller is assumed to have the alsa_mutex when
   pthread_setcancelstate(oldState, NULL);
 }
 
-void volume(double vol) {
+static void volume(double vol) {
   volume_set_request = 1; // an external request has been made to set the volume
   do_volume(vol);
 }
@@ -1953,7 +2042,7 @@ linear_volume;
 }
 */
 
-int mute(int mute_state_requested) {                // these would be for external reasons, not
+static int mute(int mute_state_requested) {         // these would be for external reasons, not
                                                     // because of the
                                                     // state of the backend.
   mute_requested_externally = mute_state_requested; // request a mute for external reasons
@@ -1961,13 +2050,13 @@ int mute(int mute_state_requested) {                // these would be for extern
   return set_mute_state();
 }
 /*
-void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
+static void alsa_buffer_monitor_thread_cleanup_function(__attribute__((unused)) void
 *arg) {
   debug(1, "alsa: alsa_buffer_monitor_thread_cleanup_function called.");
 }
 */
 
-void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
+static void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
   int frame_count = 0;
   int error_count = 0;
   int error_detected = 0;
@@ -1994,8 +2083,8 @@ void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) {
                  "alsa_backend_state => abm_connected");
     } else if ((alsa_backend_state == abm_connected) && (config.keep_dac_busy == 0)) {
       stall_monitor_start_time = 0;
-      frame_index = 0;
-      measurement_data_is_valid = 0;
+      // frame_index = 0;
+      // measurement_data_is_valid = 0;
       debug(2, "alsa: alsa_buffer_monitor_thread_code() -- closing the output "
                "device");
       do_close();

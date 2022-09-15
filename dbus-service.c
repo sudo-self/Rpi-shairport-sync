@@ -1,6 +1,6 @@
 /*
  * This file is part of Shairport Sync.
- * Copyright (c) Mike Brady 2018 -- 2019
+ * Copyright (c) Mike Brady 2018 -- 2022
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -423,6 +423,8 @@ gboolean notify_statistics_callback(ShairportSyncDiagnostics *skeleton,
   // debug(1, "\"notify_statistics_callback\" called.");
   if (shairport_sync_diagnostics_get_statistics(skeleton)) {
     debug(1, ">> start logging statistics");
+    if (config.statistics_requested == 0)
+      statistics_row = 0; // redraw the header line
     config.statistics_requested = 1;
   } else {
     debug(1, ">> stop logging statistics");
@@ -437,6 +439,8 @@ gboolean notify_verbosity_callback(ShairportSyncDiagnostics *skeleton,
   if ((th >= 0) && (th <= 3)) {
     if (th == 0)
       debug(1, ">> log verbosity set to %d.", th);
+    if (((debuglev == 0) && (th != 0)) || ((debuglev != 0) && (th == 0)))
+      statistics_row = 0; // if the debug level changes, redraw the header line
     debuglev = th;
     debug(1, ">> log verbosity set to %d.", th);
   } else {
@@ -558,11 +562,30 @@ gboolean notify_drift_tolerance_callback(ShairportSync *skeleton,
                                          __attribute__((unused)) gpointer user_data) {
   gdouble dt = shairport_sync_get_drift_tolerance(skeleton);
   if ((dt >= 0.0) && (dt <= 2.0)) {
-    debug(1, ">> setting drift tolerance to %f seconds", dt);
+    debug(1, ">> setting drift tolerance to %f seconds.", dt);
     config.tolerance = dt;
   } else {
     debug(1, ">> invalid drift tolerance: %f seconds. Ignored.", dt);
     shairport_sync_set_drift_tolerance(skeleton, config.tolerance);
+  }
+  return TRUE;
+}
+
+gboolean notify_volume_callback(ShairportSync *skeleton,
+                                __attribute__((unused)) gpointer user_data) {
+  gdouble iv = shairport_sync_get_volume(skeleton);
+  if (((iv >= -30.0) && (iv <= 0.0)) || (iv == -144.0)) {
+    debug(2, ">> setting volume to %7.4f.", iv);
+
+    lock_player();
+    config.airplay_volume = iv;
+    if (playing_conn != NULL)
+      player_volume(iv, playing_conn);
+    unlock_player();
+
+  } else {
+    debug(1, ">> invalid volume: %f. Ignored.", iv);
+    shairport_sync_set_volume(skeleton, config.airplay_volume);
   }
   return TRUE;
 }
@@ -749,11 +772,9 @@ gboolean notify_loop_status_callback(ShairportSyncAdvancedRemoteControl *skeleto
 static gboolean on_handle_quit(ShairportSync *skeleton, GDBusMethodInvocation *invocation,
                                __attribute__((unused)) const gchar *command,
                                __attribute__((unused)) gpointer user_data) {
-  debug(1, "quit requested (native interface)");
-  if (main_thread_id)
-    debug(1, "Cancelling main thread results in %d.", pthread_cancel(main_thread_id));
-  else
-    debug(1, "Main thread ID is NULL.");
+  debug(1, ">> quit requested");
+  type_of_exit_cleanup = TOE_dbus; // request an exit cleanup that is compatible with dbus
+  exit(EXIT_SUCCESS);
   shairport_sync_complete_quit(skeleton, invocation);
   return TRUE;
 }
@@ -781,6 +802,15 @@ static gboolean on_handle_remote_command(ShairportSync *skeleton, GDBusMethodInv
     *p = '\0';
   }
   shairport_sync_complete_remote_command(skeleton, invocation, reply, client_reply_hex);
+  return TRUE;
+}
+
+static gboolean on_handle_drop_session(ShairportSync *skeleton, GDBusMethodInvocation *invocation,
+                                       __attribute__((unused)) gpointer user_data) {
+  if (playing_conn != NULL)
+    debug(1, ">> stopping current play session");
+  get_play_lock(NULL, 1); // stop any current session and don't replace it
+  shairport_sync_complete_drop_session(skeleton, invocation);
   return TRUE;
 }
 
@@ -831,11 +861,16 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    G_CALLBACK(notify_loudness_threshold_callback), NULL);
   g_signal_connect(shairportSyncSkeleton, "notify::drift-tolerance",
                    G_CALLBACK(notify_drift_tolerance_callback), NULL);
+  g_signal_connect(shairportSyncSkeleton, "notify::volume", G_CALLBACK(notify_volume_callback),
+                   NULL);
 
   g_signal_connect(shairportSyncSkeleton, "handle-quit", G_CALLBACK(on_handle_quit), NULL);
 
   g_signal_connect(shairportSyncSkeleton, "handle-remote-command",
                    G_CALLBACK(on_handle_remote_command), NULL);
+
+  g_signal_connect(shairportSyncSkeleton, "handle-drop-session", G_CALLBACK(on_handle_drop_session),
+                   NULL);
 
   g_signal_connect(shairportSyncDiagnosticsSkeleton, "notify::verbosity",
                    G_CALLBACK(notify_verbosity_callback), NULL);
@@ -895,6 +930,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   shairport_sync_set_loudness_threshold(SHAIRPORT_SYNC(shairportSyncSkeleton),
                                         config.loudness_reference_volume_db);
   shairport_sync_set_drift_tolerance(SHAIRPORT_SYNC(shairportSyncSkeleton), config.tolerance);
+  shairport_sync_set_volume(SHAIRPORT_SYNC(shairportSyncSkeleton), config.airplay_volume);
 
 #ifdef CONFIG_APPLE_ALAC
   if (config.use_apple_decoder == 0) {
@@ -981,6 +1017,12 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 //  else
 //    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton),
 //    NULL);
+#endif
+
+#ifdef CONFIG_AIRPLAY_2
+  shairport_sync_set_protocol(SHAIRPORT_SYNC(shairportSyncSkeleton), "AirPlay 2");
+#else
+  shairport_sync_set_protocol(SHAIRPORT_SYNC(shairportSyncSkeleton), "AirPlay");
 #endif
 
   shairport_sync_set_version(SHAIRPORT_SYNC(shairportSyncSkeleton), PACKAGE_VERSION);

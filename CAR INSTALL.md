@@ -1,66 +1,79 @@
 # Shairport Sync for Cars
-If your car audio has an AUX input, you can get AirPlay in your car using Shairport Sync. Together, Shairport Sync and an iPhone can give you access to internet radio, YouTube, Apple Music, Spotify, etc. on the move. While Shairport Sync is  no substitute for CarPlay, the audio quality is often much better than Bluetooth. Your passengers can enjoy movies with the soundtrack on the car speakers.
+If your car audio has an AUX input, you can get AirPlay in your car using Shairport Sync. Together, Shairport Sync and an iPhone or an iPad with cellular capability can give you access to internet radio, YouTube, Apple Music, Spotify, etc. on the move. While Shairport Sync is no substitute for CarPlay, the audio quality is often much better than Bluetooth.
 
 ## The Basic Idea
 
-The basic idea is to use a small Linux computer to create an isolated WiFi network for the car and to run Shairport Sync on it to provide an AirPlay service. The audio goes via a DAC to the AUX input of your car audio system.
-
-The car WiFi network you create is isolated and local to your car, and since it isn't connected to the Internet, you don't really need to secure it with a password. Likewise, you don't really have to use a password to connect to the AirPlay service.
-
-When an iPhone or an iPad with cellular capability is connected to an isolated WiFi network like this, it can use its cellular connection to access the Internet.
-This means it can connect to internet radio, YouTube, Apple Music, Spotify, etc. over the cellular network and play the audio through the car network to the AirPlay service provided by Shairport Sync.
+The basic idea is to use a small Linux computer to create an isolated WiFi network (a "car network") and run Shairport Sync on it to provide an AirPlay service. An iPhone or an iPad with cellular capability can simultaneously connect to internet radio, YouTube, Apple Music, Spotify, etc. over the cellular network and send AirPlay audio through the car network to the AirPlay service provided by Shairport Sync. This sends the audio to the computer's DAC which is connected to the AUX input of your car audio.
 
 Note that Android devices can not, so far, do this trick of using the two networks simultaneously.
 
 ## Example
 
-In this example, a Raspberry Pi Zero W and a Pimoroni PHAT DAC are used. This combination has been tested for over two years. Please note that some of the details of setting up networks are specific to the version of Linux used -- Raspbian Stretch or later.
+In this example, a Raspberry Pi Zero 2 W and a Pimoroni PHAT DAC are used. Shairport Sync will be built for AirPlay 2 operation, but you can build it for "classic" AirPlay (aka AirPlay 1) operation if you prefer. A Pi Zero W is powerful enough for classic AirPlay.
+
+Please note that some of the details of setting up networks are specific to the version of Linux used -- Rasberry Pi OS (Bullseye) Lite or later.
 
 ### Prepare the initial SD Image
-* Download the latest version of Raspbian Lite -- Stretch Lite of 2018-03-13 at the time of writing -- and install it onto an SD Card.
-* Mount the card on a Linux machine. Two drives should appear -- a `boot` drive and a `rootfs` drive. Both of these need a little modification.
-* Enable SSH service by creating a file called `ssh` on the `boot` drive. To do this, mount the drive and CD to its `boot` partition (since my username is `mike`, the drive is at `/media/mike/boot`):
-```
-$ touch ssh
-```
-* Also in the `boot` drive, edit the `config.txt` file to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used and it needs the following entry to be added:
-```
-dtoverlay=hifiberry-dac
-```
-* Next, some modifications need to be done to the `rootfs` drive to make the Pi connect to your main WiFi network. (This is a temporary measure to enable you to connect the Pi to your main network so that you can do all the software installation and updating of the software necessary. Later, the Pi will be configured to start its own isolated network.) On the `rootfs` drive, edit the file `etc/wpa_supplicant/wpa_supplicant.conf` (you'll need root privileges) and add the name and password of your main WiFi network (substitute your own network name and password in, but keep the quotation marks):
-```
-network={
-    ssid="Network Name"
-    psk="Password"
-}
+* Download the latest version of Raspberry Pi OS (Lite) -- Bullseye (Lite) of 2022-04-04 at the time of writing -- and install it onto an SD Card using `Raspberry Pi Imager`. The Lite version is preferable to the Desktop version as it doesn't include a sound server like PulseAudio or PipeWire that can prevent direct access to the audio output device.
+* Before writing the image to the card, use the Settings control on `Raspberry Pi Imager` to set hostname, enable SSH and provide a username and password to use while building the system. Similarly, you can specify a wireless network the Pi will connect to while building the system. Later on the Pi will be configured to start its own isolated network.
+* The next few steps are to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used. If you do not need to add an overlay, skip these steps.
+  * Mount the card on a Linux machine. Two drives should appear -- a `boot` drive and a `rootfs` drive.
+  * `cd` to the `boot` drive (since my username is `mike`, it will be `$ cd /media/mike/boot`).
+  * Edit the `config.txt` file to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used and it needs the following entry to be added:
+    ```
+    dtoverlay=hifiberry-dac
+    ```
+  * Close the file and carefully dismount and eject the two drives. *Be sure to dismount and eject the drives properly; otherwise they may be corrupted.*
+* Remove the SD card from the Linux machine, insert it into the Pi and reboot.
 
-```
-Close the file and carefully dismount and eject the two drives. Remove the SD card from the Linux machine, insert it into the Pi and reboot. After a short time, the Pi should appear on your network and you can SSH into it. To check that it has appeared on the network, try to ping it at `raspberrypi.local`. It may take a minute or so to appear. Once it has appeared on your network you can SSH into it and configure it.
+After a short time, the Pi should appear on your network -- it may take a minute or so. To check, try to `ping` it at the `<hostname>.local`, e.g. if the hostname is `bmw` then use `$ ping bmw.local`. Once it has appeared, you can SSH into it and configure it.
 
 ### Boot, Configure, Update 
-The first thing to do on a Pi would be to use the `raspi-config` tool to expand the file system to use the entire card. It might be useful to change the `hostname` too. Next, do the usual update and upgrade:
+The first thing to do on a Pi would be to use the `raspi-config` tool to expand the file system to use the entire card. Next, do the usual update and upgrade:
 ```
 # apt-get update
 # apt-get upgrade
 ``` 
 
-### Shairport Sync
-First, install the packages needed by Shairport Sync:
+### Build and Install 
+Let's get the tools and libraries for building and installing Shairport Sync (and NQPTP).
+
 ```
-# apt-get install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
+# apt install --no-install-recommends build-essential git xmltoman autoconf automake libtool \
+    libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
+    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd
 ```
-Next, download Shairport Sync, configure it, compile and install it:
+If you are building classic Shairport Sync, the list of packages is shorter:
+```
+# apt-get install --no-install-recommends build-essential git xmltoman autoconf automake libtool \
+    libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
+```
+
+#### NQPTP
+Skip this section if you are building classic Shairport Sync – NQPTP is not needed for classic Shairport Sync.
+
+Download, install, enable and start NQPTP from [here](https://github.com/mikebrady/nqptp) following the guide for Linux.
+
+#### Shairport Sync
+Download Shairport Sync, check out the `development` branch and configure, compile and install it.
+
+* Omit the `--with-airplay-2` from the `./configure` options if you are building classic Shairport Sync.
+
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
+$ git checkout development
 $ autoreconf -fi
-$ ./configure --sysconfdir=/etc --with-alsa --with-avahi --with-ssl=openssl --with-soxr --with-systemd
+$ ./configure --sysconfdir=/etc --with-alsa \
+    --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
 $ make
-$ sudo make install
+# make install
 ```
-*Do not* enable Shairport Sync to automatically start at boot time -- startup is organised differently.
+The `autoreconf` step may take quite a while – please be patient!
 
-Third, finish by configuring Shairport Sync.
+**Note:** *Do not* enable Shairport Sync to start automatically at boot time -- later on in this installation, we will arrange for it to start after the network has been set up.
+
+### Configure Shairport Sync
 Here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`:
 ```
 // Sample Configuration File for Shairport Sync for Car Audio with a Pimoroni PHAT
@@ -98,51 +111,35 @@ Disable both of these services from starting at boot time (this is because we wi
 #### Configure HostAPD
 Configure `hostapd` by creating `/etc/hostapd/hostapd.conf` with the following contents which will set up an open network with the name BMW. You might wish to change the name:
 ``` 
-# This is the name of the WiFi interface we configured above
+# Thanks to https://wiki.gentoo.org/wiki/Hostapd#802.11b.2Fg.2Fn_triple_AP
+
+# The interface used by the AP
 interface=wlan0
 
-# Use the nl80211 driver with the brcmfmac driver
-driver=nl80211
-
-# This is the name of the network -- yours might be different
+# This is the name of the network -- yours may be different
 ssid=BMW
 
-# Use the 2.4GHz band
+# "g" simply means 2.4GHz band
 hw_mode=g
 
-# Use channel 6
-channel=9
+# Channel to use
+channel=11
 
-# Enable 802.11n
+# Limit the frequencies used to those allowed in the country
+ieee80211d=1
+
+# The country code
+country_code=IE
+
+# Enable 802.11n support
 ieee80211n=1
 
-# Enable WMM
+# QoS support, also required for full speed on 802.11n/ac/ax
 wmm_enabled=1
 
-# Enable 40MHz channels with 20ns guard interval
-#ht_capab=[HT40][SHORT-GI-20][DSSS_CCK-40]
-
-# Accept all MAC addresses
-macaddr_acl=0
-
-# Use WPA authentication
-#auth_algs=1
-
-# Require clients to know the network name
-ignore_broadcast_ssid=0
-
-# Use WPA2
-#wpa=2
-
-# Use a pre-shared key
-#wpa_key_mgmt=WPA-PSK
-
-# The network passphrase
-#wpa_passphrase=none
-
-# Use AES, instead of TKIP
-#rsn_pairwise=CCMP
 ```
+Note that, since car network is isolated from the Internet, you don't really need to secure it with a password.
+
 #### Configure DHCP server
 
 First,  replace the contents of `/etc/dhcp/dhcpd.conf` with this:
@@ -183,6 +180,7 @@ Configure the startup sequence by adding commands to `/etc/rc.local` to start `h
 /bin/systemctl start shairport-sync
 
 exit 0
+
 ```
 As you can see, the effect of these commands is to start the WiFi transmitter, give the base station the IP address `10.0.10.1`, start a DHCP server and finally start the Shairport Sync service.
 
@@ -195,7 +193,7 @@ From this point on, at least on the Raspberry Pi, if you reboot the machine, it 
 
 ### Optimise startup time -- Raspberry Pi Specific
 
-This is applicable to a Raspberry Pi only. Some of it may be applicable to other systems, but it has not been tested on them. There are quite a few services that are not necessary for this setup. Disabling them can shorten startup time. Running these commands disables them:
+This is applicable to a Raspberry Pi only. Some of it may be applicable to other systems, but it has not been tested on them. There are quite a few services that are not necessary for this setup. Disabling them can improve startup time. Running these commands disables them:
 
 ````
 sudo systemctl disable systemd-timesyncd.service

@@ -2,7 +2,7 @@
  * Utility routines. This file is part of Shairport.
  * Copyright (c) James Laird 2013
  * The volume to attenuation function vol2attn copyright (c) Mike Brady 2014
- * Further changes and additions (c) Mike Brady 2014 -- 2019
+ * Further changes and additions (c) Mike Brady 2014 -- 2021
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -27,9 +27,15 @@
  */
 
 #include "common.h"
+
+#ifdef CONFIG_USE_GIT_VERSION_STRING
+#include "gitversion.h"
+#endif
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h> // PRIdPTR
 #include <libgen.h>
 #include <memory.h>
 #include <poll.h>
@@ -43,10 +49,25 @@
 #include <time.h>
 #include <unistd.h>
 
+#include <ifaddrs.h>
+
+#ifdef COMPILE_FOR_LINUX
+#include <netpacket/packet.h>
+#endif
+
+#ifdef COMPILE_FOR_BSD
+#include <net/if_dl.h>
+#include <net/if_types.h>
+#include <netinet/in.h>
+#endif
+
 #ifdef COMPILE_FOR_OSX
 #include <CoreServices/CoreServices.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
+#include <net/if_dl.h>
+#include <net/if_types.h>
+#include <netinet/in.h>
 #endif
 
 #ifdef CONFIG_OPENSSL
@@ -90,7 +111,7 @@ void set_alsa_out_dev(char *);
 #endif
 
 config_t config_file_stuff;
-int emergency_exit;
+int type_of_exit_cleanup;
 pthread_t main_thread_id;
 uint64_t ns_time_at_startup, ns_time_at_last_debug_message;
 
@@ -124,7 +145,7 @@ static void (*sps_log)(int prio, const char *t, ...) = syslog;
 #endif
 
 void do_sps_log_to_stderr(__attribute__((unused)) int prio, const char *t, ...) {
-  char s[1024];
+  char s[16384];
   va_list args;
   va_start(args, t);
   vsnprintf(s, sizeof(s), t, args);
@@ -133,7 +154,7 @@ void do_sps_log_to_stderr(__attribute__((unused)) int prio, const char *t, ...) 
 }
 
 void do_sps_log_to_stdout(__attribute__((unused)) int prio, const char *t, ...) {
-  char s[1024];
+  char s[16384];
   va_list args;
   va_start(args, t);
   vsnprintf(s, sizeof(s), t, args);
@@ -193,7 +214,7 @@ int create_log_file(const char *path) {
 }
 
 void do_sps_log_to_fd(__attribute__((unused)) int prio, const char *t, ...) {
-  char s[1024];
+  char s[16384];
   va_list args;
   va_start(args, t);
   vsnprintf(s, sizeof(s), t, args);
@@ -266,41 +287,179 @@ uint16_t nextFreeUDPPort() {
   return UDPPortIndex;
 }
 
+// if port is zero, pick any port
+// otherwise, try the given port only
+int bind_socket_and_port(int type, int ip_family, const char *self_ip_address, uint32_t scope_id,
+                         uint16_t *port, int *sock) {
+  int ret = 0; // no error
+  int local_socket = socket(ip_family, type, 0);
+  if (local_socket == -1)
+    ret = errno;
+  if (ret == 0) {
+    SOCKADDR myaddr;
+    memset(&myaddr, 0, sizeof(myaddr));
+    if (ip_family == AF_INET) {
+      struct sockaddr_in *sa = (struct sockaddr_in *)&myaddr;
+      sa->sin_family = AF_INET;
+      sa->sin_port = ntohs(*port);
+      inet_pton(AF_INET, self_ip_address, &(sa->sin_addr));
+      ret = bind(local_socket, (struct sockaddr *)sa, sizeof(struct sockaddr_in));
+    }
+#ifdef AF_INET6
+    if (ip_family == AF_INET6) {
+      struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)&myaddr;
+      sa6->sin6_family = AF_INET6;
+      sa6->sin6_port = ntohs(*port);
+      inet_pton(AF_INET6, self_ip_address, &(sa6->sin6_addr));
+      sa6->sin6_scope_id = scope_id;
+      ret = bind(local_socket, (struct sockaddr *)sa6, sizeof(struct sockaddr_in6));
+    }
+#endif
+    if (ret < 0) {
+      ret = errno;
+      close(local_socket);
+      char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      warn("error %d: \"%s\". Could not bind a port!", errno, errorstring);
+    } else {
+      uint16_t sport;
+      SOCKADDR local;
+      socklen_t local_len = sizeof(local);
+      ret = getsockname(local_socket, (struct sockaddr *)&local, &local_len);
+      if (ret < 0) {
+        ret = errno;
+        close(local_socket);
+        char errorstring[1024];
+        strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+        warn("error %d: \"%s\". Could not retrieve socket's port!", errno, errorstring);
+      } else {
+#ifdef AF_INET6
+        if (local.SAFAMILY == AF_INET6) {
+          struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)&local;
+          sport = ntohs(sa6->sin6_port);
+        } else
+#endif
+        {
+          struct sockaddr_in *sa = (struct sockaddr_in *)&local;
+          sport = ntohs(sa->sin_port);
+        }
+        *sock = local_socket;
+        *port = sport;
+      }
+    }
+  }
+  return ret;
+}
+
+uint16_t bind_UDP_port(int ip_family, const char *self_ip_address, uint32_t scope_id, int *sock) {
+  // look for a port in the range, if any was specified.
+  int ret = 0;
+
+  int local_socket = socket(ip_family, SOCK_DGRAM, IPPROTO_UDP);
+  if (local_socket == -1)
+    die("Could not allocate a socket.");
+
+  /*
+    int val = 1;
+    ret = setsockopt(local_socket, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+    if (ret < 0) {
+      char errorstring[1024];
+      strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+      debug(1, "Error %d: \"%s\". Couldn't set SO_REUSEADDR");
+    }
+  */
+
+  SOCKADDR myaddr;
+  int tryCount = 0;
+  uint16_t desired_port;
+  do {
+    tryCount++;
+    desired_port = nextFreeUDPPort();
+    memset(&myaddr, 0, sizeof(myaddr));
+    if (ip_family == AF_INET) {
+      struct sockaddr_in *sa = (struct sockaddr_in *)&myaddr;
+      sa->sin_family = AF_INET;
+      sa->sin_port = ntohs(desired_port);
+      inet_pton(AF_INET, self_ip_address, &(sa->sin_addr));
+      ret = bind(local_socket, (struct sockaddr *)sa, sizeof(struct sockaddr_in));
+    }
+#ifdef AF_INET6
+    if (ip_family == AF_INET6) {
+      struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)&myaddr;
+      sa6->sin6_family = AF_INET6;
+      sa6->sin6_port = ntohs(desired_port);
+      inet_pton(AF_INET6, self_ip_address, &(sa6->sin6_addr));
+      sa6->sin6_scope_id = scope_id;
+      ret = bind(local_socket, (struct sockaddr *)sa6, sizeof(struct sockaddr_in6));
+    }
+#endif
+
+  } while ((ret < 0) && (errno == EADDRINUSE) && (desired_port != 0) &&
+           (tryCount < config.udp_port_range));
+
+  // debug(1,"UDP port chosen: %d.",desired_port);
+
+  if (ret < 0) {
+    close(local_socket);
+    char errorstring[1024];
+    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+    die("error %d: \"%s\". Could not bind a UDP port! Check the udp_port_range is large enough -- "
+        "it must be "
+        "at least 3, and 10 or more is suggested -- or "
+        "check for restrictive firewall settings or a bad router! UDP base is %u, range is %u and "
+        "current suggestion is %u.",
+        errno, errorstring, config.udp_port_base, config.udp_port_range, desired_port);
+  }
+
+  uint16_t sport;
+  SOCKADDR local;
+  socklen_t local_len = sizeof(local);
+  getsockname(local_socket, (struct sockaddr *)&local, &local_len);
+#ifdef AF_INET6
+  if (local.SAFAMILY == AF_INET6) {
+    struct sockaddr_in6 *sa6 = (struct sockaddr_in6 *)&local;
+    sport = ntohs(sa6->sin6_port);
+  } else
+#endif
+  {
+    struct sockaddr_in *sa = (struct sockaddr_in *)&local;
+    sport = ntohs(sa->sin_port);
+  }
+  *sock = local_socket;
+  return sport;
+}
+
 int get_requested_connection_state_to_output() { return requested_connection_state_to_output; }
 
 void set_requested_connection_state_to_output(int v) { requested_connection_state_to_output = v; }
 
 char *generate_preliminary_string(char *buffer, size_t buffer_length, double tss, double tsl,
                                   const char *filename, const int linenumber, const char *prefix) {
-  size_t space_remaining = buffer_length;
   char *insertion_point = buffer;
   if (config.debugger_show_elapsed_time) {
-    snprintf(insertion_point, space_remaining, "% 20.9f", tss);
+    snprintf(insertion_point, buffer_length, "% 20.9f", tss);
     insertion_point = insertion_point + strlen(insertion_point);
-    space_remaining = space_remaining - strlen(insertion_point);
   }
   if (config.debugger_show_relative_time) {
-    snprintf(insertion_point, space_remaining, "% 20.9f", tsl);
+    snprintf(insertion_point, buffer_length, "% 20.9f", tsl);
     insertion_point = insertion_point + strlen(insertion_point);
-    space_remaining = space_remaining - strlen(insertion_point);
   }
   if (config.debugger_show_file_and_line) {
-    snprintf(insertion_point, space_remaining, " \"%s:%d\"", filename, linenumber);
+    snprintf(insertion_point, buffer_length, " \"%s:%d\"", filename, linenumber);
     insertion_point = insertion_point + strlen(insertion_point);
-    space_remaining = space_remaining - strlen(insertion_point);
   }
   if (prefix) {
-    snprintf(insertion_point, space_remaining, "%s", prefix);
+    snprintf(insertion_point, buffer_length, "%s", prefix);
     insertion_point = insertion_point + strlen(insertion_point);
-    space_remaining = space_remaining - strlen(insertion_point);
   }
   return insertion_point;
 }
 
-void _die(const char *filename, const int linenumber, const char *format, ...) {
+void _die(const char *thefilename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char b[1024];
+
+  char b[16384];
   b[0] = 0;
   char *s;
   if (debuglev) {
@@ -310,9 +469,12 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
     uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
     ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
+    char *basec = strdup(thefilename);
+    char *filename = basename(basec);
     s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
                                     1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *fatal error: ");
+    free(basec);
   } else {
     strncpy(b, "fatal error: ", sizeof(b));
     s = b + strlen(b);
@@ -323,14 +485,14 @@ void _die(const char *filename, const int linenumber, const char *format, ...) {
   va_end(args);
   sps_log(LOG_ERR, "%s", b);
   pthread_setcancelstate(oldState, NULL);
-  emergency_exit = 1;
+  type_of_exit_cleanup = TOE_emergency;
   exit(EXIT_FAILURE);
 }
 
-void _warn(const char *filename, const int linenumber, const char *format, ...) {
+void _warn(const char *thefilename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char b[1024];
+  char b[16384];
   b[0] = 0;
   char *s;
   if (debuglev) {
@@ -340,9 +502,12 @@ void _warn(const char *filename, const int linenumber, const char *format, ...) 
     uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
     ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
+    char *basec = strdup(thefilename);
+    char *filename = basename(basec);
     s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
                                     1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " *warning: ");
+    free(basec);
   } else {
     strncpy(b, "warning: ", sizeof(b));
     s = b + strlen(b);
@@ -355,12 +520,13 @@ void _warn(const char *filename, const int linenumber, const char *format, ...) 
   pthread_setcancelstate(oldState, NULL);
 }
 
-void _debug(const char *filename, const int linenumber, int level, const char *format, ...) {
+void _debug(const char *thefilename, const int linenumber, int level, const char *format, ...) {
   if (level > debuglev)
     return;
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char b[1024];
+
+  char b[16384];
   b[0] = 0;
   pthread_mutex_lock(&debug_timing_lock);
   uint64_t time_now = get_absolute_time_in_ns();
@@ -368,21 +534,24 @@ void _debug(const char *filename, const int linenumber, int level, const char *f
   uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
   ns_time_at_last_debug_message = time_now;
   pthread_mutex_unlock(&debug_timing_lock);
+  char *basec = strdup(thefilename);
+  char *filename = basename(basec);
   char *s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
                                         1.0 * time_since_last_debug_message / 1000000000, filename,
                                         linenumber, " ");
+  free(basec);
   va_list args;
   va_start(args, format);
   vsnprintf(s, sizeof(b) - (s - b), format, args);
   va_end(args);
-  sps_log(LOG_DEBUG, "%s", b);
+  sps_log(LOG_INFO, b); // LOG_DEBUG is hard to read on macOS terminal
   pthread_setcancelstate(oldState, NULL);
 }
 
-void _inform(const char *filename, const int linenumber, const char *format, ...) {
+void _inform(const char *thefilename, const int linenumber, const char *format, ...) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  char b[1024];
+  char b[16384];
   b[0] = 0;
   char *s;
   if (debuglev) {
@@ -392,9 +561,12 @@ void _inform(const char *filename, const int linenumber, const char *format, ...
     uint64_t time_since_last_debug_message = time_now - ns_time_at_last_debug_message;
     ns_time_at_last_debug_message = time_now;
     pthread_mutex_unlock(&debug_timing_lock);
+    char *basec = strdup(thefilename);
+    char *filename = basename(basec);
     s = generate_preliminary_string(b, sizeof(b), 1.0 * time_since_start / 1000000000,
                                     1.0 * time_since_last_debug_message / 1000000000, filename,
                                     linenumber, " ");
+    free(basec);
   } else {
     s = b;
   }
@@ -920,7 +1092,7 @@ void command_start(void) {
 void command_execute(const char *command, const char *extra_argument, const int block) {
   // this has a cancellation point if waiting is enabled
   if (command) {
-    char new_command_buffer[1024];
+    char new_command_buffer[2048];
     char *full_command = (char *)command;
     if (extra_argument != NULL) {
       memset(new_command_buffer, 0, sizeof(new_command_buffer));
@@ -1028,6 +1200,8 @@ double vol2attn(double vol, long max_db, long min_db) {
     int i;
     for (i = 0; i < order; i++) {
       if (vol <= lines[i][0]) {
+        if ((-30 - lines[i][0]) == 0.0)
+          die("(-30 - lines[%d][0]) == 0.0!", i);
         double tvol = lines[i][1] * (vol - lines[i][0]) / (-30 - lines[i][0]);
         // debug(1,"On line %d, end point of %f, input vol %f yields output vol
         // %f.",i,lines[i][1],vol,tvol);
@@ -1049,62 +1223,11 @@ double vol2attn(double vol, long max_db, long min_db) {
   return vol_setting;
 }
 
-uint64_t get_absolute_time_in_fp() {
-  uint64_t time_now_fp;
-#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-  struct timespec tn;
-  // can't use CLOCK_MONOTONIC_RAW as it's not implemented in OpenWrt
-  clock_gettime(CLOCK_MONOTONIC, &tn);
-  uint64_t tnfpsec = tn.tv_sec;
-  if (tnfpsec > 0x100000000)
-    warn("clock_gettime seconds overflow!");
-  uint64_t tnfpnsec = tn.tv_nsec;
-  if (tnfpnsec > 0x100000000)
-    warn("clock_gettime nanoseconds seconds overflow!");
-  tnfpsec = tnfpsec << 32;
-  tnfpnsec = tnfpnsec << 32;
-  tnfpnsec = tnfpnsec / 1000000000;
-
-  time_now_fp = tnfpsec + tnfpnsec; // types okay
-#endif
-#ifdef COMPILE_FOR_OSX
-  uint64_t time_now_mach;
-  uint64_t elapsedNano;
-  static mach_timebase_info_data_t sTimebaseInfo = {0, 0};
-
-  time_now_mach = mach_absolute_time();
-
-  // If this is the first time we've run, get the timebase.
-  // We can use denom == 0 to indicate that sTimebaseInfo is
-  // uninitialised because it makes no sense to have a zero
-  // denominator in a fraction.
-
-  if (sTimebaseInfo.denom == 0) {
-    debug(1, "Mac initialise timebase info.");
-    (void)mach_timebase_info(&sTimebaseInfo);
-  }
-
-  // Do the maths. We hope that the multiplication doesn't
-  // overflow; the price you pay for working in fixed point.
-
-  // this gives us nanoseconds
-  uint64_t time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
-
-  // take the units and shift them to the upper half of the fp, and take the nanoseconds, shift them
-  // to the upper half and then divide the result to 1000000000
-  time_now_fp =
-      ((time_now_ns / 1000000000) << 32) + (((time_now_ns % 1000000000) << 32) / 1000000000);
-
-#endif
-  return time_now_fp;
-}
-
-uint64_t get_absolute_time_in_ns() {
+uint64_t get_monotonic_time_in_ns() {
   uint64_t time_now_ns;
 
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
   struct timespec tn;
-  // can't use CLOCK_MONOTONIC_RAW as it's not implemented in OpenWrt
   clock_gettime(CLOCK_MONOTONIC, &tn);
   uint64_t tnnsec = tn.tv_sec;
   tnnsec = tnnsec * 1000000000;
@@ -1114,9 +1237,71 @@ uint64_t get_absolute_time_in_ns() {
 
 #ifdef COMPILE_FOR_OSX
   uint64_t time_now_mach;
-  uint64_t elapsedNano;
   static mach_timebase_info_data_t sTimebaseInfo = {0, 0};
 
+  // this actually give you a monotonic clock
+  // see https://news.ycombinator.com/item?id=6303755
+  time_now_mach = mach_absolute_time();
+
+  // If this is the first time we've run, get the timebase.
+  // We can use denom == 0 to indicate that sTimebaseInfo is
+  // uninitialised because it makes no sense to have a zero
+  // denominator in a fraction.
+
+  if (sTimebaseInfo.denom == 0) {
+    debug(1, "Mac initialise timebase info.");
+    (void)mach_timebase_info(&sTimebaseInfo);
+  }
+
+  if (sTimebaseInfo.denom == 0)
+    die("could not initialise Mac timebase info in get_monotonic_time_in_ns().");
+
+  // Do the maths. We hope that the multiplication doesn't
+  // overflow; the price you pay for working in fixed point.
+
+  // this gives us nanoseconds
+  time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
+#endif
+
+  return time_now_ns;
+}
+
+#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
+// Not defined for macOS
+uint64_t get_realtime_in_ns() {
+  uint64_t time_now_ns;
+  struct timespec tn;
+  clock_gettime(CLOCK_REALTIME, &tn);
+  uint64_t tnnsec = tn.tv_sec;
+  tnnsec = tnnsec * 1000000000;
+  uint64_t tnjnsec = tn.tv_nsec;
+  time_now_ns = tnnsec + tnjnsec;
+  return time_now_ns;
+}
+#endif
+
+uint64_t get_absolute_time_in_ns() {
+  // CLOCK_MONOTONIC_RAW/CLOCK_MONOTONIC in Linux/FreeBSD etc, monotonic in MacOSX
+  uint64_t time_now_ns;
+
+#ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
+  struct timespec tn;
+#ifdef CLOCK_MONOTONIC_RAW
+  clock_gettime(CLOCK_MONOTONIC_RAW, &tn);
+#else
+  clock_gettime(CLOCK_MONOTONIC, &tn);
+#endif
+  uint64_t tnnsec = tn.tv_sec;
+  tnnsec = tnnsec * 1000000000;
+  uint64_t tnjnsec = tn.tv_nsec;
+  time_now_ns = tnnsec + tnjnsec;
+#endif
+
+#ifdef COMPILE_FOR_OSX
+  uint64_t time_now_mach;
+  static mach_timebase_info_data_t sTimebaseInfo = {0, 0};
+
+  // this actually give you a monotonic clock
   time_now_mach = mach_absolute_time();
 
   // If this is the first time we've run, get the timebase.
@@ -1131,6 +1316,9 @@ uint64_t get_absolute_time_in_ns() {
 
   // Do the maths. We hope that the multiplication doesn't
   // overflow; the price you pay for working in fixed point.
+
+  if (sTimebaseInfo.denom == 0)
+    die("could not initialise Mac timebase info in get_absolute_time_in_ns().");
 
   // this gives us nanoseconds
   time_now_ns = time_now_mach * sTimebaseInfo.numer / sTimebaseInfo.denom;
@@ -1266,6 +1454,16 @@ uint16_t nctohs(const uint8_t *p) { // read 2 characters from *p and do ntohs on
   return ntohs(holder);
 }
 
+uint64_t nctoh64(const uint8_t *p) {
+  uint32_t landing = nctohl(p); // get the high order 32 bits
+  uint64_t vl = landing;
+  vl = vl << 32;                          // shift them into the correct location
+  landing = nctohl(p + sizeof(uint32_t)); // and the low order 32 bits
+  uint64_t ul = landing;
+  vl = vl + ul;
+  return vl;
+}
+
 pthread_mutex_t barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void memory_barrier() {
@@ -1289,64 +1487,30 @@ void sps_nanosleep(const time_t sec, const long nanosec) {
 // Mac OS X doesn't have pthread_mutex_timedlock
 // Also note that timing must be relative to CLOCK_REALTIME
 
+/*
 #ifdef COMPILE_FOR_LINUX_AND_FREEBSD_AND_CYGWIN_AND_OPENBSD
-int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
-                                const char *debugmessage, int debuglevel) {
+int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time) {
 
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  struct timespec tn;
-  clock_gettime(CLOCK_REALTIME, &tn);
-  uint64_t tnfpsec = tn.tv_sec;
-  if (tnfpsec > 0x100000000)
-    warn("clock_gettime seconds overflow!");
-  uint64_t tnfpnsec = tn.tv_nsec;
-  if (tnfpnsec > 0x100000000)
-    warn("clock_gettime nanoseconds seconds overflow!");
-  tnfpsec = tnfpsec << 32;
-  tnfpnsec = tnfpnsec << 32;
-  tnfpnsec = tnfpnsec / 1000000000;
-
-  uint64_t time_now_in_fp = tnfpsec + tnfpnsec; // types okay
-
-  uint64_t dally_time_in_fp = dally_time;                // microseconds
-  dally_time_in_fp = (dally_time_in_fp << 32) / 1000000; // convert to fp format
-  uint64_t time_then = time_now_in_fp + dally_time_in_fp;
-
-  uint64_t time_then_nsec = time_then & 0xffffffff; // remove integral part
-  time_then_nsec = time_then_nsec * 1000000000;     // multiply fractional part to nanoseconds
-
   struct timespec timeoutTime;
-
-  time_then = time_then >> 32;           // get the seconds
-  time_then_nsec = time_then_nsec >> 32; // and the nanoseconds
-
-  timeoutTime.tv_sec = time_then;
-  timeoutTime.tv_nsec = time_then_nsec;
-  uint64_t start_time = get_absolute_time_in_ns();
+  uint64_t wait_until_time = dally_time * 1000; // to nanoseconds
+  uint64_t start_time = get_realtime_in_ns();   // this is from CLOCK_REALTIME
+  wait_until_time = wait_until_time + start_time;
+  uint64_t wait_until_sec = wait_until_time / 1000000000;
+  uint64_t wait_until_nsec = wait_until_time % 1000000000;
+  timeoutTime.tv_sec = wait_until_sec;
+  timeoutTime.tv_nsec = wait_until_nsec;
   int r = pthread_mutex_timedlock(mutex, &timeoutTime);
-  uint64_t et = get_absolute_time_in_ns() - start_time;
-
-  if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
-    char errstr[1000];
-    if (r == ETIMEDOUT)
-      debug(debuglevel,
-            "timed out waiting for a mutex, having waited %f microseconds, with a maximum "
-            "waiting time of %d microseconds. \"%s\".",
-            (1.0E6 * et) / 1000000000, dally_time, debugmessage);
-    else
-      debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
-            strerror_r(r, errstr, sizeof(errstr)), debugmessage);
-  }
   pthread_setcancelstate(oldState, NULL);
   return r;
 }
 #endif
 #ifdef COMPILE_FOR_OSX
-int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
-                                const char *debugmessage, int debuglevel) {
+*/
+int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time) {
 
-  // this is not pthread_cancellation safe because is contains a cancellation point
+  // this would not be not pthread_cancellation safe because is contains a cancellation point
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
   int time_to_wait = dally_time;
@@ -1359,22 +1523,10 @@ int sps_pthread_mutex_timedlock(pthread_mutex_t *mutex, useconds_t dally_time,
     time_to_wait -= st;
     r = pthread_mutex_trylock(mutex);
   }
-  if ((debuglevel != 0) && (r != 0) && (debugmessage != NULL)) {
-    char errstr[1000];
-    if (r == EBUSY) {
-      debug(debuglevel,
-            "waiting for a mutex, maximum expected time of %d microseconds exceeded \"%s\".",
-            dally_time, debugmessage);
-      r = ETIMEDOUT; // for compatibility
-    } else {
-      debug(debuglevel, "error %d: \"%s\" waiting for a mutex: \"%s\".", r,
-            strerror_r(r, errstr, sizeof(errstr)), debugmessage);
-    }
-  }
   pthread_setcancelstate(oldState, NULL);
   return r;
 }
-#endif
+// #endif
 
 int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char *mutexname,
                       const char *filename, const int line, int debuglevel) {
@@ -1382,19 +1534,20 @@ int _debug_mutex_lock(pthread_mutex_t *mutex, useconds_t dally_time, const char 
     return pthread_mutex_lock(mutex);
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  uint64_t time_at_start = get_absolute_time_in_ns();
-  char dstring[1000];
-  memset(dstring, 0, sizeof(dstring));
-  snprintf(dstring, sizeof(dstring), "%s:%d", filename, line);
   if (debuglevel != 0)
-    debug(3, "mutex_lock \"%s\" at \"%s\".", mutexname, dstring); // only if you really ask for it!
-  int result = sps_pthread_mutex_timedlock(mutex, dally_time, dstring, debuglevel);
+    _debug(filename, line, 3, "mutex_lock \"%s\".", mutexname); // only if you really ask for it!
+  int result = sps_pthread_mutex_timedlock(mutex, dally_time);
   if (result == ETIMEDOUT) {
+    _debug(
+        filename, line, debuglevel,
+        "mutex_lock \"%s\" failed to lock after %f ms -- now waiting unconditionally to lock it.",
+        mutexname, dally_time * 1E-3);
     result = pthread_mutex_lock(mutex);
-    uint64_t time_delay = get_absolute_time_in_ns() - time_at_start;
-    debug(debuglevel,
-          "mutex_lock \"%s\" at \"%s\" expected max wait: %0.9f, actual wait: %0.9f microseconds.",
-          mutexname, dstring, (1.0 * dally_time), 0.001 * time_delay);
+    if (result == 0)
+      _debug(filename, line, debuglevel, " ...mutex_lock \"%s\" locked successfully.", mutexname);
+    else
+      _debug(filename, line, debuglevel, " ...mutex_lock \"%s\" exited with error code: %u",
+             mutexname, result);
   }
   pthread_setcancelstate(oldState, NULL);
   return result;
@@ -1422,7 +1575,44 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const cha
 void malloc_cleanup(void *arg) {
   // debug(1, "malloc cleanup called.");
   free(arg);
-  arg = NULL;
+}
+
+#ifdef CONFIG_AIRPLAY_2
+void plist_cleanup(void *arg) {
+  // debug(1, "plist cleanup called.");
+  plist_free((plist_t)arg);
+}
+#endif
+
+void socket_cleanup(void *arg) {
+  intptr_t fdp = (intptr_t)arg;
+  debug(3, "socket_cleanup called for socket: %" PRIdPTR ".", fdp);
+  close(fdp);
+}
+
+void cv_cleanup(void *arg) {
+  // debug(1, "cv_cleanup called.");
+  pthread_cond_t *cv = (pthread_cond_t *)arg;
+  pthread_cond_destroy(cv);
+}
+
+void mutex_cleanup(void *arg) {
+  // debug(1, "mutex_cleanup called.");
+  pthread_mutex_t *mutex = (pthread_mutex_t *)arg;
+  pthread_mutex_destroy(mutex);
+}
+
+void mutex_unlock(void *arg) { pthread_mutex_unlock((pthread_mutex_t *)arg); }
+
+void thread_cleanup(void *arg) {
+  debug(3, "thread_cleanup called.");
+  pthread_t *thread = (pthread_t *)arg;
+  pthread_cancel(*thread);
+  int oldState;
+  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
+  pthread_join(*thread, NULL);
+  pthread_setcancelstate(oldState, NULL);
+  debug(3, "thread_cleanup done.");
 }
 
 void pthread_cleanup_debug_mutex_unlock(void *arg) { pthread_mutex_unlock((pthread_mutex_t *)arg); }
@@ -1430,8 +1620,15 @@ void pthread_cleanup_debug_mutex_unlock(void *arg) { pthread_mutex_unlock((pthre
 char *get_version_string() {
   char *version_string = malloc(1024);
   if (version_string) {
-    strcpy(version_string, PACKAGE_VERSION);
-
+#ifdef CONFIG_USE_GIT_VERSION_STRING
+    if (git_version_string[0] != '\0')
+      strcpy(version_string, git_version_string);
+    else
+#endif
+      strcpy(version_string, PACKAGE_VERSION);
+#ifdef CONFIG_AIRPLAY_2
+    strcat(version_string, "-AirPlay2");
+#endif
 #ifdef CONFIG_APPLE_ALAC
     strcat(version_string, "-alac");
 #endif
@@ -1473,6 +1670,9 @@ char *get_version_string() {
 #endif
 #ifdef CONFIG_PA
     strcat(version_string, "-pa");
+#endif
+#ifdef CONFIG_PW
+    strcat(version_string, "-pw");
 #endif
 #ifdef CONFIG_SOUNDIO
     strcat(version_string, "-soundio");
@@ -1722,4 +1922,79 @@ void *memdup(const void *mem, size_t size) {
     memcpy(out, mem, size);
 
   return out;
+}
+
+// This will allocate memory and place the NUL-terminated hex character equivalent of
+// the bytearray passed in whose length is given.
+char *debug_malloc_hex_cstring(void *packet, size_t nread) {
+  char *response = malloc(nread * 3 + 1);
+  unsigned char *q = packet;
+  char *obfp = response;
+  size_t obfc;
+  for (obfc = 0; obfc < nread; obfc++) {
+    snprintf(obfp, 4, "%02x ", *q);
+    obfp += 3; // two digit characters and a space
+    q++;
+  };
+  obfp--; // overwrite the last space with a NUL
+  *obfp = 0;
+  return response;
+}
+
+// the difference between two unsigned 32-bit modulo values as a signed 32-bit result
+// now, if the two numbers are constrained to be within 2^(n-1)-1 of one another,
+// we can use their as a signed 2^n bit number which will be positive
+// if the first number is the same or "after" the second, and
+// negative otherwise
+
+int32_t mod32Difference(uint32_t a, uint32_t b) {
+  int32_t result = a - b;
+  return result;
+}
+
+int get_device_id(uint8_t *id, int int_length) {
+  int response = 0;
+  struct ifaddrs *ifaddr = NULL;
+  struct ifaddrs *ifa = NULL;
+  int i = 0;
+  uint8_t *t = id;
+  for (i = 0; i < int_length; i++) {
+    *t++ = 0;
+  }
+
+  if (getifaddrs(&ifaddr) == -1) {
+    response = -1;
+  } else {
+    t = id;
+    int found = 0;
+
+    for (ifa = ifaddr; ((ifa != NULL) && (found == 0)); ifa = ifa->ifa_next) {
+#ifdef AF_PACKET
+      if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
+        struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
+        if ((strcmp(ifa->ifa_name, "lo") != 0)) {
+          found = 1;
+          for (i = 0; ((i < s->sll_halen) && (i < int_length)); i++) {
+            *t++ = s->sll_addr[i];
+          }
+        }
+      }
+#else
+#ifdef AF_LINK
+      struct sockaddr_dl *sdl = (struct sockaddr_dl *)ifa->ifa_addr;
+      if ((sdl) && (sdl->sdl_family == AF_LINK)) {
+        if (sdl->sdl_type == IFT_ETHER) {
+          found = 1;
+          uint8_t *s = (uint8_t *)LLADDR(sdl);
+          for (i = 0; ((i < sdl->sdl_alen) && (i < int_length)); i++) {
+            *t++ = *s++;
+          }
+        }
+      }
+#endif
+#endif
+    }
+    freeifaddrs(ifaddr);
+  }
+  return response;
 }

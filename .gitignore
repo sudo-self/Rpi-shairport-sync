@@ -5,7 +5,6 @@
 /shairport-sync-mpris-test-client
 
 *.o
-*.log
 /*~
 *.xml~
 /config.mk
@@ -26,6 +25,7 @@ stamp-h1
 man/Makefile
 man/Makefile.in
 scripts/shairport-sync.service
+scripts/shairport-sync.service-avahi
 scripts/shairport-sync
 shairport-sync.core
 gitversion.h
@@ -36,6 +36,7 @@ plist_xml_strings.*
 /org.gnome.ShairportSync.service
 /dbus-interface.*
 /mpris-interface.*
+/plist_xml_strings.*
 /lib_*.*
 
 # Some eclipse project files
@@ -46,4 +47,11 @@ plist_xml_strings.*
 .DS_Store
 shairport-sync.xcodeproj
 
+# version string generation
+gitversion.h
 
+# separate build directory
+build
+
+# vscode
+.vscode
