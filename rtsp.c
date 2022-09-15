@@ -3,7 +3,7 @@
  * Copyright (c) James Laird 2013
 
  * Modifications associated with audio synchronization, multithreading and
- * metadata handling copyright (c) Mike Brady 2014-2021
+ * metadata handling copyright (c) Mike Brady 2014-2022
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -1215,52 +1215,92 @@ static ssize_t write_encrypted(rtsp_conn_info *conn, const void *buf, size_t cou
 
 ssize_t timed_read_from_rtsp_connection(rtsp_conn_info *conn, uint64_t wait_time, void *buf,
                                         size_t count) {
-  struct timeval tv;
-  tv.tv_sec = wait_time / 1000000000;           // seconds
-  tv.tv_usec = (wait_time % 1000000000) / 1000; // microseconds
-  if (setsockopt(conn->fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) != 0) {
-    char errorstring[1024];
-    strerror_r(errno, (char *)errorstring, sizeof(errorstring));
-    debug(1, "could not set time limit on timed_read_from_rtsp_connection -- error %d \"%s\".",
-          errno, errorstring);
-  }
+  // note: a wait time of zero means wait forever
+  ssize_t result = 0; // closed
+  if (conn->fd > 0) {
+    int64_t remaining_time = 0;
+    uint64_t time_to_wait_to = get_absolute_time_in_ns();;
+    time_to_wait_to = time_to_wait_to + wait_time;
+
+    // remaining_time will be zero if wait_time is zero
+    if (wait_time != 0) {
+      remaining_time = time_to_wait_to - get_absolute_time_in_ns(); 
+    }
+    do {
+      struct timeval tv;
+      tv.tv_sec = remaining_time / 1000000000;           // seconds
+      tv.tv_usec = (remaining_time % 1000000000) / 1000; // microseconds
+      if (setsockopt(conn->fd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv, sizeof tv) != 0) {
+        char errorstring[1024];
+        strerror_r(errno, (char *)errorstring, sizeof(errorstring));
+        debug(1, "could not set time limit on timed_read_from_rtsp_connection -- error %d \"%s\".",
+              errno, errorstring);
+      }
 
 #ifdef CONFIG_AIRPLAY_2
-  if (conn->ap2_pairing_context.control_cipher_bundle.cipher_ctx) {
-    conn->ap2_pairing_context.control_cipher_bundle.is_encrypted = 1;
-    return read_encrypted(conn->fd, &conn->ap2_pairing_context.control_cipher_bundle, buf, count);
-  } else {
-    return read(conn->fd, buf, count);
-  }
+      if (conn->ap2_pairing_context.control_cipher_bundle.cipher_ctx) {
+        conn->ap2_pairing_context.control_cipher_bundle.is_encrypted = 1;
+        result = read_encrypted(conn->fd, &conn->ap2_pairing_context.control_cipher_bundle, buf, count);
+      } else {
+        result = read(conn->fd, buf, count);
+      }
 #else
-  return read(conn->fd, buf, count);
+      result = read(conn->fd, buf, count);
 #endif
+      if (wait_time != 0)
+        remaining_time = time_to_wait_to - get_absolute_time_in_ns();
+      if (((result == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) && (remaining_time > 0))
+        debug(1,"remaining time on a timed read is %" PRId64 " ns.", remaining_time);
+    } while (((result == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) && (remaining_time > 0));
+
+  } else {
+    debug(1,"Connection %d: attempt to read from a closed RTSP connection.",conn->connection_number);
+  }
+  return result;
 }
+
+#ifdef CONFIG_AIRPLAY_2
+void set_client_as_ptp_clock(rtsp_conn_info *conn) {
+  char timing_list_message[4096] = "";
+  strncat(timing_list_message, "T ", sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+  strncat(timing_list_message, (const char *)&conn->client_ip_string,
+          sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+  ptp_send_control_message_string(timing_list_message);
+}
+
+void clear_ptp_clock() {
+  ptp_send_control_message_string("T");
+}
+#endif
 
 ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
   // first try to read with a timeout, to see if there is any traffic...
   ssize_t response = timed_read_from_rtsp_connection(conn, 4000000000L, buf, count);
   if ((response == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
     if (conn->rtsp_link_is_idle == 0) {
+      debug(1, "Connection %d: RTSP connection is idle.", conn->connection_number);
       conn->rtsp_link_is_idle = 1;
 #ifdef CONFIG_AIRPLAY_2
       conn->last_anchor_info_is_valid = 0;
+      clear_ptp_clock();
 #endif
       conn->anchor_remote_info_is_valid = 0;
       conn->udp_clock_sender_is_initialised = 0;
       conn->udp_clock_is_initialised = 0;
-      debug(1, "Connection %d: RTSP connection is idle.", conn->connection_number);
     }
     response = timed_read_from_rtsp_connection(conn, 0, buf, count);
   }
   if (conn->rtsp_link_is_idle == 1) {
+    debug(1, "Connection %d: RTSP connection traffic has resumed.", conn->connection_number);
     conn->local_to_remote_time_difference_measurement_time = 0;
     conn->local_to_remote_time_difference = 0;
     conn->rtsp_link_is_idle = 0;
     conn->first_packet_timestamp = 0;
     conn->input_frame_rate_starting_point_is_valid = 0;
     ab_resync(conn);
-    debug(1, "Connection %d: RTSP connection traffic has resumed.", conn->connection_number);
+#ifdef CONFIG_AIRPLAY_2
+    set_client_as_ptp_clock(conn);
+#endif
   }
   return response;
 }
@@ -1297,7 +1337,12 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
     if (nread == 0) {
       // a blocking read that returns zero means eof -- implies connection closed
-      debug(1, "Connection %d: connection closed.", conn->connection_number);
+      
+      debug(1, "Connection %d: Closed by client: from %s:%u to self at %s:%u.",
+        conn->connection_number,
+        conn->client_ip_string, conn->client_rtsp_port,
+        conn->self_ip_string, conn->self_rtsp_port);
+      conn->fd = 0;
       reply = rtsp_read_request_response_channel_closed;
       goto shutdown;
     }
@@ -1620,6 +1665,7 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
 }
 
 #ifdef CONFIG_AIRPLAY_2
+
 
 void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *req,
                      rtsp_message *resp) {
@@ -2504,7 +2550,7 @@ void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp
   debug(2, "Connection %d: SETPEERS %s Content-Length %d", conn->connection_number, req->path,
         req->contentlength);
   debug_log_rtsp_message(2, "SETPEERS request", req);
-
+/*
   char timing_list_message[4096];
   timing_list_message[0] = 'T';
   timing_list_message[1] = 0;
@@ -2534,6 +2580,8 @@ void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp
     ptp_send_control_message_string(timing_list_message);
   }
   plist_free(addresses_array);
+*/
+  //set_client_as_ptp_clock(conn);
   resp->respcode = 200;
 }
 #endif
@@ -2566,7 +2614,7 @@ void handle_options(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *
 
 void teardown_phase_one(rtsp_conn_info *conn) {
   // this can be called more than once on the same connection --
-  // by the player itself but also by the play seesion being killed
+  // by the player itself but also by the play session being killed
   if (conn->player_thread) {
     player_stop(conn);                    // this nulls the player_thread
     activity_monitor_signify_activity(0); // inactive, and should be after command_stop()
@@ -2637,6 +2685,7 @@ void teardown_phase_two(rtsp_conn_info *conn) {
       conn->dacp_active_remote = NULL;
     }
     release_play_lock(conn);
+    clear_ptp_clock();
   }
 }
 
@@ -2846,7 +2895,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           if (ptp_shm_interface_open() !=
               0) // it should be open already, but just in case it isn't...
             die("Can not access the NQPTP service. Has it stopped running?");
-          ptp_send_control_message_string("T"); // remove all previous history
+          // clear_ptp_clock();
           debug_log_rtsp_message(2, "SETUP \"PTP\" message", req);
           plist_t groupUUID = plist_dict_get_item(messagePlist, "groupUUID");
           if (groupUUID) {
@@ -2956,7 +3005,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             freeifaddrs(addrs);
 
             // debug(1,"initial timing peer command: \"%s\".", timing_list_message);
-            ptp_send_control_message_string(timing_list_message);
+            //ptp_send_control_message_string(timing_list_message);
+            set_client_as_ptp_clock(conn);
             plist_dict_set_item(timingPeerInfoPlist, "Addresses", addresses);
             plist_dict_set_item(timingPeerInfoPlist, "ID", plist_new_string(conn->self_ip_string));
             plist_dict_set_item(setupResponsePlist, "timingPeerInfo", timingPeerInfoPlist);
@@ -4902,7 +4952,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     close(conn->fd);
     debug(3, "Connection %d terminating: closed fd %d.", conn->connection_number, conn->fd);
 
-    debug(2, "Connection %d: terminating connection from %s:%u to self at %s:%u.",
+    debug(1, "Connection %d Closed by self: from %s:%u to self at %s:%u.",
           conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
           conn->self_ip_string, conn->self_rtsp_port);
   }
@@ -5407,7 +5457,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
           inet_ntop(conn->connection_ip_family, self_addr, conn->self_ip_string,
                     sizeof(conn->self_ip_string));
 
-          debug(1, "Connection %d: new connection from %s:%u to self at %s:%u.",
+          debug(1, "Connection %d: New connection from %s:%u to self at %s:%u.",
                 conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                 conn->self_ip_string, conn->self_rtsp_port);
           conn->connection_start_time = get_absolute_time_in_ns();
