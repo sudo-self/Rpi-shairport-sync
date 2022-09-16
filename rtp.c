@@ -2374,12 +2374,13 @@ void *rtp_buffered_audio_processor(void *arg) {
   int pcm_buffer_occupancy = 0;
   int pcm_buffer_read_point = 0; // offset to where the next buffer should come from
   uint32_t pcm_buffer_read_point_rtptime = 0;
-  // uint32_t expected_rtptime;
+  // uint32_t expected_pcm_buffer_read_point_rtptime = 0;
 
   uint64_t blocks_read = 0;
   uint64_t blocks_read_since_flush = 0;
   int flush_requested = 0;
-
+  uint32_t expected_timestamp = 0;
+  // int expected_timesamp_is_reasonable = 0;
   uint32_t timestamp = 0; // initialised to avoid a "possibly uninitialised" warning.
   int streaming_has_started = 0;
   int play_enabled = 0;
@@ -2455,15 +2456,17 @@ void *rtp_buffered_audio_processor(void *arg) {
                 flushUntilSeq, seq_no, flushUntilTS, timestamp);
         else
           debug(2,
-                "flush request ended with flushUntilSeq, flushUntilTS: %u, incoming timestamp: %u",
+                "flush request ended with seqNo = flushUntilSeq at %u, flushUntilTS: %u, incoming timestamp: %u",
                 flushUntilSeq, flushUntilTS, timestamp);
         conn->ap2_flush_requested = 0;
         flush_request_active = 0;
         flush_newly_requested = 0;
       }
     }
-    if ((flush_requested) && (flush_request_active == 0))
+    if ((flush_requested) && (flush_request_active == 0)) {
       flush_newly_complete = 1;
+      blocks_read_since_flush = 1; // the last block always (?) becomes the first block after the flush
+    }
     flush_requested = flush_request_active;
     // flush_requested = conn->ap2_flush_requested;
     if ((play_enabled) && (conn->ap2_play_enabled == 0))
@@ -2474,7 +2477,6 @@ void *rtp_buffered_audio_processor(void *arg) {
     // do this outside the flush mutex
     if (flush_newly_complete) {
       debug(2, "Flush Complete.");
-      blocks_read_since_flush = 0;
     }
 
     if (play_newly_stopped != 0)
@@ -2532,7 +2534,7 @@ void *rtp_buffered_audio_processor(void *arg) {
               // only accept them if they have sensible lead times
               if ((lead_time < (int64_t)30000000000L) && (lead_time >= 0)) {
                 // if it's the very first block (thus no priming needed)
-                if ((blocks_read == 1) || (blocks_read_since_flush > 3)) {
+                //if ((blocks_read == 1) || (blocks_read_since_flush > 3)) {
                   if ((lead_time >= (int64_t)(requested_lead_time * 1000000000L)) ||
                       (streaming_has_started != 0)) {
                     if (streaming_has_started == 0)
@@ -2565,13 +2567,34 @@ void *rtp_buffered_audio_processor(void *arg) {
                   */
                     // clang-format on
 
+                    // debug(1,"block timestamp: %u, packet timestamp: %u.", timestamp, pcm_buffer_read_point_rtptime);
+
+/*
+                    if (streaming_has_started != 0) {
+                      int32_t timestamp_difference = pcm_buffer_read_point_rtptime - expected_pcm_buffer_read_point_rtptime;
+                      if (timestamp_difference != 0)
+                        debug(1,"Unexpected time difference between packets -- actual: %u, expected: %u, difference: %d. Packets played: %d. Blocks played since flush: %d. ",
+                          pcm_buffer_read_point_rtptime, expected_pcm_buffer_read_point_rtptime, timestamp_difference, streaming_has_started, blocks_read_since_flush);
+                    }
+*/
+
+                    // if it's not the very first block of AAC, but is from the first few blocks of a new AAC sequence,
+                    // it will contain noisy transients, so replace it with silence.
+                    if ((blocks_read != 1) && (blocks_read_since_flush <= 3)) {
+                      // debug(1,"muting packet %u from block %u because it's not from a true starting block and blocks_read_since_flush is %" PRIu64 ".", pcm_buffer_read_point_rtptime, timestamp, blocks_read_since_flush);
+                      conn->previous_random_number =
+                        generate_zero_frames((char *)(pcm_buffer + pcm_buffer_read_point), 352, config.output_format, conn->enable_dither,
+                                             conn->previous_random_number);
+                    }
+                    
                     player_put_packet(0, 0, pcm_buffer_read_point_rtptime,
                                       pcm_buffer + pcm_buffer_read_point, 352, conn);
                     streaming_has_started++;
+                    // expected_pcm_buffer_read_point_rtptime = pcm_buffer_read_point_rtptime + 352;
                   }
-                }
+                // }
               } else {
-                debug(2,
+                debug(1,
                       "Dropping packet %u from block %u with out-of-range lead_time: %.3f seconds.",
                       pcm_buffer_read_point_rtptime, seq_no, 0.000000001 * lead_time);
               }
@@ -2586,11 +2609,13 @@ void *rtp_buffered_audio_processor(void *arg) {
             usleep(20000); // wait before asking if play is enabled again
           }
         } else {
+          // debug(1,"new buffer needed for buffer starting at %u because pcm_buffer_read_point (frames) is %u and pcm_buffer_occupancy (frames) is %u.", pcm_buffer_read_point_rtptime, pcm_buffer_read_point/conn->input_bytes_per_frame,
+          // pcm_buffer_occupancy/conn->input_bytes_per_frame);
           new_buffer_needed = 1;
           if (pcm_buffer_read_point != 0) {
             // debug(1,"pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy (frames): %u",
-            // pcm_buffer_read_point/conn->input_bytes_per_frame,
-            // pcm_buffer_occupancy/conn->input_bytes_per_frame); if there is anything to move down
+            //pcm_buffer_read_point/conn->input_bytes_per_frame,
+            //pcm_buffer_occupancy/conn->input_bytes_per_frame); // if there is anything to move down
             // to the front of the buffer, do it now;
             if ((pcm_buffer_occupancy - pcm_buffer_read_point) > 0) {
               // move the remaining frames down to the start of the buffer
@@ -2610,7 +2635,7 @@ void *rtp_buffered_audio_processor(void *arg) {
     if ((flush_requested) || (new_buffer_needed)) {
 
       // debug(1,"pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy (frames): %u",
-      // pcm_buffer_read_point/4, pcm_buffer_occupancy/4);
+      // pcm_buffer_read_point/conn->input_bytes_per_frame, pcm_buffer_occupancy/conn->input_bytes_per_frame);
       // ok, so here we know we need material from the sender
       // do we will get in a packet of audio
       uint16_t data_len;
@@ -2654,6 +2679,13 @@ void *rtp_buffered_audio_processor(void *arg) {
         */
         seq_no = packet[1] * (1 << 16) + packet[2] * (1 << 8) + packet[3];
         timestamp = nctohl(&packet[4]);
+        // debug(1,"New block timestamp: %u.", timestamp);
+        // int32_t timestamp_difference = timestamp - expected_timestamp;
+        //  if ((timestamp_difference != 0) && (expected_timesamp_is_reasonable != 0))
+        //    debug(1, "Unexpected timestamp. Expected: %u, got: %u, difference: %d, blocks_read_since_flush: %" PRIu64 ".", expected_timestamp, timestamp, timestamp_difference, blocks_read_since_flush);
+        expected_timestamp = timestamp;
+        // expected_timesamp_is_reasonable = 0; // must be validated each time by decoding the frame
+
         // debug(1, "immediately: block %u, rtptime %u", seq_no, timestamp);
         // uint32_t ssrc = nctohl(&packet[8]);
         // uint8_t marker = 0;
@@ -2852,8 +2884,12 @@ void *rtp_buffered_audio_processor(void *arg) {
                                     pcm_buffer_size);
                             } else {
                               memcpy(pcm_buffer + pcm_buffer_occupancy, pcm_audio, dst_bufsize);
+                              expected_timestamp += (dst_bufsize/conn->input_bytes_per_frame);
+                              // expected_timesamp_is_reasonable = 1;
                               pcm_buffer_occupancy += dst_bufsize;
-                            }
+                              // debug(1,"frames added: pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy (frames): %u",
+                              //   pcm_buffer_read_point/conn->input_bytes_per_frame, pcm_buffer_occupancy/conn->input_bytes_per_frame);
+                           }
                             // debug(1,"decoded %d samples", decoded_frame->nb_samples);
                             // memcpy(sampleBuffer,outputBuffer16,dst_bufsize);
                             av_freep(&pcm_audio);
