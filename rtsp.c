@@ -1281,24 +1281,24 @@ ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count)
       debug(1, "Connection %d: RTSP connection is idle.", conn->connection_number);
       conn->rtsp_link_is_idle = 1;
 #ifdef CONFIG_AIRPLAY_2
-      conn->last_anchor_info_is_valid = 0;
       clear_ptp_clock();
 #endif
-      conn->anchor_remote_info_is_valid = 0;
       conn->udp_clock_sender_is_initialised = 0;
       conn->udp_clock_is_initialised = 0;
     }
     response = timed_read_from_rtsp_connection(conn, 0, buf, count);
   }
   if (conn->rtsp_link_is_idle == 1) {
+    conn->rtsp_link_is_idle = 0;
     debug(1, "Connection %d: RTSP connection traffic has resumed.", conn->connection_number);
+    conn->anchor_remote_info_is_valid = 0;
     conn->local_to_remote_time_difference_measurement_time = 0;
     conn->local_to_remote_time_difference = 0;
-    conn->rtsp_link_is_idle = 0;
     conn->first_packet_timestamp = 0;
     conn->input_frame_rate_starting_point_is_valid = 0;
     ab_resync(conn);
 #ifdef CONFIG_AIRPLAY_2
+    conn->last_anchor_info_is_valid = 0;
     set_client_as_ptp_clock(conn);
 #endif
   }
