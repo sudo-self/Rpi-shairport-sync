@@ -194,6 +194,4 @@ With AirPlay 2, you can follow the steps in [ADDINGTOHOME.md](https://github.com
 ### Wait, there's more...
 Instead of using default values for everything, you can use the configuration file to get finer control over the setup, particularly the output device and mixer control -- see [Finish Setting Up](ADVANCED%20TOPICS/InitialConfiguration.md).
 
-Shairport Sync has many extra [features](README.md#features) and [settings](scripts/shairport-sync.conf). Build configuration flags are [here](CONFIGURATION%20FLAGS.md).
-
-Please take a look at [Advanced Topics](ADVANCED%20TOPICS/README.md) for some ideas about what else you can do to improve the operation of Shairport Sync.
+Please take a look at [Advanced Topics](ADVANCED%20TOPICS/README.md) for some ideas about what else you can do to enhance the operation of Shairport Sync.
