@@ -149,7 +149,7 @@ $ shairport-sync
 
 The AirPlay service should appear on the network and the audio you play should come through to the default ALSA device. (Use `alsamixer` or similar to adjust levels.)
 
-If you have problems, please check the items in [Final Notes](7._final_notes) below, or in the [TROUBLESHOOTING.md](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md) guide.
+If you have problems, please check the items in Final Notes below, or in the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) guide.
 
 Note: Shairport Sync will run indefinitely -- use Control-C it to stop it.
 
