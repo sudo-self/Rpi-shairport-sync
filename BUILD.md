@@ -192,4 +192,8 @@ If a firewall is running (some systems, e.g. Fedora, run a firewall by default),
 ### Add to Home
 With AirPlay 2, you can follow the steps in [ADDINGTOHOME.md](https://github.com/mikebrady/shairport-sync/blob/development/ADDINGTOHOME.md) to add your device to the Apple Home system.
 ### Wait, there's more...
-Shairport Sync has many extra [features](README.md#features) and [settings](https://github.com/mikebrady/shairport-sync/blob/development/scripts/shairport-sync.conf). For instance, you can [add an MQTT service](https://github.com/mikebrady/shairport-sync/blob/master/MQTT.md), change the AirPlay service name, adjust for delays in other equipment (many TVs and AVRs introduce slight delays in their audio processing chains) and more. Explore runtime settings in `/etc/shairport-sync.conf` or [here](https://github.com/mikebrady/shairport-sync/blob/development/scripts/shairport-sync.conf). Build configuration flags are [here](https://github.com/mikebrady/shairport-sync/blob/development/CONFIGURATION%20FLAGS.md).
+Instead of using default values for everything, you can use the configuration file to get finer control over the setup, particularly the output device and mixer control -- see [Finish Setting Up](ADVANCED%20TOPICS/InitialConfiguration.md).
+
+Shairport Sync has many extra [features](README.md#features) and [settings](scripts/shairport-sync.conf). Build configuration flags are [here](CONFIGURATION%20FLAGS.md).
+
+Please take a look at [Advanced Topics](ADVANCED%20TOPICS/README.md) for some ideas about what else you can do to improve the operation of Shairport Sync.
