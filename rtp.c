@@ -2584,9 +2584,13 @@ void *rtp_buffered_audio_processor(void *arg) {
 
                     // Put an arbitrary last-ditch limit of 64 blocks_read_since_flush in case it all goes wrong...
                     
-                    if ((timestamp_difference < 0) && (streaming_has_started == 64) && (blocks_read_since_flush < 64)) {
+                    //if ((timestamp_difference < 0) && (streaming_has_started == 64) && (blocks_read_since_flush < 64)) {
                       // debug(1,"skipping packet %u.", pcm_buffer_read_point_rtptime);
-                    } else {                    
+                    //} else {
+                    // if (streaming_has_started >= 59) && (streaming_has_started <= 64) {
+                    //  streaming_has_started++;
+                    //} else {
+                      {
                       // if it's not the very first block of AAC, but is from the first few blocks of a new AAC sequence,
                       // it will contain noisy transients, so replace it with silence.
                       if ((blocks_read_since_flush <= 2) && (blocks_read_since_flush != blocks_read)) {
