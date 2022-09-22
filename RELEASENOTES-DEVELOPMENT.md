@@ -1,3 +1,12 @@
+Version 4.1-dev-543-g24f06b81
+====
+**Enhancements**
+* Add a workaround for an apparent bug in AirPlay 2 Buffered Streams in iOS 16.0. After playing exactly 22,528 frames of audio, iOS 16.0 sends 2,112 frames of audio with the same timestamps as the previous 2,112 frames. This makes the frames that follow 47.9 ms (2112/44100 seconds) late. The workaround is to drop these extra 2,112 frames.
+* If an AirPlay 2 Buffered Streams is being skipped or scrubbed, the audio that follows will generate an audible click due to an AAC decoding transient because preceding audio frames are missing. Shairport Sync now mutes the first 2,048 frames, down from 3,072 frames before.
+
+**Bug Fix**
+* Give the RTSP idle checker a longer timeout -- 10 seconds -- and confine its operation to AirPlay 2 Runtime Streams and classic AirPlay only. This is to stop an occasional RTSP idle timeout silencing an AirPlay 2 Buffered Audio session.
+
 Version 4.1-dev-532-g8dfebea2
 ====
 **Enhancements**
