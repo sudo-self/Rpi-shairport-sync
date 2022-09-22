@@ -1297,7 +1297,6 @@ ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count)
       ab_resync(conn);
     }
 #else
-    conn->last_anchor_info_is_valid = 0;
     conn->anchor_remote_info_is_valid = 0;
     conn->local_to_remote_time_difference_measurement_time = 0;
     conn->local_to_remote_time_difference = 0;
