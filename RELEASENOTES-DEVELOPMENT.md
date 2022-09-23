@@ -1,3 +1,7 @@
+Version 4.1-dev-548-g7dc077e2
+====
+* Removed the workaround for the apparent bug in AirPlay 2 Buffered Streams in iOS 16.0. A number of approaches were tried. The most aurally successful is left in the code but is disabled. Basically, it delays the timing of the frames following the 2,122 frame discontinuity by 2,112 frames. This eliminates the timing discontinuity but delays the AirPlay stream by 47.9 ms, and this can be heard in some situations. So it looks as if the bug -- if that's what it is -- can't easily be worked around. It has not been fixed by iOS 16.0.2, unfortunately.
+
 Version 4.1-dev-543-g24f06b81
 ====
 **Enhancements**
