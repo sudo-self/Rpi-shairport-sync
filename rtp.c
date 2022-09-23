@@ -2364,7 +2364,7 @@ void *rtp_buffered_audio_processor(void *arg) {
   unsigned char *data_to_process;
   ssize_t data_remaining;
   uint32_t seq_no = 0; // audio packet number. Initialised to avoid a "possibly uninitialised" warning.
-  // uint32_t previous_seq_no = 0;
+  uint32_t previous_seq_no = 0;
   int new_buffer_needed = 0;
   ssize_t nread;
 
@@ -2375,15 +2375,16 @@ void *rtp_buffered_audio_processor(void *arg) {
   int pcm_buffer_occupancy = 0;
   int pcm_buffer_read_point = 0; // offset to where the next buffer should come from
   uint32_t pcm_buffer_read_point_rtptime = 0;
+  uint32_t pcm_buffer_read_point_rtptime_offset = 0; // hack
   uint32_t expected_pcm_buffer_read_point_rtptime = 0;
 
   uint64_t blocks_read = 0;
-  uint64_t blocks_read_since_flush = 0;
+  uint64_t blocks_read_in_sequence = 0; // since the start of this sequence -- reset by start or flush
   int flush_requested = 0;
   uint32_t expected_timestamp = 0;
   int expected_timesamp_is_reasonable = 0;
   uint32_t timestamp = 0; // initialised to avoid a "possibly uninitialised" warning.
-  int streaming_has_started = 0;
+  int packets_played_in_this_sequence = 0;
   int play_enabled = 0;
   uint32_t flush_from_timestamp = 0; // initialised to avoid a "possibly uninitialised" warning.
   double requested_lead_time = 0.0; // normal lead time minimum -- maybe  it should be about 0.1
@@ -2464,15 +2465,35 @@ void *rtp_buffered_audio_processor(void *arg) {
         flush_newly_requested = 0;
       }
     }
+
+    // flush_requested = conn->ap2_flush_requested;
+    if ((play_enabled) && (conn->ap2_play_enabled == 0)) {
+      play_newly_stopped = 1;
+      debug(2,"Play stopped.");
+      pcm_buffer_read_point_rtptime_offset = 0;
+      blocks_read_in_sequence = 0; // This may be set to 1 by a flush, so don't zero it during start.
+      packets_played_in_this_sequence = 0;
+      pcm_buffer_occupancy = 0;
+      pcm_buffer_read_point = 0;
+    }
+    
+    if ((play_enabled == 0) && (conn->ap2_play_enabled != 0)) {
+      // play newly started
+      debug(2,"Play started.");
+    }
+    
+
+
     if ((flush_requested) && (flush_request_active == 0)) {
+      if (play_enabled)
+        debug(1,"Flush completed while play_enabled is true.");
       flush_newly_complete = 1;
-      blocks_read_since_flush = 1; // the last block always (?) becomes the first block after the flush
+      blocks_read_in_sequence = 1; // the last block always (?) becomes the first block after the flush
     }
     flush_requested = flush_request_active;
-    // flush_requested = conn->ap2_flush_requested;
-    if ((play_enabled) && (conn->ap2_play_enabled == 0))
-      play_newly_stopped = 1;
+
     play_enabled = conn->ap2_play_enabled;
+
     debug_mutex_unlock(&conn->flush_mutex, 3);
 
     // do this outside the flush mutex
@@ -2489,15 +2510,16 @@ void *rtp_buffered_audio_processor(void *arg) {
       if (flush_is_delayed == 0) {
         debug(2, "Immediate Buffered Audio Flush Started.");
         // player_full_flush(conn);
-        streaming_has_started = 0;
+        packets_played_in_this_sequence = 0;
         pcm_buffer_occupancy = 0;
         pcm_buffer_read_point = 0;
       } else {
         debug(2, "Delayed Buffered Audio Flush Started.");
-        streaming_has_started = 0;
+        packets_played_in_this_sequence = 0;
         pcm_buffer_occupancy = 0;
         pcm_buffer_read_point = 0;
       }
+      pcm_buffer_read_point_rtptime_offset = 0;
     }
 
     // now, if a flush is not requested, we can do the normal stuff
@@ -2535,10 +2557,10 @@ void *rtp_buffered_audio_processor(void *arg) {
               // only accept them if they have sensible lead times
               if ((lead_time < (int64_t)30000000000L) && (lead_time >= 0)) {
                 // if it's the very first block (thus no priming needed)
-                //if ((blocks_read == 1) || (blocks_read_since_flush > 3)) {
+                //if ((blocks_read == 1) || (blocks_read_in_sequence > 3)) {
                   if ((lead_time >= (int64_t)(requested_lead_time * 1000000000L)) ||
-                      (streaming_has_started != 0)) {
-                    if (streaming_has_started == 0)
+                      (packets_played_in_this_sequence != 0)) {
+                    if (packets_played_in_this_sequence == 0)
                       debug(2,
                             "Connection %d: buffered audio starting frame: %u, lead time: %f "
                             "seconds.",
@@ -2571,46 +2593,43 @@ void *rtp_buffered_audio_processor(void *arg) {
                     // debug(1,"block timestamp: %u, packet timestamp: %u.", timestamp, pcm_buffer_read_point_rtptime);
 
                     int32_t timestamp_difference = pcm_buffer_read_point_rtptime - expected_pcm_buffer_read_point_rtptime;;
-                    if (streaming_has_started != 0) {
+                    if (packets_played_in_this_sequence != 0) {
                       if (timestamp_difference != 0)
-                        if (streaming_has_started != 64) // don't log this situation because it's being dealt with below
-                          debug(1,"Unexpected time difference between packets -- actual: %u, expected: %u, difference: %d. Packets played: %d. Blocks played since flush: %d. ",
-                            pcm_buffer_read_point_rtptime, expected_pcm_buffer_read_point_rtptime, timestamp_difference, streaming_has_started, blocks_read_since_flush);
+                          debug(2,"Unexpected time difference between packets -- actual: %u, expected: %u, difference: %d. Packets played: %d. Blocks played since flush: %d. ",
+                            pcm_buffer_read_point_rtptime, expected_pcm_buffer_read_point_rtptime, timestamp_difference, packets_played_in_this_sequence, blocks_read_in_sequence);
                     }
+                    
                     
                     // Very specific code to get around an apparent bug in AirPlay 2 from iOS 16 / Ventura 13.0
-                    // It seems that the timestamp goes backwards by 2112 frames after the first 64 packets of 352 frames (64 * 352 = 22528 frames which is exactly 22 blocks)
-                    // So, if the timestamp is before the expected timestamp when 64 packets have been played, then skip that packet.
-
-                    // Put an arbitrary last-ditch limit of 64 blocks_read_since_flush in case it all goes wrong...
+                    // It seems that the timestamp goes backwards by 2112 frames not later than the 65th packet of 352 frames (64 * 352 = 22528 frames which is exactly 22 blocks)
+                    // So, if that happens, we'll add 2112 to the timstamp passed to the player
                     
-                    //if ((timestamp_difference < 0) && (streaming_has_started == 64) && (blocks_read_since_flush < 64)) {
-                      // debug(1,"skipping packet %u.", pcm_buffer_read_point_rtptime);
-                    //} else {
-                    // if (streaming_has_started >= 59) && (streaming_has_started <= 64) {
-                    //  streaming_has_started++;
-                    //} else {
-                      {
-                      // if it's not the very first block of AAC, but is from the first few blocks of a new AAC sequence,
-                      // it will contain noisy transients, so replace it with silence.
-                      if ((blocks_read_since_flush <= 2) && (blocks_read_since_flush != blocks_read)) {
-                        // debug(1,"Muting packet %u from block %u to avoid AAC transients because it's not from a true starting block. Blocks_read is %" PRIu64 ". Blocks_read_since_flush is %" PRIu64 ".", pcm_buffer_read_point_rtptime, timestamp, blocks_read, blocks_read_since_flush);
-                        conn->previous_random_number =
-                          generate_zero_frames((char *)(pcm_buffer + pcm_buffer_read_point), 352, config.output_format, conn->enable_dither,
-                                               conn->previous_random_number);
-                      }
-                    
-                      player_put_packet(0, 0, pcm_buffer_read_point_rtptime,
-                                        pcm_buffer + pcm_buffer_read_point, 352, conn);
-                      streaming_has_started++;
-                      expected_pcm_buffer_read_point_rtptime = pcm_buffer_read_point_rtptime + 352;
+                    if ((timestamp_difference == -2112) && (packets_played_in_this_sequence <= 64)) {
+                      debug(1,"iOS 16.0 discontinuity detected with %d packets played in this sequence. Nothing done.", packets_played_in_this_sequence);
+                      // pcm_buffer_read_point_rtptime_offset = 2112;  // this pretends the timestamps after the discontinuity are 2112 frames later, but this just delays everything by 2112 frames, pushing stuff out of sync, and i think you can hear it.
                     }
+                    
+                    
+                    // if it's not the very first block of AAC, but is from the first few blocks of a new AAC sequence,
+                    // it will contain noisy transients, so replace it with silence.
+                    if ((blocks_read_in_sequence <= 2) && (blocks_read_in_sequence != blocks_read)) {
+                      // debug(1,"Muting packet %u from block %u to avoid AAC transients because it's not from a true starting block. Blocks_read is %" PRIu64 ". blocks_read_in_sequence is %" PRIu64 ".", pcm_buffer_read_point_rtptime, timestamp, blocks_read, blocks_read_in_sequence);
+                      conn->previous_random_number =
+                        generate_zero_frames((char *)(pcm_buffer + pcm_buffer_read_point), 352, config.output_format, conn->enable_dither,
+                                             conn->previous_random_number);
+                    }
+                  
+                    player_put_packet(0, 0, pcm_buffer_read_point_rtptime + pcm_buffer_read_point_rtptime_offset,
+                                      pcm_buffer + pcm_buffer_read_point, 352, conn);
+                    packets_played_in_this_sequence++;
+                    expected_pcm_buffer_read_point_rtptime = pcm_buffer_read_point_rtptime + 352;
                   }
                 // }
               } else {
-                debug(1,
+                debug(3,
                       "Dropping packet %u from block %u with out-of-range lead_time: %.3f seconds.",
                       pcm_buffer_read_point_rtptime, seq_no, 0.000000001 * lead_time);
+                      expected_pcm_buffer_read_point_rtptime = pcm_buffer_read_point_rtptime + 352;
               }
 
               pcm_buffer_read_point_rtptime += 352;
@@ -2682,7 +2701,7 @@ void *rtp_buffered_audio_processor(void *arg) {
               errno, errorstring);
       } else if (nread > 0) {
         blocks_read++; // note, this doesn't mean they are valid audio blocks
-        blocks_read_since_flush++;
+        blocks_read_in_sequence++;
         // debug(1, "Realtime Audio Receiver Packet of length %d received.", nread);
         // now get hold of its various bits and pieces
         /*
@@ -2691,12 +2710,17 @@ void *rtp_buffered_audio_processor(void *arg) {
         uint8_t extension = (packet[0] & 0b00010000) >> 4;
         uint8_t csrc_count = packet[0] & 0b00001111;
         */
+        previous_seq_no = seq_no;
+        previous_seq_no++;
         seq_no = packet[1] * (1 << 16) + packet[2] * (1 << 8) + packet[3];
+        if (previous_seq_no != seq_no) {
+          debug(2,"block sequence number changed from expected %u to actual %u.", previous_seq_no, seq_no);
+        }
         timestamp = nctohl(&packet[4]);
         // debug(1,"New block timestamp: %u.", timestamp);
         int32_t timestamp_difference = timestamp - expected_timestamp;
           if ((timestamp_difference != 0) && (expected_timesamp_is_reasonable != 0))
-            debug(1, "Block with unexpected timestamp. Expected: %u, got: %u, difference: %d, blocks_read_since_flush: %" PRIu64 ".", expected_timestamp, timestamp, timestamp_difference, blocks_read_since_flush);
+            debug(2, "Block with unexpected timestamp. Expected: %u, got: %u, difference: %d, blocks_read_in_sequence: %" PRIu64 ".", expected_timestamp, timestamp, timestamp_difference, blocks_read_in_sequence);
         expected_timestamp = timestamp;
         expected_timesamp_is_reasonable = 0; // must be validated each time by decoding the frame
 
@@ -2848,8 +2872,8 @@ void *rtp_buffered_audio_processor(void *arg) {
                       if (ret < 0) {
                         debug(1,
                               "error sending frame %d of size %d to decoder, blocks_read: %u, "
-                              "blocks_read_since_flush: %u.",
-                              frame_within_block, pkt->size, blocks_read, blocks_read_since_flush);
+                              "blocks_read_in_sequence: %u.",
+                              frame_within_block, pkt->size, blocks_read, blocks_read_in_sequence);
                       } else {
                         while (ret >= 0) {
                           ret = avcodec_receive_frame(codec_context, decoded_frame);
