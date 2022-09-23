@@ -2588,48 +2588,66 @@ void *rtp_buffered_audio_processor(void *arg) {
                     not_first_time_out = 1;
                   }
                   */
-                    // clang-format on
+                  // clang-format on
 
-                    // debug(1,"block timestamp: %u, packet timestamp: %u.", timestamp, pcm_buffer_read_point_rtptime);
+                  // debug(1,"block timestamp: %u, packet timestamp: %u.", timestamp,
+                  // pcm_buffer_read_point_rtptime);
 
-                    int32_t timestamp_difference = pcm_buffer_read_point_rtptime - expected_pcm_buffer_read_point_rtptime;;
-                    if (packets_played_in_this_sequence != 0) {
-                      if (timestamp_difference != 0)
-                          debug(2,"Unexpected time difference between packets -- actual: %u, expected: %u, difference: %d. Packets played: %d. Blocks played since flush: %d. ",
-                            pcm_buffer_read_point_rtptime, expected_pcm_buffer_read_point_rtptime, timestamp_difference, packets_played_in_this_sequence, blocks_read_in_sequence);
-                    }
-                    
-                    
-                    // Very specific code to get around an apparent bug in AirPlay 2 from iOS 16 / Ventura 13.0
-                    // It seems that the timestamp goes backwards by 2112 frames not later than the 65th packet of 352 frames (64 * 352 = 22528 frames which is exactly 22 blocks)
-                    // So, if that happens, we'll add 2112 to the timstamp passed to the player
-                    
-                    if ((timestamp_difference == -2112) && (packets_played_in_this_sequence <= 64)) {
-                      debug(1,"iOS 16.0 discontinuity detected with %d packets played in this sequence. Nothing done.", packets_played_in_this_sequence);
-                      // pcm_buffer_read_point_rtptime_offset = 2112;  // this pretends the timestamps after the discontinuity are 2112 frames later, but this just delays everything by 2112 frames, pushing stuff out of sync, and i think you can hear it.
-                    }
-                    
-                    
-                    // if it's not the very first block of AAC, but is from the first few blocks of a new AAC sequence,
-                    // it will contain noisy transients, so replace it with silence.
-                    if ((blocks_read_in_sequence <= 2) && (blocks_read_in_sequence != blocks_read)) {
-                      // debug(1,"Muting packet %u from block %u to avoid AAC transients because it's not from a true starting block. Blocks_read is %" PRIu64 ". blocks_read_in_sequence is %" PRIu64 ".", pcm_buffer_read_point_rtptime, timestamp, blocks_read, blocks_read_in_sequence);
-                      conn->previous_random_number =
-                        generate_zero_frames((char *)(pcm_buffer + pcm_buffer_read_point), 352, config.output_format, conn->enable_dither,
-                                             conn->previous_random_number);
-                    }
-                  
-                    player_put_packet(0, 0, pcm_buffer_read_point_rtptime + pcm_buffer_read_point_rtptime_offset,
-                                      pcm_buffer + pcm_buffer_read_point, 352, conn);
-                    packets_played_in_this_sequence++;
-                    expected_pcm_buffer_read_point_rtptime = pcm_buffer_read_point_rtptime + 352;
+                  int32_t timestamp_difference =
+                      pcm_buffer_read_point_rtptime - expected_pcm_buffer_read_point_rtptime;
+                  ;
+                  if (packets_played_in_this_sequence != 0) {
+                    if (timestamp_difference != 0)
+                      debug(
+                          2,
+                          "Unexpected time difference between packets -- actual: %u, expected: %u, "
+                          "difference: %d. Packets played: %d. Blocks played since flush: %d. ",
+                          pcm_buffer_read_point_rtptime, expected_pcm_buffer_read_point_rtptime,
+                          timestamp_difference, packets_played_in_this_sequence,
+                          blocks_read_in_sequence);
                   }
+
+                  // Very specific code to get around an apparent bug in AirPlay 2 from iOS 16 /
+                  // Ventura 13.0 It seems that the timestamp goes backwards by 2112 frames not
+                  // later than the 65th packet of 352 frames (64 * 352 = 22528 frames which is
+                  // exactly 22 blocks) So, if that happens, we'll add 2112 to the timstamp passed
+                  // to the player
+
+                  if ((timestamp_difference == -2112) && (packets_played_in_this_sequence <= 64)) {
+                    debug(1,
+                          "iOS 16.0 discontinuity detected with %d packets played in this "
+                          "sequence. Nothing done.",
+                          packets_played_in_this_sequence);
+                    // pcm_buffer_read_point_rtptime_offset = 2112;  // this pretends the timestamps
+                    // after the discontinuity are 2112 frames later, but this just delays
+                    // everything by 2112 frames, pushing stuff out of sync, and i think you can
+                    // hear it.
+                  }
+
+                  // if it's not the very first block of AAC, but is from the first few blocks of a
+                  // new AAC sequence, it will contain noisy transients, so replace it with silence.
+                  if ((blocks_read_in_sequence <= 2) && (blocks_read_in_sequence != blocks_read)) {
+                    // debug(1,"Muting packet %u from block %u to avoid AAC transients because it's
+                    // not from a true starting block. Blocks_read is %" PRIu64 ".
+                    // blocks_read_in_sequence is %" PRIu64 ".", pcm_buffer_read_point_rtptime,
+                    // timestamp, blocks_read, blocks_read_in_sequence);
+                    conn->previous_random_number = generate_zero_frames(
+                        (char *)(pcm_buffer + pcm_buffer_read_point), 352, config.output_format,
+                        conn->enable_dither, conn->previous_random_number);
+                  }
+
+                  player_put_packet(
+                      0, 0, pcm_buffer_read_point_rtptime + pcm_buffer_read_point_rtptime_offset,
+                      pcm_buffer + pcm_buffer_read_point, 352, conn);
+                  packets_played_in_this_sequence++;
+                  expected_pcm_buffer_read_point_rtptime = pcm_buffer_read_point_rtptime + 352;
+                }
                 // }
               } else {
                 debug(3,
                       "Dropping packet %u from block %u with out-of-range lead_time: %.3f seconds.",
                       pcm_buffer_read_point_rtptime, seq_no, 0.000000001 * lead_time);
-                      expected_pcm_buffer_read_point_rtptime = pcm_buffer_read_point_rtptime + 352;
+                expected_pcm_buffer_read_point_rtptime = pcm_buffer_read_point_rtptime + 352;
               }
 
               pcm_buffer_read_point_rtptime += 352;
@@ -2642,13 +2660,16 @@ void *rtp_buffered_audio_processor(void *arg) {
             usleep(20000); // wait before asking if play is enabled again
           }
         } else {
-          // debug(1,"new buffer needed for buffer starting at %u because pcm_buffer_read_point (frames) is %u and pcm_buffer_occupancy (frames) is %u.", pcm_buffer_read_point_rtptime, pcm_buffer_read_point/conn->input_bytes_per_frame,
+          // debug(1,"new buffer needed for buffer starting at %u because pcm_buffer_read_point
+          // (frames) is %u and pcm_buffer_occupancy (frames) is %u.",
+          // pcm_buffer_read_point_rtptime, pcm_buffer_read_point/conn->input_bytes_per_frame,
           // pcm_buffer_occupancy/conn->input_bytes_per_frame);
           new_buffer_needed = 1;
           if (pcm_buffer_read_point != 0) {
             // debug(1,"pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy (frames): %u",
-            //pcm_buffer_read_point/conn->input_bytes_per_frame,
-            //pcm_buffer_occupancy/conn->input_bytes_per_frame); // if there is anything to move down
+            // pcm_buffer_read_point/conn->input_bytes_per_frame,
+            // pcm_buffer_occupancy/conn->input_bytes_per_frame); // if there is anything to move
+            // down
             // to the front of the buffer, do it now;
             if ((pcm_buffer_occupancy - pcm_buffer_read_point) > 0) {
               // move the remaining frames down to the start of the buffer
@@ -2668,9 +2689,9 @@ void *rtp_buffered_audio_processor(void *arg) {
     if ((flush_requested) || (new_buffer_needed)) {
 
       // debug(1,"pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy (frames): %u",
-      // pcm_buffer_read_point/conn->input_bytes_per_frame, pcm_buffer_occupancy/conn->input_bytes_per_frame);
-      // ok, so here we know we need material from the sender
-      // do we will get in a packet of audio
+      // pcm_buffer_read_point/conn->input_bytes_per_frame,
+      // pcm_buffer_occupancy/conn->input_bytes_per_frame); ok, so here we know we need material
+      // from the sender do we will get in a packet of audio
       uint16_t data_len;
       // here we read from the buffer that our thread has been reading
       size_t bytes_remaining_in_buffer;
@@ -2714,13 +2735,17 @@ void *rtp_buffered_audio_processor(void *arg) {
         previous_seq_no++;
         seq_no = packet[1] * (1 << 16) + packet[2] * (1 << 8) + packet[3];
         if (previous_seq_no != seq_no) {
-          debug(2,"block sequence number changed from expected %u to actual %u.", previous_seq_no, seq_no);
+          debug(2, "block sequence number changed from expected %u to actual %u.", previous_seq_no,
+                seq_no);
         }
         timestamp = nctohl(&packet[4]);
         // debug(1,"New block timestamp: %u.", timestamp);
         int32_t timestamp_difference = timestamp - expected_timestamp;
-          if ((timestamp_difference != 0) && (expected_timesamp_is_reasonable != 0))
-            debug(2, "Block with unexpected timestamp. Expected: %u, got: %u, difference: %d, blocks_read_in_sequence: %" PRIu64 ".", expected_timestamp, timestamp, timestamp_difference, blocks_read_in_sequence);
+        if ((timestamp_difference != 0) && (expected_timesamp_is_reasonable != 0))
+          debug(2,
+                "Block with unexpected timestamp. Expected: %u, got: %u, difference: %d, "
+                "blocks_read_in_sequence: %" PRIu64 ".",
+                expected_timestamp, timestamp, timestamp_difference, blocks_read_in_sequence);
         expected_timestamp = timestamp;
         expected_timesamp_is_reasonable = 0; // must be validated each time by decoding the frame
 
@@ -2922,12 +2947,14 @@ void *rtp_buffered_audio_processor(void *arg) {
                                     pcm_buffer_size);
                             } else {
                               memcpy(pcm_buffer + pcm_buffer_occupancy, pcm_audio, dst_bufsize);
-                              expected_timestamp += (dst_bufsize/conn->input_bytes_per_frame);
+                              expected_timestamp += (dst_bufsize / conn->input_bytes_per_frame);
                               expected_timesamp_is_reasonable = 1;
                               pcm_buffer_occupancy += dst_bufsize;
-                              // debug(1,"frames added: pcm_buffer_read_point (frames): %u, pcm_buffer_occupancy (frames): %u",
-                              //   pcm_buffer_read_point/conn->input_bytes_per_frame, pcm_buffer_occupancy/conn->input_bytes_per_frame);
-                           }
+                              // debug(1,"frames added: pcm_buffer_read_point (frames): %u,
+                              // pcm_buffer_occupancy (frames): %u",
+                              //   pcm_buffer_read_point/conn->input_bytes_per_frame,
+                              //   pcm_buffer_occupancy/conn->input_bytes_per_frame);
+                            }
                             // debug(1,"decoded %d samples", decoded_frame->nb_samples);
                             // memcpy(sampleBuffer,outputBuffer16,dst_bufsize);
                             av_freep(&pcm_audio);
