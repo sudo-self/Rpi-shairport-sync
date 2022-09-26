@@ -450,7 +450,7 @@ Note: all Version 3 changes are summarized above.
 * An experimental new back end for `libsoundio`, a C library for cross-platform real-time audio input and output. Many thanks to [Serg Podtynnyi](https://github.com/shtirlic). Please see https://github.com/mikebrady/shairport-sync/pull/433 for more details.
 
 **Other changes**
-* Updates to `man` page and  [README](https://github.com/mikebrady/shairport-sync/blob/development/README.md). Reports of typos or suggestions for improvement are welcome!
+* Updates to `man` page and  [README](README.md). Reports of typos or suggestions for improvement are welcome!
 
 Version 3.0d24 – Development Version
 ----
