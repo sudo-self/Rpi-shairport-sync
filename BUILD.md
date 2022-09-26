@@ -130,7 +130,6 @@ Download Shairport Sync, check out the `development` branch and configure, compi
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
-$ git checkout development
 $ autoreconf -fi
 $ ./configure --sysconfdir=/etc --with-alsa \
     --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
