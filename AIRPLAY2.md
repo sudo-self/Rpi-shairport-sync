@@ -30,9 +30,9 @@ Here are some guidelines:
 * Ports 319 and 320 must be free to use (i.e. they must not be in use by another service such as a PTP service) and must not be blocked by a firewall.
 * An up-to-date Linux or FreeBSD. This is important, as some of the libraries must be the latest available.
 * Shairport Sync will not run on a Mac because NQPTP, on which it relies, needs ports 319 and 320, which are already used by macOS.
-* A version of the [FFmpeg](https://www.ffmpeg.org) library with an AAC decoder capable of decoding Floating Planar -- `fltp` -- material. There is a guide [here](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only) to help you find out if your system has it.
+* A version of the [FFmpeg](https://www.ffmpeg.org) library with an AAC decoder capable of decoding Floating Planar -- `fltp` -- material. There is a guide [here](TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only) to help you find out if your system has it.
 * An audio output, for example an ALSA device (or `sndio` in FreeBSD). The device must be capable of running at 44,100 frames per second. You can use an `sps-alsa-explore`](https://github.com/mikebrady/sps-alsa-explore) to test the suitability of hardware ALSA audio devices on your device.
 Other backends continue to work as with "classic" Shairport Sync.
 
 ## Guides
-* A building guide is available at [BUILD.md](https://github.com/mikebrady/shairport-sync/blob/development/BUILD.md).
+* A building guide is available at [BUILD.md](BUILD.md).

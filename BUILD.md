@@ -1,7 +1,7 @@
 # Build and Install Shairport Sync
 This guide is for a basic installation of Shairport Sync in a recent (2018 onwards) Linux or FreeBSD.
 
-Shairport Sync can be built as an AirPlay 2 player (with [some limitations](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md#features-and-limitations)) or as "classic" Shairport Sync – a player for the older, but still supported, AirPlay (aka "AirPlay 1") protocol. Check ["What You Need"](https://github.com/mikebrady/shairport-sync/blob/development/AIRPLAY2.md#what-you-need) for some basic system requirements.
+Shairport Sync can be built as an AirPlay 2 player (with [some limitations](AIRPLAY2.md#features-and-limitations)) or as "classic" Shairport Sync – a player for the older, but still supported, AirPlay (aka "AirPlay 1") protocol. Check ["What You Need"](AIRPLAY2.md#what-you-need) for some basic system requirements.
 
 Overall, you'll be building and installing two programs – Shairport Sync itself and [NQPTP](https://github.com/mikebrady/nqptp), a companion app that Shairport Sync uses for AirPlay 2 timing. If you are building classic Shairport Sync, NQPTP is unnecessary and can be omitted.
 
@@ -125,7 +125,7 @@ Download Shairport Sync, check out the `development` branch and configure, compi
 
 * If building for FreeBSD, replace `--with-systemd` with `--with-os=freebsd --with-freebsd-service`.
 * Omit the `--with-airplay-2` from the `./configure` options if you are building classic Shairport Sync.
-* If you wish to add extra features, for example an extra audio backend, take a look at the [configuration flags](https://github.com/mikebrady/shairport-sync/blob/development/CONFIGURATION%20FLAGS.md). For this walkthrough, though, please do not remove the `--with-alsa` flag.
+* If you wish to add extra features, for example an extra audio backend, take a look at the [configuration flags](CONFIGURATION%20FLAGS.md). For this walkthrough, though, please do not remove the `--with-alsa` flag.
 
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
@@ -190,7 +190,7 @@ If a firewall is running (some systems, e.g. Fedora, run a firewall by default),
 
 ## 8. Connect and enjoy...
 ### Add to Home
-With AirPlay 2, you can follow the steps in [ADDINGTOHOME.md](https://github.com/mikebrady/shairport-sync/blob/development/ADDINGTOHOME.md) to add your device to the Apple Home system.
+With AirPlay 2, you can follow the steps in [ADDINGTOHOME.md](ADDINGTOHOME.md) to add your device to the Apple Home system.
 ### Wait, there's more...
 Instead of using default values for everything, you can use the configuration file to get finer control over the setup, particularly the output device and mixer control -- see [Finish Setting Up](ADVANCED%20TOPICS/InitialConfiguration.md).
 
