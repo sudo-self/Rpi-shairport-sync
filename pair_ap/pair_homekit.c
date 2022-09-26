@@ -472,7 +472,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
   bnum u, x;
 
   *len_M = 0;
-  *bytes_M = 0;
+  *bytes_M = NULL;
 
   bnum_bin2bn(s, bytes_s, len_s);
   bnum_bin2bn(B, bytes_B, len_B);
@@ -512,14 +512,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
       calculate_H_AMK(usr->alg, usr->H_AMK, usr->A, usr->M, usr->session_key, usr->session_key_len);
 
       *bytes_M = usr->M;
-      if (len_M)
-        *len_M = hash_length(usr->alg);
-    }
-  else
-    {
-      *bytes_M = NULL;
-      if (len_M)
-        *len_M   = 0;
+      *len_M = hash_length(usr->alg);
     }
 
  cleanup2:
@@ -1180,20 +1173,17 @@ client_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add
   if (!is_initialized())
     return -1;
 
-  if (handle->type == &pair_client_homekit_normal)
-    {
-      if (!pin || strlen(pin) < 4)
-	return -1;
-    }
-  else if (handle->type == &pair_client_homekit_transient && !pin)
-    {
-      pin = "3939";
-    }
+  if (!pin && handle->type == &pair_client_homekit_transient)
+    pin = "3939";
+  else if (!pin)
+    return -1;
 
   if (device_id && strlen(device_id) >= PAIR_AP_DEVICE_ID_LEN_MAX)
     return -1;
 
-  memcpy(sctx->pin, pin, sizeof(sctx->pin));
+  sctx->pin = strdup(pin);
+  if (!sctx->pin)
+    return -1;
 
   sctx->add_cb = add_cb;
   sctx->add_cb_arg = cb_arg;
@@ -1223,6 +1213,7 @@ client_setup_free(struct pair_setup_context *handle)
   free(sctx->salt);
   free(sctx->epk);
   free(sctx->authtag);
+  free(sctx->pin);
 }
 
 static uint8_t *
@@ -1248,7 +1239,7 @@ client_setup_request1(size_t *len, struct pair_setup_context *handle)
       goto error;
     }
 
-  sctx->user = srp_user_new(HASH_SHA512, SRP_NG_3072, USERNAME, (unsigned char *)sctx->pin, sizeof(sctx->pin), 0, 0);
+  sctx->user = srp_user_new(HASH_SHA512, SRP_NG_3072, USERNAME, (unsigned char *)sctx->pin, strlen(sctx->pin), 0, 0);
   if (!sctx->user)
     {
       handle->errmsg = "Setup request 1: Create SRP user failed";
@@ -1949,6 +1940,7 @@ client_verify_response2(struct pair_verify_context *handle, const uint8_t *data,
 
   handle->status = PAIR_STATUS_COMPLETED;
 
+  pair_tlv_free(response);
   return 0;
 }
 
@@ -2010,7 +2002,9 @@ server_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add
   if (!device_id || strlen(device_id) >= PAIR_AP_DEVICE_ID_LEN_MAX)
     return -1;
 
-  memcpy(sctx->pin, pin, sizeof(sctx->pin));
+  sctx->pin = strdup(pin);
+  if (!sctx->pin)
+    return -1;
 
   sctx->add_cb = add_cb;
   sctx->add_cb_arg = cb_arg;
@@ -2035,6 +2029,7 @@ server_setup_free(struct pair_setup_context *handle)
   free(sctx->M1);
   free(sctx->v);
   free(sctx->salt);
+  free(sctx->pin);
 }
 
 static int
@@ -2063,7 +2058,7 @@ server_setup_request1(struct pair_setup_context *handle, const uint8_t *data, si
   sctx->is_transient = (type && type->size == 1 && type->value[0] == PairingFlagsTransient);
 
   // Note this is modified to return a 16 byte salt
-  ret = srp_create_salted_verification_key(HASH_SHA512, SRP_NG_3072, USERNAME, (unsigned char *)sctx->pin, sizeof(sctx->pin),
+  ret = srp_create_salted_verification_key(HASH_SHA512, SRP_NG_3072, USERNAME, (unsigned char *)sctx->pin, strlen(sctx->pin),
     &sctx->salt, &sctx->salt_len, &sctx->v, &sctx->v_len, NULL, NULL);
   if (ret < 0)
     {

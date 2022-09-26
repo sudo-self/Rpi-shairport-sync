@@ -347,7 +347,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
   bnum u, x;
 
   *len_M = 0;
-  *bytes_M = 0;
+  *bytes_M = NULL;
 
   bnum_bin2bn(s, bytes_s, len_s);
   bnum_bin2bn(B, bytes_B, len_B);
@@ -384,14 +384,7 @@ srp_user_process_challenge(struct SRPUser *usr, const unsigned char *bytes_s, in
       calculate_H_AMK(usr->alg, usr->H_AMK, usr->A, usr->M, usr->session_key, usr->session_key_len);
 
       *bytes_M = usr->M;
-      if (len_M)
-        *len_M = hash_length(usr->alg);
-    }
-  else
-    {
-      *bytes_M = NULL;
-      if (len_M)
-        *len_M   = 0;
+      *len_M = hash_length(usr->alg);
     }
 
  cleanup2:
@@ -607,10 +600,12 @@ client_setup_new(struct pair_setup_context *handle, const char *pin, pair_cb add
   if (!is_initialized())
     return -1;
 
-  if (!pin || strlen(pin) < 4)
+  if (!pin)
     return -1;
 
-  memcpy(sctx->pin, pin, sizeof(sctx->pin));
+  sctx->pin = strdup(pin);
+  if (!sctx->pin)
+    return -1;
 
   return 0;
 }
@@ -627,6 +622,7 @@ client_setup_free(struct pair_setup_context *handle)
   free(sctx->salt);
   free(sctx->epk);
   free(sctx->authtag);
+  free(sctx->pin);
 }
 
 static uint8_t *
@@ -639,7 +635,7 @@ client_setup_request1(size_t *len, struct pair_setup_context *handle)
   uint32_t uint32;
   char *data = NULL; // Necessary to initialize because plist_to_bin() uses value
 
-  sctx->user = srp_user_new(HASH_SHA1, SRP_NG_2048, USERNAME, (unsigned char *)sctx->pin, sizeof(sctx->pin), 0, 0);
+  sctx->user = srp_user_new(HASH_SHA1, SRP_NG_2048, USERNAME, (unsigned char *)sctx->pin, strlen(sctx->pin), 0, 0);
 
   dict = plist_new_dict();
 
