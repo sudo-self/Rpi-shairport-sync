@@ -1,17 +1,23 @@
 Version 4.1-rc0 Release Candidate
 ====
 
-Big Update
+Really Big Update -- AirPlay 2!
 ----
-Version 4.1 brings support for AirPlay 2 operation. It works with iOS, iPadOS, macOS, HomePod mini and Apple TV sources, but not with Windows. Limited support is available for HomeKit -- Shairport Sync speakers can be added to the Home app, thoough not all features are working.
+Version 4.1 brings support for AirPlay 2 operation. It works with iOS, iPadOS, macOS, HomePod mini and Apple TV sources, but not with Windows.
+Limited support is available for HomeKit -- Shairport Sync speakers can be added to the Home app, though not all features are working.
+AirPlay 2 operation requires a companion program called NQPTP and requires a somewhat more powerful system. Please see [AIRPLAY2.md](./AIRPLAY.md) for more.
 
-As with previous versions, it is still possible to build Shairport Sync to support "classic" AirPlay (aka "AirPlay 1").
+Note that you can still build Shairport Sync to support "classic" AirPlay (aka "AirPlay 1") as before.
+
+The various guides for building and updating Shairport Sync have been consolidated into [BUILD.md](./BUILD.md). 
+
+Here is a brief list of the high-level new features and changes (more to be added):
+* AirPlay 2 operation.
+* Improved `libao` backend for better compatibility with HomeBrew installations.
+* Improved MQTT and D-Bus facilities.
+* Automatically-generated Docker images (forthcoming).
 
 There have been many many bug fixes and enhancements to the core operation of Shairport Sync.
-
-A list of the new features and important bug fixes will appear here shortly.
-
-The Docker images need some further work before they are updated.
 
 Version 3.3.9
 ====
