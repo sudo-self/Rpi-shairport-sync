@@ -39,7 +39,7 @@ Okay, now let's get the tools and libraries for building and installing Shairpor
 # apt upgrade # this is optional but recommended
 # apt install --no-install-recommends build-essential git xmltoman autoconf automake libtool \
     libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
-    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd
+    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev xxd
 ```
 If you are building classic Shairport Sync, the list of packages is shorter:
 ```
@@ -54,7 +54,7 @@ For AirPlay 2 operation, _before you install the libraries_, please ensure the y
 # yum update
 # yum install make automake gcc gcc-c++ \
     git xmltoman autoconf automake avahi-devel libconfig-devel openssl-devel popt-devel soxr-devel \
-    ffmpeg ffmpeg-devel libplist-devel libsodium-devel libgcrypt-devel libuuid-devel vim-common \
+    ffmpeg ffmpeg-devel libplist-devel libsodium-devel libuuid-devel vim-common \
     alsa-lib-devel
 ```
 If you are building classic Shairport Sync, the list of packages is shorter:
@@ -149,7 +149,7 @@ $ shairport-sync
 
 The AirPlay service should appear on the network and the audio you play should come through to the default ALSA device. (Use `alsamixer` or similar to adjust levels.)
 
-If you have problems, please check the items in [Final Notes](final_notes) below, or in the [TROUBLESHOOTING.md](https://github.com/mikebrady/shairport-sync/blob/development/TROUBLESHOOTING.md) guide.
+If you have problems, please check the items in Final Notes below, or in the [TROUBLESHOOTING.md](TROUBLESHOOTING.md) guide.
 
 Note: Shairport Sync will run indefinitely -- use Control-C it to stop it.
 
@@ -192,4 +192,6 @@ If a firewall is running (some systems, e.g. Fedora, run a firewall by default),
 ### Add to Home
 With AirPlay 2, you can follow the steps in [ADDINGTOHOME.md](https://github.com/mikebrady/shairport-sync/blob/development/ADDINGTOHOME.md) to add your device to the Apple Home system.
 ### Wait, there's more...
-Shairport Sync has many extra [features](README.md#features) and [settings](https://github.com/mikebrady/shairport-sync/blob/development/scripts/shairport-sync.conf). For instance, you can [add an MQTT service](https://github.com/mikebrady/shairport-sync/blob/master/MQTT.md), change the AirPlay service name, adjust for delays in other equipment (many TVs and AVRs introduce slight delays in their audio processing chains) and more. Explore runtime settings in `/etc/shairport-sync.conf` or [here](https://github.com/mikebrady/shairport-sync/blob/development/scripts/shairport-sync.conf). Build configuration flags are [here](https://github.com/mikebrady/shairport-sync/blob/development/CONFIGURATION%20FLAGS.md).
+Instead of using default values for everything, you can use the configuration file to get finer control over the setup, particularly the output device and mixer control -- see [Finish Setting Up](ADVANCED%20TOPICS/InitialConfiguration.md).
+
+Please take a look at [Advanced Topics](ADVANCED%20TOPICS/README.md) for some ideas about what else you can do to enhance the operation of Shairport Sync.

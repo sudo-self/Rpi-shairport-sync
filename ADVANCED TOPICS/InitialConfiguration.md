@@ -1,6 +1,55 @@
-# Initial Configuration
-Shairport Sync reads settings from a configuration file at `/etc/shairport-sync.conf` (note that in FreeBSD it will be at `/usr/local/etc/shairport-sync.conf`). When you run `$sudo make install`, a sample configuration file is installed or updated at `/etc/shairport-sync.conf.sample` (`/usr/local/etc/shairport-sync.conf.sample` in FreeBSD). This contains all the setting groups and all the settings available, but they all are commented out (comments begin with `//`) so that default values are used. The file contains explanations of the settings, useful hints and suggestions. In addition, if the file doesn't already exist, a default configuration is installed, which should work in almost any system with a sound card.
+# Finish Setting Up
+When you complete the instructions in [BUILD.md](../BUILD.md), you have a basic functioning Shairport Sync installation. If you want more control -- for example, if you want to use a specific DAC, or if you want AirPlay to control the DAC's volume control -- you can use settings in the configuration file (recommended) or you can use command-line options.
 
+## The Configuration File
+Shairport Sync reads settings from a configuration file at `/etc/shairport-sync.conf` (note that in FreeBSD it will be at `/usr/local/etc/shairport-sync.conf`). When you run `$sudo make install`, a sample configuration file  called `shairport-sync.conf.sample` is always installed or updated. This contains all the setting groups and all the settings available, but they all are commented out (comments begin with `//`) so that default values are used. The file contains explanations of the settings, useful hints and suggestions.
+
+## Specifying the Output Device and Mixer Control
+If you have followed the [BUILD.md](../BUILD.md) instructions, audio received by Shairport Sync will be sent to the `default` device. Depending on the configuration of your system, you may be able to specify a specific hardware output DAC and use its built-in mixer to control volume levels. This would be desirable because (1) the `default` device may be doing further processing on the audio before sending it to the hardware output device, degrading its fidelity, and (2) using the real device's hardware mixer to control volume would give Shairport Sync complete control of the volume range.
+
+To get a list of the hardware DACs on your system, refer to the output of `$ shairport-sync -h`. Here is a sample from a Raspberry Pi 3B system:
+```
+Usage: shairport-sync [options...]
+  or:  shairport-sync [options...] -- [audio output-specific options]
+...
+[snip]
+...
+Settings and options for the audio backend "alsa":
+    -d output-device    set the output device, default is "default".
+    -c mixer-control    set the mixer control name, default is to use no mixer.
+    -m mixer-device     set the mixer device, default is the output device.
+    -i mixer-index      set the mixer index, default is 0.
+    hardware output devices:
+      "hw:Headphones"
+      "hw:sndrpihifiberry"
+      "hw:vc4hdmi"
+...
+[snip]
+...
+```
+In this system, you can see that there are three hardware output devices, `"hw:Headphones"`, `"hw:sndrpihifiberry"` and `"hw:vc4hdmi"`.
+
+Using a tool like `alsamixer`, an output device can be checked to find the name of the volume control mixer. For the first device, the name of the mixer is `"Headphone"`.
+
+These setting can be entered into the configuration file, in the `alsa` section, as follows:
+```
+...
+alsa =
+{
+	output_device = "hw:Headphones"; // the name of the alsa output device. Use "shairport-sync -h" to discover the names of ALSA hardware devices. Use "alsamixer" or "aplay" to find out the names of devices, mixers, etc.
+	mixer_control_name = "Headphone"; // the name of the mixer to use to adjust output volume. If not specified, volume in adjusted in software.
+...
+}
+```
+Make sure to uncomment entries you wish to make active, and restart Shairport Sync after you have made changes.
+
+If you make a syntax error, Shairport Sync will not start and will leave a message in the log.  More details below and also in the comments in the configuration file.
+
+Please note that if your system has a sound server such as PulseAudio or PipeWire (most desktop linuxes have one of these), you may not be able to access the sound hardware directly, so you may only be able to use the `default` output.
+
+
+
+## More about Configuration Settings
 Settings in the configuration file are grouped. For instance, there is a `general` group within which you can use the `name` tag to set the service name. Suppose you wanted to set the name of the service to `Front Room` and give the service the password `secret`, then you should do the following:
 
 ```
@@ -18,11 +67,11 @@ The password setting is only valid for classic Shairport Sync.
 
 **Important:** You should *never* use an important password as the AirPlay password for a Shairport Sync player -- the password is stored in Shairport Sync's configuration file in plain text and is thus completely vulnerable.
 
-No backend is specified here, so it will default to the `alsa` backend if more than one back end has been compiled. To route the output to PulseAudio, add:
+No backend is specified here, so it will default to the `alsa` backend if more than one back end has been compiled. To route the output to PulseAudio, set:
 ```
   output_backend = "pa";
 ```
-to the `general` group.
+in the `general` group.
 
 The `alsa` group is used to specify properties of the output device. The most obvious setting is the name of the output device which you can set using the `output_device` tag.
 
@@ -44,23 +93,14 @@ The `pa` group is used to specify settings relevant to the PulseAudio backend. Y
 
 Note: Shairport Sync can take configuration settings from command line options. This is mainly for backward compatibility, but sometimes still useful. For normal use, it is strongly recommended that you use the configuration file method.
 
-**Raspberry Pi**
+### Raspberry Pi
 
-The Raspberry Pi Models A and B have a built-in audio DAC that is connected to the device's headphone jack. Apart from a loud click when used for the first time after power-up, it is now quite adequate for casual listening.
-
-To get the benefits of improvements in the Pi's software and firmware, you should update to the Raspian release of October 2018 or later, as a number of improvements have been made to the built-in DAC.
-
-Do the usual update and upgrade:
-```
-# apt update
-# apt upgrade
-```
 To make Shairport Sync output to the built-in audio DAC and use its hardware mixer, in the `alsa` section of the configuration file, set the output device and mixer as follows:
 ```
 alsa =
 {
-  output_device = "hw:0"; // the name of the alsa output device. Use "alsamixer" or "aplay" to find out the names of devices, mixers, etc.
-  mixer_control_name = "PCM"; // the name of the mixer to use to adjust output volume. If not specified, volume in adjusted in software.
+  output_device = "hw:Headphones"; // the name of the alsa output device. Use "alsamixer" or "aplay" to find out the names of devices, mixers, etc.
+  mixer_control_name = "Headphone"; // the name of the mixer to use to adjust output volume. If not specified, volume in adjusted in software.
   // ... other alsa settings
 ```
 (Remember to uncomment the lines by removing the `//` at the start of each.) When these changes have been made, reboot the machine.
@@ -69,22 +109,7 @@ A problem with the built-in DAC that it declares itself to have a very large mix
 
 From a user's point of view, the effect of using this setting is to move the minimum usable volume all the way down to the bottom of the user's volume control, rather than have the minimum usable volume concentrated very close to the maximum volume.
 
-*Command Line Arguments*
-
-As previously mentioned, you can use command line arguments to provide settings to Shairport Sync as before, though newer settings will only be available via the configuration file. For full information, please read the Shairport Sync `man` page, also available at  http://htmlpreview.github.io/?https://github.com/mikebrady/shairport-sync/blob/master/man/shairport-sync.html.
-
-Apart from the following options, all command line options can be replaced by settings in the configuration file. Here is a brief description of command line options that are not replicated by settings in the settings file.
-
-* The `-c` option allows you to specify the location of the configuration file.
-* The `-V` option gives you version information about  Shairport Sync and then quits.
-* The `-d` option causes Shairport Sync to properly daemonise itself, that is, to run in the background. You may need sudo privileges for this.
-* The `-k` option causes Shairport Sync to kill an existing Shairport Sync daemon. You may need to have sudo privileges for this.
-
-The System V init script at `/etc/init.d/shairport-sync` has a bare minimum :
-`-d`. Basically all it does is put the program in daemon mode. The program will read its settings from the configuration file.
-
-Examples
---------
+### Examples
 
 Here are some examples of complete configuration files.
 
@@ -110,7 +135,7 @@ general = {
 
 alsa = {
   output_device = "hw:0";
-  mixer_control_name = "PCM";
+  mixer_control_name = "Headphone";
 };
 ```
 
@@ -150,8 +175,6 @@ alsa = {
 };
 ```
 
-For an NSLU2, which has no internal sound card, there appears to be a bug in ALSA — you can not specify a device other than "default". Thus:
-
 On an NSLU2, to drive a first generation Griffin iMic:
 ```
 general = {
@@ -184,22 +207,34 @@ general = {
 ```
 
 
-Latency
--------
+### Latency
 Latency is the exact time from a sound signal's original timestamp until that signal actually "appears" on the output of the audio output device, usually a Digital to Audio Converter (DAC), irrespective of any internal delays, processing times, etc. in the computer.
 
 Shairport Sync uses latencies supplied by the source, typically either 2 seconds or just over 2.25 seconds. You shouldn't need to change them.
 
 Problems can arise when you are trying to synchronise with speaker systems — typically surround-sound home theatre systems — that have their own inherent delays. You can compensate for an inherent delay using the appropriate backend (typically `alsa`) `audio_backend_latency_offset_in_seconds`. Set this offset (in frames) to compensate for a fixed delay in the audio back end; for example, if the output device delays by 100 ms, set this to -0.1.
 
-Resynchronisation
--------------
+### Resynchronisation
+
 Shairport Sync actively maintains synchronisation with the source.
 If synchronisation is lost — say due to a busy source or a congested network — Shairport Sync will mute its output and resynchronise. The loss-of-sync threshold is a very conservative 0.050 seconds — i.e. the actual time and the expected time must differ by more than 50 ms to trigger a resynchronisation. Smaller disparities are corrected by insertions or deletions, as described above.
 * You can vary the resync threshold, or turn resync off completely, with the `general` `resync_threshold_in_seconds` setting.
 
-Tolerance
----------
+### Tolerance
 Playback synchronisation is allowed to wander — to "drift" — a small amount before attempting to correct it. The default is 0.002 seconds, i.e. 2 ms. The smaller the tolerance, the  more  likely it is that overcorrection will occur. Overcorrection is when more corrections (insertions and deletions) are made than are strictly necessary to keep the stream in sync. Use the `statistics` setting to monitor correction levels. Corrections should not greatly exceed net corrections.
 * You can vary the tolerance with the `general` `drift_tolerance_in_seconds` setting.
+
+## Command Line Arguments
+
+You can use command line arguments to provide settings to Shairport Sync, though newer settings will only be available via the configuration file. For full information, please read the Shairport Sync `man` page, also available at  http://htmlpreview.github.io/?https://github.com/mikebrady/shairport-sync/blob/master/man/shairport-sync.html.
+
+Apart from the following options, all command line options can be replaced by settings in the configuration file. Here is a brief description of command line options that are not replicated by settings in the settings file.
+
+* The `-c` option allows you to specify the location of the configuration file.
+* The `-V` option gives you version information about  Shairport Sync and then quits.
+* The `-d` option causes Shairport Sync to properly daemonise itself, that is, to run in the background. You may need sudo privileges for this.
+* The `-k` option causes Shairport Sync to kill an existing Shairport Sync daemon. You may need to have sudo privileges for this.
+
+The System V init script at `/etc/init.d/shairport-sync` has a bare minimum :
+`-d`. Basically all it does is put the program in daemon mode. The program will read its settings from the configuration file.
 

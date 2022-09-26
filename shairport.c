@@ -45,7 +45,6 @@
 
 #ifdef CONFIG_AIRPLAY_2
 #include "ptp-utilities.h"
-#include <gcrypt.h>
 #include <libavcodec/avcodec.h>
 #include <sodium.h>
 #include <uuid/uuid.h>
@@ -2103,28 +2102,6 @@ int main(int argc, char **argv) {
   } else {
     debug(1, "libsodium initialised.");
   }
-
-  // this code is based on
-  // https://www.gnupg.org/documentation/manuals/gcrypt/Initializing-the-library.html
-
-  /* Version check should be the very first call because it
-    makes sure that important subsystems are initialized.
-    #define NEED_LIBGCRYPT_VERSION to the minimum required version. */
-
-#define NEED_LIBGCRYPT_VERSION "1.5.4"
-
-  if (!gcry_check_version(NEED_LIBGCRYPT_VERSION)) {
-    die("libgcrypt is too old (need %s, have %s).", NEED_LIBGCRYPT_VERSION,
-        gcry_check_version(NULL));
-  }
-
-  /* Disable secure memory.  */
-  gcry_control(GCRYCTL_DISABLE_SECMEM, 0);
-
-  /* ... If required, other initialization goes here.  */
-
-  /* Tell Libgcrypt that initialization has completed. */
-  gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 
 #endif
 
