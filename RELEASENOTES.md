@@ -1,3 +1,16 @@
+Version 4.1-rc0 Release Candidate
+====
+With Version 4.1, Shairport Sync can now optionally be built to support AirPlay 2 operation. It works with iOS, iPadOS, macOS, HomePod mini and Apple TV sources, but not with Windows.
+
+It is still possible to build Shairport Sync to support "classic" AirPlay (aka "AirPlay 1").
+
+There have been many many bug fixes and enhancements to the core operation of Shairport Sync.
+
+A list of the new features and important bug fixes will appear here shortly.
+
+The Docker images need some further work before they are updated.
+
+
 Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
 
 Version 3.3.9
