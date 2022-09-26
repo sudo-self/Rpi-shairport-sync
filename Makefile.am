@@ -1,7 +1,7 @@
 SUBDIRS = man
 ARFLAGS = cr
 
-lib_pair_ap_a_CFLAGS = -Wall -g -DCONFIG_GCRYPT -pthread
+lib_pair_ap_a_CFLAGS = -Wall -g -DCONFIG_OPENSSL -pthread
 lib_tinyhttp_a_CFLAGS = -pthread
 lib_dbus_interface_a_CFLAGS = -pthread
 lib_mpris_interface_a_CFLAGS = -pthread
