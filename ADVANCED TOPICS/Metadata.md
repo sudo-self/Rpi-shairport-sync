@@ -5,7 +5,7 @@ through a pipe or UDP socket to a recipient application program — see https://
 Sources that supply metadata include iTunes and the Music app in macOS and iOS.
 
 
-## Metadata over UDP**
+## Metadata over UDP
 
 As an alternative to sending metadata to a pipe, the `socket_address` and `socket_port` tags may be set in the metadata group to cause Shairport Sync
 to broadcast UDP packets containing the track metadata.

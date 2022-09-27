@@ -11,13 +11,13 @@ Note that Android devices can not, so far, do this trick of using the two networ
 
 In this example, a Raspberry Pi Zero 2 W and a Pimoroni PHAT DAC are used. Shairport Sync will be built for AirPlay 2 operation, but you can build it for "classic" AirPlay (aka AirPlay 1) operation if you prefer. A Pi Zero W is powerful enough for classic AirPlay.
 
-Please note that some of the details of setting up networks are specific to the version of Linux used -- Rasberry Pi OS (Bullseye) Lite or later.
+Please note that some of the details of setting up networks are specific to the version of Linux used – Rasberry Pi OS (Bullseye) Lite or later.
 
 ### Prepare the initial SD Image
-* Download the latest version of Raspberry Pi OS (Lite) -- Bullseye (Lite) of 2022-04-04 at the time of writing -- and install it onto an SD Card using `Raspberry Pi Imager`. The Lite version is preferable to the Desktop version as it doesn't include a sound server like PulseAudio or PipeWire that can prevent direct access to the audio output device.
-* Before writing the image to the card, use the Settings control on `Raspberry Pi Imager` to set hostname, enable SSH and provide a username and password to use while building the system. Similarly, you can specify a wireless network the Pi will connect to while building the system. Later on the Pi will be configured to start its own isolated network.
+* Download the latest version of Raspberry Pi OS (Lite) – Bullseye (Lite) of 2022-04-04 at the time of writing – and install it onto an SD Card using `Raspberry Pi Imager`. The Lite version is preferable to the Desktop version as it doesn't include a sound server like PulseAudio or PipeWire that can prevent direct access to the audio output device.
+* Before writing the image to the card, use the Settings control on `Raspberry Pi Imager` to set hostname, enable SSH and provide a username and password to use while building the system. Similarly, you can specify a wireless network the Pi will connect to while building the system. Later on, the Pi will be configured to start its own isolated network.
 * The next few steps are to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used. If you do not need to add an overlay, skip these steps.
-  * Mount the card on a Linux machine. Two drives should appear -- a `boot` drive and a `rootfs` drive.
+  * Mount the card on a Linux machine. Two drives should appear – a `boot` drive and a `rootfs` drive.
   * `cd` to the `boot` drive (since my username is `mike`, it will be `$ cd /media/mike/boot`).
   * Edit the `config.txt` file to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used and it needs the following entry to be added:
     ```
@@ -26,7 +26,7 @@ Please note that some of the details of setting up networks are specific to the 
   * Close the file and carefully dismount and eject the two drives. *Be sure to dismount and eject the drives properly; otherwise they may be corrupted.*
 * Remove the SD card from the Linux machine, insert it into the Pi and reboot.
 
-After a short time, the Pi should appear on your network -- it may take a minute or so. To check, try to `ping` it at the `<hostname>.local`, e.g. if the hostname is `bmw` then use `$ ping bmw.local`. Once it has appeared, you can SSH into it and configure it.
+After a short time, the Pi should appear on your network – it may take a minute or so. To check, try to `ping` it at the `<hostname>.local`, e.g. if the hostname is `bmw` then use `$ ping bmw.local`. Once it has appeared, you can SSH into it and configure it.
 
 ### Boot, Configure, Update 
 The first thing to do on a Pi would be to use the `raspi-config` tool to expand the file system to use the entire card. Next, do the usual update and upgrade:
@@ -41,7 +41,7 @@ Let's get the tools and libraries for building and installing Shairport Sync (an
 ```
 # apt install --no-install-recommends build-essential git xmltoman autoconf automake libtool \
     libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
-    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd
+    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev xxd
 ```
 If you are building classic Shairport Sync, the list of packages is shorter:
 ```
@@ -62,7 +62,6 @@ Download Shairport Sync, check out the `development` branch and configure, compi
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
-$ git checkout development
 $ autoreconf -fi
 $ ./configure --sysconfdir=/etc --with-alsa \
     --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
@@ -71,7 +70,7 @@ $ make
 ```
 The `autoreconf` step may take quite a while – please be patient!
 
-**Note:** *Do not* enable Shairport Sync to start automatically at boot time -- later on in this installation, we will arrange for it to start after the network has been set up.
+**Note:** *Do not* enable Shairport Sync to start automatically at boot time – later on in this installation, we will arrange for it to start after the network has been set up.
 
 ### Configure Shairport Sync
 Here are the important options for the Shairport Sync configuration file at `/etc/shairport-sync.conf`:
@@ -90,10 +89,10 @@ alsa =
 };
 
 ```
-Two `general` settings are worth noting. First, the option to ignore the sending device's volume control is enabled -- this means that the car audio's volume control is the only one that affects the audio volume. Of course this is a matter of personal preference.
+Two `general` settings are worth noting. First, the option to ignore the sending device's volume control is enabled. This means that the car audio's volume control is the only one that affects the audio volume. Of course this is a matter of personal preference.
 Second, the maximum output offered by the DAC to the AUX port of the car audio can be reduced if it is overloading the input circuits. Again, that's a matter for personal selection and adjustment.
 
-The `alsa` settings are for the Pimoroni PHAT -- it does not have a hardware mixer, so no `mixer_control_name` is given.
+The `alsa` settings are for the Pimoroni PHAT – it does not have a hardware mixer, so no `mixer_control_name` is given.
 
 Note that the DAC's 32-bit capability is automatically selected if available, so there is no need to set it here. Similarly, since `soxr` support is included in the build, `soxr` interpolation will be automatically enabled if the device is fast enough.
 
@@ -138,11 +137,11 @@ ieee80211n=1
 wmm_enabled=1
 
 ```
-Note that, since car network is isolated from the Internet, you don't really need to secure it with a password.
+Note that, since the car network is isolated from the Internet, you don't really need to secure it with a password.
 
 #### Configure DHCP server
 
-First,  replace the contents of `/etc/dhcp/dhcpd.conf` with this:
+First, replace the contents of `/etc/dhcp/dhcpd.conf` with this:
 ```
 subnet 10.0.10.0 netmask 255.255.255.0 {
      range 10.0.10.5 10.0.10.150;
@@ -150,7 +149,7 @@ subnet 10.0.10.0 netmask 255.255.255.0 {
      #option broadcast-address <the-broadcast-IP-address-for-your-network>;
 }
 ```
-Second, modify the INTERFACESv4 entry at the end of the file `/etc/default/isc-dhcp-server` to look as follows:
+Second, modify the `INTERFACESv4` entry at the end of the file `/etc/default/isc-dhcp-server` to look as follows:
 ```
 INTERFACESv4="wlan0"
 INTERFACESv6=""
@@ -189,13 +188,15 @@ Up to now, if you reboot the Pi, it will reconnect to your WiFi network, ignorin
 ```
 denyinterfaces wlan0
 ```
-From this point on, at least on the Raspberry Pi, if you reboot the machine, it will not reconnect to your network – instead, it will act as the WiFi base station you have configured with `hostapd` and `isc-dhcp-server`.
+From this point on, at least on the Raspberry Pi, if you reboot the machine, it will not reconnect to your network. Instead, it will act as the WiFi base station you have configured with `hostapd` and `isc-dhcp-server`.
 
-### Optimise startup time -- Raspberry Pi Specific
+### Optimise startup time – Raspberry Pi Specific
 
-This is applicable to a Raspberry Pi only. Some of it may be applicable to other systems, but it has not been tested on them. There are quite a few services that are not necessary for this setup. Disabling them can improve startup time. Running these commands disables them:
+This is applicable to a Raspberry Pi only. Some of it may be applicable to other systems, but it has not been tested on them.
 
-````
+There are quite a few services that are not necessary for this setup. Disabling them can improve startup time. Running these commands disables them:
+
+```
 sudo systemctl disable systemd-timesyncd.service
 sudo systemctl disable keyboard-setup.service
 sudo systemctl disable triggerhappy.service
@@ -203,14 +204,14 @@ sudo systemctl disable dhcpcd.service
 sudo systemctl disable wpa_supplicant.service
 sudo systemctl disable dphys-swapfile.service
 sudo systemctl disable networking.service
-````
+```
 
-### Read-only mode -- Raspberry Pi Specific
-
+### Read-only mode – Raspberry Pi Specific
 Run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem` and choose to enable the overlay filesystem, and to set the boot partition to be write-protected. 
 
 ### Ready
 Install the Raspberry Pi in your car. It should be powered from a source that is switched off when you leave the car, otherwise the slight current drain will eventually flatten the car's battery.
 
 When the power source is switched on, typically when you start the car, it will take maybe a minute for the system to boot up.
+
 ### Enjoy!
