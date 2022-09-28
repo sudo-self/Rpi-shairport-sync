@@ -25,8 +25,8 @@ jobs:
         make -j
     - name: Install
       run: |
-        ls -al scripts
         cd build
+        ls -al scripts
         sudo make install
     - name: Invoke
       run: |
