@@ -17,6 +17,7 @@ jobs:
         brew install automake
         brew install openssl
         brew install popt
+        brew install libconfig
 
     - name: Set Equates
       run: |
