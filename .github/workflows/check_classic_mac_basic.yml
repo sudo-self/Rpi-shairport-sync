@@ -19,15 +19,12 @@ jobs:
         brew install popt
         brew install libconfig
 
-    - name: Set Equates
+    - name: Configure
       run: |
         export CPPFLAGS="-I/usr/local/opt/openssl@3/include"
         export LDFLAGS="-L/usr/local/opt/openssl@3/lib"
         export PATH="/usr/local/opt/openssl/bin:${PATH}"
         export PKG_CONFIG_PATH="/usr/local/opt/openssl@3/lib/pkgconfig"
-
-    - name: Configure
-      run: |
         autoreconf -fi
         ./configure --with-os=darwin --with-ao --with-stdout --with-dns_sd --with-ssl=openssl
     
