@@ -1,0 +1,20 @@
+name: Check Basic Classic on macOS with brew
+
+on:
+  push:
+    branches: [ "danger" ]
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Dependencies
+      run: |
+        brew update
+        brew install autoconf
+        brew install automake
+        brew install pkg-config
+        brew install openssl
