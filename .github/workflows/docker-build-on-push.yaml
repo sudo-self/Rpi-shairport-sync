@@ -5,7 +5,7 @@ name: Build and push docker image based on commit to specified branches.
 
 on:
   push:
-    branches: [ master ]
+    branches: [ development ]
 
 env:
   DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
