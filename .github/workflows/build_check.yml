@@ -1,0 +1,25 @@
+name: Build Check
+
+on:
+  push:
+    branches: [ "danger" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Dependencies
+      run: apt install --no-install-recommends build-essential git xmltoman autoconf automake \ 
+        libtool libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev \
+        libssl-dev libsoxr-dev libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev xxd    
+    - name: Configure
+      run: |
+        mkdir build
+        cd build
+        autoreconf -i ..
+        ../configure --sysconfdir=/etc --with-alsa  --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
+    - name: make
+      run: Make
