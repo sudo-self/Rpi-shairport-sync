@@ -16,7 +16,7 @@ jobs:
         brew update
         brew install automake
         brew install openssl
-        brew upgrade
+        brew install popt
 
     - name: Set Equates
       run: |
