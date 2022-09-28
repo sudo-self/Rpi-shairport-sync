@@ -23,3 +23,14 @@ jobs:
       run: |
         cd build
         make -j
+    - name: Install
+      run: |
+        cd build
+        sudo make install
+    - invoke:
+      run: |
+        sudo systemctl shairport-sync start
+    - terminate:
+      run: |
+        sudo systemctl shairport-sync stop
+
