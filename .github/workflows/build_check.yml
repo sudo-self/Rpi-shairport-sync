@@ -19,5 +19,5 @@ jobs:
         cd build
         autoreconf -i ..
         ../configure --sysconfdir=/etc --with-alsa  --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
-    - name: make
-      run: Make
+    - name: Make
+      run: make -j
