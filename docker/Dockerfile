@@ -16,21 +16,17 @@ RUN apk -U add \
         dbus \
         alsa-lib-dev \
         popt-dev \
-        mbedtls-dev \
         soxr-dev \
         avahi-dev \
         libconfig-dev \
         libsndfile-dev \
         mosquitto-dev \
-        xmltoman \
-        openssh-client \
         libsodium-dev \
         ffmpeg-dev \
         xxd \
         libressl-dev \
         openssl-dev \
-        libplist-dev \
-        libgcrypt-dev
+        libplist-dev
 
 ##### ALAC #####
 RUN git clone https://github.com/mikebrady/alac
@@ -76,7 +72,6 @@ RUN apk -U add \
         dbus \
         popt \
         glib \
-        mbedtls \
         soxr \
         avahi \
         avahi-tools \
@@ -86,8 +81,7 @@ RUN apk -U add \
         libuuid \
         ffmpeg \
         libsodium \
-        libplist \
-        libgcrypt
+        libplist
 
 # Copy build files.
 COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
@@ -99,18 +93,14 @@ COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-
 COPY ./docker/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
 RUN chmod +x /etc/s6-overlay/s6-rc.d/startup/script.sh
 
-# Create non-root user for running the container -- running as the user 'shairport-sync' also allows
-# Shairport Sync to provide the D-Bus and MPRIS interfaces within the container
-
-RUN addgroup shairport-sync
-RUN adduser -D shairport-sync -G shairport-sync
-
-# Add the shairport-sync user to the pre-existing audio group, which has ID 29, for access to the ALSA stuff
-RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio && addgroup shairport-sync audio
+# D-Bus and MPRIS services are normally provided by the user
+# 'shairport-sync' running the 'shairport-sync' app.
+# However, the 'shairport-sync' user is not defined in this Docker image,
+# so we get a harmless warning that the user 'shairport-sync' is unknown.
+# In the Docker image, D-Bus and MPRIS services are provided by
+# the root user running the 'shairport-sync' app.
 
 # Remove anything we don't need.
 RUN rm -rf /lib/apk/db/*
 
 ENTRYPOINT [ "/init" ]
-
-CMD [ "/usr/local/bin/shairport-sync",  "-v",  "--statistics" ]
