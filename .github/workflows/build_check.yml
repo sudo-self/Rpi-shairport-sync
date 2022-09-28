@@ -26,12 +26,11 @@ jobs:
     - name: Install
       run: |
         cd build
-        ls -al scripts
         sudo make install
     - name: Invoke
       run: |
-        sudo systemctl shairport-sync start
+        sudo systemctl start shairport-sync
     - name: Terminate
       run: |
-        sudo systemctl shairport-sync stop
+        sudo systemctl stop shairport-sync
 
