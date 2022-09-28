@@ -14,7 +14,22 @@ jobs:
     - name: Install Dependencies
       run: |
         brew update
-        brew install autoconf
         brew install automake
-        brew install pkg-config
         brew install openssl
+        brew upgrade
+
+    - name: Set Equates
+      run: |
+        export CPPFLAGS="-I/usr/local/opt/openssl@3/include"
+        export LDFLAGS="-L/usr/local/opt/openssl@3/lib"
+        export PATH="$(brew --prefix)/opt/openssl/bin:${PATH}"
+        export PKG_CONFIG_PATH="$(brew --prefix)/opt/openssl/lib/pkgconfig"
+
+    - name: Configure
+      run: |
+        autoreconf -fi
+        ./configure --with-os=darwin --with-ao --with-stdout --with-dns_sd --with-ssl=openssl
+    
+    - name: Make
+      run: |
+        make
