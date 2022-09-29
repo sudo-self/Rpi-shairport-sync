@@ -1,4 +1,4 @@
-name: Build Check Basic AP2 on systemd
+name: Basic AP2 on systemd in build folder
 
 on:
   push:

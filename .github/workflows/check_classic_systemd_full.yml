@@ -1,4 +1,4 @@
-name: Build Check (Nearly) Full Classic on systemd
+name: Classic on systemd in build folder
 
 on:
   push:

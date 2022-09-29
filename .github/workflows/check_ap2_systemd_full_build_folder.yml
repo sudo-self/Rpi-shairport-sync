@@ -1,4 +1,4 @@
-name: Build Check (Nearly) Full AP2 on systemd
+name: Full AP2 on systemd in build folder
 
 on:
   push:

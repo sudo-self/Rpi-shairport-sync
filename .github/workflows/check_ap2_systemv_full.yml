@@ -1,4 +1,4 @@
-name: Full AP2 on System V in place
+name: AP2 on System V in place
 
 on:
   push:

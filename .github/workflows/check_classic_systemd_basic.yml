@@ -1,4 +1,4 @@
-name: Check Basic Classic on systemd
+name: Basic Classic on systemd
 
 on:
   push:

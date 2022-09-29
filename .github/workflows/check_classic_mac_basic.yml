@@ -1,4 +1,4 @@
-name: Check Basic Classic on macOS with brew
+name: Classic on macOS with brew
 
 on:
   push:
