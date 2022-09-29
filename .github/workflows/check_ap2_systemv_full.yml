@@ -25,9 +25,6 @@ jobs:
         sudo make install
     - name: Invoke
       run: |
-        sudo /etc/init.d/shairport-sync start
+        ls -al /etc/init.d/
         sleep 2
-    - name: Terminate
-      run: |
-        sudo /etc/init.d/shairport-sync stop
 
