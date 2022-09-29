@@ -267,9 +267,13 @@ if INSTALL_SYSTEMV
 
 INSTALL_SYSTEMV_TARGET = install-systemv-local
 
+# watch out -- shairport-sync is created during the ./configure step and
+# will be stored in a scripts folder in the _build_ folder
+# which will be the source folder if you're not using a separate build folder
+
 $(INSTALL_SYSTEMV_TARGET): scripts/shairport-sync $(INSTALL_USER_TARGET)
 	install -d $(DESTDIR)$(sysconfdir)/init.d
-	[ -e $(DESTDIR)$(sysconfdir)/init.d/shairport-sync ] || install -m 0644 $(top_srcdir)/scripts/shairport-sync $(DESTDIR)$(sysconfdir)/init.d
+	[ -e $(DESTDIR)$(sysconfdir)/init.d/shairport-sync ] || install -m 0755 scripts/shairport-sync $(DESTDIR)$(sysconfdir)/init.d
 
 endif # INSTALL_SYSTEMV
 
@@ -283,9 +287,13 @@ endif # USE_AVAHI
 
 INSTALL_SYSTEMD_TARGET = install-systemd-local
 
+# watch out -- shairport-sync.service is created during the ./configure step and
+# will be stored in a scripts folder in the _build_ folder
+# which will be the source folder if you're not using a separate build folder
+
 $(INSTALL_SYSTEMD_TARGET): scripts/$(SYSTEMD_SERVICE) $(INSTALL_USER_TARGET)
 	install -d $(DESTDIR)$(systemdsystemunitdir)
-	[ -e $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service ] || install -m 0644 $(top_srcdir)/scripts/$(SYSTEMD_SERVICE) $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service
+	[ -e $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service ] || install -m 0644 scripts/$(SYSTEMD_SERVICE) $(DESTDIR)$(systemdsystemunitdir)/shairport-sync.service
 
 endif # INSTALL_SYSTEMD
 
