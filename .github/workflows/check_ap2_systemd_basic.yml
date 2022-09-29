@@ -1,4 +1,4 @@
-name: Basic AP2 on systemd in build folder
+name: Basic AP2 on systemd in build folder 
 
 on:
   push:
