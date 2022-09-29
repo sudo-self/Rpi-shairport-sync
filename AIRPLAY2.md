@@ -9,7 +9,7 @@ Shairport Sync offers AirPlay 2 support for audio sources on iOS devices, Macs f
   * Realtime streams generally have a latency of about two seconds. Buffered Audio streams typically have a latency of half a second or less.
   * In AirPlay 2 mode, Shairport Sync reverts to "classic" AirPlay when iTunes on macOS or macOS Music plays to multiple speakers and one of more of them is compatible with AirPlay only.
 
-- Devices running Shairport Sync in AirPlay 2 mode can be [added](ADDINGTOHOME.md) to the Home app. 
+- Devices running Shairport Sync in AirPlay 2 mode can be [added](https://github.com/mikebrady/shairport-sync/blob/development/ADDINGTOHOME.md) to the Home app. 
 
 ## What Does Not Work
 - No AirPlay 2 for Windows iTunes.
@@ -31,7 +31,7 @@ Here are some guidelines:
 * An up-to-date Linux or FreeBSD. This is important, as some of the libraries must be the latest available.
 * Shairport Sync will not run on a Mac because NQPTP, on which it relies, needs ports 319 and 320, which are already used by macOS.
 * A version of the [FFmpeg](https://www.ffmpeg.org) library with an AAC decoder capable of decoding Floating Planar -- `fltp` -- material. There is a guide [here](TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only) to help you find out if your system has it.
-* An audio output, for example an ALSA device (or `sndio` in FreeBSD). The device must be capable of running at 44,100 frames per second. You can use an [`sps-alsa-explore`](https://github.com/mikebrady/sps-alsa-explore) to test the suitability of hardware ALSA audio devices on your device.
+* An audio output, for example an ALSA device (or `sndio` in FreeBSD). The device must be capable of running at 44,100 frames per second. You can use an `sps-alsa-explore`](https://github.com/mikebrady/sps-alsa-explore) to test the suitability of hardware ALSA audio devices on your device.
 Other backends continue to work as with "classic" Shairport Sync.
 
 ## Guides
