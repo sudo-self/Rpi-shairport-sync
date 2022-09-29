@@ -273,7 +273,7 @@ INSTALL_SYSTEMV_TARGET = install-systemv-local
 
 $(INSTALL_SYSTEMV_TARGET): scripts/shairport-sync $(INSTALL_USER_TARGET)
 	install -d $(DESTDIR)$(sysconfdir)/init.d
-	[ -e $(DESTDIR)$(sysconfdir)/init.d/shairport-sync ] || install -m 0644 scripts/shairport-sync $(DESTDIR)$(sysconfdir)/init.d
+	[ -e $(DESTDIR)$(sysconfdir)/init.d/shairport-sync ] || install -m 0755 scripts/shairport-sync $(DESTDIR)$(sysconfdir)/init.d
 
 endif # INSTALL_SYSTEMV
 
