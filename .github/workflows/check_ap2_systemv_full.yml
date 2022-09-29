@@ -1,4 +1,4 @@
-name: Build Check (Nearly) Full AP2 on System V build in place
+name: Full AP2 on System V in place
 
 on:
   push:
