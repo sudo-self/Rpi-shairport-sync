@@ -1,12 +1,12 @@
-name: Bug Report
-description: File a bug report
-title: "[Bug]: "
-labels: ["bug"]
+name: Issue Report
+description: File an Issue
+title: "[Problem]: "
+labels: ["new issue"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
+        Thanks for taking the time to fill out this report!
   - type: textarea
     id: what-happened
     attributes:
@@ -21,10 +21,28 @@ body:
       description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
       render: shell
   - type: textarea
+    id: os
+    attributes:
+      label: Operating System?
+      description: What Operating System are you running on ? (`uname -a`)
+    validations:
+      required: true
+  - type: textarea
     id: version
     attributes:
       label: Version?
       description: What version of Shairport Sync are you running? (`shairport-sync -V`)
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install Shairport Sync?
+      options:
+        - Homebrew for Mac
+        - Docker
+        - A package manager (apt, yum, pkg, etc.)
+        - Built from source
     validations:
       required: true
   - type: checkboxes
@@ -35,3 +53,4 @@ body:
       options:
         - label: Confirm
           required: true
+

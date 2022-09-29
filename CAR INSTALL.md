@@ -215,3 +215,43 @@ Install the Raspberry Pi in your car. It should be powered from a source that is
 When the power source is switched on, typically when you start the car, it will take maybe a minute for the system to boot up.
 
 ### Enjoy!
+
+---
+
+## Updating
+From time to time, you may wish to update this installation. However, in order to update Shairport Sync, you must reconnect the system to a network that can access the internet. The easiest thing is to temporarily reconnect to the network you used when you created the system. To do that, you have to temporarily undo the "Final Steps" and some of the "Raspberry Pi Specific" steps you used. This will enable you to connect your device back to the network it was created on. You should then be able to update the operating system and libraries in the normal way and then update Shairport Sync.
+
+So, take the following steps:
+
+1. If it's a Raspberry Pi and you have enabled the Read-only mode, you must take the device out of Read-only mode:  
+Run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem` and choose to disable the overlay filesystem and to set the boot partition not to be write-protected. This is so that changes can be written to the file system; you can make the filesystem read-only again later. Save the changes and reboot the system.
+
+2. If you have disabled the `dhcpcd`, `wpa_supplicant` or `systemd-timesyncd` services as suggested in the "Optimise startup time -- Raspberry Pi Specific" section, you need to temporarily re-enable them:  
+`# systemctl enable dhcpcd.service`  
+`# systemctl enable wpa_supplicant.service`  
+`# systemctl enable systemd-timesyncd.service`  
+Reboot.
+
+3. To allow your device to reconnect to the network it was created on, edit `/etc/dhcpcd.conf` and comment out the following line at the start:  
+`denyinterfaces wlan0`  
+so that it looks like this:  
+`# denyinterfaces wlan0`  
+From this point on, if you reboot the machine, it will connect to the network it was configured on, i.e. the network you used when you set it up for the first time. This is because the name and password of the network it was created on would have been placed in `/etc/wpa_supplicant/wpa_supplicant` when the system was initially configured and will still be there.
+
+4. Reboot and do Normal Updating
+
+   You can perform updates in the normal way -- see [UPDATING](https://github.com/mikebrady/shairport-sync/blob/master/UPDATING.md). When you are finished, you need to undo the temporary changes you made to the setup, as follows:
+
+5. If you had temporarily re-enabled services that are normally disabled, then it's time to disable them again:  
+`# systemctl disable dhcpcd.service`  
+`# systemctl disable wpa_supplicant.service`  
+`# systemctl disable systemd-timesyncd.service`  
+
+6. To re-enable the system to create its own network, edit `/etc/dhcpcd.conf` and uncomment the line that you had temporarily commented out at the start of the update. Change:  
+`# denyinterfaces wlan0`  
+so that it looks like this:  
+`denyinterfaces wlan0`  
+
+7. Reboot. The system should start as it would if it was in the car.
+
+8. If the device is a Raspberry Pi and you wish to make the file system read-only, connect to the system, run `sudo raspi-config` and then choose `Performance Options` > `Overlay Filesystem`. In there, choose to enable the overlay filesystem, and to set the boot partition to be write-protected. Do a final reboot and check that everyting is in order.

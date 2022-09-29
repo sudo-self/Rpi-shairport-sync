@@ -1,4 +1,29 @@
-Please see the [Release Notes for 3.3](https://github.com/mikebrady/shairport-sync/releases/tag/3.3).
+Version 4.1-rc0 Release Candidate
+====
+
+Really Big Update -- AirPlay 2!
+----
+Version 4.1 brings support for AirPlay 2 operation. It works with iOS, iPadOS, macOS, HomePod mini and Apple TV sources, but not with Windows.
+Limited support is available for HomeKit -- Shairport Sync speakers can be added to the Home app, though not all features are working.
+AirPlay 2 operation requires a companion program called NQPTP and requires a somewhat more powerful system. Please see [AIRPLAY2.md](./AIRPLAY.md) for more.
+
+Note that you can still build Shairport Sync to support "classic" AirPlay (aka "AirPlay 1") as before.
+
+The various guides for building and updating Shairport Sync have been consolidated into [BUILD.md](./BUILD.md). 
+
+Here is a brief list of the high-level new features and changes (more to be added):
+* AirPlay 2 operation.
+* Improved `libao` backend for better compatibility with HomeBrew installations.
+* Improved MQTT and D-Bus facilities.
+* Automatically-generated Docker images (forthcoming).
+
+There have been many many bug fixes and enhancements to the core operation of Shairport Sync.
+
+Version 3.3.9
+====
+**Bug Fix**
+* Version 3.3.9 fixes a build failure with convolution raised since `automake 1.16.5` and https://git.savannah.gnu.org/cgit/automake.git/commit/?id=f4a3a70f69e1dbccb6578f39ef47835098a04624.
+Further details in [Fabrice Fontaine's original PR](https://github.com/mikebrady/shairport-sync/pull/1314) to the `development` branch. Many thanks to [Fabrice Fontaine](https://github.com/ffontaine) for the bug report and for the fix.
 
 Version 3.3.8
 ====
