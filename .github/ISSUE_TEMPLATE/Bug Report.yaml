@@ -1,23 +1,12 @@
-<<<<<<< HEAD
 name: Issue Report
 description: File an Issue
 title: "[Problem]: "
 labels: ["new issue"]
-=======
-name: Bug Report
-description: File a bug report
-title: "[Bug]: "
-labels: ["bug"]
->>>>>>> origin/development
 body:
   - type: markdown
     attributes:
       value: |
-<<<<<<< HEAD
         Thanks for taking the time to fill out this report!
-=======
-        Thanks for taking the time to fill out this bug report!
->>>>>>> origin/development
   - type: textarea
     id: what-happened
     attributes:
@@ -32,7 +21,6 @@ body:
       description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
       render: shell
   - type: textarea
-<<<<<<< HEAD
     id: os
     attributes:
       label: Operating System?
@@ -40,15 +28,12 @@ body:
     validations:
       required: true
   - type: textarea
-=======
->>>>>>> origin/development
     id: version
     attributes:
       label: Version?
       description: What version of Shairport Sync are you running? (`shairport-sync -V`)
     validations:
       required: true
-<<<<<<< HEAD
   - type: dropdown
     id: install
     attributes:
@@ -60,8 +45,6 @@ body:
         - Built from source
     validations:
       required: true
-=======
->>>>>>> origin/development
   - type: checkboxes
     id: checked-current-issues
     attributes:
@@ -69,8 +52,5 @@ body:
       description: Please check previous issues (including closed ones) for duplicates.
       options:
         - label: Confirm
-<<<<<<< HEAD
           required: true
-=======
-          required: true
->>>>>>> origin/development
+
