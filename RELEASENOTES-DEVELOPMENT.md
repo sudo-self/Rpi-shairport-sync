@@ -1,3 +1,13 @@
+Version 4.1-dev-599-g2bc62c7d
+====
+
+**Enhancements**
+* Added some GitHub Actions to test different combinations of builds -- hopefully the result will be fewer bugs. Thanks to [Charles Omer](https://github.com/charlesomer) for the inspiration to try these in the first place.
+
+**Bug Fixes**
+* Fixed a bug where the DAC was not closed after the active timeout when the `alsa` `disable_standby_mode` was set to `"auto"`. Thanks to [Tim Curtis](https://github.com/moodeaudio) for an exemplary [bug report](https://github.com/mikebrady/shairport-sync/issues/1546).
+* Fixed a couple of bugs (found with GitHub Actions) in the installers on both `systemd` and System V systems. 
+
 Version 4.1-dev-551-g30aaabc4
 ====
 **Update**
@@ -8,7 +18,7 @@ Version 4.1-dev-551-g30aaabc4
 
 Version 4.1-dev-548-g7dc077e2
 ====
-* Removed the workaround for the apparent bug in AirPlay 2 Buffered Streams in iOS 16.0. A number of approaches were tried. The most aurally successful is left in the code but is disabled. Basically, it delays the timing of the frames following the 2,122 frame discontinuity by 2,112 frames. This eliminates the timing discontinuity but delays the AirPlay stream by 47.9 ms, and this can be heard in some situations. So it looks as if the bug -- if that's what it is -- can't easily be worked around. It has not been fixed by iOS 16.0.2, unfortunately.
+* Removed the workaround for the apparent bug in AirPlay 2 Buffered Streams in iOS 16.0. A number of approaches were tried. The most aurally successful is left in the code but is disabled. Basically, it delays the timing of the frames following the 2,112 frame discontinuity by 2,112 frames. This eliminates the timing discontinuity but delays the AirPlay stream by 47.9 ms, and this can be heard in some situations. So it looks as if the bug -- if that's what it is -- can't easily be worked around. It has not been fixed by iOS 16.0.2, unfortunately.
 
 Version 4.1-dev-543-g24f06b81
 ====
