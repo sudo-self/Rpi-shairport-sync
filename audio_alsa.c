@@ -2089,10 +2089,10 @@ static void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) 
       stall_monitor_start_time = 0;
       // frame_index = 0;
       // measurement_data_is_valid = 0;
-      debug(1, "alsa: alsa_buffer_monitor_thread_code() -- closing the output "
+      debug(2, "alsa: alsa_buffer_monitor_thread_code() -- closing the output "
                "device");
       do_close();
-      debug(1, "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state "
+      debug(2, "alsa: alsa_buffer_monitor_thread_code() -- alsa_backend_state "
                "=> abm_disconnected");
     }
     // now, if the backend is not in the abm_disconnected state
