@@ -1,9 +1,10 @@
 ## Events
 Shairport Sync can run programs when certain "events" occur. The events are:
-1. When Shairport Sync become `active` or `inactive`. Shairport Sync is normally in the `inactive` state when no audio is being played. When audio is sent to Shairport Sync, it will transition from `inactive` to `active`. When the audio stops, Shairport Sync will start a timer. If audio restarts before the timer reaches the value of the `active_state_timeout` configuration setting (10 seconds by default), Shairport Sync will stay `active`. However, if no more audio is received before the timer reaches the `active_state_timeout` value, Shairport Sync will transition to `inactive`. The overall effect of this is that Shairport Sync will go `active` when a track is played and will stay active in the interval between tracks, so long as the interval is less than the `active_state_timeout`. Shairport Sync can call an external program when it goes `active` and `inactive`. 
-
-3. When audio begins to play. 
-4. When audio stops playing.
+1. When Shairport Sync become `active` or `inactive`. Shairport Sync is normally in the `inactive` state when no audio is being played. When audio is sent to Shairport Sync, it will transition from `inactive` to `active`. When the audio stops, Shairport Sync will start a timer. If audio restarts before the timer reaches the value of the `active_state_timeout` configuration setting (10 seconds by default), Shairport Sync will stay `active`. However, if no more audio is received before the timer reaches the `active_state_timeout` value, Shairport Sync will transition to `inactive`. The overall effect of this is that Shairport Sync will go `active` when a track is played and will stay active in the interval between tracks, so long as the interval is less than the `active_state_timeout`.
+  1. Set the `run_this_before_entering_active_state` setting to the full path name to the program to run before Shairport Sync goes `active`.
+  2. Set the `run_this_after_exiting_active_state` setting to the full path name to the program to run after Shairport Sync goes `inactive`.
+  3. Set the `active_state_timeout` setting to the maximum amoun of time to wait for play to resume before going `inactive`.
+3. When audio starts and stops playing. 
 5. When the volume is adjusted.
 
 just before it starts to play an audio stream and just after it finishes.
