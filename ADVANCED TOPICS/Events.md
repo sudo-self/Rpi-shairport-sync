@@ -1,5 +1,12 @@
 ## Events
-Shairport Sync can run programs just before it starts to play an audio stream and just after it finishes.
+Shairport Sync can run programs when certain "events" occur. The events are:
+1. When Shairport Sync become "active" or "inactive". Shairport Sync is normally in the "inactive" state when no audio is being played. When audio is sent to Shairport Sync, it will transition from the "inactive" state into the "active" state. When the audio stops, Shairport Sync will start a timer. If audio restarts before the timer reaches the value of the active_state_timeout (10 seconds by default), Shairport Sync will stay in the "active" state. However, if no more audio is received before the timer reaches the active_state_timeout value, Shairport Sync will transition to the "inactive" state. The overall effect of this is that Shairport Sync will go active when a track is played and will stay active during the interval between the track ends and a new track begins, so long as the interval is less than the active_state_timeout.
+
+3. When audio begins to play.
+4. When audio stops playing.
+5. When the volume is adjusted.
+
+just before it starts to play an audio stream and just after it finishes.
 You specify them using the `sessioncontrol` group settings `run_this_before_play_begins` and `run_this_after_play_ends`.
 This is to facilitate situations where something has to be done before and after playing, e.g. switching on an amplifier beforehand
 and switching it off afterwards.
