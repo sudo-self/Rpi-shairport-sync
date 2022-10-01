@@ -1,3 +1,8 @@
+Version 4.1-dev-601-g98744211
+====
+**Bug Fix**
+* Recent versions of Shairport Sync have a "heartbeat" checker, to try to determine when the client has stopped running without warning -- typically when it has gone to sleep. Unfortunately, it interferes with some non-Apple clients, so it has been disabled in this update.
+
 Version 4.1-dev-599-g2bc62c7d
 ====
 
