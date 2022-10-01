@@ -1275,7 +1275,9 @@ void clear_ptp_clock() {
 
 ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
   // first try to read with a timeout, to see if there is any traffic...
-  ssize_t response = timed_read_from_rtsp_connection(conn, 10000000000L, buf, count);
+  // ssize_t response = timed_read_from_rtsp_connection(conn, 20000000000L, buf, count);
+  // actually don't use a timeout -- OwnTone doesn't supply regular traffic.
+  ssize_t response = timed_read_from_rtsp_connection(conn, 0, buf, count);
   if ((response == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
     if (conn->rtsp_link_is_idle == 0) {
       debug(1, "Connection %d: RTSP connection is idle.", conn->connection_number);
