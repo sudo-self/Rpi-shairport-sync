@@ -3523,14 +3523,16 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
       debug(2, "Connection %d: request to set AirPlay Volume to: %f.", conn->connection_number,
             volume);
       // if we are playing, go ahead and change the volume
-      lock_player();
-      config.airplay_volume = volume;
-      if (playing_conn == conn)
-        player_volume(volume, conn);
-      unlock_player();
 #ifdef CONFIG_DBUS_INTERFACE
       if (dbus_service_is_running()) {
-        shairport_sync_set_volume(shairportSyncSkeleton, config.airplay_volume);
+        shairport_sync_set_volume(shairportSyncSkeleton, volume);
+      } else {
+#endif
+        lock_player();
+        if (playing_conn == conn)
+          player_volume(volume, conn);
+        unlock_player();
+#ifdef CONFIG_DBUS_INTERFACE
       }
 #endif
     } else if (strncmp(cp, "progress: ", strlen("progress: ")) ==
