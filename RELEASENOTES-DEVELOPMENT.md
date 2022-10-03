@@ -1,3 +1,8 @@
+Version 4.1-dev-604-gf96fa2f7
+====
+**Bug Fix**
+* If the D-Bus interface was enabled, each change in volume control was calling the volume event hook twice. Fixed.
+
 Version 4.1-dev-601-g98744211
 ====
 **Bug Fix**
