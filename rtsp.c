@@ -2003,6 +2003,10 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         activity_monitor_signify_activity(0);
         conn->ap2_play_enabled = 0;
         reset_anchor_info(conn);
+        if (config.output->stop) {
+          debug(2, "Connection %d: Stop the output backend.", conn->connection_number);
+          config.output->stop();
+        }
       }
       pthread_cleanup_pop(1); // unlock the conn->flush_mutex
     }
