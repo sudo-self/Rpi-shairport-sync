@@ -1850,7 +1850,8 @@ static int do_close() {
     // debug(1,"alsa: do_close() -- closing the output device");
     if ((derr = snd_pcm_drop(alsa_handle)))
       debug(1, "Error %d (\"%s\") dropping output device.", derr, snd_strerror(derr));
-    usleep(5000); // this make the function pthread cancellable
+    usleep(10000); // wait for the hardware to do its trick. BTW, this make the function pthread
+                   // cancellable
     if ((derr = snd_pcm_hw_free(alsa_handle)))
       debug(1, "Error %d (\"%s\") freeing the output device hardware.", derr, snd_strerror(derr));
     debug(2, "alsa: do_close() -- closing alsa handle");
@@ -2061,9 +2062,12 @@ static void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) 
   int error_count = 0;
   int error_detected = 0;
   int okb = -1;
-  while (error_detected ==
-         0) { // if too many play errors occur early on, we will turn off the disable stanby mode
+  // if too many play errors occur early on, we will turn off the disable standby mode
+  while (error_detected == 0) {
+    int keep_dac_busy_has_just_gone_off = 0;
     if (okb != config.keep_dac_busy) {
+      if ((okb != 0) && (config.keep_dac_busy == 0))
+        keep_dac_busy_has_just_gone_off = 1;
       debug(2, "keep_dac_busy is now \"%s\"", config.keep_dac_busy == 0 ? "no" : "yes");
       okb = config.keep_dac_busy;
     }
@@ -2081,7 +2085,7 @@ static void *alsa_buffer_monitor_thread_code(__attribute__((unused)) void *arg) 
       if (do_open(1) == 0) // no automatic setup of rate and speed if necessary
         debug(2, "alsa: alsa_buffer_monitor_thread_code() -- output device opened; "
                  "alsa_backend_state => abm_connected");
-    } else if ((alsa_backend_state == abm_connected) && (config.keep_dac_busy == 0)) {
+    } else if ((alsa_backend_state != abm_disconnected) && (keep_dac_busy_has_just_gone_off != 0)) {
       stall_monitor_start_time = 0;
       // frame_index = 0;
       // measurement_data_is_valid = 0;
