@@ -1275,7 +1275,9 @@ void clear_ptp_clock() {
 
 ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
   // first try to read with a timeout, to see if there is any traffic...
-  ssize_t response = timed_read_from_rtsp_connection(conn, 10000000000L, buf, count);
+  // ssize_t response = timed_read_from_rtsp_connection(conn, 20000000000L, buf, count);
+  // actually don't use a timeout -- OwnTone doesn't supply regular traffic.
+  ssize_t response = timed_read_from_rtsp_connection(conn, 0, buf, count);
   if ((response == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
     if (conn->rtsp_link_is_idle == 0) {
       debug(1, "Connection %d: RTSP connection is idle.", conn->connection_number);
@@ -1622,7 +1624,7 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
     if (conn->player_thread)
       warn("Connection %d: RECORD: Duplicate RECORD message -- ignored", conn->connection_number);
     else {
-      debug(1, "Connection %d: AP1 ALAC Stream, from %s:%u to self at %s:%u.",
+      debug(1, "Connection %d: Classic AirPlay connection from %s:%u to self at %s:%u.",
             conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
             conn->self_ip_string, conn->self_rtsp_port);
       activity_monitor_signify_activity(1);
@@ -2830,6 +2832,15 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
   plist_t messagePlist = plist_from_rtsp_content(req);
   plist_t setupResponsePlist = plist_new_dict();
   resp->respcode = 400;
+  
+  // see if we can get a name for the client
+  char *clientNameString = NULL;
+  plist_t nameItem = plist_dict_get_item(messagePlist, "name");
+  if (nameItem != NULL) {
+    plist_get_string_val(nameItem, &clientNameString);
+  } else {
+    clientNameString = strdup("<unknown>");
+  }
 
   // see if the incoming plist contains a "streams" array
   plist_t streams = plist_dict_get_item(messagePlist, "streams");
@@ -2847,8 +2858,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_get_string_val(timingProtocol, &timingProtocolString);
       if (timingProtocolString) {
         if (strcmp(timingProtocolString, "PTP") == 0) {
-          debug(2, "Connection %d: AP2 PTP connection from %s:%u to self at %s:%u.",
-                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+          debug(1, "Connection %d: AP2 PTP connection from %s:%u (\"%s\") to self at %s:%u.",
+                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port, clientNameString, 
                 conn->self_ip_string, conn->self_rtsp_port);
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
@@ -2862,20 +2873,24 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           send_ssnc_metadata('svip', conn->self_ip_string, strlen(conn->self_ip_string), 1);
 #endif
         } else if (strcmp(timingProtocolString, "NTP") == 0) {
-          debug(1, "Connection %d: SETUP: NTP setup detected.", conn->connection_number);
+          debug(1, "Connection %d: SETUP: NTP setup from %s:%u (\"%s\") to self at %s:%u.",
+          conn->connection_number, conn->client_ip_string, conn->client_rtsp_port, clientNameString, 
+                conn->self_ip_string, conn->self_rtsp_port);
           conn->airplay_stream_category = ntp_stream;
           conn->timing_type = ts_ntp;
         } else if (strcmp(timingProtocolString, "None") == 0) {
-          debug(2, "Connection %d: SETUP: a \"None\" setup detected.", conn->connection_number);
+          debug(3, "Connection %d: SETUP: a \"None\" setup detected from %s:%u (\"%s\") to self at %s:%u.",
+          conn->connection_number, conn->client_ip_string, conn->client_rtsp_port, clientNameString,
+                conn->self_ip_string, conn->self_rtsp_port);
           // now check to see if it's got the "isRemoteControlOnly" item and check it's true
           plist_t isRemoteControlOnly = plist_dict_get_item(messagePlist, "isRemoteControlOnly");
           if (isRemoteControlOnly != NULL) {
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(2, "Connection %d: Remote Control connection from %s:%u to self at %s:%u.",
-                    conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
-                    conn->self_ip_string, conn->self_rtsp_port);
+              debug(1, "Connection %d: Remote Control connection from %s:%u (\"%s\") to self at %s:%u.",
+                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port, clientNameString,
+                conn->self_ip_string, conn->self_rtsp_port);
               conn->airplay_stream_category = remote_control_stream;
             } else {
               debug(1,
@@ -3354,6 +3369,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     msg_add_header(resp, "Content-Type", "application/x-apple-binary-plist");
   }
   plist_free(messagePlist);
+  if (clientNameString != NULL)
+    free(clientNameString);
   debug_log_rtsp_message(2, " SETUP response", resp);
 }
 #endif
@@ -3521,14 +3538,16 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
       debug(2, "Connection %d: request to set AirPlay Volume to: %f.", conn->connection_number,
             volume);
       // if we are playing, go ahead and change the volume
-      lock_player();
-      config.airplay_volume = volume;
-      if (playing_conn == conn)
-        player_volume(volume, conn);
-      unlock_player();
 #ifdef CONFIG_DBUS_INTERFACE
       if (dbus_service_is_running()) {
-        shairport_sync_set_volume(shairportSyncSkeleton, config.airplay_volume);
+        shairport_sync_set_volume(shairportSyncSkeleton, volume);
+      } else {
+#endif
+        lock_player();
+        if (playing_conn == conn)
+          player_volume(volume, conn);
+        unlock_player();
+#ifdef CONFIG_DBUS_INTERFACE
       }
 #endif
     } else if (strncmp(cp, "progress: ", strlen("progress: ")) ==
@@ -4407,7 +4426,9 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 #ifdef CONFIG_AIRPLAY_2
     conn->airplay_type = ap_1;
     conn->timing_type = ts_ntp;
-    debug(1, "Connection %d. AirPlay 1 Audio Stream Detected.", conn->connection_number);
+    debug(1, "Connection %d: Classic AirPlay connection from %s:%u to self at %s:%u.",
+                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+                conn->self_ip_string, conn->self_rtsp_port);
 #endif
 
     conn->stream.type = ast_unknown;
@@ -5460,7 +5481,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
           inet_ntop(conn->connection_ip_family, self_addr, conn->self_ip_string,
                     sizeof(conn->self_ip_string));
 
-          debug(1, "Connection %d: New connection from %s:%u to self at %s:%u.",
+          debug(2, "Connection %d: New connection from %s:%u to self at %s:%u.",
                 conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
                 conn->self_ip_string, conn->self_rtsp_port);
           conn->connection_start_time = get_absolute_time_in_ns();
