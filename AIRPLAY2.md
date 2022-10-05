@@ -23,7 +23,7 @@ for timing and synchronisation in AirPlay 2. NQPTP must run as `root` and must h
 Lossless and High Definition Lossless material is transcoded to AAC before it reaches Shairport Sync. 
 
 ## What You Need
-AirPlay 2 support needs a slightly more powerful CPU for decoding and synchronisation and more memory for bigger buffers and larger libraries. A Raspberry Pi 2 or Raspberry Pi Zero 2 W or better is recommended.
+AirPlay 2 support needs a slightly more powerful CPU for decoding and synchronisation and more memory for bigger buffers and larger libraries. A system with the power of a Raspberry Pi 2 or Raspberry Pi Zero 2 W, or better, is recommended.
 
 Here are some guidelines: 
 * Full access, including `root` privileges, to a system at least as powerful as a Raspberry Pi 2 or a Raspberry Pi Zero 2 W.
@@ -33,6 +33,7 @@ Here are some guidelines:
 * A version of the [FFmpeg](https://www.ffmpeg.org) library with an AAC decoder capable of decoding Floating Planar -- `fltp` -- material. There is a guide [here](TROUBLESHOOTING.md#aac-decoder-issues-airplay-2-only) to help you find out if your system has it.
 * An audio output, for example an ALSA device (or `sndio` in FreeBSD). The device must be capable of running at 44,100 frames per second. You can use an `sps-alsa-explore`](https://github.com/mikebrady/sps-alsa-explore) to test the suitability of hardware ALSA audio devices on your device.
 Other backends continue to work as with "classic" Shairport Sync.
+- Multiple instances of the AirPlay 2 version of Shairport Sync can not be hosted on the same system. It seems that AirPlay 2 clients are confused by having multiple AirPlay 2 players at the same IP addresses.
 
 ## Guides
 * A building guide is available at [BUILD.md](BUILD.md).
