@@ -1,14 +1,19 @@
-# Builds & pushes a docker image when a commit is made to one of the branches specified below.
-# Tag pattern: 'unstable-[BRANCH NAME]' & 'unstable-[BRANCH NAME]-classic'
+# Builds a docker image when a commit is made. Also pushes the build if the branch is 'master' or 'development'.
 
-name: Build and push docker image based on commit to specified branches.
+# Tag pattern
+# 'master'      - latest, latest-classic
+# 'development' - development, development-classic
+
+name: Build and push docker (commit)
 
 on:
   push:
-    branches: [ development ]
+    branches:
+      - '**'
 
 env:
   DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
+  NQPTP_BRANCH: main
 
 jobs:
   main:
@@ -22,13 +27,16 @@ jobs:
       - name: Set SHAIRPORT_SYNC_BRANCH env.
         run: echo "SHAIRPORT_SYNC_BRANCH=${GITHUB_REF##*/}" >> $GITHUB_ENV
 
-      - name: Determine NQPTP env (part 1).
-        if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
-        run: echo "NQPTP_BRANCH=development" >> $GITHUB_ENV
+      - name: Is branch "master"?
+        if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'master' }}
+        run: |
+          echo "IMAGE_TAG_BASE=latest" >> $GITHUB_ENV
 
-      - name: Determine NQPTP env (part 2).
-        if: ${{ env.SHAIRPORT_SYNC_BRANCH != 'development' }}
-        run: echo "NQPTP_BRANCH=main" >> $GITHUB_ENV
+      - name: Is branch "development"?
+        if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
+        run: |
+          echo "NQPTP_BRANCH=development" >> $GITHUB_ENV
+          echo "IMAGE_TAG_BASE=development" >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -43,33 +51,25 @@ jobs:
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
           password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
 
-      - name: Set tag start (part 1).
-        if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'master' }}
-        run: echo "IMAGE_TAG_BASE=unstable" >> $GITHUB_ENV
-
-      - name: Set tag start (part 2).
-        if: ${{ env.SHAIRPORT_SYNC_BRANCH != 'master' }}
-        run: echo "IMAGE_TAG_BASE=unstable-${{ env.SHAIRPORT_SYNC_BRANCH }}" >> $GITHUB_ENV
-
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
           context: ./
           file: ./docker/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: true
+          push: ${{ env.IMAGE_TAG_BASE != '' }}
           tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG_BASE }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
             NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
 
-      - name: Build and push (AirPlay 1)
+      - name: Build and push (classic)
         uses: docker/build-push-action@v2
         with:
           context: ./
           file: ./docker/classic/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: true
+          push: ${{ env.IMAGE_TAG_BASE != '' }}
           tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG_BASE }}-classic
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}

@@ -1,18 +1,22 @@
-# Builds & pushes a docker image when a tag occurs.
-# It seems this yaml has to exist on the branch the tag refers to.
+# Builds & pushes a docker image when a tag is created.
+# Tag pattern: '[tag]' & '[tag]-classic'
+# 'stable' & 'stable-classic' also, when master tagged.
 
-# The following docker tags are created & pushed:
-# [RELEASE TAG], [RELEASE TAG]-classic,
+# Only pushes the tag when it matches one of the following patterns:
+# X, X.Y or X.Y.Z
 
-name: Build and push docker images on releases.
+name: Build and push docker (tag)
 
 on:
   push:
     tags:
-      - '*' # Push events to every tag (not containing '/')
+      - '[0-9]+'                 # X
+      - '[0-9]+\.[0-9]+'         # X.Y
+      - '[0-9]+\.[0-9]+\.[0-9]+' # X.Y.Z
 
 env:
   DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm64,linux/arm/v7
+  NQPTP_BRANCH: main
 
 jobs:
   main:
@@ -32,22 +36,23 @@ jobs:
       - name: Set tag env
         run: echo "GIT_TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
 
-      - name: Determine NQPTP env (part 1).
+      - name: Is branch "master"?
+        if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'master' }}
+        run: echo "STABLE_TAG=true" >> $GITHUB_ENV
+
+      - name: Is branch "development"?
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
-        run: echo "NQPTP_BRANCH=development" >> $GITHUB_ENV
-      
-      - name: Determine NQPTP env (part 2).
-        if: ${{ env.SHAIRPORT_SYNC_BRANCH != 'development' }}
-        run: echo "NQPTP_BRANCH=main" >> $GITHUB_ENV
+        run: |
+          echo "NQPTP_BRANCH=development" >> $GITHUB_ENV
         
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
+        uses: docker/setup-qemu-action@v2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v2
 
       - name: Login to Docker Registry
-        uses: docker/login-action@v1
+        uses: docker/login-action@v2
         with:
           registry: ${{ secrets.DOCKER_REGISTRY }}
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
@@ -60,18 +65,22 @@ jobs:
           file: ./docker/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
           push: true
-          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}
+          tags: |
+            ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}
+            ${{ env.STABLE_TAG == 'true' && format('{0}:stable', secrets.DOCKER_IMAGE_NAME) || '' }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
             NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
 
-      - name: Build and push (Classic)
+      - name: Build and push (classic)
         uses: docker/build-push-action@v2
         with:
           context: ./
           file: ./docker/classic/Dockerfile
           platforms: ${{ env.DOCKER_PLATFORMS }}
           push: true
-          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}-classic
+          tags: |
+            ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}-classic
+            ${{ env.STABLE_TAG == 'true' && format('{0}:stable-classic', secrets.DOCKER_IMAGE_NAME) || '' }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
