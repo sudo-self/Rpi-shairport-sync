@@ -1275,7 +1275,9 @@ void clear_ptp_clock() {
 
 ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
   // first try to read with a timeout, to see if there is any traffic...
-  ssize_t response = timed_read_from_rtsp_connection(conn, 10000000000L, buf, count);
+  // ssize_t response = timed_read_from_rtsp_connection(conn, 20000000000L, buf, count);
+  // actually don't use a timeout -- OwnTone doesn't supply regular traffic.
+  ssize_t response = timed_read_from_rtsp_connection(conn, 0, buf, count);
   if ((response == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) {
     if (conn->rtsp_link_is_idle == 0) {
       debug(1, "Connection %d: RTSP connection is idle.", conn->connection_number);
@@ -3536,14 +3538,16 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
       debug(2, "Connection %d: request to set AirPlay Volume to: %f.", conn->connection_number,
             volume);
       // if we are playing, go ahead and change the volume
-      lock_player();
-      config.airplay_volume = volume;
-      if (playing_conn == conn)
-        player_volume(volume, conn);
-      unlock_player();
 #ifdef CONFIG_DBUS_INTERFACE
       if (dbus_service_is_running()) {
-        shairport_sync_set_volume(shairportSyncSkeleton, config.airplay_volume);
+        shairport_sync_set_volume(shairportSyncSkeleton, volume);
+      } else {
+#endif
+        lock_player();
+        if (playing_conn == conn)
+          player_volume(volume, conn);
+        unlock_player();
+#ifdef CONFIG_DBUS_INTERFACE
       }
 #endif
     } else if (strncmp(cp, "progress: ", strlen("progress: ")) ==
