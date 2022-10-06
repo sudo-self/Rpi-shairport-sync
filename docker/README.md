@@ -2,21 +2,32 @@
 
 Available at: https://hub.docker.com/r/mikebrady/shairport-sync
 
-Please note if you want the development version of the image including Airplay 2 support, please pull the image with the ```unstable development``` tag using the following command:
+The following docker tags are available:
 ```
-docker pull mikebrady/shairport-sync:unstable-development
-```
+[tag]
+[tag]-classic
 
-When using the below commands, you should replace mikebrady/shairport-sync with mikbrady/shairport-sync:unstable-development.
+(build from newest tag)
+stable
+stable-classic
+
+(latest build from master)
+latest
+latest-classic
+
+(latest build from development)
+development
+development-classic
+```
 
 ## Example Docker Compose File
 See the `docker-compose.yaml` file in this folder for an example.
 
-## Docker Run
+## Example Docker Run
 
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
-    mikebrady/shairport-sync
+    mikebrady/shairport-sync:<tag>
 ```
 
 ### Options
@@ -24,7 +35,7 @@ $ docker run -d --restart unless-stopped --net host --device /dev/snd \
 You can change the default commands passed to Shairport Sync. Here is an example:
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
-    mikebrady/shairport-sync:unstable-development shairport-sync -v \
+    mikebrady/shairport-sync:<tag> shairport-sync -v \
     --statistics -a DenSystem -d hw:0 -c PCM
 ```
 This will sent audio to alsa hardware device `hw:0` and make use of the that device's mixer control called `PCM`. The service will be visible as `DenSystem` on the network.
