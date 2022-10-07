@@ -412,6 +412,11 @@ if test "x$with_airplay_2" = "xyes" ; then
     ])
   ])
   PKG_CHECK_MODULES([libsodium], [libsodium],[CFLAGS="${libsodium_CFLAGS} ${CFLAGS}" LIBS="${libsodium_LIBS} ${LIBS}"],[AC_MSG_ERROR(AirPlay 2 support requires libsodium -- libsodium-dev suggested)])
+  PKG_CHECK_MODULES([libgcrypt], [libgcrypt],[CFLAGS="${libgcrypt_CFLAGS} ${CFLAGS}" LIBS="${libgcrypt_LIBS} ${LIBS}"],[
+    AC_CHECK_LIB([gcrypt], [gcry_control], [], [
+      AC_MSG_ERROR([Airplay 2 support requires libgcrypt -- libgcrypt-dev suggested])
+    ])
+  ])
   PKG_CHECK_MODULES([libavutil], [libavutil],[CFLAGS="${libavutil_CFLAGS} ${CFLAGS}" LIBS="${libavutil_LIBS} ${LIBS}"],[
       AC_MSG_ERROR(AirPlay 2 support requires libavutil -- libavutil-dev suggested)])
   PKG_CHECK_MODULES([libavcodec], [libavcodec],[CFLAGS="${libavcodec_CFLAGS} ${CFLAGS}" LIBS="${libavcodec_LIBS} ${LIBS}"],[
