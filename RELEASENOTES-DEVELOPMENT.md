@@ -1,3 +1,10 @@
+Version 4.1-dev-688-g7dcad083
+====
+**Bug Fixes**
+* Fixed two memory leaks in Shairport Sync.
+* Reinstate the use of `libcrypt` again with the `pair_ap` library to avoid an apparent memory leak in `libcrypto`.
+* Quieten a noisy debug message in the `dummy` backend.
+
 Version 4.1-dev-604-gf96fa2f7
 ====
 **Bug Fix**
