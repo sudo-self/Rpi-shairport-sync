@@ -1830,91 +1830,94 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
   uint64_t flushUntilTS = 0;
   int flushFromValid = 0;
   plist_t messagePlist = plist_from_rtsp_content(req);
-  plist_t item = plist_dict_get_item(messagePlist, "flushFromSeq");
-  if (item == NULL) {
-    debug(2, "Can't find a flushFromSeq");
-  } else {
-    flushFromValid = 1;
-    plist_get_uint_val(item, &flushFromSeq);
-    debug(2, "flushFromSeq is %" PRId64 ".", flushFromSeq);
-  }
+  if (messagePlist != NULL) {
+    plist_t item = plist_dict_get_item(messagePlist, "flushFromSeq");
+    if (item == NULL) {
+      debug(2, "Can't find a flushFromSeq");
+    } else {
+      flushFromValid = 1;
+      plist_get_uint_val(item, &flushFromSeq);
+      debug(2, "flushFromSeq is %" PRId64 ".", flushFromSeq);
+    }
 
-  item = plist_dict_get_item(messagePlist, "flushFromTS");
-  if (item == NULL) {
-    if (flushFromValid != 0)
-      debug(1, "flushFromSeq without flushFromTS!");
-    else
-      debug(2, "Can't find a flushFromTS");
-  } else {
-    plist_get_uint_val(item, &flushFromTS);
+    item = plist_dict_get_item(messagePlist, "flushFromTS");
+    if (item == NULL) {
+      if (flushFromValid != 0)
+        debug(1, "flushFromSeq without flushFromTS!");
+      else
+        debug(2, "Can't find a flushFromTS");
+    } else {
+      plist_get_uint_val(item, &flushFromTS);
+      if (flushFromValid == 0)
+        debug(1, "flushFromTS without flushFromSeq!");
+      debug(2, "flushFromTS is %" PRId64 ".", flushFromTS);
+    }
+
+    item = plist_dict_get_item(messagePlist, "flushUntilSeq");
+    if (item == NULL) {
+      debug(1, "Can't find the flushUntilSeq");
+    } else {
+      plist_get_uint_val(item, &flushUntilSeq);
+      debug(2, "flushUntilSeq is %" PRId64 ".", flushUntilSeq);
+    }
+
+    item = plist_dict_get_item(messagePlist, "flushUntilTS");
+    if (item == NULL) {
+      debug(1, "Can't find the flushUntilTS");
+    } else {
+      plist_get_uint_val(item, &flushUntilTS);
+      debug(2, "flushUntilTS is %" PRId64 ".", flushUntilTS);
+    }
+
+    debug_mutex_lock(&conn->flush_mutex, 1000, 1);
+    // a flush with from... components will not be followed by a setanchor (i.e. a play)
+    // if it's a flush that will be followed by a setanchor (i.e. a play) then stop play now.
     if (flushFromValid == 0)
-      debug(1, "flushFromTS without flushFromSeq!");
-    debug(2, "flushFromTS is %" PRId64 ".", flushFromTS);
+      conn->ap2_play_enabled = 0;
+
+    // add the exact request as made to the linked list (not used for anything but diagnostics now)
+    // int flushNow = 0;
+    // if (flushFromValid == 0)
+    //  flushNow = 1;
+    // add_flush_request(flushNow, flushFromSeq, flushFromTS, flushUntilSeq, flushUntilTS, conn);
+
+    // now, if it's an immediate flush, replace the existing request, if any
+    // but it if's a deferred flush and there is an existing deferred request,
+    // only update the flushUntil stuff -- that seems to preserve
+    // the intended semantics
+
+    // so, always replace these
+    conn->ap2_flush_until_sequence_number = flushUntilSeq;
+    conn->ap2_flush_until_rtp_timestamp = flushUntilTS;
+
+    if ((conn->ap2_flush_requested != 0) && (conn->ap2_flush_from_valid != 0) &&
+        (flushFromValid != 0)) {
+      // if there is a request already, and it's a deferred request, and the current request is also
+      // deferred... do nothing! -- leave the starting point in place. Yeah, yeah, we know de Morgan's
+      // Law, but this seems clearer
+    } else {
+      conn->ap2_flush_from_sequence_number = flushFromSeq;
+      conn->ap2_flush_from_rtp_timestamp = flushFromTS;
+    }
+
+    conn->ap2_flush_from_valid = flushFromValid;
+    conn->ap2_flush_requested = 1;
+
+    // reflect the possibly updated flush request
+    // add_flush_request(flushNow, conn->ap2_flush_from_sequence_number,
+    // conn->ap2_flush_from_rtp_timestamp, conn->ap2_flush_until_sequence_number,
+    // conn->ap2_flush_until_rtp_timestamp, conn);
+
+    debug_mutex_unlock(&conn->flush_mutex, 3);
+
+    if (flushFromValid)
+      debug(2, "Deferred Flush Requested");
+    else
+      debug(2, "Immediate Flush Requested");
+  
+    plist_free(messagePlist);
+    // display_all_flush_requests(conn);
   }
-
-  item = plist_dict_get_item(messagePlist, "flushUntilSeq");
-  if (item == NULL) {
-    debug(1, "Can't find the flushUntilSeq");
-  } else {
-    plist_get_uint_val(item, &flushUntilSeq);
-    debug(2, "flushUntilSeq is %" PRId64 ".", flushUntilSeq);
-  }
-
-  item = plist_dict_get_item(messagePlist, "flushUntilTS");
-  if (item == NULL) {
-    debug(1, "Can't find the flushUntilTS");
-  } else {
-    plist_get_uint_val(item, &flushUntilTS);
-    debug(2, "flushUntilTS is %" PRId64 ".", flushUntilTS);
-  }
-
-  debug_mutex_lock(&conn->flush_mutex, 1000, 1);
-  // a flush with from... components will not be followed by a setanchor (i.e. a play)
-  // if it's a flush that will be followed by a setanchor (i.e. a play) then stop play now.
-  if (flushFromValid == 0)
-    conn->ap2_play_enabled = 0;
-
-  // add the exact request as made to the linked list (not used for anything but diagnostics now)
-  // int flushNow = 0;
-  // if (flushFromValid == 0)
-  //  flushNow = 1;
-  // add_flush_request(flushNow, flushFromSeq, flushFromTS, flushUntilSeq, flushUntilTS, conn);
-
-  // now, if it's an immediate flush, replace the existing request, if any
-  // but it if's a deferred flush and there is an existing deferred request,
-  // only update the flushUntil stuff -- that seems to preserve
-  // the intended semantics
-
-  // so, always replace these
-  conn->ap2_flush_until_sequence_number = flushUntilSeq;
-  conn->ap2_flush_until_rtp_timestamp = flushUntilTS;
-
-  if ((conn->ap2_flush_requested != 0) && (conn->ap2_flush_from_valid != 0) &&
-      (flushFromValid != 0)) {
-    // if there is a request already, and it's a deferred request, and the current request is also
-    // deferred... do nothing! -- leave the starting point in place. Yeah, yeah, we know de Morgan's
-    // Law, but this seems clearer
-  } else {
-    conn->ap2_flush_from_sequence_number = flushFromSeq;
-    conn->ap2_flush_from_rtp_timestamp = flushFromTS;
-  }
-
-  conn->ap2_flush_from_valid = flushFromValid;
-  conn->ap2_flush_requested = 1;
-
-  // reflect the possibly updated flush request
-  // add_flush_request(flushNow, conn->ap2_flush_from_sequence_number,
-  // conn->ap2_flush_from_rtp_timestamp, conn->ap2_flush_until_sequence_number,
-  // conn->ap2_flush_until_rtp_timestamp, conn);
-
-  debug_mutex_unlock(&conn->flush_mutex, 3);
-
-  if (flushFromValid)
-    debug(2, "Deferred Flush Requested");
-  else
-    debug(2, "Immediate Flush Requested");
-
-  // display_all_flush_requests(conn);
 
   resp->respcode = 200;
 }
@@ -2222,7 +2225,7 @@ void handle_pair_setup(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *re
   uint8_t *body = NULL;
   size_t body_len = 0;
   struct pair_result *result;
-  debug(2, "Connection %d: pair-setup Content-Length %d", conn->connection_number,
+  debug(2, "Connection %d: handle_pair-setup Content-Length %d", conn->connection_number,
         req->contentlength);
 
   if (!conn->ap2_pairing_context.setup_ctx) {
@@ -2823,6 +2826,7 @@ static void check_and_send_plist_metadata(plist_t messagePlist, const char *plis
     plist_get_string_val(item, &value);
     if (value != NULL) {
       send_metadata('ssnc', metadata_code, value, strlen(value), NULL, 0);
+      free(value);
     }
   }
 }
@@ -4173,19 +4177,22 @@ void metadata_stop(void) {
 int send_metadata_to_queue(pc_queue *queue, uint32_t type, uint32_t code, char *data,
                            uint32_t length, rtsp_message *carrier, int block) {
 
-  // parameters: type, code, pointer to data or NULL, length of data or NULL,
-  // the rtsp_message or
-  // NULL
+  // clang-format off
+  // parameters:
+  //   type,
+  //   code,
+  //   pointer to data or NULL,
+  //   length of data or NULL,
+  //   the rtsp_message or NULL,
+  
   // the rtsp_message is sent for 'core' messages, because it contains the data
-  // and must not be
-  // freed until the data has been read. So, it is passed to send_metadata to be
-  // retained,
-  // sent to the thread where metadata is processed and released (and probably
-  // freed).
+  // and must not be freed until the data has been read.
+  // So, it is passed to send_metadata to be retained, sent to the thread where metadata
+  // is processed and released (and probably freed).
 
   // The rtsp_message is also sent for certain non-'core' messages.
 
-  // The reading of the parameters is a bit complex
+  // The reading of the parameters is a bit complex:
   // If the rtsp_message field is non-null, then it represents an rtsp_message
   // and the data pointer is assumed to point to something within it.
   // The reference counter of the rtsp_message is incremented here and
@@ -4195,8 +4202,10 @@ int send_metadata_to_queue(pc_queue *queue, uint32_t type, uint32_t code, char *
   // If the rtsp_message is NULL, then if the pointer is non-null then the data it
   // points to, of the length specified, is memcpy'd and passed to the metadata
   // handler. The handler should free it when done.
+  
   // If the rtsp_message is NULL and the pointer is also NULL, nothing further
   // is done.
+  // clang-format on
 
   metadata_package pack;
   pack.type = type;
