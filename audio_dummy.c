@@ -58,7 +58,7 @@ static int play(__attribute__((unused)) void *buf, __attribute__((unused)) int s
   // sample code using some of the extra information
   if (sample_type == play_samples_are_timed) {
     int64_t lead_time = playtime - get_absolute_time_in_ns();
-    debug(1, "leadtime for frame %u is %" PRId64 " nanoseconds, i.e. %f seconds.", timestamp,
+    debug(2, "leadtime for frame %u is %" PRId64 " nanoseconds, i.e. %f seconds.", timestamp,
           lead_time, 0.000000001 * lead_time);
   }
 
