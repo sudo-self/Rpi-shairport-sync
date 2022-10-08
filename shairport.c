@@ -600,11 +600,13 @@ int parse_options(int argc, char **argv) {
       // make config.cfg point to it
       config.cfg = &config_file_stuff;
       /* Get the Service Name. */
+      debug(2, "looking for the general.name");
       if (config_lookup_string(config.cfg, "general.name", &str)) {
         raw_service_name = (char *)str;
       }
 #ifdef CONFIG_LIBDAEMON
       /* Get the Daemonize setting. */
+      debug(2, "looking for the sessioncontrol.daemonize_with_pid_file");
       config_set_lookup_bool(config.cfg, "sessioncontrol.daemonize_with_pid_file", &daemonisewith);
 
       /* Get the Just_Daemonize setting. */
@@ -625,6 +627,7 @@ int parse_options(int argc, char **argv) {
         config.output_name = (char *)str;
 
       /* Get the port setting. */
+      debug(2, "looking for the general.port");
       if (config_lookup_int(config.cfg, "general.port", &value)) {
         if ((value < 0) || (value > 65535))
 #ifdef CONFIG_AIRPLAY_2
@@ -684,6 +687,7 @@ int parse_options(int argc, char **argv) {
 
       /* Get the soxr_delay_threshold setting. */
       /* Convert between the input, given in milliseconds, and the stored values in nanoseconds. */
+      debug(2, "looking for the general.soxr_delay_threshold");
       if (config_lookup_int(config.cfg, "general.soxr_delay_threshold", &value)) {
         if ((value >= 1) && (value <= 100))
           config.soxr_delay_threshold = value * 1000000;
@@ -696,6 +700,7 @@ int parse_options(int argc, char **argv) {
 #endif
 
       /* Get the statistics setting. */
+      debug(2, "looking for the general.statistics");
       if (config_set_lookup_bool(config.cfg, "general.statistics",
                                  &(config.statistics_requested))) {
         warn("The \"general\" \"statistics\" setting is deprecated. Please use the \"diagnostics\" "
@@ -724,6 +729,7 @@ int parse_options(int argc, char **argv) {
       if (config_lookup_float(config.cfg, "general.resync_threshold_in_seconds", &dvalue))
         config.resyncthreshold = dvalue;
 
+      debug(2, "looking for the general.log_verbosity");
       /* Get the verbosity setting. */
       if (config_lookup_int(config.cfg, "general.log_verbosity", &value)) {
         warn("The \"general\" \"log_verbosity\" setting is deprecated. Please use the "
@@ -736,6 +742,7 @@ int parse_options(int argc, char **argv) {
               value);
       }
 
+      debug(2, "looking for the diagnostics.log_verbosity");
       /* Get the verbosity setting. */
       if (config_lookup_int(config.cfg, "diagnostics.log_verbosity", &value)) {
         if ((value >= 0) && (value <= 3))
@@ -747,6 +754,7 @@ int parse_options(int argc, char **argv) {
               value);
       }
 
+      debug(2, "looking for the diagnostics.log_show_file_and_line");
       /* Get the config.debugger_show_file_and_line in debug messages setting. */
       if (config_lookup_string(config.cfg, "diagnostics.log_show_file_and_line", &str)) {
         if (strcasecmp(str, "no") == 0)
@@ -784,6 +792,7 @@ int parse_options(int argc, char **argv) {
       }
 
       /* Get the statistics setting. */
+      debug(2, "looking for the diagnostics.statistics");
       if (config_lookup_string(config.cfg, "diagnostics.statistics", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.statistics_requested = 0;
@@ -858,6 +867,7 @@ int parse_options(int argc, char **argv) {
         config.cmd_set_volume = (char *)str;
       }
 
+      debug(2, "looking for the general.playback_mode");
       /* Get the playback_mode setting */
       if (config_lookup_string(config.cfg, "general.playback_mode", &str)) {
         if (strcasecmp(str, "stereo") == 0)
@@ -987,12 +997,14 @@ int parse_options(int argc, char **argv) {
                dvalue, config.missing_port_dacp_scan_interval_seconds);
       }
 
+      debug(2, "looking for the latencies.default");
       /* Get the default latency. Deprecated! */
       if (config_lookup_int(config.cfg, "latencies.default", &value))
         config.userSuppliedLatency = value;
 
 #ifdef CONFIG_METADATA
       /* Get the metadata setting. */
+      debug(2, "looking for the metadata.enabled");
       if (config_lookup_string(config.cfg, "metadata.enabled", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.metadata_enabled = 0;
@@ -1031,6 +1043,7 @@ int parse_options(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_METADATA_HUB
+      debug(2, "looking for the metadata.cover_art_cache_directory");
       if (config_lookup_string(config.cfg, "metadata.cover_art_cache_directory", &str)) {
         config.cover_art_cache_dir = (char *)str;
       }
@@ -1116,12 +1129,14 @@ int parse_options(int argc, char **argv) {
               str);
       }
 
+      debug(2, "looking for the sessioncontrol.session_timeout");
       if (config_lookup_int(config.cfg, "sessioncontrol.session_timeout", &value)) {
         config.timeout = value;
         config.dont_check_timeout = 0; // this is for legacy -- only set by -t 0
       }
 
 #ifdef CONFIG_CONVOLUTION
+      debug(2, "looking for the dsp.convolution");
       if (config_lookup_string(config.cfg, "dsp.convolution", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.convolution = 0;
@@ -1155,6 +1170,7 @@ int parse_options(int argc, char **argv) {
         warn("Convolution enabled but no convolution_ir_file provided");
       }
 #endif
+      debug(2, "looking for the dsp.loudness");
       if (config_lookup_string(config.cfg, "dsp.loudness", &str)) {
         if (strcasecmp(str, "no") == 0)
           config.loudness = 0;
@@ -1187,6 +1203,7 @@ int parse_options(int argc, char **argv) {
     }
 #if defined(CONFIG_DBUS_INTERFACE)
     /* Get the dbus service sbus setting. */
+    debug(2, "looking for dbus");
     if (config_lookup_string(config.cfg, "general.dbus_service_bus", &str)) {
       if (strcasecmp(str, "system") == 0)
         config.dbus_service_bus_type = DBT_system;
@@ -1200,6 +1217,7 @@ int parse_options(int argc, char **argv) {
 #endif
 
 #if defined(CONFIG_MPRIS_INTERFACE)
+    debug(2, "looking for MPRIS");
     /* Get the mpris service sbus setting. */
     if (config_lookup_string(config.cfg, "general.mpris_service_bus", &str)) {
       if (strcasecmp(str, "system") == 0)
@@ -1214,6 +1232,7 @@ int parse_options(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_MQTT
+    debug(2, "looking for MQTT");
     config_set_lookup_bool(config.cfg, "mqtt.enabled", &config.mqtt_enabled);
     if (config.mqtt_enabled && !config.metadata_enabled) {
       die("You need to have metadata enabled in order to use mqtt");
@@ -1290,6 +1309,7 @@ int parse_options(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
+    debug(2, "looking for AP2 device id");
     long long aid;
 
     // replace the airplay_device_id with this, if provided
@@ -1303,12 +1323,13 @@ int parse_options(int argc, char **argv) {
     }
 
 #endif
+      debug(2, "done");
   }
 
   // now, do the command line options again, but this time do them fully -- it's a unix convention
   // that command line
   // arguments have precedence over configuration file settings.
-
+  debug(2, "looking for command line options");
   optind = argc;
   for (j = 0; j < argc; j++)
     if (strcmp(argv[j], "--") == 0)
@@ -1322,6 +1343,7 @@ int parse_options(int argc, char **argv) {
   /* Now do options processing, get portname */
   int tdebuglev = 0;
   while ((c = poptGetNextOpt(optCon)) >= 0) {
+    debug(1, "cli option: %d, 0x%x, '%c'.", c, c, c);
     switch (c) {
     case 'v':
       tdebuglev++;
@@ -1367,6 +1389,8 @@ int parse_options(int argc, char **argv) {
   }
 
   poptFreeContext(optCon);
+  
+  debug(1,"done with cli options");
 
   // here, we are finally finished reading the options
 
@@ -1653,7 +1677,7 @@ void exit_function() {
       }
     }
 #endif
-
+    debug(2, "destroy config");
     if (config.cfg)
       config_destroy(config.cfg);
     if (config.appName)
