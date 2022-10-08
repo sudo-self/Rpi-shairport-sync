@@ -594,7 +594,9 @@ int parse_options(int argc, char **argv) {
     debug(2, "looking for configuration file at full path \"%s\"", config_file_real_path);
     /* Read the file. If there is an error, report it and exit. */
     if (config_read_file(&config_file_stuff, config_file_real_path)) {
+      debug(2,"configuration file opened");
       free(config_file_real_path);
+      debug(2,"set auto_convert!");
       config_set_auto_convert(&config_file_stuff,
                               1); // allow autoconversion from int/float to int/float
       // make config.cfg point to it
