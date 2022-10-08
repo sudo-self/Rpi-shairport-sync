@@ -1,3 +1,8 @@
+Version 4.1-dev-694-g234c00ad
+====
+**Bug Fix**
+* Fixed a memory allocation (`malloc`) bug caused by allocating on byte too few for a character string -- yep, the trailing `NUL`. Special thanks to [ageorgios](https://github.com/ageorgios) for their help in locating and fixing the bug! Thanks also to [MTxx87](https://github.com/MTxx87) and [Mike](https://github.com/xska2) for reporting what seems to be the same bug.
+
 Version 4.1-dev-688-g7dcad083
 ====
 **Bug Fixes**
