@@ -571,7 +571,7 @@ int parse_options(int argc, char **argv) {
   uuid_t binuuid;
   uuid_generate_random(binuuid);
 
-  char *uuid = malloc(UUID_STR_LEN);
+  char *uuid = malloc(UUID_STR_LEN + 1); // leave space for the NUL at the end
   // Produces a UUID string at uuid consisting of lower-case letters
   uuid_unparse_lower(binuuid, uuid);
   config.airplay_pi = uuid;
