@@ -121,7 +121,7 @@ Download, install, enable and start NQPTP from [here](https://github.com/mikebra
 
 ### Shairport Sync
 #### Build and Install
-Download Shairport Sync, check out the `development` branch and configure, compile and install it. Before executing the commands, please note the following:
+Download Shairport Sync, configure, compile and install it. Before executing the commands, please note the following:
 
 * If building for FreeBSD, replace `--with-systemd` with `--with-os=freebsd --with-freebsd-service`.
 * Omit the `--with-airplay-2` from the `./configure` options if you are building classic Shairport Sync.
@@ -130,7 +130,6 @@ Download Shairport Sync, check out the `development` branch and configure, compi
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
-$ git checkout development
 $ autoreconf -fi
 $ ./configure --sysconfdir=/etc --with-alsa \
     --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
