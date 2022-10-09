@@ -122,7 +122,6 @@ sudo ufw allow 3689/tcp
 sudo ufw allow 5353
 sudo ufw allow 5000/tcp
 sudo ufw allow 6000:6009/udp
-sudo ufw allow 32768:60999/udp
 ```
 
 **AirPlay 2:**
