@@ -45,6 +45,7 @@
 
 #ifdef CONFIG_AIRPLAY_2
 #include "ptp-utilities.h"
+#include <gcrypt.h>
 #include <libavcodec/avcodec.h>
 #include <sodium.h>
 #include <uuid/uuid.h>
@@ -570,7 +571,7 @@ int parse_options(int argc, char **argv) {
   uuid_t binuuid;
   uuid_generate_random(binuuid);
 
-  char *uuid = malloc(UUID_STR_LEN);
+  char *uuid = malloc(UUID_STR_LEN + 1); // leave space for the NUL at the end
   // Produces a UUID string at uuid consisting of lower-case letters
   uuid_unparse_lower(binuuid, uuid);
   config.airplay_pi = uuid;
@@ -1307,7 +1308,6 @@ int parse_options(int argc, char **argv) {
   // now, do the command line options again, but this time do them fully -- it's a unix convention
   // that command line
   // arguments have precedence over configuration file settings.
-
   optind = argc;
   for (j = 0; j < argc; j++)
     if (strcmp(argv[j], "--") == 0)
@@ -1652,7 +1652,6 @@ void exit_function() {
       }
     }
 #endif
-
     if (config.cfg)
       config_destroy(config.cfg);
     if (config.appName)
@@ -2102,6 +2101,28 @@ int main(int argc, char **argv) {
   } else {
     debug(1, "libsodium initialised.");
   }
+
+  // this code is based on
+  // https://www.gnupg.org/documentation/manuals/gcrypt/Initializing-the-library.html
+
+  /* Version check should be the very first call because it
+    makes sure that important subsystems are initialized.
+    #define NEED_LIBGCRYPT_VERSION to the minimum required version. */
+
+#define NEED_LIBGCRYPT_VERSION "1.5.4"
+
+  if (!gcry_check_version(NEED_LIBGCRYPT_VERSION)) {
+    die("libgcrypt is too old (need %s, have %s).", NEED_LIBGCRYPT_VERSION,
+        gcry_check_version(NULL));
+  }
+
+  /* Disable secure memory.  */
+  gcry_control(GCRYCTL_DISABLE_SECMEM, 0);
+
+  /* ... If required, other initialization goes here.  */
+
+  /* Tell Libgcrypt that initialization has completed. */
+  gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 
 #endif
 

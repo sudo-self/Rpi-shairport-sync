@@ -116,6 +116,15 @@ You have installed Shairport Sync successfully, the daemon is running, you can s
 
 You have to allow connections to your Shairport Sync device from remote devices. To do so, after re-enabling UFW (see last step of the previous section), enter the following commands in shell:
 
+**Classic AirPlay:**
+```
+sudo ufw allow 3689/tcp
+sudo ufw allow 5353
+sudo ufw allow 5000/tcp
+sudo ufw allow 6000:6009/udp
+```
+
+**AirPlay 2:**
 ```
 sudo ufw allow 319:320/udp
 sudo ufw allow 3689/tcp
@@ -123,9 +132,11 @@ sudo ufw allow 5353
 sudo ufw allow 5000/tcp
 sudo ufw allow 7000/tcp
 sudo ufw allow 6000:6009/udp
-sudo ufw allow 35000:65535/udp
+sudo ufw allow 32768:60999/udp
+sudo ufw allow 32768:60999/tcp
 ```
-Ports 319 and 320 need to be opened for AirPlay 2 only.
+
+The range `32768:60999` represents the [ephemeral port range](https://en.m.wikipedia.org/wiki/Ephemeral_port) which seems to be standardised on those values. 
 
 You can check UFW config by typing `sudo ufw status` in shell. Please make sure that UFW is active, especially if you have deactivated it previously for testing purposes. Check out the [ufw man pages](http://manpages.ubuntu.com/manpages/man8/ufw.8.html) for more.
 

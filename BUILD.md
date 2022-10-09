@@ -39,7 +39,7 @@ Okay, now let's get the tools and libraries for building and installing Shairpor
 # apt upgrade # this is optional but recommended
 # apt install --no-install-recommends build-essential git xmltoman autoconf automake libtool \
     libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
-    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev xxd
+    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd
 ```
 If you are building classic Shairport Sync, the list of packages is shorter:
 ```
@@ -54,7 +54,7 @@ For AirPlay 2 operation, _before you install the libraries_, please ensure the y
 # yum update
 # yum install make automake gcc gcc-c++ \
     git xmltoman autoconf automake avahi-devel libconfig-devel openssl-devel popt-devel soxr-devel \
-    ffmpeg ffmpeg-devel libplist-devel libsodium-devel libuuid-devel vim-common \
+    ffmpeg ffmpeg-devel libplist-devel libsodium-devel libgcrypt-dev libuuid-devel vim-common \
     alsa-lib-devel
 ```
 If you are building classic Shairport Sync, the list of packages is shorter:
@@ -121,7 +121,7 @@ Download, install, enable and start NQPTP from [here](https://github.com/mikebra
 
 ### Shairport Sync
 #### Build and Install
-Download Shairport Sync, configure, compile and install it. Before executing the commands, please note the following:
+Download Shairport Sync, check out the `development` branch and configure, compile and install it. Before executing the commands, please note the following:
 
 * If building for FreeBSD, replace `--with-systemd` with `--with-os=freebsd --with-freebsd-service`.
 * Omit the `--with-airplay-2` from the `./configure` options if you are building classic Shairport Sync.
@@ -130,6 +130,7 @@ Download Shairport Sync, configure, compile and install it. Before executing the
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
+$ git checkout development
 $ autoreconf -fi
 $ ./configure --sysconfdir=/etc --with-alsa \
     --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2

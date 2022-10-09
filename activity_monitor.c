@@ -56,8 +56,7 @@ pthread_mutex_t activity_monitor_mutex;
 pthread_cond_t activity_monitor_cv;
 
 void going_active(int block) {
-  // debug(1, "activity_monitor: state transitioning to \"active\" with%s blocking", block ? "" :
-  // "out");
+  // debug(1, "activity_monitor: state transitioning to \"active\" with%s blocking", block ? "" : "out");
   if (config.cmd_active_start)
     command_execute(config.cmd_active_start, "", block);
 #ifdef CONFIG_METADATA
@@ -71,17 +70,12 @@ void going_active(int block) {
 #endif
 
   if (config.disable_standby_mode == disable_standby_auto) {
-#ifdef CONFIG_DBUS_INTERFACE
-    if (dbus_service_is_running())
-      shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), TRUE);
-#endif
     config.keep_dac_busy = 1;
   }
 }
 
 void going_inactive(int block) {
-  // debug(1, "activity_monitor: state transitioning to \"inactive\" with%s blocking", block ? "" :
-  // "out");
+  // debug(1, "activity_monitor: state transitioning to \"inactive\" with%s blocking", block ? "" : "out");
   if (config.cmd_active_stop)
     command_execute(config.cmd_active_stop, "", block);
 #ifdef CONFIG_METADATA
@@ -95,10 +89,6 @@ void going_inactive(int block) {
 #endif
 
   if (config.disable_standby_mode == disable_standby_auto) {
-#ifdef CONFIG_DBUS_INTERFACE
-    if (dbus_service_is_running())
-      shairport_sync_set_disable_standby(SHAIRPORT_SYNC(shairportSyncSkeleton), FALSE);
-#endif
     config.keep_dac_busy = 0;
   }
 }
