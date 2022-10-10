@@ -447,9 +447,16 @@ fi
 # Look for xmltoman
 AC_CHECK_PROGS([XMLTOMAN], [xmltoman])
 if test -z "$XMLTOMAN"; then
-  AC_MSG_WARN([xmltoman not found - not rebuilding man pages])
+  AC_MSG_WARN([xmltoman not found - not installing man page])
 fi
 AM_CONDITIONAL([HAVE_XMLTOMAN], [test -n "$XMLTOMAN"])
+
+# Look for xmltoman
+AC_CHECK_PROGS([XSLTPROC], [xsltproc])
+if test -z "$XSLTPROC"; then
+  AC_MSG_WARN([xsltproc not found - not creating html version of man])
+fi
+AM_CONDITIONAL([HAVE_XSLTPROC], [test -n "$XSLTPROC"])
 
 # Checks for header files.
 AC_CHECK_HEADERS([getopt_long.h])
