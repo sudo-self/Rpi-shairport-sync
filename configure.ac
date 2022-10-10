@@ -444,20 +444,6 @@ if  test "x${with_systemd}" = xyes ; then
         [AC_SUBST([systemdsystemunitdir], [$with_systemdsystemunitdir])])
 fi
 
-# Look for xmltoman
-AC_CHECK_PROGS([XMLTOMAN], [xmltoman])
-if test -z "$XMLTOMAN"; then
-  AC_MSG_WARN([xmltoman not found - not installing man page])
-fi
-AM_CONDITIONAL([HAVE_XMLTOMAN], [test -n "$XMLTOMAN"])
-
-# Look for xmltoman
-AC_CHECK_PROGS([XSLTPROC], [xsltproc])
-if test -z "$XSLTPROC"; then
-  AC_MSG_WARN([xsltproc not found - not creating html version of man])
-fi
-AM_CONDITIONAL([HAVE_XSLTPROC], [test -n "$XSLTPROC"])
-
 # Checks for header files.
 AC_CHECK_HEADERS([getopt_long.h])
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h limits.h mach/mach.h memory.h netdb.h netinet/in.h stdint.h stdlib.h string.h sys/ioctl.h sys/socket.h sys/time.h syslog.h unistd.h])
@@ -482,6 +468,6 @@ AC_FUNC_FORK
 AC_CHECK_FUNCS([atexit clock_gettime gethostname inet_ntoa memchr memmove memset mkfifo pow select socket stpcpy strcasecmp strchr strdup strerror strstr strtol strtoul])
 
 # Note -- there are AC_CONFIG_FILES directives further back, conditional on Avahi
-AC_CONFIG_FILES([Makefile man/Makefile])
+AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([scripts/shairport-sync],[chmod +x scripts/shairport-sync])
 AC_OUTPUT
