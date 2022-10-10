@@ -433,7 +433,7 @@ Version-4.1-dev-102-g9bf45574
 Version-4.1-dev-100-g8330f30b
 ====
 #### Enhancement
-* Updated information on the statistics provided -- see [MOREINFO.md](https://github.com/mikebrady/shairport-sync/blob/development/MOREINFO.md#statistics).
+* Updated information on the statistics provided -- see [MOREINFO.md](https://github.com/mikebrady/shairport-sync/blob/development/MOREINFO.md#statistics). (Note: this has moved to [STATISTICS.md](ADVANCED%20TOPICS/Statistics.md).)
 
 Version 4.1-dev-95-ga7a02083
 ====
@@ -1690,9 +1690,6 @@ To retain the present behaviour of Shairport Sync, *you must add an extra parame
 
 The enhancements and bug fixes in 2.8.5 were made in versions 2.8.4.1 to 2.8.4.8 inclusive. Please read below for the full list.
 
-For advice on updating an installation you built yourself,
-please visit the [UPDATING](https://github.com/mikebrady/shairport-sync/blob/master/UPDATING.md) page.
-
 Version 2.8.4.8 – Development Version
 ----
 **Enhancements**
@@ -1749,8 +1746,6 @@ Version 2.8.4.1 – Development Version
 
 Version 2.8.4 – Stable Version
 ----
-This release includes important bug fixes and minor enhancements and is recommended for all users. No settings need to be changed. For advice on updating an installation you built yourself, please visit the [UPDATING](https://github.com/mikebrady/shairport-sync/blob/master/UPDATING.md) page.
-
 The following is a summary of the bug fixes and enhancements since version 2.8.3.
 
 **Bug Fixes**
