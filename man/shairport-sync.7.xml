@@ -4,7 +4,7 @@
 
   <!--
   This man page source file is part of shairport-sync.
-  Copyright (c) Mike Brady 2014-2022.
+  Copyright (c) Mike Brady 2014-2022
 
   All rights reserved.
 
@@ -35,7 +35,7 @@
 	<!--
       <cmd>shairport-sync <opt>-D</opt> <arg>interface</arg></cmd>
   -->
-      <cmd>shairport-sync  <opt>[-djvuw]</opt>
+      <cmd>shairport-sync  <opt>[-djvw]</opt>
       <opt>[-a </opt><arg>name</arg><opt>]</opt>
       <opt>[-A </opt><arg>latency</arg><opt>]</opt>
       <opt>[-B </opt><arg>command</arg><opt>]</opt>
@@ -91,8 +91,9 @@
 
 	  <p>Within the configuration file, settings are organised into <i>groups</i>, for
 	  example, there is a "general" group of
-	  standard settings, and there is an "alsa" group with settings that pertain to the ALSA
-	  back end. Here is an example of a typical configuration file:</p>
+	  standard settings, and there is an <opt>alsa</opt> group with settings
+	  that pertain to the <opt>ALSA</opt> back end.
+	  Here is an example of a typical configuration file:</p>
 
 	  <p><opt>general = {</opt></p>
     <p><p><opt>name = "Mike's Boombox";</opt></p></p>
