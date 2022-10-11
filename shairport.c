@@ -599,9 +599,7 @@ int parse_options(int argc, char **argv) {
                               1); // allow autoconversion from int/float to int/float
       // make config.cfg point to it
       config.cfg = &config_file_stuff;
-      
-      config_write(config.cfg, stderr);
-
+    
       /* Get the Service Name. */
       if (config_lookup_string(config.cfg, "general.name", &str)) {
         raw_service_name = (char *)str;
