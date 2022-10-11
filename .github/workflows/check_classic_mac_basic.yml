@@ -2,7 +2,7 @@ name: Classic on macOS with brew
 
 on:
   push:
-    branches: [ "danger" ]
+    branches: [ "development" ]
 
 jobs:
   build:
