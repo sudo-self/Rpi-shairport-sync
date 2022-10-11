@@ -1,5 +1,9 @@
 Version 4.1-dev-717-g86539bc5
 ====
+**Pesky Things You Can't Ignore**
+
+If you are updating from a previous version, after you have pulled the update, please redo the `autoreconf -fi` and the `./configure...` steps (and the do a `make clean` for good measure) before `make`ing the executable -- there have been many changes to the build process.
+
 **Enhancements**
 * A new command-line-only option is included: `--displayConfig`. This prints configuration information to `STDERR` and should be useful when debugging issues.
 * Help text is reordered and updated.
