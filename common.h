@@ -37,7 +37,7 @@ typedef enum {
 typedef enum {
   TOE_normal,
   TOE_emergency,
-  TOE_dbus // a dbus request was made -- don't wait for the dbus thread to exit
+  TOE_dbus // a request was made on a D-Bus interface (the native D-Bus or MPRIS interfaces)-- don't wait for the dbus thread to exit
 } type_of_exit_type;
 
 #define sps_extra_code_output_stalled 32768
@@ -400,9 +400,6 @@ extern uint64_t ns_time_at_startup, ns_time_at_last_debug_message;
 // this is for reading an unsigned 32 bit number, such as an RTP timestamp
 
 uint32_t uatoi(const char *nptr);
-
-// this is for allowing us to cancel the whole program
-extern pthread_t main_thread_id;
 
 extern shairport_cfg config;
 extern config_t config_file_stuff;

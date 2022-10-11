@@ -599,6 +599,9 @@ int parse_options(int argc, char **argv) {
                               1); // allow autoconversion from int/float to int/float
       // make config.cfg point to it
       config.cfg = &config_file_stuff;
+      
+      config_write(config.cfg, stderr);
+
       /* Get the Service Name. */
       if (config_lookup_string(config.cfg, "general.name", &str)) {
         raw_service_name = (char *)str;
@@ -1734,7 +1737,6 @@ int main(int argc, char **argv) {
   pid = getpid();
   config.log_fd = -1;
   conns = NULL; // no connections active
-  memset((void *)&main_thread_id, 0, sizeof(main_thread_id));
   ns_time_at_startup = get_absolute_time_in_ns();
   ns_time_at_last_debug_message = ns_time_at_startup;
   // this is a bit weird, but necessary -- basename() may modify the argument passed in
@@ -2052,10 +2054,6 @@ int main(int argc, char **argv) {
     perror(0);
     exit(1);
   }
-
-  main_thread_id = pthread_self();
-  if (!main_thread_id)
-    debug(1, "Main thread is set up to be NULL!");
 
   // make sure the program can create files that group and world can read
   umask(S_IWGRP | S_IWOTH);
