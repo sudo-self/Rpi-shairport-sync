@@ -1690,13 +1690,10 @@ void display_config(int argc, char **argv) {
   if (argc != 0) {
     fprintf(stderr, "\nCommand Line:\n");
     int i;
-    for (i = 0; i < argc; i++) {
-      fprintf(stderr, argv[i]);
-      if (i == argc-1)
-        fprintf(stderr, "\n");
-      else
-        fprintf(stderr, " ");
+    for (i = 0; i < argc - 1; i++) {
+      fprintf(stderr, "%s ", argv[i]);
     }
+    fprintf(stderr, "%s\n", argv[argc]);
   }
   
   if (config.cfg == NULL)
