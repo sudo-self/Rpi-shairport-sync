@@ -1,3 +1,12 @@
+Version 4.1-dev-721-g93c1f1ae
+====
+**Pesky Things You Can't Ignore**
+
+If you are updating from a previous version, after you have pulled the update, please redo the `autoreconf -fi` and the `./configure...` steps (and the do a `make clean` for good measure) before `make`ing the executable -- there have been many changes to the build process.
+
+**Bug Fix**
+* Correction to `Makefile.am` to make it work both on FreeBSD and Linux both in the source directory and in a subsidiary build directory.
+
 Version 4.1-dev-717-g86539bc5
 ====
 **Pesky Things You Can't Ignore**
