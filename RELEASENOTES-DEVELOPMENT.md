@@ -1,3 +1,13 @@
+Version 4.1-dev-717-g86539bc5
+====
+**Enhancements**
+* A new command-line-only option is included: `--displayConfig`. This prints configuration information to `STDERR` and should be useful when debugging issues.
+* Help text is reordered and updated.
+* The `man` page is updated.
+* The `man` contents are no longer automatically built when Shairport Sync is built. This is okay because the contents are normally static. The `man` folder has a new `Makefile`.
+* The `xmltoman` application is not now needed when building Shairport Sync.
+* When updating the `man` page, `xsltproc` is now used instead of `xmlmantohtml`.
+
 Version 4.1-dev-701-g65daef30
 ====
 **Bug Fix**
