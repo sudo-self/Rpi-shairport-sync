@@ -444,9 +444,11 @@
   ( <opt>-d hw:1,0</opt> ) and will take advantage of the same sound card's mixer
   ( <opt>-m hw:1</opt> ) using the level control named "PCM" ( <opt>-c "PCM"</opt> ).
   </p>
-  <p>The example above is slightly contrived in order to show the use of the <opt>-m</opt>
-  option. Typically, output 0 is the default output of a card, so the output device could
-  be written <opt>-d hw:1</opt> and then the mixer option would be unnecessary, giving the following, simpler, command:</p>
+  <p>The example above is slightly contrived: Firstly, output 0 is the default output of a card,
+  so the output device could be written <opt>-d hw:1</opt>.
+  Secondly, when a mixer name is given ( <opt>-c "PCM"</opt> ),
+  the default is that the mixer is on the output device, so the <opt>-m hw:1</opt> is unnecessary here.
+  These simplifications give the following command:</p>
        <cmd>shairport-sync
       <opt>-a "Joe's Stereo"</opt>
        <opt>--</opt>
@@ -457,11 +459,11 @@
   </section>
 
 	<section name="Credits">
-	<p>Mike Brady developed shairport-sync from the original Shairport by James Laird.</p>
+	<p>Mike Brady (<url href="https://github.com/mikebrady"/>) developed shairport-sync from Shairport by James Wah (<url href="https://github.com/abrasive"/>).</p>
 	<p>shairport-sync can be found at
 	<url href="https://github.com/mikebrady/shairport-sync."/></p>
   <p>Shairport can be found at
-  <url href="https://github.com/abrasive/shairport."/></p>
+  <url href="https://github.com/abrasive/shairport"/></p>
 	</section>
 
 	<section name="Comments">

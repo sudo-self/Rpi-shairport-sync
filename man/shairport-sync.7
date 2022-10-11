@@ -152,14 +152,14 @@ shairport-sync \fB-a "Joe's Stereo"\f1 \fB--\f1 \fB-d hw:1,0\f1 \fB-m hw:1\f1 \f
 
 The program will be visible as "Joe's Stereo" ( \fB-a "Joe's Stereo"\f1 ). The audio backend options following the \fB--\f1 separator specify that the audio will be output on output 0 of soundcard 1 ( \fB-d hw:1,0\f1 ) and will take advantage of the same sound card's mixer ( \fB-m hw:1\f1 ) using the level control named "PCM" ( \fB-c "PCM"\f1 ). 
 
-The example above is slightly contrived in order to show the use of the \fB-m\f1 option. Typically, output 0 is the default output of a card, so the output device could be written \fB-d hw:1\f1 and then the mixer option would be unnecessary, giving the following, simpler, command:
+The example above is slightly contrived: Firstly, output 0 is the default output of a card, so the output device could be written \fB-d hw:1\f1. Secondly, when a mixer name is given ( \fB-c "PCM"\f1 ), the default is that the mixer is on the output device, so the \fB-m hw:1\f1 is unnecessary here. These simplifications give the following command:
 
 shairport-sync \fB-a "Joe's Stereo"\f1 \fB--\f1 \fB-d hw:1\f1 \fB-c PCM\f1
 .SH CREDITS
-Mike Brady developed shairport-sync from the original Shairport by James Laird.
+Mike Brady (\fBhttps://github.com/mikebrady\f1) developed shairport-sync from Shairport by James Wah (\fBhttps://github.com/abrasive\f1).
 
 shairport-sync can be found at \fBhttps://github.com/mikebrady/shairport-sync.\f1
 
-Shairport can be found at \fBhttps://github.com/abrasive/shairport.\f1
+Shairport can be found at \fBhttps://github.com/abrasive/shairport\f1
 .SH COMMENTS
 This man page was written using \fBxml2man(1)\f1 by Oliver Kurth.
