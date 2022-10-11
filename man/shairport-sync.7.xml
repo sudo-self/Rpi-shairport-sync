@@ -35,49 +35,56 @@
 	<!--
       <cmd>shairport-sync <opt>-D</opt> <arg>interface</arg></cmd>
   -->
-      <cmd>shairport-sync  <opt>[-djvw]</opt>
-      <opt>[-a </opt><arg>name</arg><opt>]</opt>
-      <opt>[-A </opt><arg>latency</arg><opt>]</opt>
-      <opt>[-B </opt><arg>command</arg><opt>]</opt>
-      <opt>[-c </opt><arg>configurationfile</arg><opt>]</opt>
-      <opt>[-E </opt><arg>command</arg><opt>]</opt>
-      <opt>[--get-cover-art]</opt>
+      <cmd>shairport-sync <opt>[-djvw]</opt>
+      <opt>[-a </opt><arg>service-name</arg><opt> | --name=</opt><arg>service-name</arg><opt>]</opt>
+      <opt>[-B </opt><arg>command</arg><opt> | --onstart=</opt><arg>command</arg><opt>]</opt>
+      <opt>[-c </opt><arg>configurationfile</arg><opt> | --configfile=</opt><arg>configurationfile</arg><opt>]</opt>
+      <opt>[-d | --daemon]</opt>
+      <opt>[-E </opt><arg>command</arg><opt> | --onstop=</opt><arg>command</arg><opt>]</opt>
+      <opt>[-g | --get-cover-art]</opt>
+      <opt>[-j | --justDaemoniseNoPIDFile]</opt>
       <opt>[--logOutputLevel]</opt>
       <opt>[--log-to-syslog]</opt>
-      <opt>[-L </opt><arg>latency</arg><opt>]</opt>
-      <opt>[-m </opt><arg>backend</arg><opt>]</opt>
-      <opt>[--meta-dir=</opt><arg>directory</arg><opt>]</opt>
-      <opt>[-o </opt><arg>backend</arg><opt>]</opt>
+      <opt>[-L </opt><arg>latency</arg><opt> | --latency=</opt><arg>latency</arg><opt>]</opt>
+      <opt>[-m </opt><arg>backend</arg><opt> | --mdns=</opt><arg>backend</arg><opt>]</opt>
+      <opt>[-M | --metadata-enable]</opt>
+      <opt>[-o </opt><arg>backend</arg><opt> | --output=</opt><arg>backend</arg><opt>]</opt>
+      <opt>[-p </opt><arg>port</arg><opt> | --port=</opt><arg>port</arg><opt>]</opt>
       <opt>[--password=</opt><arg>secret</arg><opt>]</opt>
-      <opt>[-r </opt><arg>threshold</arg><opt>]</opt>
+      <opt>[-r </opt><arg>threshold</arg><opt> | --resync=</opt><arg>threshold</arg><opt>]</opt>
       <opt>[--statistics]</opt>
-      <opt>[-S </opt><arg>mode</arg><opt>]</opt>
-      <opt>[-t </opt><arg>timeout</arg><opt>]</opt>
+      <opt>[-S </opt><arg>mode</arg><opt> | --stuffing=</opt><arg>mode</arg><opt>]</opt>
+      <opt>[-t </opt><arg>timeout</arg><opt> | --timeout=</opt><arg>timeout</arg><opt>]</opt>
       <opt>[--tolerance=</opt><arg>frames</arg><opt>]</opt>
+      <opt>[-v | --verbose]</opt>
+      <opt>[-w | --wait-cmd]</opt>
       <opt>[-- </opt><arg>audio_backend_options</arg><opt>]</opt>
       </cmd>
-      <cmd>shairport-sync <opt>-k</opt></cmd>
+      <cmd>shairport-sync <opt>--displayConfig</opt></cmd>
       <cmd>shairport-sync <opt>-h</opt></cmd>
+      <cmd>shairport-sync <opt>-k</opt></cmd>
       <cmd>shairport-sync <opt>-V</opt></cmd>
 	</synopsis>
 
   <description>
-    <p>Shairport Sync plays audio streamed from an AirPlay or an AirPlay 2 device.
-    AirPlay 2 support is limited, and AirPlay 2 from iTunes for Windows is not supported.
+    <p>Shairport Sync plays AirPlay audio.
+    It can be built to stream either from "classic" AirPlay (aka "AirPlay 1")
+    or from AirPlay 2 devices.</p>
     
-    Please see <url href="https://github.com/mikebrady/shairport-sync"/> for details.</p>
+    <p>AirPlay 2 support is limited, and AirPlay 2 from iTunes for Windows is not supported.
+    For AirPlay 2 operation, a companion program called <opt>nqptp</opt> must be installed.</p>
 
-    <p>Settings can be made using the configuration file (recommended for all new
-    installations) or by using command-line options.</p>
+    <p>Please see <url href="https://github.com/mikebrady/shairport-sync"/> for details.</p>
 
-    <p>The name of the Shairport Sync executable is <opt>shairport-sync</opt>.
-    Both names are used in these man pages.</p>
-
+    <p>The name of the Shairport Sync executable is <opt>shairport-sync</opt>.</p>
+   
 	</description>
 
 
 	<section name="Configuration File Settings">
-	   <p>You should use the configuration file for setting up Shairport Sync.
+	  <p>You should use the configuration file for setting up Shairport Sync because --
+	  apart from a few special-purpose commands -- it has a much richer set of options
+	  than are available on the command line.
 	  This file is usually <file>shairport-sync.conf</file> and is generally located in the
 	  System Configuration Directory, which is normally the <file>/etc</file> directory in
 	  Linux or the <file>/usr/local/etc</file> directory in BSD unixes.
@@ -85,12 +92,11 @@
 
 	  <p>(Note: Shairport Sync may have been compiled to use a different configuration
 	  directory. You can determine which by performing the command <file>$ shairport-sync
-	  -V</file>. One of the items in the output string is the value of the
-	  <opt>sysconfdir</opt>,
-	  i.e. the System Configuration Directory.)</p>
+	  -V</file>. The last item in the output string is the value of the
+	  <opt>sysconfdir</opt>, i.e. the System Configuration Directory.)</p>
 
 	  <p>Within the configuration file, settings are organised into <i>groups</i>, for
-	  example, there is a "general" group of
+	  example, there is a <opt>general</opt> group of
 	  standard settings, and there is an <opt>alsa</opt> group with settings
 	  that pertain to the <opt>ALSA</opt> back end.
 	  Here is an example of a typical configuration file:</p>
@@ -104,8 +110,7 @@
     <p><p><opt>mixer_control_name = "PCM";</opt></p></p>
     <p><opt>};</opt></p>
 
-	  <p>Most settings have sensible default values, so -- as in the example above -- users
-	  generally only need to set (1) the service name and
+	  <p>Users generally only need to set (1) the service name and
 	  (2) the output device.
 	  
 	  If the <opt>name</opt> setting is omitted, the service name is derived from the system's hostname.
@@ -128,21 +133,17 @@
 	  <url href="https://github.com/mikebrady/shairport-sync/blob/master/scripts/shairport-sync.conf"/>.
 	  Please refer to it for the most up-to-date information on configuration file settings.</p>
 
-	  <p>New features, etc. will generally be available only via configuration file settings.</p>
-
-
 	</section>
 
 	<options>
-
-    <p>Many  command-line options take sensible default values, so you can normally
-    ignore most of them. See the EXAMPLES section for typical usages.</p>
 
     <p>There are two kinds of command-line options for shairport-sync:
     regular <opt>program options</opt> and <opt>audio backend options</opt>.
     Program options are
     always listed first, followed by any audio backend options, preceded by
     a <opt>--</opt> symbol.</p>
+    
+    <p>See the EXAMPLES section for sample usages.</p>
 
   <section name="Program Options">
   <p>Program Options are used by shairport-sync itself.</p>
@@ -185,7 +186,7 @@
 		Read configuration settings from <arg>filename</arg>. The default is to read them from
 		the <file>shairport-sync.conf</file> in the System Configuration Directory --
 		<file>/etc</file> in Linux, <file>/usr/local/etc</file> in BSD unixes.
-		For information about configuration settings, see the  "Configuration File Settings"
+		For information about configuration settings, see the "Configuration File Settings"
 		section above.
     </p></optdesc>
 	  </option>
@@ -197,9 +198,24 @@
     Process ID (PID) to a file, usually at
     <file>/var/run/shairport-sync/shairport-sync.pid</file>, which is used by the
     <opt>-k</opt>, <opt>-D</opt> and <opt>-R</opt> options to locate
-    the daemon at a later time. See also the <opt>-j</opt> option.  Only available if
+    the daemon at a later time. See also the <opt>-j</opt> option. Only available if
 		shairport-sync has been compiled with libdaemon support.
 		</p></optdesc>
+	  </option>
+
+	  <option>
+		<p><opt>--displayConfig</opt></p>
+		<optdesc><p>
+		This will display information relating to the configuration of Shairport Sync.
+		It can be very useful for debugging. The information displayed is the version string
+		(which indicates the build options used when <opt>shairport-sync</opt> was built),
+		the contents of the command line that invoked Shairport Sync,
+		the name of the configuration file and the active settings therein.</p>
+		<p>If this is the only option on the command line, <opt>shairport-sync</opt> will
+		terminate after displaying the information.</p>
+		<p>Due to a limitation, <opt>--displayConfig</opt> always outputs to <file>STDERR</file>,
+		irrespective of the setting of <opt>--log-to-syslog</opt>.</p>
+		</optdesc>
 	  </option>
 
 	  <option>
@@ -215,14 +231,11 @@
 	  </option>
 
 	  <option>
-		<p><opt>--get-coverart</opt></p>
+		<p><opt>-g | --get-coverart</opt></p>
 		<optdesc><p>
-		This option requires the <opt>--meta-dir</opt> option to be set, and enables
-		shairport-sync to request cover art from the source and to transmit it through
-		the metadata pipe.</p>
-		<p>Please note that cover art data may be very large, and may place too great a
-		burden on your network.
-    </p></optdesc>
+		This option requires the <opt>-M | --metadata-enable</opt> option to be set, and enables
+		shairport-sync to request cover art from the source and to process it as metadata.</p>
+		</optdesc>
 	  </option>
 
 	  <option>
@@ -233,7 +246,7 @@
 	  </option>
 
 	  <option>
-		<p><opt>-j</opt></p>
+		<p><opt>-j | justDaemoniseNoPIDFile</opt></p>
 		<optdesc><p>
 		Instruct shairport-sync to demonise itself. Unlike the <opt>-d</opt> option, it will
 		not write a Process ID (PID) to a file -- it will just (hence the "j") demonise
@@ -263,8 +276,10 @@
 	  <option>
 		<p><opt>--log-to-syslog</opt></p>
 		<optdesc><p>
-		Warnings, error messages and messages are sent, by default, to <file>STDERR</file>. Use this option to route these messages to the <opt>syslog</opt> instead. This is intended for use when Shairport Sync is operating as a daemon.
-    </p>
+		Warnings, error messages and messages are sent, by default, to <file>STDERR</file>.
+		Use this option to route these messages to the <opt>syslog</opt> instead.
+		This is intended for use when Shairport Sync is operating as a daemon.
+    </p><p>See also <opt>--displayConfig</opt>.</p>
     </optdesc>
 	  </option>
 
@@ -282,14 +297,25 @@
 	  </option>
 
 	  <option>
-		<p><opt>--meta-dir=</opt><arg>directory</arg></p>
+		<p><opt>-M | --metadata-enable</opt></p>
 		<optdesc><p>
-		Listen for metadata coming from the source and send it, along with metadata from
-		shairport-sync itself, to a pipe called <arg>shairport-sync-metadata</arg>
-		in the <arg>directory</arg> you specify. If you add the <opt>--get-cover-art</opt>
-		then cover art will be sent through the pipe too. See <url
+		Ask the client to send metadata. It will be sent, along with metadata generated
+		by shairport-sync itself, to a pipe and will also be
+		sent as UDP packets.
+		If you add the <opt>-g | --get-cover-art</opt>
+		then cover art included, where available. See <url
 		href="https://github.com/mikebrady/shairport-sync-metadata-reader"/>
 		for a sample metadata reader.
+		</p></optdesc>
+	  </option>
+
+	  <option>
+		<p><opt>--metadata-pipename=</opt><arg>pathname</arg></p>
+		<optdesc><p>
+		Specify the path name for the metadata pipe.
+		Note that <opt>shairport-sync</opt> will need write permission on that directory and pipe.
+		The default is <file>/tmp/shairport-sync-metadata</file>.
+		If you rename the <opt>shairport-sync</opt> executable, the default pipe name will change accordingly.
 		</p></optdesc>
 	  </option>
 
@@ -297,7 +323,7 @@
 		<p><opt>-m </opt><arg>mdnsbackend</arg><opt> | --mdns=</opt><arg>mdnsbackend</arg></p>
 		<optdesc><p>
 		Force the use of the specified mDNS backend to advertise the
-    player on the network. The default is to try all mDNS backends until one
+    player on the network. The default is to try all mDNS backends in order until one
     works.
 		</p></optdesc>
 	  </option>
@@ -342,7 +368,7 @@
 	  <option>
 		<p><opt>--statistics</opt></p>
 		<optdesc><p>
-		Print some performance information <file>STDERR</file>, or to <opt>syslog</opt> if the <opt>-log-to-syslog</opt> command line option is also chosen.
+		Print some performance information to <file>STDERR</file>, or to <opt>syslog</opt> if the <opt>-log-to-syslog</opt> command line option is also chosen.
 		</p></optdesc>
 	  </option>
 
@@ -355,10 +381,10 @@
     stream sent to the output device in order to keep it synchronised
     with the player.
     The <opt>basic</opt> mode is normally almost completely inaudible.
-    The  alternative mode, <opt>soxr</opt>, is even less obtrusive but
+    The alternative mode, <opt>soxr</opt>, is even less obtrusive but
     requires much more processing power. For this mode, support for
-    libsoxr, the SoX Resampler Library, must be selected when
-    shairport-sync is compiled.
+    <opt>libsoxr</opt>, the SoX Resampler Library, must be selected when
+    <opt>shairport-sync</opt> is built.
     
     The default setting, <opt>auto</opt>, allows Shairport Sync to choose
     <opt>soxr</opt> mode if the system is powerful enough.
@@ -368,13 +394,13 @@
 	  <option>
 		<p><opt>-t </opt><arg>timeout</arg><opt> | --timeout=</opt><arg>timeout</arg></p>
 		<optdesc><p>
-		Exit play mode if the stream disappears for  more  than  <arg>timeout</arg>
+		Exit play mode if the stream disappears for more than <arg>timeout</arg>
     seconds.</p>
     <p>When shairport-sync plays an audio stream, it starts a play
     session and will return a busy signal to any other sources that
     attempt to use it. If the audio stream disappears for longer
     than <arg>timeout</arg> seconds, the play session will be terminated.
-    If you  specify a timeout time of <opt>0</opt>,
+    If you specify a timeout time of <opt>0</opt>,
     shairport-sync will never signal that
     it is busy and will not prevent other sources from "barging in"
     on an existing play session. The default value is 120 seconds.
@@ -406,14 +432,14 @@
 		<p><opt>-v | --verbose</opt></p>
 		<optdesc><p>
 		Print debug information to the <file>STDERR</file>, or to <opt>syslog</opt> if the <opt>-log-to-syslog</opt> command line option is also chosen.
-		Repeat up to three times (i.e. <opt>-vv</opt> or <opt>-vvv</opt>) for more detail.
+		Repeat up to three times (i.e. <opt>-vv</opt> or <opt>-vvv</opt>) for more detail. You should use <opt>-vvv</opt> very sparingly -- it is really noisy.
 		</p></optdesc>
 	  </option>
 
 	  <option>
 		<p><opt>-w | --wait-cmd</opt></p>
 		<optdesc><p>
-		Wait for commands specified using <opt>-B</opt> or <opt>-E</opt>  to  complete  before
+		Wait for commands specified using <opt>-B</opt> or <opt>-E</opt> to complete before
     continuing execution.
 		</p></optdesc>
 	  </option>
@@ -425,13 +451,14 @@
   options and reused as audio backend options without ambiguity.</p>
 
   <p>Audio backends are listed with their corresponding Audio Backend Options in the help text provided by the help (<opt>-h</opt> or <opt>--help</opt>) option.</p>
-  </section>  
+  </section>
 	</options>
 
   <section name="Examples">
   <p>Here is a slightly contrived example:</p>
       <cmd>shairport-sync
       <opt>-a "Joe's Stereo"</opt>
+      <opt>-o alsa</opt>
        <opt>--</opt>
       <opt>-d hw:1,0</opt>
       <opt>-m hw:1</opt>
@@ -439,16 +466,17 @@
       </cmd>
   <p>The program will be visible as
   "Joe's Stereo" ( <opt>-a "Joe's Stereo"</opt> ).
-  The audio backend options following the <opt>--</opt> separator specify
-  that  the  audio will be output on output 0 of soundcard 1
+  The program option <opt>-o alsa</opt> specifies that the <opt>alsa</opt> backend be used, thus that audio should be output into the <opt>ALSA</opt> audio subsystem.
+  The audio backend options following the <opt>--</opt> separator are passed to the <opt>alsa</opt> backend and specify
+  that the audio will be output on subdevice 0 of soundcard 1
   ( <opt>-d hw:1,0</opt> ) and will take advantage of the same sound card's mixer
   ( <opt>-m hw:1</opt> ) using the level control named "PCM" ( <opt>-c "PCM"</opt> ).
   </p>
-  <p>The example above is slightly contrived: Firstly, output 0 is the default output of a card,
-  so the output device could be written <opt>-d hw:1</opt>.
-  Secondly, when a mixer name is given ( <opt>-c "PCM"</opt> ),
-  the default is that the mixer is on the output device, so the <opt>-m hw:1</opt> is unnecessary here.
-  These simplifications give the following command:</p>
+  <p>The example above is slightly contrived:
+  Firstly, if the <opt>alsa</opt> backend has been included in the build, it will be the default, so it doesn't need to be specified and the <opt>-o alsa</opt> option could be omitted.
+  Secondly, subdevice 0 is the default for a soundcard, so the output device could simply be written <opt>-d hw:1</opt>.
+  Thirdly, when a mixer name is given ( <opt>-c "PCM"</opt> ), the default is that the mixer is on the output device, so the <opt>-m hw:1</opt> is unnecessary here.
+  Using these defaults and simplifications gives the following command:</p>
        <cmd>shairport-sync
       <opt>-a "Joe's Stereo"</opt>
        <opt>--</opt>
@@ -459,11 +487,7 @@
   </section>
 
 	<section name="Credits">
-	<p>Mike Brady (<url href="https://github.com/mikebrady"/>) developed shairport-sync from Shairport by James Wah (<url href="https://github.com/abrasive"/>).</p>
-	<p>shairport-sync can be found at
-	<url href="https://github.com/mikebrady/shairport-sync."/></p>
-  <p>Shairport can be found at
-  <url href="https://github.com/abrasive/shairport"/></p>
+	<p>Mike Brady (<url href="https://github.com/mikebrady"/>) developed Shairport Sync from Shairport by James Wah (<url href="https://github.com/abrasive"/>).</p>
 	</section>
 
 	<section name="Comments">
