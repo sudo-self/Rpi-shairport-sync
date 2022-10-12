@@ -1983,7 +1983,7 @@ int main(int argc, char **argv) {
   if (display_config_selected != 0) {
     display_config(argc, argv);
     if (argc == 2) {
-      fprintf(stderr, ">> Goodbye!\n");
+      inform(">> Goodbye!");
       exit(EXIT_SUCCESS);
     }
   }
