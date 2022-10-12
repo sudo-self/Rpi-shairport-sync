@@ -206,15 +206,14 @@
 	  <option>
 		<p><opt>--displayConfig</opt></p>
 		<optdesc><p>
-		This will display information relating to the configuration of Shairport Sync.
-		It can be very useful for debugging. The information displayed is the version string
+		This logs information relating to the configuration of Shairport Sync.
+		It can be very useful for debugging. The information logged is 
+		some host OS information, the Shairport Sync version string
 		(which indicates the build options used when <opt>shairport-sync</opt> was built),
 		the contents of the command line that invoked Shairport Sync,
 		the name of the configuration file and the active settings therein.</p>
 		<p>If this is the only option on the command line, <opt>shairport-sync</opt> will
 		terminate after displaying the information.</p>
-		<p>Due to a limitation, <opt>--displayConfig</opt> always outputs to <file>STDERR</file>,
-		irrespective of the setting of <opt>--log-to-syslog</opt>.</p>
 		</optdesc>
 	  </option>
 

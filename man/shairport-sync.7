@@ -74,11 +74,9 @@ Read configuration settings from \fIfilename\f1. The default is to read them fro
 Instruct shairport-sync to demonise itself. It will write its Process ID (PID) to a file, usually at \fI/var/run/shairport-sync/shairport-sync.pid\f1, which is used by the \fB-k\f1, \fB-D\f1 and \fB-R\f1 options to locate the daemon at a later time. See also the \fB-j\f1 option. Only available if shairport-sync has been compiled with libdaemon support. 
 .TP
 \fB--displayConfig\f1
-This will display information relating to the configuration of Shairport Sync. It can be very useful for debugging. The information displayed is the version string (which indicates the build options used when \fBshairport-sync\f1 was built), the contents of the command line that invoked Shairport Sync, the name of the configuration file and the active settings therein.
+This logs information relating to the configuration of Shairport Sync. It can be very useful for debugging. The information logged is some host OS information, the Shairport Sync version string (which indicates the build options used when \fBshairport-sync\f1 was built), the contents of the command line that invoked Shairport Sync, the name of the configuration file and the active settings therein.
 
 If this is the only option on the command line, \fBshairport-sync\f1 will terminate after displaying the information.
-
-Due to a limitation, \fB--displayConfig\f1 always outputs to \fISTDERR\f1, irrespective of the setting of \fB--log-to-syslog\f1.
 .TP
 \fB-E \f1\fIprogram\f1\fB | --on-stop=\f1\fIprogram\f1
 Execute \fIprogram\f1 when playback has ended. Specify the full path to the program, e.g. \fI/usr/bin/logger\f1. Executable scripts can be used, but they must have the appropriate shebang (\fI#!/bin/sh\f1) in the headline.

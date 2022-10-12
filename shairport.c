@@ -280,7 +280,7 @@ void usage(char *progname) {
     printf("Options:\n");
     printf("    -h, --help              Show this help.\n");
     printf("    -V, --version           Show version information -- the version string.\n");
-    printf("    --displayConfig         Output version string, command line, configuration file and active settings to stderr.\n");
+    printf("    --displayConfig         Output OS information, version string, command line, configuration file and active settings to the log.\n");
     printf("    --statistics            Print some interesting statistics. More will be printed if -v / -vv / -vvv are also chosen.\n");
     printf("    -v, --verbose           Print debug information; -v some; -vv more; -vvv lots -- generally too much.\n");
     printf("    -c, --configfile=FILE   Read configuration settings from FILE. Default is %s.\n", configuration_file_path);
@@ -570,7 +570,7 @@ int parse_options(int argc, char **argv) {
                               1); // allow autoconversion from int/float to int/float
       // make config.cfg point to it
       config.cfg = &config_file_stuff;
-    
+
       /* Get the Service Name. */
       if (config_lookup_string(config.cfg, "general.name", &str)) {
         raw_service_name = (char *)str;
@@ -1674,36 +1674,116 @@ void termHandler(__attribute__((unused)) int k) {
   exit(EXIT_SUCCESS);
 }
 
-void display_config(int argc, char **argv) {
-  if (log_to_syslog_selected != 0) {
-   warn("The \"--display-config\" option has a limitation: it can only output to STDERR. To route its output to the system log, please redirect STDERR to the system log.");
-   fprintf(stderr, "NOTE: the \"--display-config\" option has a limitation: it can only output to STDERR. To route its output to the system log, please redirect STDERR to the system log.\n\n");
+void _display_config(const char *filename, const int linenumber, int argc, char **argv) {
+  _inform(filename, linenumber, ">> Display Config Start.");
+
+  // see the man entry on popen
+  FILE *fp;
+  int status;
+  char result[1024];
+
+  fp = popen("uname -a 2>/dev/null", "r");
+  if (fp != NULL) {
+    if (fgets(result, 1024, fp) != NULL) {
+      _inform(filename, linenumber, "");
+      _inform(filename, linenumber, "From \"uname -a\":");
+      if (result[strlen(result) - 1] <= ' ')
+        result[strlen(result) - 1] = '\0'; // remove the last character if it's not printable
+      _inform(filename, linenumber, " %s", result);
+    }
+    status = pclose(fp);
+    if (status == -1) {
+      debug(1, "Error on pclose");
+    }
   }
-  fprintf(stderr, ">> Display Config Start.\n");
+
+  fp = popen("(cat /etc/os-release | grep PRETTY_NAME | sed 's/PRETTY_NAME=//' | sed 's/\"//g') "
+             "2>/dev/null",
+             "r");
+  if (fp != NULL) {
+    if (fgets(result, 1024, fp) != NULL) {
+      _inform(filename, linenumber, "");
+      _inform(filename, linenumber, "From /etc/os-release:");
+      if (result[strlen(result) - 1] <= ' ')
+        result[strlen(result) - 1] = '\0'; // remove the last character if it's not printable
+      _inform(filename, linenumber, " %s", result);
+    }
+    status = pclose(fp);
+    if (status == -1) {
+      debug(1, "Error on pclose");
+    }
+  }
+
+  fp = popen("cat /sys/firmware/devicetree/base/model 2>/dev/null", "r");
+  if (fp != NULL) {
+    if (fgets(result, 1024, fp) != NULL) {
+      _inform(filename, linenumber, "");
+      _inform(filename, linenumber, "From /sys/firmware/devicetree/base/model:");
+      _inform(filename, linenumber, " %s", result);
+    }
+    status = pclose(fp);
+    if (status == -1) {
+      debug(1, "Error on pclose");
+    }
+  }
+
   char *version_string = get_version_string();
   if (version_string) {
-    fprintf(stderr, "\nVersion String:\n%s\n", version_string);
+    _inform(filename, linenumber, "");
+    _inform(filename, linenumber, "Shairport Sync Version String:");
+    _inform(filename, linenumber, " %s", version_string);
     free(version_string);
   } else {
-    fprintf(stderr, "Can't print version string!\n");
+    debug(1, "Can't print version string!\n");
   }
   if (argc != 0) {
-    fprintf(stderr, "\nCommand Line:\n");
+    char *obfp = result;
     int i;
     for (i = 0; i < argc - 1; i++) {
-      fprintf(stderr, "%s ", argv[i]);
+      snprintf(obfp, strlen(argv[i]) + 2, "%s ", argv[i]);
+      obfp += strlen(argv[i]) + 1;
     }
-    fprintf(stderr, "%s\n", argv[argc]);
+    snprintf(obfp, strlen(argv[i]) + 1, "%s", argv[i]);
+    obfp += strlen(argv[i]);
+    *obfp = 0;
+
+    _inform(filename, linenumber, "");
+    _inform(filename, linenumber, "Command Line:");
+    _inform(filename, linenumber, " %s", result);
   }
-  
+
   if (config.cfg == NULL)
-    fprintf(stderr, "\nNo configuration file.\n");
+    _inform(filename, linenumber, "No configuration file.");
   else {
-    fprintf(stderr, "\nConfiguration File:\n%s\n\nConfiguration File Settings:\n",config_file_real_path);
-    config_write(config.cfg,stderr); 
+    int configpipe[2];
+    if (pipe(configpipe) == 0) {
+      FILE *cw;
+      cw = fdopen(configpipe[1], "w");
+      _inform(filename, linenumber, "");
+      _inform(filename, linenumber, "Configuration File:");
+      _inform(filename, linenumber, " %s", config_file_real_path);
+      _inform(filename, linenumber, "");
+      _inform(filename, linenumber, "Configuration File Settings:");
+      config_write(config.cfg, cw);
+      fclose(cw);
+      FILE *cr;
+      cr = fdopen(configpipe[0], "r");
+      while (fgets(result, 1024, cr) != NULL) {
+        // replace funny character at the end, if it's there
+        if (result[strlen(result) - 1] <= ' ')
+          result[strlen(result) - 1] = '\0'; // remove the last character if it's not printable
+        _inform(filename, linenumber, " %s", result);
+      }
+      fclose(cr);
+    } else {
+      debug(1, "Error making pipe.\n");
+    }
   }
-  fprintf(stderr, "\n>> Display Config End.\n");
+  _inform(filename, linenumber, "");
+  _inform(filename, linenumber, ">> Display Config End.");
 }
+
+#define display_config(argc, argv) _display_config(__FILE__, __LINE__, argc, argv)
 
 int main(int argc, char **argv) {
   memset(&config, 0, sizeof(config)); // also clears all strings, BTW
@@ -1712,7 +1792,7 @@ int main(int argc, char **argv) {
     print_version();
     exit(EXIT_SUCCESS);
   }
-  
+
   // this is a bit weird, but necessary -- basename() may modify the argument passed in
   char *basec = strdup(argv[0]);
   char *bname = basename(basec);
@@ -1884,7 +1964,7 @@ int main(int argc, char **argv) {
          config.service_name);
     config.service_name[50] = '\0'; // truncate it and carry on...
   }
-  
+
   if (display_config_selected != 0) {
     display_config(argc, argv);
     if (argc == 2) {
