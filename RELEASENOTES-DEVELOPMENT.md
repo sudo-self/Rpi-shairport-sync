@@ -1,3 +1,8 @@
+Version 4.1-dev-726-g5e6e6344
+====
+**Enhancement**
+* Enhance `--displayConfig` to log information about the OS as well as about Shairport Sync itself, and use Shairport Sync's standard logging -- it's not stuck on `STDERR` anymore.
+
 Version 4.1-dev-721-g93c1f1ae
 ====
 **Pesky Things You Can't Ignore**
