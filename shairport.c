@@ -171,6 +171,7 @@ int has_fltp_capable_aac_decoder(void) {
 
 #ifdef CONFIG_SOXR
 pthread_t soxr_time_check_thread;
+int soxr_time_check_thread_started = 0;
 void *soxr_time_check(__attribute__((unused)) void *arg) {
   const int buffer_length = 352;
   int32_t inbuffer[buffer_length * 2];
@@ -1541,6 +1542,7 @@ void exit_function() {
 #ifdef CONFIG_DBUS_INTERFACE
       debug(2, "Stopping D-Bus service");
       stop_dbus_service();
+      debug(2, "Stopping D-Bus service done");
 #endif
       if (g_main_loop) {
         debug(2, "Stopping D-Bus Loop Thread");
@@ -1551,35 +1553,48 @@ void exit_function() {
         // so don't wait for it
         if (type_of_exit_cleanup != TOE_dbus)
           pthread_join(dbus_thread, NULL);
+      debug(2, "Stopping D-Bus Loop Thread Done");
       }
 #endif
 
 #ifdef CONFIG_DACP_CLIENT
       debug(2, "Stopping DACP Monitor");
       dacp_monitor_stop();
+      debug(2, "Stopping DACP Monitor Done");      
 #endif
 
 #ifdef CONFIG_METADATA_HUB
       debug(2, "Stopping metadata hub");
       metadata_hub_stop();
+      debug(2, "Stopping metadata done");      
 #endif
 
 #ifdef CONFIG_METADATA
       debug(2, "Stopping metadata");
       metadata_stop(); // close down the metadata pipe
+      debug(2, "Stopping metadata done");      
 #endif
       debug(2, "Stopping the activity monitor.");
       activity_monitor_stop(0);
+      debug(2, "Stopping the activity monitor done.");
+      
 
       if ((config.output) && (config.output->deinit)) {
         debug(2, "Deinitialise the audio backend.");
         config.output->deinit();
+        debug(2, "Deinitialise the audio backend done.");
+       
       }
 
 #ifdef CONFIG_SOXR
       // be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
-      debug(2, "Waiting for SoXr timecheck to terminate...");
-      pthread_join(soxr_time_check_thread, NULL);
+      if (soxr_time_check_thread_started != 0) {
+        debug(1, "Waiting for SoXr timecheck to terminate...");
+        pthread_join(soxr_time_check_thread, NULL);
+        soxr_time_check_thread_started = 0;
+        debug(1, "Waiting for SoXr timecheck to terminate done");
+      }
+      
 #endif
 
       if (conns)
@@ -2354,6 +2369,7 @@ int main(int argc, char **argv) {
 
 #ifdef CONFIG_SOXR
   pthread_create(&soxr_time_check_thread, NULL, &soxr_time_check, NULL);
+  soxr_time_check_thread_started = 1;
 #endif
 
   /*

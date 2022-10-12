@@ -1129,10 +1129,11 @@ int start_dbus_service() {
 
 void stop_dbus_service() {
   debug(2, "stopping dbus service");
-  if (ownerID)
+  if (ownerID) {
     g_bus_unown_name(ownerID);
-  else
-    debug(1, "Zero OwnerID for \"org.gnome.ShairportSync\".");
+  } else if (service_is_running != 0) {
+      debug(1, "Zero OwnerID for running \"org.gnome.ShairportSync\" dbus service.");
+  }
   service_is_running = 0;
 }
 
