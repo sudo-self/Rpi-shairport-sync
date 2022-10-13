@@ -60,7 +60,7 @@
       <opt>[-w | --wait-cmd]</opt>
       <opt>[-- </opt><arg>audio_backend_options</arg><opt>]</opt>
       </cmd>
-      <cmd>shairport-sync <opt>--displayConfig</opt></cmd>
+      <cmd>shairport-sync <opt>-X | --displayConfig</opt></cmd>
       <cmd>shairport-sync <opt>-h</opt></cmd>
       <cmd>shairport-sync <opt>-k</opt></cmd>
       <cmd>shairport-sync <opt>-V</opt></cmd>
@@ -201,20 +201,6 @@
     the daemon at a later time. See also the <opt>-j</opt> option. Only available if
 		shairport-sync has been compiled with libdaemon support.
 		</p></optdesc>
-	  </option>
-
-	  <option>
-		<p><opt>--displayConfig</opt></p>
-		<optdesc><p>
-		This logs information relating to the configuration of Shairport Sync.
-		It can be very useful for debugging. The information logged is 
-		some host OS information, the Shairport Sync version string
-		(which indicates the build options used when <opt>shairport-sync</opt> was built),
-		the contents of the command line that invoked Shairport Sync,
-		the name of the configuration file and the active settings therein.</p>
-		<p>If this is the only option on the command line, <opt>shairport-sync</opt> will
-		terminate after displaying the information.</p>
-		</optdesc>
 	  </option>
 
 	  <option>
@@ -441,6 +427,20 @@
 		Wait for commands specified using <opt>-B</opt> or <opt>-E</opt> to complete before
     continuing execution.
 		</p></optdesc>
+	  </option>
+
+	  <option>
+		<p><opt>-X | --displayConfig</opt></p>
+		<optdesc><p>
+		This logs information relating to the configuration of Shairport Sync.
+		It can be very useful for debugging. The information logged is 
+		some host OS information, the Shairport Sync version string
+		(which indicates the build options used when <opt>shairport-sync</opt> was built),
+		the contents of the command line that invoked Shairport Sync,
+		the name of the configuration file and the active settings therein.</p>
+		<p>If this is the only option on the command line, <opt>shairport-sync</opt> will
+		terminate after displaying the information.</p>
+		</optdesc>
 	  </option>
 
   <section name="Audio Backend Options">

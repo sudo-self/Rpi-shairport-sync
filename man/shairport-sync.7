@@ -4,7 +4,7 @@ shairport-sync \- AirPlay and AirPlay 2 Audio Player
 .SH SYNOPSIS
 \fBshairport-sync [-djvw]\fB [-a \fB\fIservice-name\fB | --name=\fB\fIservice-name\fB]\fB [-B \fB\fIcommand\fB | --onstart=\fB\fIcommand\fB]\fB [-c \fB\fIconfigurationfile\fB | --configfile=\fB\fIconfigurationfile\fB]\fB [-d | --daemon]\fB [-E \fB\fIcommand\fB | --onstop=\fB\fIcommand\fB]\fB [-g | --get-cover-art]\fB [-j | --justDaemoniseNoPIDFile]\fB [--logOutputLevel]\fB [--log-to-syslog]\fB [-L \fB\fIlatency\fB | --latency=\fB\fIlatency\fB]\fB [-m \fB\fIbackend\fB | --mdns=\fB\fIbackend\fB]\fB [-M | --metadata-enable]\fB [-o \fB\fIbackend\fB | --output=\fB\fIbackend\fB]\fB [-p \fB\fIport\fB | --port=\fB\fIport\fB]\fB [--password=\fB\fIsecret\fB]\fB [-r \fB\fIthreshold\fB | --resync=\fB\fIthreshold\fB]\fB [--statistics]\fB [-S \fB\fImode\fB | --stuffing=\fB\fImode\fB]\fB [-t \fB\fItimeout\fB | --timeout=\fB\fItimeout\fB]\fB [--tolerance=\fB\fIframes\fB]\fB [-v | --verbose]\fB [-w | --wait-cmd]\fB [-- \fB\fIaudio_backend_options\fB]\fB
 
-shairport-sync --displayConfig\fB
+shairport-sync -X | --displayConfig\fB
 
 shairport-sync -h\fB
 
@@ -72,11 +72,6 @@ Read configuration settings from \fIfilename\f1. The default is to read them fro
 .TP
 \fB-d | --daemon\f1
 Instruct shairport-sync to demonise itself. It will write its Process ID (PID) to a file, usually at \fI/var/run/shairport-sync/shairport-sync.pid\f1, which is used by the \fB-k\f1, \fB-D\f1 and \fB-R\f1 options to locate the daemon at a later time. See also the \fB-j\f1 option. Only available if shairport-sync has been compiled with libdaemon support. 
-.TP
-\fB--displayConfig\f1
-This logs information relating to the configuration of Shairport Sync. It can be very useful for debugging. The information logged is some host OS information, the Shairport Sync version string (which indicates the build options used when \fBshairport-sync\f1 was built), the contents of the command line that invoked Shairport Sync, the name of the configuration file and the active settings therein.
-
-If this is the only option on the command line, \fBshairport-sync\f1 will terminate after displaying the information.
 .TP
 \fB-E \f1\fIprogram\f1\fB | --on-stop=\f1\fIprogram\f1
 Execute \fIprogram\f1 when playback has ended. Specify the full path to the program, e.g. \fI/usr/bin/logger\f1. Executable scripts can be used, but they must have the appropriate shebang (\fI#!/bin/sh\f1) in the headline.
@@ -151,6 +146,11 @@ Print debug information to the \fISTDERR\f1, or to \fBsyslog\f1 if the \fB-log-t
 .TP
 \fB-w | --wait-cmd\f1
 Wait for commands specified using \fB-B\f1 or \fB-E\f1 to complete before continuing execution. 
+.TP
+\fB-X | --displayConfig\f1
+This logs information relating to the configuration of Shairport Sync. It can be very useful for debugging. The information logged is some host OS information, the Shairport Sync version string (which indicates the build options used when \fBshairport-sync\f1 was built), the contents of the command line that invoked Shairport Sync, the name of the configuration file and the active settings therein.
+
+If this is the only option on the command line, \fBshairport-sync\f1 will terminate after displaying the information.
 .SH AUDIO BACKEND OPTIONS
 Audio Backend Options are command-line options that are passed to the chosen audio backend. They are always preceded by the \fB--\f1 symbol to introduce them and to separate them from any preceding program options. In this way, option letters can be used as program options and reused as audio backend options without ambiguity.
 

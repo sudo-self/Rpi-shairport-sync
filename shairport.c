@@ -281,7 +281,7 @@ void usage(char *progname) {
     printf("Options:\n");
     printf("    -h, --help              Show this help.\n");
     printf("    -V, --version           Show version information -- the version string.\n");
-    printf("    --displayConfig         Output OS information, version string, command line, configuration file and active settings to the log.\n");
+    printf("    -X, --displayConfig     Output OS information, version string, command line, configuration file and active settings to the log.\n");
     printf("    --statistics            Print some interesting statistics. More will be printed if -v / -vv / -vvv are also chosen.\n");
     printf("    -v, --verbose           Print debug information; -v some; -vv more; -vvv lots -- generally too much.\n");
     printf("    -c, --configfile=FILE   Read configuration settings from FILE. Default is %s.\n", configuration_file_path);
@@ -352,7 +352,7 @@ int parse_options(int argc, char **argv) {
       {"statistics", 0, POPT_ARG_NONE, &config.statistics_requested, 0, NULL, NULL},
       {"logOutputLevel", 0, POPT_ARG_NONE, &config.logOutputLevel, 0, NULL, NULL},
       {"version", 'V', POPT_ARG_NONE, NULL, 0, NULL, NULL},
-      {"displayConfig", 0, POPT_ARG_NONE, &display_config_selected, 0, NULL, NULL},
+      {"displayConfig", 'X', POPT_ARG_NONE, &display_config_selected, 0, NULL, NULL},
       {"port", 'p', POPT_ARG_INT, &config.port, 0, NULL, NULL},
       {"name", 'a', POPT_ARG_STRING, &raw_service_name, 0, NULL, NULL},
       {"output", 'o', POPT_ARG_STRING, &config.output_name, 0, NULL, NULL},
