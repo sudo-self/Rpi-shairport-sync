@@ -2173,6 +2173,24 @@ int main(int argc, char **argv) {
   } else {
     debug(1, "can't print the version information!");
   }
+  
+  // print command line
+
+  if (argc != 0) {
+    char result[1024];
+    char *obfp = result;
+    int i;
+    for (i = 0; i < argc - 1; i++) {
+      snprintf(obfp, strlen(argv[i]) + 2, "%s ", argv[i]);
+      obfp += strlen(argv[i]) + 1;
+    }
+    snprintf(obfp, strlen(argv[i]) + 1, "%s", argv[i]);
+    obfp += strlen(argv[i]);
+    *obfp = 0;
+    debug(1,"Command Line: \"%s\".", result);
+  }
+
+
 
   debug(1, "log verbosity is %d.", debuglev);
 
