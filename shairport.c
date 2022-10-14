@@ -130,6 +130,9 @@ int killOption = 0;
 int daemonisewith = 0;
 int daemonisewithout = 0;
 int log_to_syslog_selected = 0;
+#ifdef CONFIG_LIBDAEMON
+int log_to_default = 1; // needed if libdaemon used
+#endif
 int display_config_selected = 0;
 int log_to_syslog_select_is_first_command_line_argument = 0;
 
@@ -442,6 +445,9 @@ int parse_options(int argc, char **argv) {
       inform("Suggestion: make \"--log-to-syslog\" the first command line argument to ensure "
              "messages go to the syslog right from the beginning.");
     }
+#ifdef CONFIG_LIBDAEMON
+    log_to_default = 0; // a specific log output modality has been selected.
+#endif
     log_to_syslog();
   }
 
@@ -797,6 +803,9 @@ int parse_options(int argc, char **argv) {
 
       /* Get the diagnostics output default. */
       if (config_lookup_string(config.cfg, "diagnostics.log_output_to", &str)) {
+#ifdef CONFIG_LIBDAEMON
+        log_to_default = 0; // a specific log output modality has been selected.
+#endif
         if (strcasecmp(str, "syslog") == 0)
           log_to_syslog();
         else if (strcasecmp(str, "stdout") == 0) {
@@ -1471,7 +1480,7 @@ int parse_options(int argc, char **argv) {
   char temp_pid_dir[4096];
   strcpy(temp_pid_dir, "/var/run/");
   strcat(temp_pid_dir, config.appName);
-  debug(1, "default pid filename is \"%s\".", temp_pid_dir);
+  debug(3, "Default PID directory is \"%s\".", temp_pid_dir);
   char *use_this_pid_dir = temp_pid_dir;
 #endif
   // debug(1,"config.piddir \"%s\".",config.piddir);
@@ -1501,7 +1510,7 @@ char pid_file_path_string[4096] = "\0";
 const char *pid_file_proc(void) {
   snprintf(pid_file_path_string, sizeof(pid_file_path_string), "%s/%s.pid", config.computed_piddir,
            daemon_pid_file_ident ? daemon_pid_file_ident : "unknown");
-  // debug(1,"pid_file_path_string \"%s\".",pid_file_path_string);
+  debug(1, "PID file: \"%s\".", pid_file_path_string);
   return pid_file_path_string;
 }
 #endif
@@ -1553,37 +1562,35 @@ void exit_function() {
         // so don't wait for it
         if (type_of_exit_cleanup != TOE_dbus)
           pthread_join(dbus_thread, NULL);
-      debug(2, "Stopping D-Bus Loop Thread Done");
+        debug(2, "Stopping D-Bus Loop Thread Done");
       }
 #endif
 
 #ifdef CONFIG_DACP_CLIENT
       debug(2, "Stopping DACP Monitor");
       dacp_monitor_stop();
-      debug(2, "Stopping DACP Monitor Done");      
+      debug(2, "Stopping DACP Monitor Done");
 #endif
 
 #ifdef CONFIG_METADATA_HUB
       debug(2, "Stopping metadata hub");
       metadata_hub_stop();
-      debug(2, "Stopping metadata done");      
+      debug(2, "Stopping metadata done");
 #endif
 
 #ifdef CONFIG_METADATA
       debug(2, "Stopping metadata");
       metadata_stop(); // close down the metadata pipe
-      debug(2, "Stopping metadata done");      
+      debug(2, "Stopping metadata done");
 #endif
       debug(2, "Stopping the activity monitor.");
       activity_monitor_stop(0);
       debug(2, "Stopping the activity monitor done.");
-      
 
       if ((config.output) && (config.output->deinit)) {
         debug(2, "Deinitialise the audio backend.");
         config.output->deinit();
         debug(2, "Deinitialise the audio backend done.");
-       
       }
 
 #ifdef CONFIG_SOXR
@@ -1594,7 +1601,7 @@ void exit_function() {
         soxr_time_check_thread_started = 0;
         debug(1, "Waiting for SoXr timecheck to terminate done");
       }
-      
+
 #endif
 
       if (conns)
@@ -1650,12 +1657,12 @@ void exit_function() {
 
 #ifdef CONFIG_LIBDAEMON
     if (this_is_the_daemon_process) { // this is the daemon that is exiting
-      debug(1, "libdaemon daemon exit");
+      debug(1, "libdaemon daemon process exit");
     } else {
       if (config.daemonise)
-        debug(1, "libdaemon parent exit");
+        debug(1, "libdaemon parent process exit");
       else
-        debug(1, "exit_function libdaemon exit");
+        debug(1, "normal exit");
     }
 #else
     mdns_unregister(); // once the dacp handler is done and all player threrads are done it should
@@ -1997,23 +2004,18 @@ int main(int argc, char **argv) {
     /* Check if the new function daemon_pid_file_kill_wait() is available, if it is, use it. */
     if ((ret = daemon_pid_file_kill_wait(SIGTERM, 5)) < 0) {
       if (errno == ENOENT)
-        daemon_log(LOG_WARNING, "Failed to kill %s daemon: PID file not found.", config.appName);
+        warn("Failed to kill the %s daemon. The PID file was not found.", config.appName);
+      // daemon_log(LOG_WARNING, "Failed to kill %s daemon: PID file not found.", config.appName);
       else
-        daemon_log(LOG_WARNING, "Failed to kill %s daemon: \"%s\", errno %u.", config.appName,
-                   strerror(errno), errno);
-    } else {
-      // debug(1,"Successfully killed the %s daemon.", config.appName);
-      if (daemon_pid_file_remove() == 0)
-        debug(2, "killed the %s daemon.", config.appName);
-      else
-        daemon_log(LOG_WARNING,
-                   "killed the %s daemon, but cannot remove old PID file: \"%s\", errno %u.",
-                   config.appName, strerror(errno), errno);
+        warn("Failed to kill the %s daemon. Error: \"%s\", errno %u.", config.appName,
+             strerror(errno), errno);
+      // daemon_log(LOG_WARNING, "Failed to kill %s daemon: \"%s\", errno %u.", config.appName,
+      //            strerror(errno), errno);
     }
     return ret < 0 ? 1 : 0;
 #else
-    fprintf(stderr, "%s was built without libdaemon, so does not support the -k or --kill option\n",
-            config.appName);
+    warn("%s was built without libdaemon, so it does not support the -k or --kill option.",
+         config.appName);
     return 1;
 #endif
   }
@@ -2021,7 +2023,8 @@ int main(int argc, char **argv) {
 #ifdef CONFIG_LIBDAEMON
   /* If we are going to daemonise, check that the daemon is not running already.*/
   if ((config.daemonise) && ((pid = daemon_pid_file_is_running()) >= 0)) {
-    daemon_log(LOG_ERR, "The %s daemon is already running as PID %u", config.appName, pid);
+    warn("The %s deamon is already running with process ID (PID) %u.", config.appName, pid);
+    // daemon_log(LOG_ERR, "The %s daemon is already running as PID %u", config.appName, pid);
     return 1;
   }
 
@@ -2030,8 +2033,7 @@ int main(int argc, char **argv) {
   if (config.daemonise) {
     /* Prepare for return value passing from the initialization procedure of the daemon process */
     if (daemon_retval_init() < 0) {
-      daemon_log(LOG_ERR, "Failed to create pipe.");
-      return 1;
+      die("Failed to create pipe.");
     }
 
     /* Do the fork */
@@ -2046,43 +2048,38 @@ int main(int argc, char **argv) {
 
       /* Wait for 20 seconds for the return value passed from the daemon process */
       if ((ret = daemon_retval_wait(20)) < 0) {
-        daemon_log(LOG_ERR, "Could not receive return value from daemon process: %s",
-                   strerror(errno));
-        return 255;
+        die("Could not receive return value from daemon process: %s", strerror(errno));
       }
 
       switch (ret) {
       case 0:
         break;
       case 1:
-        daemon_log(
-            LOG_ERR,
-            "the %s daemon failed to launch: could not close open file descriptors after forking.",
-            config.appName);
+        warn("The %s daemon failed to launch: could not close open file descriptors after forking.",
+             config.appName);
         break;
       case 2:
-        daemon_log(LOG_ERR, "the %s daemon failed to launch: could not create PID file.",
-                   config.appName);
+        warn("The %s daemon failed to launch: could not create PID file.", config.appName);
         break;
       case 3:
-        daemon_log(LOG_ERR,
-                   "the %s daemon failed to launch: could not create or access PID directory.",
-                   config.appName);
+        warn("The %s daemon failed to launch: could not create or access PID directory.",
+             config.appName);
         break;
       default:
-        daemon_log(LOG_ERR, "the %s daemon failed to launch, error %i.", config.appName, ret);
+        warn("The %s daemon failed to launch, error %i.", config.appName, ret);
       }
       return ret;
     } else { /* pid == 0 means we are the daemon */
 
-      this_is_the_daemon_process = 1; //
+      this_is_the_daemon_process = 1;
+      if (log_to_default != 0) // if a specific logging mode has not been selected
+        log_to_syslog();       // automatically send logs to the daemon_log
 
       /* Close FDs */
       if (daemon_close_all(-1) < 0) {
-        daemon_log(LOG_ERR, "Failed to close all file descriptors: %s", strerror(errno));
+        warn("Failed to close all file descriptors while daemonising. Error: %s", strerror(errno));
         /* Send the error condition to the parent process */
         daemon_retval_send(1);
-
         daemon_signal_done();
         return 0;
       }
@@ -2090,19 +2087,20 @@ int main(int argc, char **argv) {
       /* Create the PID file if required */
       if (config.daemonise_store_pid) {
         /* Create the PID directory if required -- we don't really care about the result */
-        printf("PID directory is \"%s\".", config.computed_piddir);
+        debug(1, "PID directory is \"%s\".", config.computed_piddir);
         int result = mkpath(config.computed_piddir, 0700);
         if ((result != 0) && (result != -EEXIST)) {
           // error creating or accessing the PID file directory
+          warn("Failed to create the directory \"%s\" for the PID file. Error: %s.",
+               config.computed_piddir, strerror(errno));
           daemon_retval_send(3);
-
           daemon_signal_done();
           return 0;
         }
 
         if (daemon_pid_file_create() < 0) {
-          daemon_log(LOG_ERR, "Could not create PID file (%s).", strerror(errno));
-
+          // daemon_log(LOG_ERR, "Could not create PID file (%s).", strerror(errno));
+          warn("Failed to create the PID file. Error: %s.", strerror(errno));
           daemon_retval_send(2);
           daemon_signal_done();
           return 0;
@@ -2129,10 +2127,10 @@ int main(int argc, char **argv) {
   apfh = apfh >> 32;
   uint32_t apf32 = apf;
   uint32_t apfh32 = apfh;
-  debug(1, "startup in AirPlay 2 mode, with features 0x%" PRIx32 ",0x%" PRIx32 " on device \"%s\".",
+  debug(1, "Startup in AirPlay 2 mode, with features 0x%" PRIx32 ",0x%" PRIx32 " on device \"%s\".",
         apf32, apfh32, config.airplay_device_id);
 #else
-  debug(1, "startup in classic Airplay (aka \"AirPlay 1\") mode.");
+  debug(1, "Startup in classic Airplay (aka \"AirPlay 1\") mode.");
 #endif
 
   // control-c (SIGINT) cleanly
@@ -2168,12 +2166,12 @@ int main(int argc, char **argv) {
 
   char *version_dbs = get_version_string();
   if (version_dbs) {
-    debug(1, "software version: \"%s\"", version_dbs);
+    debug(1, "Version String: \"%s\"", version_dbs);
     free(version_dbs);
   } else {
-    debug(1, "can't print the version information!");
+    debug(1, "Can't print the version information!");
   }
-  
+
   // print command line
 
   if (argc != 0) {
@@ -2187,34 +2185,7 @@ int main(int argc, char **argv) {
     snprintf(obfp, strlen(argv[i]) + 1, "%s", argv[i]);
     obfp += strlen(argv[i]);
     *obfp = 0;
-    debug(1,"Command Line: \"%s\".", result);
-  }
-
-
-
-  debug(1, "log verbosity is %d.", debuglev);
-
-  config.output = audio_get_output(config.output_name);
-  if (!config.output) {
-    die("Invalid audio backend \"%s\" selected!",
-        config.output_name == NULL ? "<unspecified>" : config.output_name);
-  }
-  config.output->init(argc - audio_arg, argv + audio_arg);
-
-  // pthread_cleanup_push(main_cleanup_handler, NULL);
-
-  // daemon_log(LOG_NOTICE, "startup");
-
-  switch (config.endianness) {
-  case SS_LITTLE_ENDIAN:
-    debug(2, "The processor is running little-endian.");
-    break;
-  case SS_BIG_ENDIAN:
-    debug(2, "The processor is running big-endian.");
-    break;
-  case SS_PDP_ENDIAN:
-    debug(2, "The processor is running pdp-endian.");
-    break;
+    debug(1, "Command Line: \"%s\".", result);
   }
 
 #ifdef CONFIG_AIRPLAY_2
@@ -2246,7 +2217,34 @@ int main(int argc, char **argv) {
   /* Tell Libgcrypt that initialization has completed. */
   gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 
+  debug(1, "libgcrypt initialised.");
+
 #endif
+
+  debug(1, "Log Verbosity is %d.", debuglev);
+
+  config.output = audio_get_output(config.output_name);
+  if (!config.output) {
+    die("Invalid audio backend \"%s\" selected!",
+        config.output_name == NULL ? "<unspecified>" : config.output_name);
+  }
+  config.output->init(argc - audio_arg, argv + audio_arg);
+
+  // pthread_cleanup_push(main_cleanup_handler, NULL);
+
+  // daemon_log(LOG_NOTICE, "startup");
+
+  switch (config.endianness) {
+  case SS_LITTLE_ENDIAN:
+    debug(2, "The processor is running little-endian.");
+    break;
+  case SS_BIG_ENDIAN:
+    debug(2, "The processor is running big-endian.");
+    break;
+  case SS_PDP_ENDIAN:
+    debug(2, "The processor is running pdp-endian.");
+    break;
+  }
 
   /* Mess around with the latency options */
   // Basically, we expect the source to set the latency and add a fixed offset of 11025 frames to
@@ -2271,7 +2269,7 @@ int main(int argc, char **argv) {
   }
 
   /* Print out options */
-  debug(1, "disable resend requests is %s.", config.disable_resend_requests ? "on" : "off");
+  debug(1, "disable_resend_requests is %s.", config.disable_resend_requests ? "on" : "off");
   debug(1,
         "diagnostic_drop_packet_fraction is %f. A value of 0.0 means no packets will be dropped "
         "deliberately.",
@@ -2300,9 +2298,8 @@ int main(int argc, char **argv) {
   debug(1, "mdns backend \"%s\".", strnull(config.mdns_name));
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
   debug(1, "interpolation setting is \"%s\".",
-        config.packet_stuffing == ST_basic  ? "basic"
-        : config.packet_stuffing == ST_soxr ? "soxr"
-                                            : "auto");
+        config.packet_stuffing == ST_basic ? "basic"
+                                           : config.packet_stuffing == ST_soxr ? "soxr" : "auto");
   debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
   debug(1, "resync time is %f seconds.", config.resyncthreshold);
   debug(1, "allow a session to be interrupted: %d.", config.allow_session_interruption);
