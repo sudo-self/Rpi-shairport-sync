@@ -1,6 +1,6 @@
 Version 4.1-dev-730-g63e0dfda
 ====
-**Minor Debugging Ehnancements**
+**Minor Debugging Enhancements**
 * Improve debugging of a Shairport Sync daemon process created with `libdaemon`.
 * List the command line when Shairport Sync starts with a verbosity of 1 or more.
 
