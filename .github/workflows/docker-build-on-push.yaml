@@ -9,7 +9,8 @@ name: Build and push docker (commit)
 on:
   push:
     branches:
-      - '**'
+      - master
+      - development
 
 env:
   DOCKER_PLATFORMS: linux/386,linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64
