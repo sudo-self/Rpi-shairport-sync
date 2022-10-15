@@ -1501,6 +1501,7 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
                                    {404, "Not Found"},
                                    {451, "Unavailable"},
                                    {456, "Header Field Not Valid for Resource"},
+                                   {470, "Connection Authorization Required"},
                                    {500, "Internal Server Error"},
                                    {501, "Not Implemented"}};
   // 451 is really "Unavailable For Legal Reasons"!
@@ -3148,187 +3149,192 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       plist_t streams_array = plist_new_array(); // to hold the ports and stuff
       plist_t stream0dict = plist_new_dict();
-      // more stuff
-      // set up a UDP control stream and thread and a UDP or TCP audio stream and thread
 
-      // bind a new UDP port and get a socket
-      conn->local_ap2_control_port = 0; // any port
-      err = bind_socket_and_port(SOCK_DGRAM, conn->connection_ip_family, conn->self_ip_string,
-                                 conn->self_scope_id, &conn->local_ap2_control_port,
-                                 &conn->ap2_control_socket);
-      if (err) {
-        die("Error %d: could not find a UDP port to use as an ap2_control port", err);
-      }
-      debug(2, "Connection %d: UDP control port opened: %u.", conn->connection_number,
-            conn->local_ap2_control_port);
-
-      pthread_create(&conn->rtp_ap2_control_thread, NULL, &rtp_ap2_control_receiver, (void *)conn);
-
-      // get the session key
+      // get the session key -- it must have one
 
       plist_t item = plist_dict_get_item(stream0, "shk"); // session key
-      uint64_t item_value = 0;
+      uint64_t item_value = 0; // the length
       plist_get_data_val(item, (char **)&conn->session_key, &item_value);
+      if (item_value != 0) {
 
-      // get the DACP-ID and Active Remote for remote control stuff
+        // more stuff
+        // set up a UDP control stream and thread and a UDP or TCP audio stream and thread
 
-      char *ar = msg_get_header(req, "Active-Remote");
-      if (ar) {
-        debug(3, "Connection %d: SETUP AP2 -- Active-Remote string seen: \"%s\".",
-              conn->connection_number, ar);
-        // get the active remote
-        if (conn->dacp_active_remote) // this is in case SETUP was previously called
-          free(conn->dacp_active_remote);
-        conn->dacp_active_remote = strdup(ar);
-#ifdef CONFIG_METADATA
-        send_metadata('ssnc', 'acre', ar, strlen(ar), req, 1);
-#endif
-      } else {
-        debug(1, "Connection %d: SETUP AP2 no Active-Remote information  the SETUP Record.",
-              conn->connection_number);
-        if (conn->dacp_active_remote) { // this is in case SETUP was previously called
-          free(conn->dacp_active_remote);
-          conn->dacp_active_remote = NULL;
-        }
-      }
-
-      ar = msg_get_header(req, "DACP-ID");
-      if (ar) {
-        debug(3, "Connection %d: SETUP AP2 -- DACP-ID string seen: \"%s\".",
-              conn->connection_number, ar);
-        if (conn->dacp_id) // this is in case SETUP was previously called
-          free(conn->dacp_id);
-        conn->dacp_id = strdup(ar);
-#ifdef CONFIG_METADATA
-        send_metadata('ssnc', 'daid', ar, strlen(ar), req, 1);
-#endif
-      } else {
-        debug(1, "Connection %d: SETUP AP2 doesn't include DACP-ID string information.",
-              conn->connection_number);
-        if (conn->dacp_id) { // this is in case SETUP was previously called
-          free(conn->dacp_id);
-          conn->dacp_id = NULL;
-        }
-      }
-
-      // now, get the type of the stream.
-      item = plist_dict_get_item(stream0, "type");
-      item_value = 0;
-      plist_get_uint_val(item, &item_value);
-
-      switch (item_value) {
-      case 96: {
-        debug(1, "Connection %d. AP2 Realtime Audio Stream.", conn->connection_number);
-        debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
-        // get_play_lock(conn);
-        conn->airplay_stream_type = realtime_stream;
         // bind a new UDP port and get a socket
-        conn->local_realtime_audio_port = 0; // any port
+        conn->local_ap2_control_port = 0; // any port
         err = bind_socket_and_port(SOCK_DGRAM, conn->connection_ip_family, conn->self_ip_string,
-                                   conn->self_scope_id, &conn->local_realtime_audio_port,
-                                   &conn->realtime_audio_socket);
+                                   conn->self_scope_id, &conn->local_ap2_control_port,
+                                   &conn->ap2_control_socket);
         if (err) {
-          die("Error %d: could not find a UDP port to use as a realtime_audio port", err);
+          die("Error %d: could not find a UDP port to use as an ap2_control port", err);
         }
-        debug(2, "Connection %d: UDP realtime audio port opened: %u.", conn->connection_number,
-              conn->local_realtime_audio_port);
+        debug(2, "Connection %d: UDP control port opened: %u.", conn->connection_number,
+              conn->local_ap2_control_port);
 
-        pthread_create(&conn->rtp_realtime_audio_thread, NULL, &rtp_realtime_audio_receiver,
-                       (void *)conn);
+        pthread_create(&conn->rtp_ap2_control_thread, NULL, &rtp_ap2_control_receiver, (void *)conn);
 
-        plist_dict_set_item(stream0dict, "type", plist_new_uint(96));
-        plist_dict_set_item(stream0dict, "dataPort",
-                            plist_new_uint(conn->local_realtime_audio_port));
+        // get the DACP-ID and Active Remote for remote control stuff
 
-        conn->stream.type = ast_apple_lossless;
-        debug(3, "An ALAC stream has been detected.");
-
-        // Set reasonable connection defaults
-        conn->stream.fmtp[0] = 96;
-        conn->stream.fmtp[1] = 352;
-        conn->stream.fmtp[2] = 0;
-        conn->stream.fmtp[3] = 16;
-        conn->stream.fmtp[4] = 40;
-        conn->stream.fmtp[5] = 10;
-        conn->stream.fmtp[6] = 14;
-        conn->stream.fmtp[7] = 2;
-        conn->stream.fmtp[8] = 255;
-        conn->stream.fmtp[9] = 0;
-        conn->stream.fmtp[10] = 0;
-        conn->stream.fmtp[11] = 44100;
-
-        // set the parameters of the player (as distinct from the parameters of the decoder --
-        // that's done later).
-        conn->max_frames_per_packet = conn->stream.fmtp[1]; // number of audio frames per packet.
-        conn->input_rate = conn->stream.fmtp[11];
-        conn->input_num_channels = conn->stream.fmtp[7];
-        conn->input_bit_depth = conn->stream.fmtp[3];
-        conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
-        debug(2, "Realtime Stream Play");
-        activity_monitor_signify_activity(1);
-        player_prepare_to_play(conn);
-        player_play(conn);
-
-        conn->rtp_running = 1; // hack!
-      } break;
-      case 103: {
-        debug(1, "Connection %d. AP2 Buffered Audio Stream.", conn->connection_number);
-        debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
-        // get_play_lock(conn);
-        conn->airplay_stream_type = buffered_stream;
-        // get needed stuff
-
-        // bind a new TCP port and get a socket
-        conn->local_buffered_audio_port = 0; // any port
-        err = bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family, conn->self_ip_string,
-                                   conn->self_scope_id, &conn->local_buffered_audio_port,
-                                   &conn->buffered_audio_socket);
-        if (err) {
-          die("SETUP on Connection %d: Error %d: could not find a TCP port to use as a "
-              "buffered_audio port",
-              conn->connection_number, err);
+        char *ar = msg_get_header(req, "Active-Remote");
+        if (ar) {
+          debug(3, "Connection %d: SETUP AP2 -- Active-Remote string seen: \"%s\".",
+                conn->connection_number, ar);
+          // get the active remote
+          if (conn->dacp_active_remote) // this is in case SETUP was previously called
+            free(conn->dacp_active_remote);
+          conn->dacp_active_remote = strdup(ar);
+  #ifdef CONFIG_METADATA
+          send_metadata('ssnc', 'acre', ar, strlen(ar), req, 1);
+  #endif
+        } else {
+          debug(1, "Connection %d: SETUP AP2 no Active-Remote information  the SETUP Record.",
+                conn->connection_number);
+          if (conn->dacp_active_remote) { // this is in case SETUP was previously called
+            free(conn->dacp_active_remote);
+            conn->dacp_active_remote = NULL;
+          }
         }
 
-        debug(2, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number,
-              conn->local_buffered_audio_port);
+        ar = msg_get_header(req, "DACP-ID");
+        if (ar) {
+          debug(3, "Connection %d: SETUP AP2 -- DACP-ID string seen: \"%s\".",
+                conn->connection_number, ar);
+          if (conn->dacp_id) // this is in case SETUP was previously called
+            free(conn->dacp_id);
+          conn->dacp_id = strdup(ar);
+  #ifdef CONFIG_METADATA
+          send_metadata('ssnc', 'daid', ar, strlen(ar), req, 1);
+  #endif
+        } else {
+          debug(1, "Connection %d: SETUP AP2 doesn't include DACP-ID string information.",
+                conn->connection_number);
+          if (conn->dacp_id) { // this is in case SETUP was previously called
+            free(conn->dacp_id);
+            conn->dacp_id = NULL;
+          }
+        }
 
-        // hack.
-        conn->max_frames_per_packet = 352; // number of audio frames per packet.
-        conn->input_rate = 44100;          // we are stuck with this for the moment.
-        conn->input_num_channels = 2;
-        conn->input_bit_depth = 16;
-        conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
-        activity_monitor_signify_activity(1);
-        player_prepare_to_play(
-            conn); // get capabilities of DAC before creating the buffered audio thread
+        // now, get the type of the stream.
+        item = plist_dict_get_item(stream0, "type");
+        item_value = 0;
+        plist_get_uint_val(item, &item_value);
 
-        pthread_create(&conn->rtp_buffered_audio_thread, NULL, &rtp_buffered_audio_processor,
-                       (void *)conn);
+        switch (item_value) {
+        case 96: {
+          debug(1, "Connection %d. AP2 Realtime Audio Stream.", conn->connection_number);
+          debug_log_rtsp_message(2, "Realtime Audio Stream SETUP incoming message", req);
+          // get_play_lock(conn);
+          conn->airplay_stream_type = realtime_stream;
+          // bind a new UDP port and get a socket
+          conn->local_realtime_audio_port = 0; // any port
+          err = bind_socket_and_port(SOCK_DGRAM, conn->connection_ip_family, conn->self_ip_string,
+                                     conn->self_scope_id, &conn->local_realtime_audio_port,
+                                     &conn->realtime_audio_socket);
+          if (err) {
+            die("Error %d: could not find a UDP port to use as a realtime_audio port", err);
+          }
+          debug(2, "Connection %d: UDP realtime audio port opened: %u.", conn->connection_number,
+                conn->local_realtime_audio_port);
 
-        plist_dict_set_item(stream0dict, "type", plist_new_uint(103));
-        plist_dict_set_item(stream0dict, "dataPort",
-                            plist_new_uint(conn->local_buffered_audio_port));
-        plist_dict_set_item(stream0dict, "audioBufferSize",
-                            plist_new_uint(conn->ap2_audio_buffer_size));
+          pthread_create(&conn->rtp_realtime_audio_thread, NULL, &rtp_realtime_audio_receiver,
+                         (void *)conn);
 
-        // this should be cancelled by an activity_monitor_signify_activity(1)
-        // call in the SETRATEANCHORI handler, which should come up right away
-        activity_monitor_signify_activity(0);
-        player_play(conn);
+          plist_dict_set_item(stream0dict, "type", plist_new_uint(96));
+          plist_dict_set_item(stream0dict, "dataPort",
+                              plist_new_uint(conn->local_realtime_audio_port));
 
-        conn->rtp_running = 1; // hack!
-      } break;
-      default:
-        debug(1, "SETUP on Connection %d: Unhandled stream type %" PRIu64 ".",
-              conn->connection_number, item_value);
-        debug_log_rtsp_message(1, "Unhandled stream type incoming message", req);
+          conn->stream.type = ast_apple_lossless;
+          debug(3, "An ALAC stream has been detected.");
+
+          // Set reasonable connection defaults
+          conn->stream.fmtp[0] = 96;
+          conn->stream.fmtp[1] = 352;
+          conn->stream.fmtp[2] = 0;
+          conn->stream.fmtp[3] = 16;
+          conn->stream.fmtp[4] = 40;
+          conn->stream.fmtp[5] = 10;
+          conn->stream.fmtp[6] = 14;
+          conn->stream.fmtp[7] = 2;
+          conn->stream.fmtp[8] = 255;
+          conn->stream.fmtp[9] = 0;
+          conn->stream.fmtp[10] = 0;
+          conn->stream.fmtp[11] = 44100;
+
+          // set the parameters of the player (as distinct from the parameters of the decoder --
+          // that's done later).
+          conn->max_frames_per_packet = conn->stream.fmtp[1]; // number of audio frames per packet.
+          conn->input_rate = conn->stream.fmtp[11];
+          conn->input_num_channels = conn->stream.fmtp[7];
+          conn->input_bit_depth = conn->stream.fmtp[3];
+          conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
+          debug(2, "Realtime Stream Play");
+          activity_monitor_signify_activity(1);
+          player_prepare_to_play(conn);
+          player_play(conn);
+
+          conn->rtp_running = 1; // hack!
+        } break;
+        case 103: {
+          debug(1, "Connection %d. AP2 Buffered Audio Stream.", conn->connection_number);
+          debug_log_rtsp_message(2, "Buffered Audio Stream SETUP incoming message", req);
+          // get_play_lock(conn);
+          conn->airplay_stream_type = buffered_stream;
+          // get needed stuff
+
+          // bind a new TCP port and get a socket
+          conn->local_buffered_audio_port = 0; // any port
+          err = bind_socket_and_port(SOCK_STREAM, conn->connection_ip_family, conn->self_ip_string,
+                                     conn->self_scope_id, &conn->local_buffered_audio_port,
+                                     &conn->buffered_audio_socket);
+          if (err) {
+            die("SETUP on Connection %d: Error %d: could not find a TCP port to use as a "
+                "buffered_audio port",
+                conn->connection_number, err);
+          }
+
+          debug(2, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number,
+                conn->local_buffered_audio_port);
+
+          // hack.
+          conn->max_frames_per_packet = 352; // number of audio frames per packet.
+          conn->input_rate = 44100;          // we are stuck with this for the moment.
+          conn->input_num_channels = 2;
+          conn->input_bit_depth = 16;
+          conn->input_bytes_per_frame = conn->input_num_channels * ((conn->input_bit_depth + 7) / 8);
+          activity_monitor_signify_activity(1);
+          player_prepare_to_play(
+              conn); // get capabilities of DAC before creating the buffered audio thread
+
+          pthread_create(&conn->rtp_buffered_audio_thread, NULL, &rtp_buffered_audio_processor,
+                         (void *)conn);
+
+          plist_dict_set_item(stream0dict, "type", plist_new_uint(103));
+          plist_dict_set_item(stream0dict, "dataPort",
+                              plist_new_uint(conn->local_buffered_audio_port));
+          plist_dict_set_item(stream0dict, "audioBufferSize",
+                              plist_new_uint(conn->ap2_audio_buffer_size));
+
+          // this should be cancelled by an activity_monitor_signify_activity(1)
+          // call in the SETRATEANCHORI handler, which should come up right away
+          activity_monitor_signify_activity(0);
+          player_play(conn);
+
+          conn->rtp_running = 1; // hack!
+        } break;
+        default:
+          debug(1, "SETUP on Connection %d: Unhandled stream type %" PRIu64 ".",
+                conn->connection_number, item_value);
+          debug_log_rtsp_message(1, "Unhandled stream type incoming message", req);
+        }
+
+        plist_dict_set_item(stream0dict, "controlPort", plist_new_uint(conn->local_ap2_control_port));
+
+        plist_array_append_item(streams_array, stream0dict);
+        plist_dict_set_item(setupResponsePlist, "streams", streams_array);
+        resp->respcode = 200;
+      } else {
+        warn("this stream can not be played because a session key is missing.");
       }
-
-      plist_dict_set_item(stream0dict, "controlPort", plist_new_uint(conn->local_ap2_control_port));
-
-      plist_array_append_item(streams_array, stream0dict);
-      plist_dict_set_item(setupResponsePlist, "streams", streams_array);
-      resp->respcode = 200;
     } else if (conn->airplay_stream_category == remote_control_stream) {
       debug(2, "Connection %d (RC): SETUP: Remote Control Stream received from %s.",
             conn->connection_number, conn->client_ip_string);
@@ -4303,7 +4309,7 @@ static void handle_get_parameter(__attribute__((unused)) rtsp_conn_info *conn, r
 
   if ((req->content) && (req->contentlength == strlen("volume\r\n")) &&
       strstr(req->content, "volume") == req->content) {
-    debug(2, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
+    debug(1, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
           config.airplay_volume);
     char *p = malloc(128); // will be automatically deallocated with the response is deleted
     if (p) {
