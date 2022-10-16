@@ -1671,40 +1671,44 @@ int32_t decipher_player_put_packet(uint8_t *ciphered_audio_alt, ssize_t nread,
     // %u, Csrc Count: %u, Marker: %u, Payload Type: %u, Sequence Number: %u, Timestamp: %u,
     // SSRC: %u.", version, padding, extension, csrc_count, marker, payload_type,
     // sequence_number, timestamp, ssrc);
+    
+    if (conn->session_key != NULL) {
+      unsigned char nonce[12];
+      memset(nonce, 0, sizeof(nonce));
+      memcpy(nonce + 4, ciphered_audio_alt + nread - 8,
+             8); // front-pad the 8-byte nonce received to get the 12-byte nonce expected
 
-    unsigned char nonce[12];
-    memset(nonce, 0, sizeof(nonce));
-    memcpy(nonce + 4, ciphered_audio_alt + nread - 8,
-           8); // front-pad the 8-byte nonce received to get the 12-byte nonce expected
+      // https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/ietf_chacha20-poly1305_construction
+      // Note: the eight-byte nonce must be front-padded out to 12 bytes.
 
-    // https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/ietf_chacha20-poly1305_construction
-    // Note: the eight-byte nonce must be front-padded out to 12 bytes.
+      unsigned char m[4096];
+      unsigned long long new_payload_length = 0;
+      int response = crypto_aead_chacha20poly1305_ietf_decrypt(
+          m,                   // m
+          &new_payload_length, // mlen_p
+          NULL,                // nsec,
+          ciphered_audio_alt +
+              10,                 // the ciphertext starts 10 bytes in and is followed by the MAC tag,
+          nread - (8 + 10),       // clen -- the last 8 bytes are the nonce
+          ciphered_audio_alt + 2, // authenticated additional data
+          8,                      // authenticated additional data length
+          nonce,
+          conn->session_key); // *k
+      if (response != 0) {
+        debug(1, "Error decrypting an audio packet.");
+      }
+      // now pass it in to the regular processing chain
 
-    unsigned char m[4096];
-    unsigned long long new_payload_length = 0;
-    int response = crypto_aead_chacha20poly1305_ietf_decrypt(
-        m,                   // m
-        &new_payload_length, // mlen_p
-        NULL,                // nsec,
-        ciphered_audio_alt +
-            10,                 // the ciphertext starts 10 bytes in and is followed by the MAC tag,
-        nread - (8 + 10),       // clen -- the last 8 bytes are the nonce
-        ciphered_audio_alt + 2, // authenticated additional data
-        8,                      // authenticated additional data length
-        nonce,
-        conn->session_key); // *k
-    if (response != 0) {
-      debug(1, "Error decrypting an audio packet.");
+      unsigned long long max_int = INT_MAX; // put in the right format
+      if (new_payload_length > max_int)
+        debug(1, "Madly long payload length!");
+      int plen = new_payload_length; //
+      // debug(1,"                                                        Write packet to buffer %d, timestamp %u.", sequence_number, timestamp);
+      player_put_packet(1, sequence_number, timestamp, m, plen,
+                        conn); // the '1' means is original format
+    } else {
+      debug(2, "No session key, so the audio packet can not be deciphered -- skipped.");
     }
-    // now pass it in to the regular processing chain
-
-    unsigned long long max_int = INT_MAX; // put in the right format
-    if (new_payload_length > max_int)
-      debug(1, "Madly long payload length!");
-    int plen = new_payload_length; //
-    // debug(1,"                                                        Write packet to buffer %d, timestamp %u.", sequence_number, timestamp);
-    player_put_packet(1, sequence_number, timestamp, m, plen,
-                      conn); // the '1' means is original format
     return sequence_number;
   } else {
     debug(1, "packet was too small -- ignored");
@@ -2828,28 +2832,33 @@ void *rtp_buffered_audio_processor(void *arg) {
         if ((((flush_requested != 0) && (seq_no == flushUntilSeq)) ||
              ((flush_requested == 0) && (new_buffer_needed))) &&
             (too_soon_after_connection == 0)) {
-
-          unsigned char nonce[12];
-          memset(nonce, 0, sizeof(nonce));
-          memcpy(nonce + 4, packet + nread - 8,
-                 8); // front-pad the 8-byte nonce received to get the 12-byte nonce expected
-
-          // https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/ietf_chacha20-poly1305_construction
-          // Note: the eight-byte nonce must be front-padded out to 12 bytes.
           unsigned long long new_payload_length = 0;
-          int response = crypto_aead_chacha20poly1305_ietf_decrypt(
-              m + 7,               // m
-              &new_payload_length, // mlen_p
-              NULL,                // nsec,
-              packet + 12,      // the ciphertext starts 12 bytes in and is followed by the MAC tag,
-              nread - (8 + 12), // clen -- the last 8 bytes are the nonce
-              packet + 4,       // authenticated additional data
-              8,                // authenticated additional data length
-              nonce,
-              conn->session_key); // *k
-          if (response != 0) {
-            debug(1, "Error decrypting audio packet %u -- packet length %d.", seq_no, nread);
+          int response = -1; // guess that there is a problem
+          if (conn->session_key != NULL) {
+            unsigned char nonce[12];
+            memset(nonce, 0, sizeof(nonce));
+            memcpy(nonce + 4, packet + nread - 8,
+                   8); // front-pad the 8-byte nonce received to get the 12-byte nonce expected
+
+            // https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/ietf_chacha20-poly1305_construction
+            // Note: the eight-byte nonce must be front-padded out to 12 bytes.
+            
+            response = crypto_aead_chacha20poly1305_ietf_decrypt(
+                m + 7,               // m
+                &new_payload_length, // mlen_p
+                NULL,                // nsec,
+                packet + 12,      // the ciphertext starts 12 bytes in and is followed by the MAC tag,
+                nread - (8 + 12), // clen -- the last 8 bytes are the nonce
+                packet + 4,       // authenticated additional data
+                8,                // authenticated additional data length
+                nonce,
+                conn->session_key); // *k
+            if (response != 0)
+              debug(1, "Error decrypting audio packet %u -- packet length %d.", seq_no, nread);
           } else {
+            debug(2, "No session key, so the audio packet can not be deciphered -- skipped.");
+          }
+          if (response == 0) {
             // now pass it in to the regular processing chain
 
             unsigned long long max_int = INT_MAX; // put in the right format
