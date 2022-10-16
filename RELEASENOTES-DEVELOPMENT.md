@@ -1,3 +1,8 @@
+Version 4.1-dev-738-g9f7584eb
+====
+**Enhancement**
+* It seems that this missing session key issue discovered and discussed below is a transient problem: some client apps omit the session key occasionally but include it the rest of the time. So, to make the problem a bit less intrusive for users, the way a missing session key is dealt with has been changed. The new arrangement is that instead of dropping the AirPlay connection completely as noted below, the audio is simply skipped. From the user's perspective, the music simply won't play, but the AirPlay connection won't be dropped. When they start it again, the session key will hopefully be present and the audio will play. Let's hope that this will be less disruptive for users and that this issue goes away as clients are updated. Thanks again to [Mike](https://github.com/xska2) for his help with this in [#1551](https://github.com/mikebrady/shairport-sync/issues/1551).
+
 Version 4.1-dev-735-g6a55774f
 ====
 **Bug Fix**
