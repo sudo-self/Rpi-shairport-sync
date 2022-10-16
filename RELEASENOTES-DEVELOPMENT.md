@@ -1,3 +1,8 @@
+Version 4.1-dev-735-g6a55774f
+====
+**Bug Fix**
+* Very occasionally, and for as-yet unknown reasons, an AirPlay 2 session may not include an important parameter called a "session key". This was causing Shairport Sync to crash. With this update, Shairport Sync will now simply drop the entire connection if a session doesn't include a "session key". Addresses the crashing issue reported in [#1551](https://github.com/mikebrady/shairport-sync/issues/1551). Big thanks to [Mike](https://github.com/xska2) for his huge assistance in tracking this down. 
+
 Version 4.1-dev-730-g63e0dfda
 ====
 **Minor Debugging Enhancements**
