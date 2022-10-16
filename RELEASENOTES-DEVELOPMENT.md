@@ -48,7 +48,7 @@ Version 4.1-dev-701-g65daef30
 * Fix a bug in the generation of version information from git tags. The fix is to use lightweight tags as well as annotated tags. GitHub marks releases with lightweight tags, so this should make version and release information correspond better.
 
 **Enhancement**
-* Add an new Advanced Topic -- [Adjusting Sync](ADVANCED%20TOPICS/AdjustincSync.md) explaining how to compensate for amplifier delays such as might be found on TVs or AVRs.
+* Add an new Advanced Topic -- [Adjusting Sync](ADVANCED%20TOPICS/AdjustingSync.md) explaining how to compensate for amplifier delays such as might be found on TVs or AVRs.
  
 Version 4.1-dev-694-g234c00ad
 ====
