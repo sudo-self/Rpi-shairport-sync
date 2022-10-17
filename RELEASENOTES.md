@@ -557,9 +557,6 @@ To retain the present behaviour of Shairport Sync, *you must add an extra parame
 
 The enhancements and bug fixes in 2.8.5 were made in versions 2.8.4.1 to 2.8.4.8 inclusive. Please read below for the full list.
 
-For advice on updating an installation you built yourself,
-please visit the [UPDATING](https://github.com/mikebrady/shairport-sync/blob/master/UPDATING.md) page.
-
 Version 2.8.4.8 – Development Version
 ----
 **Enhancements**
@@ -616,7 +613,6 @@ Version 2.8.4.1 – Development Version
 
 Version 2.8.4 – Stable Version
 ----
-This release includes important bug fixes and minor enhancements and is recommended for all users. No settings need to be changed. For advice on updating an installation you built yourself, please visit the [UPDATING](https://github.com/mikebrady/shairport-sync/blob/master/UPDATING.md) page.
 
 The following is a summary of the bug fixes and enhancements since version 2.8.3.
 

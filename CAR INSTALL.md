@@ -240,7 +240,7 @@ From this point on, if you reboot the machine, it will connect to the network it
 
 4. Reboot and do Normal Updating
 
-   You can perform updates in the normal way -- see [UPDATING](https://github.com/mikebrady/shairport-sync/blob/master/UPDATING.md). When you are finished, you need to undo the temporary changes you made to the setup, as follows:
+   You can perform updates in the normal way. When you are finished, you need to undo the temporary changes you made to the setup, as follows:
 
 5. If you had temporarily re-enabled services that are normally disabled, then it's time to disable them again:  
 `# systemctl disable dhcpcd.service`  

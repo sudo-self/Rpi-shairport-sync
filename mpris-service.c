@@ -229,7 +229,8 @@ void mpris_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused)
 static gboolean on_handle_quit(MediaPlayer2 *skeleton, GDBusMethodInvocation *invocation,
                                __attribute__((unused)) gpointer user_data) {
   debug(1, "quit requested (MPRIS interface).");
-  pthread_cancel(main_thread_id);
+  type_of_exit_cleanup = TOE_dbus; // request an exit cleanup that is compatible with dbus
+  exit(EXIT_SUCCESS);
   media_player2_complete_quit(skeleton, invocation);
   return TRUE;
 }

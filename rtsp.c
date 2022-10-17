@@ -1501,6 +1501,7 @@ int msg_write_response(rtsp_conn_info *conn, rtsp_message *resp) {
                                    {404, "Not Found"},
                                    {451, "Unavailable"},
                                    {456, "Header Field Not Valid for Resource"},
+                                   {470, "Connection Authorization Required"},
                                    {500, "Internal Server Error"},
                                    {501, "Not Implemented"}};
   // 451 is really "Unavailable For Legal Reasons"!
@@ -3148,6 +3149,13 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 
       plist_t streams_array = plist_new_array(); // to hold the ports and stuff
       plist_t stream0dict = plist_new_dict();
+
+      // get the session key -- it must have one
+
+      plist_t item = plist_dict_get_item(stream0, "shk"); // session key
+      uint64_t item_value = 0; // the length
+      plist_get_data_val(item, (char **)&conn->session_key, &item_value);
+
       // more stuff
       // set up a UDP control stream and thread and a UDP or TCP audio stream and thread
 
@@ -3163,12 +3171,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             conn->local_ap2_control_port);
 
       pthread_create(&conn->rtp_ap2_control_thread, NULL, &rtp_ap2_control_receiver, (void *)conn);
-
-      // get the session key
-
-      plist_t item = plist_dict_get_item(stream0, "shk"); // session key
-      uint64_t item_value = 0;
-      plist_get_data_val(item, (char **)&conn->session_key, &item_value);
 
       // get the DACP-ID and Active Remote for remote control stuff
 
@@ -3329,6 +3331,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_array_append_item(streams_array, stream0dict);
       plist_dict_set_item(setupResponsePlist, "streams", streams_array);
       resp->respcode = 200;
+      
     } else if (conn->airplay_stream_category == remote_control_stream) {
       debug(2, "Connection %d (RC): SETUP: Remote Control Stream received from %s.",
             conn->connection_number, conn->client_ip_string);
@@ -4303,7 +4306,7 @@ static void handle_get_parameter(__attribute__((unused)) rtsp_conn_info *conn, r
 
   if ((req->content) && (req->contentlength == strlen("volume\r\n")) &&
       strstr(req->content, "volume") == req->content) {
-    debug(2, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
+    debug(1, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
           config.airplay_volume);
     char *p = malloc(128); // will be automatically deallocated with the response is deleted
     if (p) {

@@ -15,14 +15,8 @@ If you are using the default ALSA backend, don't forget to check two simple thin
 
 You can use `alsamixer` for both of theses checks. A muted output has the letter(s) `M` as its value. Select it and type `M` again to unmute. 
 
-### Audio is Delayed!
-If the audio from your Shairport Sync device is delayed slightly by comparison with audio from other devices, it may be that the output device being fed by Shairport Sync is introducing a delay while it processes the audio. If your output device include any digital processing component, it probably delays the audio while it processing occurs. 
-
-For instance, if your output device is a HDMI-connected device such as a TV or an AV Receiver, it will almost certainly delay audio by anything up to several hundred milliseconds.
-
-The fix for this is to ask Shairport Sync to provide the audio to the output device _slightly ahead of time_, so that by the time the output device has processed it, the audio emerges at exactly the right time. The setting to look for is in the `general` section of the Shairport Sync configuration file and is called `audio_backend_latency_offset_in_seconds`. By default it is `0.0` seconds.
-
-For example, if your output device is delaying audio by 100 milliseconds (0.1 seconds), set the `audio_backend_latency_offset_in_seconds` to `-0.1`, so that audio is provided to your output device 0.1 seconds early. Remember to uncomment the line by removing the initial `//` and then restart Shairport Sync (or reboot the device) for the changed setting to take effect.
+### Sync is slightly off!
+Please see [Adjusting Sync](./ADVANCED%20TOPICS/AdjustingSync.md).
 
 ### WiFi adapter running in power-saving / low-power mode
 

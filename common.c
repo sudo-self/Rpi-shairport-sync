@@ -112,7 +112,6 @@ void set_alsa_out_dev(char *);
 
 config_t config_file_stuff;
 int type_of_exit_cleanup;
-pthread_t main_thread_id;
 uint64_t ns_time_at_startup, ns_time_at_last_debug_message;
 
 // always lock use this when accessing the ns_time_at_last_debug_message

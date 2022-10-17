@@ -37,7 +37,7 @@ Okay, now let's get the tools and libraries for building and installing Shairpor
 ```
 # apt update
 # apt upgrade # this is optional but recommended
-# apt install --no-install-recommends build-essential git xmltoman autoconf automake libtool \
+# apt install --no-install-recommends build-essential git autoconf automake libtool \
     libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
     libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd
 ```
@@ -45,7 +45,7 @@ If you are building classic Shairport Sync, the list of packages is shorter:
 ```
 # apt update
 # apt upgrade # this is optional but recommended
-# apt-get install --no-install-recommends build-essential git xmltoman autoconf automake libtool \
+# apt-get install --no-install-recommends build-essential git autoconf automake libtool \
     libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev
 ```
 ### Fedora
@@ -53,7 +53,7 @@ For AirPlay 2 operation, _before you install the libraries_, please ensure the y
 ```
 # yum update
 # yum install make automake gcc gcc-c++ \
-    git xmltoman autoconf automake avahi-devel libconfig-devel openssl-devel popt-devel soxr-devel \
+    git autoconf automake avahi-devel libconfig-devel openssl-devel popt-devel soxr-devel \
     ffmpeg ffmpeg-devel libplist-devel libsodium-devel libgcrypt-dev libuuid-devel vim-common \
     alsa-lib-devel
 ```
@@ -61,7 +61,7 @@ If you are building classic Shairport Sync, the list of packages is shorter:
 ```
 # yum update
 # yum install make automake gcc gcc-c++ \
-    git xmltoman autoconf automake avahi-devel libconfig-devel openssl-devel popt-devel soxr-devel \
+    git autoconf automake avahi-devel libconfig-devel openssl-devel popt-devel soxr-devel \
     alsa-lib-devel
 ```
 ### Arch Linux
@@ -193,4 +193,4 @@ With AirPlay 2, you can follow the steps in [ADDINGTOHOME.md](ADDINGTOHOME.md) t
 ### Wait, there's more...
 Instead of using default values for everything, you can use the configuration file to get finer control over the setup, particularly the output device and mixer control -- see [Finish Setting Up](ADVANCED%20TOPICS/InitialConfiguration.md).
 
-Please take a look at [Advanced Topics](ADVANCED%20TOPICS/README.md) for some ideas about what else you can do to enhance the operation of Shairport Sync.
+Please take a look at [Advanced Topics](ADVANCED%20TOPICS/README.md) for some ideas about what else you can do to enhance the operation of Shairport Sync. For example, you can adjust synchronisation to compensate for delays in your system.
