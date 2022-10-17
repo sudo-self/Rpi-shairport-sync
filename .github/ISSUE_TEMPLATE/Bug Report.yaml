@@ -31,7 +31,7 @@ body:
     id: version
     attributes:
       label: Configuration or Version.
-      description: Please paste the results of `shairport-sync --displayConfig` here, if available. This gives useful information about the environment Shairport Sync is running in and also displays the command line options and configuration settings. If `shairport-sync -displayConfig` is not available (it's new), please paste the results of `shairport-sync -V`.
+      description: Please paste the results of `shairport-sync --displayConfig` here, if available. This gives useful information about the environment Shairport Sync is running in and also displays the command line options and configuration settings. If `shairport-sync --displayConfig` is not available (it's new), please paste the results of `shairport-sync -V`.
     validations:
       required: true
   - type: dropdown
@@ -41,7 +41,7 @@ body:
       options:
         - Homebrew for Mac
         - Docker
-        - A package manager (`apt`, `apt install`, `yum`, `pkg`, etc.)
+        - A package manager (apt, apt install, yum, pkg, etc.)
         - Built from source
     validations:
       required: true
