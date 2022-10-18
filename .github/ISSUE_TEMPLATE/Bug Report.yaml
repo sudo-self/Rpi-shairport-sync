@@ -24,7 +24,7 @@ body:
     id: version
     attributes:
       label: Configuration Information.
-      description: Please paste the results of `shairport-sync --displayConfig` here, if available. This gives useful information about the environment Shairport Sync is running in and also displays the command line options and configuration settings. If `shairport-sync --displayConfig` is not available (it's new), please paste the results of two commands: `uname -a` and  `shairport-sync -V`.
+      description: Please paste the results of `shairport-sync --displayConfig` here, if available. This gives useful information about the environment Shairport Sync is running in and also displays the command line options and configuration settings. If `shairport-sync --displayConfig` is not available (it's new), please paste the results of two commands `uname -a` and  `shairport-sync -V`.
     validations:
       required: true
   - type: dropdown
