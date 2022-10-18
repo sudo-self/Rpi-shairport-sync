@@ -1157,7 +1157,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                     conn->connection_number, conn->first_packet_timestamp, lt * 0.000000001);
 #ifdef CONFIG_METADATA
               // say we have started receiving frames here
-              debug(2, "pffr");
               send_ssnc_metadata(
                   'pffr', NULL, 0,
                   0); // "first frame received", but don't wait if the queue is locked
@@ -1303,7 +1302,6 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
             }
 #ifdef CONFIG_METADATA
             if (conn->ab_buffering == 0) {
-              debug(2, "prsm");
               send_ssnc_metadata('prsm', NULL, 0,
                                  0); // "resume", but don't wait if the queue is locked
             }
@@ -3388,7 +3386,6 @@ void player_flush(uint32_t timestamp, rtsp_conn_info *conn) {
   // only send a flush metadata message if the first packet has been seen -- it's a bogus message
   // otherwise
   if (conn->first_packet_timestamp) {
-    debug(2, "pfls");
     char numbuf[32];
     snprintf(numbuf, sizeof(numbuf), "%u", timestamp);
     send_ssnc_metadata('pfls', numbuf, strlen(numbuf), 1); // contains cancellation points
@@ -3458,7 +3455,6 @@ int player_play(rtsp_conn_info *conn) {
     debug(1, "Error creating player_thread: %s", strerror(errno));
 
 #ifdef CONFIG_METADATA
-  debug(2, "pbeg");
   send_ssnc_metadata('pbeg', NULL, 0, 1); // contains cancellation points
 #endif
   return 0;
@@ -3484,7 +3480,6 @@ int player_stop(rtsp_conn_info *conn) {
     free(conn->player_thread);
     conn->player_thread = NULL;
 #ifdef CONFIG_METADATA
-    debug(2, "pend");
     send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
     // debuglev = dl;

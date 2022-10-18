@@ -2001,13 +2001,20 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         debug(2, "Connection %d: Start playing, with anchor clock %" PRIx64 ".",
               conn->connection_number, conn->networkTimeTimelineID);
         activity_monitor_signify_activity(1);
+
+#ifdef CONFIG_METADATA
+        send_ssnc_metadata('pres', NULL, 0, 1); // resume -- contains cancellation points
+#endif
         conn->ap2_play_enabled = 1;
       } else {
         debug(2, "Connection %d: Stop playing.", conn->connection_number);
-        activity_monitor_signify_activity(0);
         conn->ap2_play_enabled = 0;
+        activity_monitor_signify_activity(0);
         reset_anchor_info(conn);
-        if (config.output->stop) {
+#ifdef CONFIG_METADATA
+        send_ssnc_metadata('paus', NULL, 0, 1); // pause -- contains cancellation points
+#endif
+         if (config.output->stop) {
           debug(2, "Connection %d: Stop the output backend.", conn->connection_number);
           config.output->stop();
         }

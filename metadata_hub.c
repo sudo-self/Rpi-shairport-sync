@@ -568,6 +568,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       changed = (metadata_store.active_state != AM_INACTIVE);
       metadata_store.active_state = AM_INACTIVE;
       break;
+    case 'pres':
     case 'pbeg':
       changed = ((metadata_store.player_state != PS_PLAYING) ||
                  (metadata_store.player_thread_active == 0));
@@ -580,15 +581,18 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       metadata_store.player_state = PS_STOPPED;
       metadata_store.player_thread_active = 0;
       break;
-    case 'pfls':
+    case 'paus':
       changed = (metadata_store.player_state != PS_PAUSED);
       metadata_store.player_state = PS_PAUSED;
       break;
+/*
+// not using this anymore.
     case 'pffr': // this is sent when the first frame has been received
     case 'prsm':
       changed = (metadata_store.player_state != PS_PLAYING);
       metadata_store.player_state = PS_PLAYING;
       break;
+*/
     case 'pvol': {
       // Note: it's assumed that the config.airplay volume has already been correctly set.
       // int32_t actual_volume;
