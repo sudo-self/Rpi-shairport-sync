@@ -3622,8 +3622,10 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 //               frame number. It seems that all frames up to but not
 //               including this frame are to be flushed.
 //
-//    'prsm' -- play stream resume. No arguments
-//		`pffr` -- the first frame of a play session has been received and has been validly
+//    'prsm' -- play stream resume. No arguments. (deprecated)
+//    'paus' -- buffered audio stream paused. No arguments.
+//    'pres' -- buffered audio stream resumed. No arguments.
+//		'pffr' -- the first frame of a play session has been received and has been validly
 // timed.
 //    'pvol' -- play volume. The volume is sent as a string --
 //    "airplay_volume,volume,lowest_volume,highest_volume"
