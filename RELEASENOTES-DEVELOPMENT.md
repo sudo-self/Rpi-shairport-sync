@@ -1,3 +1,10 @@
+Version 4.1-dev-747-ga4da36b4
+====
+**Docker Updates**
+* Extra command-line arguments passed when the Docker image is launched are passed to the `shairport-sync` instance as described on Docker Hub.
+* The `shairport-sync` instance runs as `user` and `group` `shairport-sync`, which has reduced privileges.
+* The "classic" docker image now uses the `s6-overlay` to manage processes, the same way as the standard (AirPlay 2) docker image. It does makes the image bigger, so takes a little longer to download.
+
 Version 4.1-dev-745-gbb4e9078
 ====
 **Bug Fix**
