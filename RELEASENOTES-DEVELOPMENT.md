@@ -1,5 +1,8 @@
-Version 4.1-
+Version 4.1-dev-745-gbb4e9078
 ====
+**Bug Fix**
+* Fix a bug that caused new metadata not to be passed on immediately to the D-Bus, MPRIS and MQTT interfaces. Thanks to [phelbas](https://github.com/phelbas) for finding the bug and the fix in Issue [#1560](https://github.com/mikebrady/shairport-sync/issues/1560).
+
 **Enhancement**
 * Add two new metadata tokens for AirPlay 2 buffered audio streams only, which can be paused for a period of about five minutes before the session is ended. They are for Pause (`paus`) and Resume (`pres`).
 * Clean up the generation of `MPRIS` and D-Bus `PlayerStatus` values. Until now, Shairport Sync used extra information to try to determine the state a session was in -- `Playing`, `Paused` or `Stopped`. The extra information used what (1) when the first frame was played, (2) when a flush was requested and when (3) frame play was resumed. Unfortunately, these are noisy signals and are unreliable for this purpose, so they are now no longer used.
