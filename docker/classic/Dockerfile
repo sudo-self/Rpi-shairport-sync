@@ -1,5 +1,12 @@
-FROM alpine AS builder-base
-# General Build System:
+FROM alpine:3.12 AS builder
+
+# Classic (aka AirPlay 1) Build
+
+# Check required arguments exist. These will be provided by the Github Action
+# Workflow and are required to ensure the correct branches are being used.
+ARG SHAIRPORT_SYNC_BRANCH
+RUN test -n "$SHAIRPORT_SYNC_BRANCH"
+
 RUN apk -U add \
         git \
         build-base \
@@ -7,63 +14,42 @@ RUN apk -U add \
         automake \
         libtool \
         dbus \
-        su-exec \
         alsa-lib-dev \
-        libdaemon-dev \
         popt-dev \
         mbedtls-dev \
         soxr-dev \
         avahi-dev \
         libconfig-dev \
-        libsndfile-dev \
         mosquitto-dev \
-        xmltoman
+        libsndfile-dev
 
-# ALAC Build System:
-FROM builder-base AS builder-alac
-
+##### ALAC #####
 RUN git clone https://github.com/mikebrady/alac
-WORKDIR alac
-RUN autoreconf -fi
+WORKDIR /alac
+RUN autoreconf -i
 RUN ./configure
 RUN make
 RUN make install
+WORKDIR /
+##### ALAC END #####
 
-# Shairport Sync Build System:
-FROM builder-base AS builder-sps
-
-# This will be modified by the Github Action Workflow and is required
-# to ensure the correct branch is being used.
-ARG SHAIRPORT_SYNC_BRANCH
-RUN test -n "$SHAIRPORT_SYNC_BRANCH"
-
-COPY --from=builder-alac /usr/local/lib/libalac.* /usr/local/lib/
-COPY --from=builder-alac /usr/local/lib/pkgconfig/alac.pc /usr/local/lib/pkgconfig/alac.pc
-COPY --from=builder-alac /usr/local/include /usr/local/include
-
+##### SPS #####
 WORKDIR /shairport-sync
 COPY . .
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
-RUN autoreconf -fi
-RUN ./configure \
-        --with-alsa \
-        --with-dummy \
-        --with-pipe \
-        --with-stdout \
-        --with-avahi \
-        --with-ssl=mbedtls \
-        --with-soxr \
-        --sysconfdir=/etc \
-        --with-dbus-interface \
-        --with-mpris-interface \
-        --with-mqtt-client \
-        --with-apple-alac \
-        --with-convolution
+WORKDIR /shairport-sync/build
+RUN autoreconf -i ../
+RUN ../configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=mbedtls \
+        --with-metadata --with-dummy --with-pipe --with-dbus-interface \
+        --with-stdout --with-mpris-interface --with-mqtt-client \
+        --with-apple-alac --with-convolution
 RUN make -j $(nproc)
-RUN make install
+RUN DESTDIR=install make install
+WORKDIR /
+##### SPS END #####
 
-# Shairport Sync Runtime System:
-FROM alpine
+# Shairport Sync Runtime System
+FROM crazymax/alpine-s6:3.12-3.1.1.2
 
 RUN apk -U add \
         alsa-lib \
@@ -75,30 +61,29 @@ RUN apk -U add \
         avahi \
         avahi-tools \
         libconfig \
-        libsndfile \
-        mosquitto-libs \
-        su-exec \
-        libgcc \
-        libgc++
+        mosquitto \
+        libsndfile-dev
 
-RUN rm -rf /lib/apk/db/*
 
-COPY --from=builder-alac /usr/local/lib/libalac.* /usr/local/lib/
-COPY --from=builder-sps /etc/shairport-sync* /etc/
-COPY --from=builder-sps /etc/dbus-1/system.d/shairport-sync-dbus.conf /etc/dbus-1/system.d/
-COPY --from=builder-sps /etc/dbus-1/system.d/shairport-sync-mpris.conf /etc/dbus-1/system.d/
-COPY --from=builder-sps /usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
+# Copy build files.
+COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
+COPY --from=builder /usr/local/lib/libalac.* /usr/local/lib/
+COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-dbus.conf /etc/dbus-1/system.d/
+COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-mpris.conf /etc/dbus-1/system.d/
+
+COPY ./docker/classic/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
+RUN chmod +x /etc/s6-overlay/s6-rc.d/startup/script.sh
 
 # Create non-root user for running the container -- running as the user 'shairport-sync' also allows
 # Shairport Sync to provide the D-Bus and MPRIS interfaces within the container
 
-RUN addgroup shairport-sync 
+RUN addgroup shairport-sync
 RUN adduser -D shairport-sync -G shairport-sync
 
 # Add the shairport-sync user to the pre-existing audio group, which has ID 29, for access to the ALSA stuff
-RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio
+RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio && addgroup shairport-sync audio
 
-COPY ./docker/classic/start.sh /
-RUN chmod +x /start.sh
+# Remove anything we don't need.
+RUN rm -rf /lib/apk/db/*
 
-ENTRYPOINT [ "/start.sh" ]
+ENTRYPOINT [ "/init", "s6-setuidgid", "shairport-sync", "/usr/local/bin/shairport-sync" ]
