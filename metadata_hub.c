@@ -5,7 +5,7 @@
  * then you need a metadata hub,
  * where everything is stored
  * This file is part of Shairport Sync.
- * Copyright (c) Mike Brady 2017--2020
+ * Copyright (c) Mike Brady 2017--2022
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -326,18 +326,21 @@ char *metadata_write_image_file(const char *buf, int len) {
   return path;
 }
 
+int metadata_packet_item_changed = 0; // set if any parsed part of a metadata stream changes
+
 void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t length) {
   // metadata coming in from the audio source or from Shairport Sync itself passes through here
   // this has more information about tags, which might be relevant:
   // https://code.google.com/p/ytrack/wiki/DMAP
 
-  // all the following items of metadata are contained in one metadata packet
-  // they are preceded by an 'ssnc' 'mdst' item and followed by an 'ssnc 'mden' item.
-  // we don't set "changed" for them individually; instead we set it when the  'mden' token
-  // comes in if the metadata_packet_item_changed is set.
+  // Some metadata items are contained in one metadata packet.
+  // The start of the metadata packet is signalled by an 'ssnc' 'mdst' item and
+  // the end of it by an 'ssnc 'mden' item. 
+  // We don't set "changed" for them individually; instead we set it when the  'mden' token
+  // comes in if the metadata_packet_item_changed item is set by parsed items
+  // within the packet.
 
   int changed = 0;
-  int metadata_packet_item_changed = 0;
   metadata_hub_modify_prolog();
   pthread_cleanup_push(metadata_hub_unlock_hub_mutex_cleanup, NULL);
 
@@ -507,7 +510,10 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       metadata_packet_item_changed = 0;
       break;
     case 'mden':
-      debug(2, "MH Metadata stream processing end.");
+      if (metadata_packet_item_changed != 0)
+        debug(2, "MH Metadata stream processing end with changes.");
+      else
+        debug(2, "MH Metadata stream processing end without changes.");
       changed = metadata_packet_item_changed;
       break;
     case 'PICT':
