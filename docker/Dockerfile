@@ -16,21 +16,18 @@ RUN apk -U add \
         dbus \
         alsa-lib-dev \
         popt-dev \
-        mbedtls-dev \
         soxr-dev \
         avahi-dev \
         libconfig-dev \
         libsndfile-dev \
         mosquitto-dev \
-        xmltoman \
-        openssh-client \
         libsodium-dev \
+        libgcrypt-dev \
         ffmpeg-dev \
         xxd \
         libressl-dev \
         openssl-dev \
-        libplist-dev \
-        libgcrypt-dev
+        libplist-dev
 
 ##### ALAC #####
 RUN git clone https://github.com/mikebrady/alac
@@ -76,7 +73,6 @@ RUN apk -U add \
         dbus \
         popt \
         glib \
-        mbedtls \
         soxr \
         avahi \
         avahi-tools \
@@ -86,8 +82,8 @@ RUN apk -U add \
         libuuid \
         ffmpeg \
         libsodium \
-        libplist \
-        libgcrypt
+        libgcrypt \
+        libplist
 
 # Copy build files.
 COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
@@ -111,6 +107,4 @@ RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio && addgr
 # Remove anything we don't need.
 RUN rm -rf /lib/apk/db/*
 
-ENTRYPOINT [ "/init" ]
-
-CMD [ "/usr/local/bin/shairport-sync",  "-v",  "--statistics" ]
+ENTRYPOINT [ "/init", "s6-setuidgid", "shairport-sync", "/usr/local/bin/shairport-sync" ]

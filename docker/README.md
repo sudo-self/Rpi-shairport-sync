@@ -2,43 +2,37 @@
 
 Available at: https://hub.docker.com/r/mikebrady/shairport-sync
 
-The following docker tags are available:
-```
-[tag]
-[tag]-classic
+Versions with tags including `-classic` provide classic AirPlay, the same as Shairport Sync versions up to 3.3.9. 
 
-(build from newest tag)
-stable
-stable-classic
-
-(latest build from master)
-latest
-latest-classic
-
-(latest build from development)
-development
-development-classic
-```
+(**Note:** At this time, `stable` tags may not be available.)
 
 ## Example Docker Compose File
 See the `docker-compose.yaml` file in this folder for an example.
 
-## Example Docker Run
+## Docker Run
+
+To run the latest stable release of Shairport Sync, which provides AirPlay 2 service:
 
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
-    mikebrady/shairport-sync:<tag>
+    mikebrady/shairport-sync:stable
+```
+To run the classic version:
+
+```
+$ docker run -d --restart unless-stopped --net host --device /dev/snd \
+    mikebrady/shairport-sync:stable-classic
 ```
 
 ### Options
 
-You can change the default commands passed to Shairport Sync. Here is an example:
+Command line options will be passed to Shairport Sync. Here is an example:
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
-    mikebrady/shairport-sync:<tag> shairport-sync -v \
-    --statistics -a DenSystem -d hw:0 -c PCM
+    mikebrady/shairport-sync:stable \
+    -v --statistics -a DenSystem -d hw:0 -c PCM
 ```
-This will sent audio to alsa hardware device `hw:0` and make use of the that device's mixer control called `PCM`. The service will be visible as `DenSystem` on the network.
+This will send audio to alsa hardware device `hw:0` and make use of the that device's mixer control called `PCM`. The service will be visible as `DenSystem` on the network.
 
 ## Configuration File
 
@@ -48,15 +42,15 @@ To get access to the full range of configuration options, pass the configuration
 ### Build Example (for arm7 devices)
 
 ```
-docker buildx build --platform linux/arm/v7 -f ./docker/Dockerfile --build-arg SHAIRPORT_SYNC_BRANCH=development --build-arg NQPTP_BRANCH=development --no-cache -t shairport-sync:unstable-development .
+docker buildx build --platform linux/arm/v7 -f ./docker/Dockerfile --build-arg SHAIRPORT_SYNC_BRANCH=development --build-arg NQPTP_BRANCH=development --no-cache -t shairport-sync:development .
 ```
 
 `SHAIRPORT_SYNC_BRANCH` and `NQPTP_BRANCH` are required to ensure the image is built using the expected branch.
 `--no-cache` needs to be used to force buildx to pull the NQPTP branch for new updates. This slows down the build time though so can be removed when it is not beneficial during testing.
 
-### AirPlay 1 Only
+### "Classic" AirPlay
 
-The AirPlay 1 only dockerfile is in the `classic` folder. This also includes the `start.sh` script used by the container. Please note that the AirPlay 1 image built via the AirPlay 2 branch has missing functionality, e.g. it does not work with multiple instances on the same hardware; does not support iTunes for Windows etc.
+The "Classic" AirPlay only dockerfile is in the `classic` folder. This also includes the `start.sh` script used by the container.
 
 ### GitHub Action Builds
 

@@ -2001,13 +2001,20 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         debug(2, "Connection %d: Start playing, with anchor clock %" PRIx64 ".",
               conn->connection_number, conn->networkTimeTimelineID);
         activity_monitor_signify_activity(1);
+
+#ifdef CONFIG_METADATA
+        send_ssnc_metadata('pres', NULL, 0, 1); // resume -- contains cancellation points
+#endif
         conn->ap2_play_enabled = 1;
       } else {
         debug(2, "Connection %d: Stop playing.", conn->connection_number);
-        activity_monitor_signify_activity(0);
         conn->ap2_play_enabled = 0;
+        activity_monitor_signify_activity(0);
         reset_anchor_info(conn);
-        if (config.output->stop) {
+#ifdef CONFIG_METADATA
+        send_ssnc_metadata('paus', NULL, 0, 1); // pause -- contains cancellation points
+#endif
+         if (config.output->stop) {
           debug(2, "Connection %d: Stop the output backend.", conn->connection_number);
           config.output->stop();
         }
@@ -3615,8 +3622,10 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 //               frame number. It seems that all frames up to but not
 //               including this frame are to be flushed.
 //
-//    'prsm' -- play stream resume. No arguments
-//		`pffr` -- the first frame of a play session has been received and has been validly
+//    'prsm' -- play stream resume. No arguments. (deprecated)
+//    'paus' -- buffered audio stream paused. No arguments.
+//    'pres' -- buffered audio stream resumed. No arguments.
+//		'pffr' -- the first frame of a play session has been received and has been validly
 // timed.
 //    'pvol' -- play volume. The volume is sent as a string --
 //    "airplay_volume,volume,lowest_volume,highest_volume"
