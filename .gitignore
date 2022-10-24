@@ -28,15 +28,13 @@ scripts/shairport-sync.service
 scripts/shairport-sync.service-avahi
 scripts/shairport-sync
 shairport-sync.core
-gitversion.h
+gitversion.*
 plist_xml_strings.*
-
 
 #Some dbus files that are automatically generated
 /org.gnome.ShairportSync.service
 /dbus-interface.*
 /mpris-interface.*
-/plist_xml_strings.*
 /lib_*.*
 
 # Some eclipse project files
@@ -46,9 +44,6 @@ plist_xml_strings.*
 # macOS stuff
 .DS_Store
 shairport-sync.xcodeproj
-
-# version string generation
-gitversion.h
 
 # separate build directory
 build
