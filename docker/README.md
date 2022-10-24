@@ -2,21 +2,26 @@
 
 Available at: https://hub.docker.com/r/mikebrady/shairport-sync
 
-Please note if you want the development version of the image including Airplay 2 support, please pull the image with the `development` tag using the following command:
-```
-docker pull mikebrady/shairport-sync:development
-```
+Versions with tags including `-classic` provide classic AirPlay, the same as Shairport Sync versions up to 3.3.9. 
 
-When using the below commands, you should replace `mikebrady/shairport-sync` with `mikbrady/shairport-sync:development`.
+(**Note:** At this time, `stable` tags may not be available.)
 
 ## Example Docker Compose File
 See the `docker-compose.yaml` file in this folder for an example.
 
 ## Docker Run
 
+To run the latest stable release of Shairport Sync, which provides AirPlay 2 service:
+
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
-    mikebrady/shairport-sync
+    mikebrady/shairport-sync:stable
+```
+To run the classic version:
+
+```
+$ docker run -d --restart unless-stopped --net host --device /dev/snd \
+    mikebrady/shairport-sync:stable-classic
 ```
 
 ### Options
@@ -24,7 +29,7 @@ $ docker run -d --restart unless-stopped --net host --device /dev/snd \
 Command line options will be passed to Shairport Sync. Here is an example:
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
-    mikebrady/shairport-sync:development \
+    mikebrady/shairport-sync:stable \
     -v --statistics -a DenSystem -d hw:0 -c PCM
 ```
 This will send audio to alsa hardware device `hw:0` and make use of the that device's mixer control called `PCM`. The service will be visible as `DenSystem` on the network.
@@ -37,7 +42,7 @@ To get access to the full range of configuration options, pass the configuration
 ### Build Example (for arm7 devices)
 
 ```
-docker buildx build --platform linux/arm/v7 -f ./docker/Dockerfile --build-arg SHAIRPORT_SYNC_BRANCH=development --build-arg NQPTP_BRANCH=development --no-cache -t shairport-sync:unstable-development .
+docker buildx build --platform linux/arm/v7 -f ./docker/Dockerfile --build-arg SHAIRPORT_SYNC_BRANCH=development --build-arg NQPTP_BRANCH=development --no-cache -t shairport-sync:development .
 ```
 
 `SHAIRPORT_SYNC_BRANCH` and `NQPTP_BRANCH` are required to ensure the image is built using the expected branch.
