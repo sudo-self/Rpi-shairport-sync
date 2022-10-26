@@ -1,6 +1,6 @@
 # Builds & pushes a docker image when a tag is created.
 # Tag pattern: '[tag]' & '[tag]-classic'
-# 'stable' & 'stable-classic' also, when master tagged.
+# 'latest' & 'latest-classic' also, when master tagged.
 
 # Only pushes the tag when it matches one of the following patterns:
 # X, X.Y or X.Y.Z
@@ -38,7 +38,7 @@ jobs:
 
       - name: Is branch "master"?
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'master' }}
-        run: echo "STABLE_TAG=true" >> $GITHUB_ENV
+        run: echo "LATEST_TAG=true" >> $GITHUB_ENV
 
       - name: Is branch "development"?
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
@@ -67,7 +67,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}
-            ${{ env.STABLE_TAG == 'true' && format('{0}:stable', secrets.DOCKER_IMAGE_NAME) || '' }}
+            ${{ env.LATEST_TAG == 'true' && format('{0}:latest', secrets.DOCKER_IMAGE_NAME) || '' }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
             NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
@@ -81,6 +81,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.GIT_TAG }}-classic
-            ${{ env.STABLE_TAG == 'true' && format('{0}:stable-classic', secrets.DOCKER_IMAGE_NAME) || '' }}
+            ${{ env.LATEST_TAG == 'true' && format('{0}:latest-classic', secrets.DOCKER_IMAGE_NAME) || '' }}
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
+ 
