@@ -1,6 +1,6 @@
 # Builds & pushes a docker image when a tag is created.
 # Tag pattern: '[tag]' & '[tag]-classic'
-# 'latest' & 'latest-classic' also, when master tagged.
+# 'latest' & 'classic' also, when master tagged.
 
 # Only pushes the tag when it matches one of the following patterns:
 # X, X.Y or X.Y.Z
