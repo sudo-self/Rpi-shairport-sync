@@ -52,18 +52,6 @@ jobs:
           username: ${{ secrets.DOCKER_REGISTRY_USER }}
           password: ${{ secrets.DOCKER_REGISTRY_TOKEN }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v2
-        with:
-          context: ./
-          file: ./docker/Dockerfile
-          platforms: ${{ env.DOCKER_PLATFORMS }}
-          push: ${{ env.IMAGE_TAG_BASE != '' }}
-          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG_BASE }}
-          build-args: |
-            SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
-            NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
-
       - name: Build and push (classic)
         uses: docker/build-push-action@v2
         with:
@@ -75,3 +63,14 @@ jobs:
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
  
+      - name: Build and push
+        uses: docker/build-push-action@v2
+        with:
+          context: ./
+          file: ./docker/Dockerfile
+          platforms: ${{ env.DOCKER_PLATFORMS }}
+          push: ${{ env.IMAGE_TAG_BASE != '' }}
+          tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG_BASE }}
+          build-args: |
+            SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
+            NQPTP_BRANCH=${{ env.NQPTP_BRANCH }}
