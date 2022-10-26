@@ -1,3 +1,11 @@
+Version 4.1-dev-756-g0a8b1231
+====
+**Docker Updates**
+* Move to using `latest` tags for the latest release and `rolling` for intermediate (non-release) updates on the master branch. Pushes to the `development` branch will result in Docker images with the `development` tag.
+
+**Enhancement**
+* Tidy up  `--display_config` output to skip empty configuration file stanzas and to note when there are no active settings whatever in the file.
+
 Version 4.1-dev-747-ga4da36b4
 ====
 **Docker Updates**
