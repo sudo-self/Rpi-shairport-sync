@@ -2,26 +2,31 @@
 
 Available at: https://hub.docker.com/r/mikebrady/shairport-sync
 
-Versions with tags including `-classic` provide classic AirPlay, the same as Shairport Sync versions up to 3.3.9. 
+Shairport Sync provides limited AirPlay 2 functionality. Versions with tags including `-classic` only provide classic AirPlay (aka "AirPlay 1"), the same as Shairport Sync versions up to 3.3.9.
 
-(**Note:** At this time, `stable` tags may not be available.)
+### Tags
+* `latest` and `latest-classic` are images of the most recent releases. These should be the most stable and updated only when a new release is made.
+* `rolling` and `rolling-classic` are images of the latest updates in the `master` branch that have not yet been incorporated in a release. These may be updated frequently but should be stable.
+* `development` and `development-classic` are images of the latest pushes to the `development` branch. These will be less stable and may be actually faulty. They will be updated frequently.
+* Version Tags, e.g. `4.1` are images of specific releases.
+
 
 ## Example Docker Compose File
 See the `docker-compose.yaml` file in this folder for an example.
 
 ## Docker Run
 
-To run the latest stable release of Shairport Sync, which provides AirPlay 2 service:
+To run the latest release of Shairport Sync, which provides AirPlay 2 service:
 
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
-    mikebrady/shairport-sync:stable
+    mikebrady/shairport-sync:latest
 ```
 To run the classic version:
 
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
-    mikebrady/shairport-sync:stable-classic
+    mikebrady/shairport-sync:latest-classic
 ```
 
 ### Options
@@ -29,7 +34,7 @@ $ docker run -d --restart unless-stopped --net host --device /dev/snd \
 Command line options will be passed to Shairport Sync. Here is an example:
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
-    mikebrady/shairport-sync:stable \
+    mikebrady/shairport-sync:latest \
     -v --statistics -a DenSystem -d hw:0 -c PCM
 ```
 This will send audio to alsa hardware device `hw:0` and make use of the that device's mixer control called `PCM`. The service will be visible as `DenSystem` on the network.

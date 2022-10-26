@@ -2,7 +2,7 @@
 
 services:
   shairport-sync:
-    image: mikebrady/shairport-sync:stable
+    image: mikebrady/shairport-sync:latest
     network_mode: host
     restart: unless-stopped
     devices:
