@@ -1696,7 +1696,8 @@ void termHandler(__attribute__((unused)) int k) {
   exit(EXIT_SUCCESS);
 }
 
-void _display_config(const char *filename, const int linenumber, int argc, char **argv) {
+void _display_config(const char *filename, const int linenumber, __attribute__((unused)) int argc,
+                     __attribute__((unused)) char **argv) {
   _inform(filename, linenumber, ">> Display Config Start.");
 
   // see the man entry on popen
@@ -1758,6 +1759,7 @@ void _display_config(const char *filename, const int linenumber, int argc, char 
   } else {
     debug(1, "Can't print version string!\n");
   }
+
   if (argc != 0) {
     char *obfp = result;
     int i;
@@ -1785,18 +1787,82 @@ void _display_config(const char *filename, const int linenumber, int argc, char 
       _inform(filename, linenumber, "Configuration File:");
       _inform(filename, linenumber, " %s", config_file_real_path);
       _inform(filename, linenumber, "");
-      _inform(filename, linenumber, "Configuration File Settings:");
       config_write(config.cfg, cw);
       fclose(cw);
+      // get back the raw configuration file settings text
       FILE *cr;
       cr = fdopen(configpipe[0], "r");
-      while (fgets(result, 1024, cr) != NULL) {
-        // replace funny character at the end, if it's there
-        if (result[strlen(result) - 1] <= ' ')
-          result[strlen(result) - 1] = '\0'; // remove the last character if it's not printable
-        _inform(filename, linenumber, " %s", result);
-      }
+      int i = 0;
+      int ch = 0;
+      do {
+        ch = fgetc(cr);
+        if (ch == EOF) {
+          result[i] = '\0';
+        } else {
+          result[i] = (char)ch;
+          i++;
+        }
+      } while (ch != EOF);
       fclose(cr);
+      // debug(1,"result is \"%s\".",result);
+      // remove empty stanzas
+      char *i0 = str_replace(result, "general : \n{\n};\n", "");
+      char *i1 = str_replace(i0, "sessioncontrol : \n{\n};\n", "");
+      char *i2 = str_replace(i1, "alsa : \n{\n};\n", "");
+      char *i3 = str_replace(i2, "sndio : \n{\n};\n", "");
+      char *i4 = str_replace(i3, "pa : \n{\n};\n", "");
+      char *i5 = str_replace(i4, "jack : \n{\n};\n", "");
+      char *i6 = str_replace(i5, "pipe : \n{\n};\n", "");
+      char *i7 = str_replace(i6, "dsp : \n{\n};\n", "");
+      char *i8 = str_replace(i7, "metadata : \n{\n};\n", "");
+      char *i9 = str_replace(i8, "mqtt : \n{\n};\n", "");
+      char *i10 = str_replace(i9, "diagnostics : \n{\n};\n", "");
+      // debug(1,"i10 is \"%s\".",i10);
+
+      // free intermediate strings
+      free(i9);
+      free(i8);
+      free(i7);
+      free(i6);
+      free(i5);
+      free(i4);
+      free(i3);
+      free(i2);
+      free(i1);
+      free(i0);
+
+      // print it out
+      if (strlen(i10) == 0)
+        _inform(filename, linenumber, "The Configuration file contains no active settings.");
+      else {
+        _inform(filename, linenumber, "Configuration File Settings:");
+        char *p = i10;
+        while (*p != '\0') {
+          i = 0;
+          while ((*p != '\0') && (*p != '\n')) {
+            result[i] = *p;
+            p++;
+            i++;
+          }
+          if (i != 0) {
+            result[i] = '\0';
+            _inform(filename, linenumber, " %s", result);
+          }
+          if (*p == '\n')
+            p++;
+        }
+      }
+
+      free(i10); // free the cleaned-up configuration string
+
+      /*
+            while (fgets(result, 1024, cr) != NULL) {
+              // replace funny character at the end, if it's there
+              if (result[strlen(result) - 1] <= ' ')
+                result[strlen(result) - 1] = '\0'; // remove the last character if it's not
+         printable _inform(filename, linenumber, " %s", result);
+            }
+      */
     } else {
       debug(1, "Error making pipe.\n");
     }
@@ -2298,8 +2364,9 @@ int main(int argc, char **argv) {
   debug(1, "mdns backend \"%s\".", strnull(config.mdns_name));
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
   debug(1, "interpolation setting is \"%s\".",
-        config.packet_stuffing == ST_basic ? "basic"
-                                           : config.packet_stuffing == ST_soxr ? "soxr" : "auto");
+        config.packet_stuffing == ST_basic  ? "basic"
+        : config.packet_stuffing == ST_soxr ? "soxr"
+                                            : "auto");
   debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
   debug(1, "resync time is %f seconds.", config.resyncthreshold);
   debug(1, "allow a session to be interrupted: %d.", config.allow_session_interruption);

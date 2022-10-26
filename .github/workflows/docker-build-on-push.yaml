@@ -1,7 +1,7 @@
 # Builds a docker image when a commit is made. Also pushes the build if the branch is 'master' or 'development'.
 
 # Tag pattern
-# 'master'      - latest, latest-classic
+# 'master'      - rolling, rolling-classic
 # 'development' - development, development-classic
 
 name: Build and push docker (commit)
@@ -31,7 +31,7 @@ jobs:
       - name: Is branch "master"?
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'master' }}
         run: |
-          echo "IMAGE_TAG_BASE=latest" >> $GITHUB_ENV
+          echo "IMAGE_TAG_BASE=rolling" >> $GITHUB_ENV
 
       - name: Is branch "development"?
         if: ${{ env.SHAIRPORT_SYNC_BRANCH == 'development' }}
@@ -74,3 +74,4 @@ jobs:
           tags: ${{ secrets.DOCKER_IMAGE_NAME }}:${{ env.IMAGE_TAG_BASE }}-classic
           build-args: |
             SHAIRPORT_SYNC_BRANCH=${{ env.SHAIRPORT_SYNC_BRANCH }}
+ 
