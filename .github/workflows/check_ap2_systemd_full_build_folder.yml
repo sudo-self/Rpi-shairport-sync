@@ -1,0 +1,36 @@
+name: Full configuration (but without apple-alac) for systemd, using a build folder.
+
+on:
+  push:
+    branches: [ "development" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Dependencies
+      run: sudo apt-get -y --no-install-recommends install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev libao-dev libjack-dev libpulse-dev libsoundio-dev libsndio-dev libglib2.0-dev libmosquitto-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd    
+    - name: Configure
+      run: |
+        mkdir build
+        cd build
+        autoreconf -i ..
+        ../configure --sysconfdir=/etc --with-alsa --with-ao --with-dummy --with-jack --with-pa --with-pipe --with-sndio --with-soundio --with-stdout --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-dbus-interface --with-mpris-interface --with-mqtt-client --with-airplay-2
+    - name: Make
+      run: |
+        cd build
+        make -j
+    - name: Install
+      run: |
+        cd build
+        sudo make install
+    - name: Invoke
+      run: |
+        sudo systemctl start shairport-sync
+    - name: Terminate
+      run: |
+        sudo systemctl stop shairport-sync
+
