@@ -1,4 +1,4 @@
-name: Classic on macOS with brew
+name: Basic libao configuration for macOS with BREW -- classic only, because macOS can't host NQPTP.
 
 on:
   push:

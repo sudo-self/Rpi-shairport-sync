@@ -1,8 +1,8 @@
-name: Basic AP2 on systemd in build folder 
+name: Basic ALSA configuration for systemd, using a build folder.
 
 on:
   push:
-    branches: [ "danger" ]
+    branches: [ "development" ]
 
 jobs:
   build:

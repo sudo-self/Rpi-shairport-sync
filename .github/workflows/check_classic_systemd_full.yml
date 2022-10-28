@@ -1,8 +1,8 @@
-name: Classic on systemd in build folder
+name: Full classic configuration (but without apple-alac) for systemd, using a build folder.
 
 on:
   push:
-    branches: [ "danger" ]
+    branches: [ "development" ]
 
 jobs:
   build:

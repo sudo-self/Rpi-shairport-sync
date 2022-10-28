@@ -1,8 +1,8 @@
-name: Full AP2 on systemd build in place
+name: Full configuration (but without apple-alac) for systemd.
 
 on:
   push:
-    branches: [ "danger" ]
+    branches: [ "development" ]
 
 jobs:
   build:

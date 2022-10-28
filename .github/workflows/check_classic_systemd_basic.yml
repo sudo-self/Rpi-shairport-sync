@@ -1,8 +1,8 @@
-name: Basic Classic on systemd
+name: Basic ALSA classic configuration for systemd, using a build folder.
 
 on:
   push:
-    branches: [ "danger" ]
+    branches: [ "development" ]
 
 jobs:
   build:

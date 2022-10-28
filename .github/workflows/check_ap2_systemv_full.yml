@@ -1,8 +1,8 @@
-name: AP2 on System V in place
+name: Full configuration (but without apple-alac) for a System V system.
 
 on:
   push:
-    branches: [ "danger" ]
+    branches: [ "development" ]
 
 jobs:
   build:
