@@ -1187,7 +1187,7 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                     0.001) // the clock drift estimation might be nudging the estimate, and we can
                            // ignore this unless if's more than a microsecond
                   debug(2,
-                        "Change in estimated first_packet_time: %f milliseconds for first_packet .",
+                        "Change in estimated first_packet_time: %f milliseconds for first_packet.",
                         0.000001 * change_in_should_be_time);
 
                 conn->first_packet_time_to_play = should_be_time;
