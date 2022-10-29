@@ -13,6 +13,7 @@ Shairport Sync does not support AirPlay video or photo streaming.
 * Next Steps and Advanced Topics are [here](ADVANCED%20TOPICS/README.md).
 * Runtime settings are documented [here](scripts/shairport-sync.conf).
 * Build configuration options are detailed in [CONFIGURATION FLAGS.md](CONFIGURATION%20FLAGS.md).
+* The `man` page, detailing command line options, is [here](https://htmlpreview.github.io/?https://github.com/mikebrady/shairport-sync/blob/development/man/shairport-sync.html).
 
 # Features
 * Outputs AirPlay audio to [ALSA](https://www.alsa-project.org/wiki/Main_Page), [sndio](http://www.sndio.org), [PulseAudio](https://www.freedesktop.org/wiki/Software/PulseAudio/), [Jack Audio](http://jackaudio.org), to a unix pipe or to `STDOUT`. It also has experimental support for [PipeWire](https://pipewire.org) and limited support for [libao](https://xiph.org/ao/) and for [libsoundio](http://libsound.io).
