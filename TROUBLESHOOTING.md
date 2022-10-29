@@ -13,7 +13,7 @@ If you are using the default ALSA backend, don't forget to check two simple thin
 1. Check that the volume on the output device is turned up. If the output device has a "mixer" i.e. a volume control, Shairport Sync does not, by default, try to control it. Therefore, if it happens to be very low or even at zero, you might not hear audio that is actually coming through to the device. (You can get Shairport Sync to control a mixer -- see [here](https://github.com/mikebrady/spsdoc/blob/main/ADVANCED%20TOPICS/InitialConfiguration.md) for some hints.)
 2. Check that the output device is not muted. Some audio applications (including very old versions of Shairport Sync) leave the output device mixer in a muted state after use to minimise the possibility of noise. However, this is not generally compatible with other audio players using the same device, as they generally expect the device to be unmuted. 
 
-You can use `alsamixer` for both of theses checks. A muted output has the letter(s) `M` as its value. Select it and type `M` again to unmute. 
+You can use `alsamixer` for both of these checks. A muted output has the letter(s) `M` as its value. Select it and type `M` again to unmute. 
 
 ### Sync is slightly off!
 Please see [Adjusting Sync](./ADVANCED%20TOPICS/AdjustingSync.md).
