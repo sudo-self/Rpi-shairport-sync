@@ -420,7 +420,10 @@ if test "x$with_airplay_2" = "xyes" ; then
   PKG_CHECK_MODULES([libavutil], [libavutil],[CFLAGS="${libavutil_CFLAGS} ${CFLAGS}" LIBS="${libavutil_LIBS} ${LIBS}"],[
       AC_MSG_ERROR(AirPlay 2 support requires libavutil -- libavutil-dev suggested)])
   PKG_CHECK_MODULES([libavcodec], [libavcodec],[CFLAGS="${libavcodec_CFLAGS} ${CFLAGS}" LIBS="${libavcodec_LIBS} ${LIBS}"],[
-      AC_MSG_ERROR(AirPlay 2 support requires libavcodec -- libavcodec-dev suggested)])
+    AC_CHECK_LIB([avcodec], [avcodec_find_decoder], [], [
+      AC_MSG_ERROR(AirPlay 2 support requires libavcodec -- libavcodec-dev suggested)
+    ])
+  ])
   AC_CHECK_LIB([avformat],[avformat_new_stream], [], [AC_MSG_ERROR([AirPlay 2 support requires libavformat -- libavformat-dev suggested])])
   AC_CHECK_LIB([swresample],[swr_convert], [], [AC_MSG_ERROR([AirPlay 2 support requires libswresample -- libswresample-dev suggested])])
   AC_CHECK_LIB([uuid],[uuid_generate], [], [AC_MSG_ERROR([AirPlay 2 support requires the uuid library -- uuid-dev suggested])])
