@@ -1341,14 +1341,11 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
     nread = read_from_rtsp_connection(conn, buf + inbuf, buflen - inbuf);
 
     if (nread == 0) {
-      // a blocking read that returns zero means eof -- implies connection closed
-      
-      debug(1, "Connection %d: Closed by client: from %s:%u to self at %s:%u.",
-        conn->connection_number,
-        conn->client_ip_string, conn->client_rtsp_port,
-        conn->self_ip_string, conn->self_rtsp_port);
-      conn->fd = 0;
+      // a blocking read that returns zero means eof -- implies connection closed by client      
+      debug(1, "Connection %d: RTSP connection closed by client.",
+        conn->connection_number);
       reply = rtsp_read_request_response_channel_closed;
+      // Note: the socket will be closed when the thread exits
       goto shutdown;
     }
 
@@ -4984,26 +4981,32 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   }
 #endif
 
-  debug(3, "Connection %d terminating:Closing timing, control and audio sockets...",
+  debug(3, "Connection %d: terminating  -- closing timing, control and audio sockets...",
         conn->connection_number);
   if (conn->control_socket) {
+    debug(3, "Connection %d: terminating  -- closing control_socket %d.",
+          conn->connection_number, conn->control_socket);
     close(conn->control_socket);
+    conn->control_socket = 0;
   }
   if (conn->timing_socket) {
+    debug(3, "Connection %d: terminating  -- closing timing_socket %d.",
+          conn->connection_number, conn->timing_socket);
     close(conn->timing_socket);
+    conn->timing_socket = 0;
   }
   if (conn->audio_socket) {
+    debug(3, "Connection %d: terminating -- closing audio_socket %d.",
+          conn->connection_number, conn->audio_socket);
     close(conn->audio_socket);
+    conn->audio_socket = 0;
   }
-
   if (conn->fd > 0) {
-    debug(3, "Connection %d terminating: closing fd %d.", conn->connection_number, conn->fd);
-    close(conn->fd);
-    debug(3, "Connection %d terminating: closed fd %d.", conn->connection_number, conn->fd);
-
-    debug(1, "Connection %d Closed by self: from %s:%u to self at %s:%u.",
-          conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+    debug(1, "Connection %d: terminating -- closing RTSP connection socket %d: from %s:%u to self at %s:%u.",
+          conn->connection_number, conn->fd, conn->client_ip_string, conn->client_rtsp_port,
           conn->self_ip_string, conn->self_rtsp_port);
+    close(conn->fd);
+    conn->fd = 0;
   }
   if (conn->auth_nonce) {
     free(conn->auth_nonce);
