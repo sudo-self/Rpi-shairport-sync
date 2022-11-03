@@ -1,3 +1,12 @@
+Version 4.1-dev-772-g085bf128
+====
+**Bug Fix**
+* Fix a long-standing bug whereby the socket used for the RTSP connection wasn't closed when the connection was closed by the client, potentially exhausting the sockets available. Many thanks to [Lars Strojny](https://github.com/lstrojny) for the report: [#1567](https://github.com/mikebrady/shairport-sync/issues/1567).
+
+**Enhancements**
+* Small documentation updates.
+* More use of GitHub actions to check standard builds.
+
 Version 4.1-dev-756-g0a8b1231
 ====
 **Docker Updates**
