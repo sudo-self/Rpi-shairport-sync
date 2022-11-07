@@ -68,6 +68,7 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
                                                    argc->airplay_volume);
 
   shairport_sync_remote_control_set_client(shairportSyncRemoteControlSkeleton, argc->client_ip);
+  shairport_sync_remote_control_set_client_name(shairportSyncRemoteControlSkeleton, argc->client_name);
 
   // although it's a DACP server, the server is in fact, part of the the AirPlay "client" (their
   // term).
@@ -1018,6 +1019,8 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 //    shairport_sync_set_convolution_impulse_response_file(SHAIRPORT_SYNC(shairportSyncSkeleton),
 //    NULL);
 #endif
+
+  shairport_sync_set_service_name(SHAIRPORT_SYNC(shairportSyncSkeleton), config.service_name);
 
 #ifdef CONFIG_AIRPLAY_2
   shairport_sync_set_protocol(SHAIRPORT_SYNC(shairportSyncSkeleton), "AirPlay 2");

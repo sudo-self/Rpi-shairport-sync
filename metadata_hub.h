@@ -43,6 +43,9 @@ typedef struct metadata_bundle {
                    // server
   int client_ip_changed;
 
+  char *client_name; // the name of the client device, if available
+  int client_name_changed;
+
   char *server_ip; // IP number used by Shairport Sync
   int server_ip_changed;
 

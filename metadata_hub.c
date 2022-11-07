@@ -102,6 +102,7 @@ void run_metadata_watchers(void) {
   // turn off changed flags
   metadata_store.cover_art_pathname_changed = 0;
   metadata_store.client_ip_changed = 0;
+  metadata_store.client_name_changed = 0;
   metadata_store.server_ip_changed = 0;
   metadata_store.progress_string_changed = 0;
   metadata_store.item_id_changed = 0;
@@ -546,6 +547,14 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       if (string_update(&metadata_store.client_ip, &metadata_store.client_ip_changed, cs)) {
         changed = 1;
         debug(2, "MH Client IP set to: \"%s\"", metadata_store.client_ip);
+      }
+      free(cs);
+      break;
+    case 'snam':
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.client_name, &metadata_store.client_name_changed, cs)) {
+        changed = 1;
+        debug(1, "MH Client Name set to: \"%s\"", metadata_store.client_name);
       }
       free(cs);
       break;

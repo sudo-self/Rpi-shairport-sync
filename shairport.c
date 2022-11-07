@@ -2537,6 +2537,10 @@ int main(int argc, char **argv) {
   }
 #endif
 
+#ifdef CONFIG_METADATA
+  send_ssnc_metadata('svna', config.service_name, strlen(config.service_name), 1);
+#endif
+
   activity_monitor_start(); // not yet for AP2
   pthread_create(&rtsp_listener_thread, NULL, &rtsp_listen_loop, NULL);
   atexit(exit_rtsp_listener);

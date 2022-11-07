@@ -2864,6 +2864,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           "and open a TCP port.",
           conn->connection_number);
     conn->airplay_stream_category = unspecified_stream_category;
+    
     // figure out what category of stream it is, by looking at the plist
     plist_t timingProtocol = plist_dict_get_item(messagePlist, "timingProtocol");
     if (timingProtocol != NULL) {
@@ -3669,6 +3670,8 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
 //    play session is stopped.
 //		`svip` -- the payload is the IP number of the server, i.e. the player itself.
 //		Can be an IPv4 or an IPv6 number.
+//		`svna` -- the payload is the service name of the player, i.e. the name by
+//		which it is seen in the AirPlay menu.
 //    `disc` -- the payload is the IP number of the client, i.e. the sender of audio.
 //		Can be an IPv4 or an IPv6 number. This is an AirPlay-2-only message.
 //    It is sent when a client has been disconnected.

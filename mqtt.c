@@ -219,6 +219,9 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
       case 'svip':
         mqtt_publish("server_ip", data, length);
         break;
+      case 'svna':
+        mqtt_publish("service_name", data, length);
+        break;
       }
     }
   }
