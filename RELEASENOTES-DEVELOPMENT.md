@@ -1,3 +1,11 @@
+Version 4.1-dev-774-g3e4b67e9
+====
+**Metadata Enhancements**
+* Add the service name, e.g. `"Den Speakers"` as metadata. This has the code `"svna"` in the metadata pipe and the name `"service_name"` in the MQTT interface.
+* Add two properties to the D-Bus metadata interface:
+   1. `ServiceName` -- see above.
+   2. `ClientName` -- the name of the current client, e.g. `"Joes's iPad"`.
+
 Version 4.1-dev-772-g085bf128
 ====
 **Bug Fix**
