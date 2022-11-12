@@ -2741,24 +2741,32 @@ void *player_thread_func(void *arg) {
 #ifdef CONFIG_AIRPLAY_2
               if (conn->airplay_stream_type == realtime_stream) {
                 if (conn->airplay_type == ap_1) {
+#ifdef CONFIG_METADATA_HUB                
                   send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
+#endif
                   if (config.statistics_requested)
                     inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 1 Compatible.",
                          conn->connection_number, inframe->given_timestamp);
                 } else {
+#ifdef CONFIG_METADATA_HUB                
                   send_ssnc_metadata('styp', "Realtime", strlen("Realtime"), 1);
+#endif
                   if (config.statistics_requested)
                     inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 2 Realtime.",
                          conn->connection_number, inframe->given_timestamp);
                 }
               } else {
+#ifdef CONFIG_METADATA_HUB                
                 send_ssnc_metadata('styp', "Buffered", strlen("Buffered"), 1);
+#endif
                 if (config.statistics_requested)
                   inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 2 Buffered.",
                        conn->connection_number, inframe->given_timestamp);
               }
 #else
+#ifdef CONFIG_METADATA_HUB                
               send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
+#endif
               if (config.statistics_requested)
                 inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 1.", conn->connection_number, inframe->given_timestamp);
 #endif
