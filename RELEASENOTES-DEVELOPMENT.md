@@ -1,7 +1,7 @@
 Version 4.1-dev-776-g27754a62
 ====
 **Docker Enhancements**
-* Place the configuration file and the sample configuration file in the image at `/etc/shairport-sync.conf` and `/etc/shairport-sync.conf.sample`. Thanks to [inDomus](https://github.com/KC-inDomus) and [tamasfodor1988](https://github.com/tamasfodor1988) for the report, Issue [#1575](https://github.com/mikebrady/shairport-sync/issues/1575).
+* Place the configuration file and the sample configuration file in the Docker image at `/etc/shairport-sync.conf` and `/etc/shairport-sync.conf.sample`. Thanks to [inDomus](https://github.com/KC-inDomus) and [tamasfodor1988](https://github.com/tamasfodor1988) for the report, Issue [#1575](https://github.com/mikebrady/shairport-sync/issues/1575).
 
 Version 4.1-dev-774-g3e4b67e9
 ====
