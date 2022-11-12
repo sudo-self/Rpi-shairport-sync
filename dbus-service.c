@@ -1041,6 +1041,8 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 #endif
 
   shairport_sync_set_service_name(SHAIRPORT_SYNC(shairportSyncSkeleton), config.service_name);
+  shairport_sync_set_output_rate(SHAIRPORT_SYNC(shairportSyncSkeleton), config.output_rate);
+  shairport_sync_set_output_format(SHAIRPORT_SYNC(shairportSyncSkeleton), sps_format_description_string(config.output_format));
 
 #ifdef CONFIG_AIRPLAY_2
   shairport_sync_set_protocol(SHAIRPORT_SYNC(shairportSyncSkeleton), "AirPlay 2");

@@ -25,6 +25,8 @@
     <property name="VersionString" type="s" access="read" />
     <property name="Protocol" type="s" access="read" />
     <property name="ServiceName" type="s" access="read" />
+    <property name="OutputFormat" type="s" access="read" />
+    <property name="OutputRate" type="i" access="read" />
   </interface>
   <interface name="org.gnome.ShairportSync.Diagnostics">
     <property name="Verbosity" type="i" access="readwrite" />
