@@ -1,3 +1,13 @@
+Version 4.1-dev-781-g9af924dd
+====
+**Metadata Enhancements**
+
+The following new metadata items have been added to the metadata pipe, MQTT and the native D-Bus interface.
+1. `core`/`asdk`. This is [glossed](https://github.com/tchapi/shairport-sync-ui/blob/master/DMAP_DAAP_Codes.md) as `daap.songdatakind`. It seems to indicate whether the audio is timed or not, e.g. a track or album has the value `0`, and a continuous untimed stream such as a radio station is `1`, so it is potentially very useful for remote control displays, as it seems to indicate whether a progress bar, etc. could be used or not. The value is included, if available, in the native DBus interface in the metadata bundle with the tag `sps:songdatakind`.
+2. `ssnc`/`styp`. This is the type of data stream currently being received by Shairport Sync. Values are `Classic`, `Buffered` or `Realtime`. Included in the native D-Bus interface as `StreamType` in the `org.gnome.ShairportSync.RemoteControl` interface.
+3. `ssnc`/`ofmt`. This is the output format of audio going to the output device. Values are `S32`, `S24` and so on. S=signed, U=unsigned, 32/24/16/8 is the bit depth, BE/LE is Big-Endian or Little-Endian. Note that `S24` means signed 24 bits in a 32-bit space; `S24_3LE` means Signed 24 bits in a 3-byte little-endian form, etc. Each frame is always a stereo pair. Included in the native D-Bus interface as `OutputFormat` in the `org.gnome.ShairportSync` interface.
+4. `ssnc`/`ofps`. This is the output rate in frames per second, usually `44100`. Included in the native D-Bus interface as `OutputRate` in the `org.gnome.ShairportSync` interface.
+
 Version 4.1-dev-776-g27754a62
 ====
 **Docker Enhancements**
