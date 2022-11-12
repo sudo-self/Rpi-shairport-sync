@@ -803,8 +803,8 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
                 case 'canp': // nowplaying 4 ids: dbid, plid, playlistItem, itemid (from mellowware
                              // see reference above)
                   debug(2, "DACP Composite ID seen");
-                  if (memcmp(metadata_store.item_composite_id, sp - item_size,
-                             sizeof(metadata_store.item_composite_id)) != 0) {
+                  if ((metadata_store.item_composite_id_is_valid == 0) || (memcmp(metadata_store.item_composite_id, sp - item_size,
+                             sizeof(metadata_store.item_composite_id)) != 0)) {
                     memcpy(metadata_store.item_composite_id, sp - item_size,
                            sizeof(metadata_store.item_composite_id));
                     char st[33];
@@ -817,6 +817,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
                     *pt = 0;
                     debug(2, "Item composite ID changed to 0x%s.", st);
                     metadata_store.item_composite_id_changed = 1;
+                    metadata_store.item_composite_id_is_valid = 1;
                   }
                   break;
                 case 'astm':
@@ -826,6 +827,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
                   if (ui != metadata_store.songtime_in_milliseconds) {
                     metadata_store.songtime_in_milliseconds = ui;
                     metadata_store.songtime_in_milliseconds_changed = 1;
+                    metadata_store.songtime_in_milliseconds_is_valid = 1;
                     debug(2, "DACP Song Time set to: \"%u\"",
                           metadata_store.songtime_in_milliseconds);
                   }

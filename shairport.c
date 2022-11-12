@@ -2539,6 +2539,13 @@ int main(int argc, char **argv) {
 
 #ifdef CONFIG_METADATA
   send_ssnc_metadata('svna', config.service_name, strlen(config.service_name), 1);
+  char buffer[256] = "";
+  snprintf(buffer, sizeof(buffer), "%d",
+           config.output_rate);
+  send_ssnc_metadata('ofps', buffer, strlen(buffer), 1);
+  snprintf(buffer, sizeof(buffer), "%s",
+           sps_format_description_string(config.output_format));  
+  send_ssnc_metadata('ofmt', buffer, strlen(buffer), 1);  
 #endif
 
   activity_monitor_start(); // not yet for AP2

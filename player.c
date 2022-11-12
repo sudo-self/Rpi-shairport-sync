@@ -363,20 +363,32 @@ static void terminate_decoders(rtsp_conn_info *conn) {
 #endif
 }
 
+uint64_t buffers_allocated = 0;
+uint64_t buffers_released = 0;
 static void init_buffer(rtsp_conn_info *conn) {
   // debug(1,"input_bytes_per_frame: %d.", conn->input_bytes_per_frame);
   // debug(1,"input_bit_depth: %d.", conn->input_bit_depth);
   int i;
-  for (i = 0; i < BUFFER_FRAMES; i++)
+  for (i = 0; i < BUFFER_FRAMES; i++) {
     //    conn->audio_buffer[i].data = malloc(conn->input_bytes_per_frame *
     //    conn->max_frames_per_packet);
-    conn->audio_buffer[i].data = malloc(8 * conn->max_frames_per_packet); // todo
+    void *allocation = malloc(8 * conn->max_frames_per_packet);
+    if (allocation == NULL) {
+      die("could not allocate memory for audio buffers. %" PRId64 " buffers allocated, %" PRId64 " buffers released.", buffers_allocated, buffers_released);
+    } else {
+      conn->audio_buffer[i].data = allocation;
+      buffers_allocated++;
+    }
+  }
+  debug(1, "%" PRId64 " buffers allocated, %" PRId64 " buffers released.", buffers_allocated, buffers_released);
 }
 
 static void free_audio_buffers(rtsp_conn_info *conn) {
   int i;
-  for (i = 0; i < BUFFER_FRAMES; i++)
+  for (i = 0; i < BUFFER_FRAMES; i++) {
     free(conn->audio_buffer[i].data);
+    buffers_released++;
+  }
 }
 
 int first_possibly_missing_frame = -1;
@@ -2725,23 +2737,31 @@ void *player_thread_func(void *arg) {
                 sync_error = 0; // say the error was fixed!
               }
               // since this is the first frame of audio, inform the user if requested...
-              if (config.statistics_requested) {
+
 #ifdef CONFIG_AIRPLAY_2
-                if (conn->airplay_stream_type == realtime_stream) {
-                  if (conn->airplay_type == ap_1)
-                    inform("Connection %d: Playback Started -- AirPlay 1 Compatible.",
-                           conn->connection_number);
-                  else
-                    inform("Connection %d: Playback Started -- AirPlay 2 Realtime.",
-                           conn->connection_number);
+              if (conn->airplay_stream_type == realtime_stream) {
+                if (conn->airplay_type == ap_1) {
+                  send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
+                  if (config.statistics_requested)
+                    inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 1 Compatible.",
+                         conn->connection_number, inframe->given_timestamp);
                 } else {
-                  inform("Connection %d: Playback Started -- AirPlay 2 Buffered.",
-                         conn->connection_number);
+                  send_ssnc_metadata('styp', "Realtime", strlen("Realtime"), 1);
+                  if (config.statistics_requested)
+                    inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 2 Realtime.",
+                         conn->connection_number, inframe->given_timestamp);
                 }
-#else
-                inform("Connection %d: Playback Started -- AirPlay 1.", conn->connection_number);
-#endif
+              } else {
+                send_ssnc_metadata('styp', "Buffered", strlen("Buffered"), 1);
+                if (config.statistics_requested)
+                  inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 2 Buffered.",
+                       conn->connection_number, inframe->given_timestamp);
               }
+#else
+              send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
+              if (config.statistics_requested)
+                inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 1.", conn->connection_number, inframe->given_timestamp);
+#endif
             }
             // not too sure if abs() is implemented for int64_t, so we'll do it manually
             int64_t abs_sync_error = sync_error;

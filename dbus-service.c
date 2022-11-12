@@ -96,6 +96,18 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
     }
   }
 
+  if (argc->stream_type) {
+    // debug(1, "Check stream type");
+    th = shairport_sync_remote_control_get_stream_type(shairportSyncRemoteControlSkeleton);
+    if ((th == NULL) || (strcasecmp(th, argc->stream_type) != 0)) {
+      // debug(1, "Stream type string should be changed");
+      shairport_sync_remote_control_set_stream_type(shairportSyncRemoteControlSkeleton,
+                                                        argc->stream_type);
+    }
+  }
+  
+  
+
   switch (argc->player_state) {
   case PS_NOT_AVAILABLE:
     shairport_sync_remote_control_set_player_state(shairportSyncRemoteControlSkeleton,
@@ -202,13 +214,21 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
     g_variant_builder_add(dict_builder, "{sv}", "mpris:artUrl", artUrl);
   }
 
-  // Add in the Track ID based on the 'mper' metadata if it is non-zero
-  if (argc->item_id != 0) {
+  // Add in the Track ID based on the 'mper' metadata if it is valid
+  if (argc->item_id_is_valid != 0) {
     char trackidstring[128];
     snprintf(trackidstring, sizeof(trackidstring), "/org/gnome/ShairportSync/%" PRIX64 "",
              argc->item_id);
     GVariant *trackid = g_variant_new("o", trackidstring);
     g_variant_builder_add(dict_builder, "{sv}", "mpris:trackid", trackid);
+  }
+
+  // Add in the Song Data Kind based on the 'asdk' metadata if it is valid
+  // It seems that this is 0 for a timed play, e.g. a track or an album, but is 1 for an untimed play, such as a stream.
+  
+  if (argc->song_data_kind_is_valid != 0) {
+    GVariant *songdatakind = g_variant_new_uint32(argc->song_data_kind);
+    g_variant_builder_add(dict_builder, "{sv}", "sps:songdatakind", songdatakind);
   }
 
   // Add the track name if it exists
@@ -241,11 +261,11 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
     g_variant_builder_add(dict_builder, "{sv}", "xesam:genre", genre);
   }
 
-  if (argc->songtime_in_milliseconds) {
+  if (argc->songtime_in_milliseconds_is_valid != 0) {
     uint64_t track_length_in_microseconds = argc->songtime_in_milliseconds;
     track_length_in_microseconds *= 1000; // to microseconds in 64-bit precision
                                           // Make up the track name and album name
-    // debug(1, "Set tracklength to %lu.", track_length_in_microseconds);
+    // debug(1, "Set tracklength to %" PRId64 ".", track_length_in_microseconds);
     GVariant *tracklength = g_variant_new("x", track_length_in_microseconds);
     g_variant_builder_add(dict_builder, "{sv}", "mpris:length", tracklength);
   }

@@ -178,7 +178,10 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
       case 'asal':
         mqtt_publish("songalbum", data, length);
         break;
-      case 'clip':
+      case 'asdk':
+        mqtt_publish("songdatakind", data, length); // 0 seem to be a timed item, 1 an untimed stream
+        break;
+     case 'clip':
         mqtt_publish("client_ip", data, length);
         break;
       case 'cdid':
@@ -192,6 +195,12 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
         break;
       case 'daid':
         mqtt_publish("dacp_id", data, length);
+        break;
+      case 'ofmt':
+        mqtt_publish("output_format", data, length);
+        break;
+      case 'ofps':
+        mqtt_publish("output_frame_rate", data, length);
         break;
       case 'pbeg':
         mqtt_publish("play_start", data, length);
@@ -215,6 +224,9 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
         break;
       case 'snam':
         mqtt_publish("client_name", data, length);
+        break;
+      case 'styp':
+        mqtt_publish("stream_type", data, length);
         break;
       case 'svip':
         mqtt_publish("server_ip", data, length);

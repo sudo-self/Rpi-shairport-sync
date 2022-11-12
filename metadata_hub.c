@@ -110,6 +110,7 @@ void run_metadata_watchers(void) {
   metadata_store.artist_name_changed = 0;
   metadata_store.album_artist_name_changed = 0;
   metadata_store.album_name_changed = 0;
+  metadata_store.song_data_kind_changed = 0;
   metadata_store.track_name_changed = 0;
   metadata_store.genre_changed = 0;
   metadata_store.comment_changed = 0;
@@ -348,6 +349,19 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
   char *cs;
   if (type == 'core') {
     switch (code) {
+    case 'asdk': {
+      // get the one-byte number as an unsigned number
+      int song_data_kind = data[0]; // one byte
+      song_data_kind = song_data_kind & 0xFF; // unsigned
+      debug(2, "MH Song Data Kind seen: \"%d\" of length %u.", song_data_kind, length);
+      if ((song_data_kind != metadata_store.song_data_kind) || (metadata_store.song_data_kind_is_valid == 0)) {
+        metadata_store.song_data_kind = song_data_kind;
+        metadata_store.song_data_kind_changed = 1;
+        metadata_store.song_data_kind_is_valid = 1;
+        debug(2, "MH Song Data Kind set to: \"%d\"", metadata_store.song_data_kind);
+        metadata_packet_item_changed = 1;
+      }
+    } break;
     case 'mper': {
       // get the 64-bit number as a uint64_t by reading two uint32_t s and combining them
       uint64_t vl = ntohl(*(uint32_t *)data); // get the high order 32 bits
@@ -355,10 +369,10 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       uint64_t ul = ntohl(*(uint32_t *)(data + sizeof(uint32_t))); // and the low order 32 bits
       vl = vl + ul;
       debug(2, "MH Item ID seen: \"%" PRIx64 "\" of length %u.", vl, length);
-      if (vl != metadata_store.item_id) {
+      if ((vl != metadata_store.item_id) || (metadata_store.item_id_is_valid == 0)) {
         metadata_store.item_id = vl;
         metadata_store.item_id_changed = 1;
-        metadata_store.item_id_received = 1;
+        metadata_store.item_id_is_valid = 1;
         debug(2, "MH Item ID set to: \"%" PRIx64 "\"", metadata_store.item_id);
         metadata_packet_item_changed = 1;
       }
@@ -366,9 +380,10 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
     case 'astm': {
       uint32_t ui = ntohl(*(uint32_t *)data);
       debug(2, "MH Song Time seen: \"%u\" of length %u.", ui, length);
-      if (ui != metadata_store.songtime_in_milliseconds) {
+      if ((ui != metadata_store.songtime_in_milliseconds) || (metadata_store.songtime_in_milliseconds_is_valid == 0)) {
         metadata_store.songtime_in_milliseconds = ui;
         metadata_store.songtime_in_milliseconds_changed = 1;
+        metadata_store.songtime_in_milliseconds_is_valid = 1;
         debug(2, "MH Song Time set to: \"%u\"", metadata_store.songtime_in_milliseconds);
         metadata_packet_item_changed = 1;
       }
@@ -554,7 +569,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       cs = strndup(data, length);
       if (string_update(&metadata_store.client_name, &metadata_store.client_name_changed, cs)) {
         changed = 1;
-        debug(1, "MH Client Name set to: \"%s\"", metadata_store.client_name);
+        debug(2, "MH Client Name set to: \"%s\"", metadata_store.client_name);
       }
       free(cs);
       break;
@@ -564,6 +579,15 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
                         cs)) {
         changed = 1;
         debug(2, "MH Progress String set to: \"%s\"", metadata_store.progress_string);
+      }
+      free(cs);
+      break;
+    case 'styp':
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.stream_type, &metadata_store.stream_type_changed,
+                        cs)) {
+        changed = 1;
+        debug(2, "MH Stream Type set to: \"%s\"", metadata_store.stream_type);
       }
       free(cs);
       break;
