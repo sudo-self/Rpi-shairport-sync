@@ -1,3 +1,8 @@
+Version 4.1-dev-786-gfc117e73
+====
+**Bug Fix**
+* Fix a bug caused in the transition to version 4.1, where a change was made to how the 12-hex-digit prefix to the classic AirPlay service name was derived. Previously it was a hash of the service name, and in 4.1 this was changed to deriving it from one of the device's MAC addresses. This seems to cause problems with multiple instances of classic Shairport Sync running on the same system, as they would all get the same prefix. The fix was to generate the prefix from a hash of the service name and the device's MAC address, which should be unique for every instance. Addresses issue [#1581](https://github.com/mikebrady/shairport-sync/issues/1581). Thanks to [Christoph Bloemer (?)](https://github.com/chbloemer) for the report.
+
 Version 4.1-dev-784-g60e913dd
 ====
 **Bug Fix**
