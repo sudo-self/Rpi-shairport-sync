@@ -1,3 +1,8 @@
+Version 4.1-dev-784-g60e913dd
+====
+**Bug Fix**
+* In the PulseAudio backend, Whenever a play or latency request is made, reopen the stream if it is closed. Addresses issue [#1580](https://github.com/mikebrady/shairport-sync/issues/1580). Thanks, as ever, to [Noel Hibbard](https://github.com/noelhibbard) for the report.
+
 Version 4.1-dev-781-g9af924dd
 ====
 **Metadata Enhancements**
