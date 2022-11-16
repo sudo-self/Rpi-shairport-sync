@@ -2454,35 +2454,6 @@ int main(int argc, char **argv) {
   soxr_time_check_thread_started = 1;
 #endif
 
-  /*
-    uint8_t ap_md5[16];
-
-  #ifdef CONFIG_OPENSSL
-    MD5_CTX ctx;
-    MD5_Init(&ctx);
-    MD5_Update(&ctx, config.service_name, strlen(config.service_name));
-    MD5_Final(ap_md5, &ctx);
-  #endif
-
-  #ifdef CONFIG_MBEDTLS
-  #if MBEDTLS_VERSION_MINOR >= 7
-    mbedtls_md5_context tctx;
-    mbedtls_md5_starts_ret(&tctx);
-    mbedtls_md5_update_ret(&tctx, (unsigned char *)config.service_name,
-  strlen(config.service_name)); mbedtls_md5_finish_ret(&tctx, ap_md5); #else mbedtls_md5_context
-  tctx; mbedtls_md5_starts(&tctx); mbedtls_md5_update(&tctx, (unsigned char *)config.service_name,
-  strlen(config.service_name)); mbedtls_md5_finish(&tctx, ap_md5); #endif #endif
-
-  #ifdef CONFIG_POLARSSL
-    md5_context tctx;
-    md5_starts(&tctx);
-    md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
-    md5_finish(&tctx, ap_md5);
-  #endif
-
-    memcpy(config.hw_addr, ap_md5, sizeof(config.hw_addr));
-  */
-
 #ifdef CONFIG_METADATA
   metadata_init(); // create the metadata pipe if necessary
 #endif
@@ -2540,12 +2511,10 @@ int main(int argc, char **argv) {
 #ifdef CONFIG_METADATA
   send_ssnc_metadata('svna', config.service_name, strlen(config.service_name), 1);
   char buffer[256] = "";
-  snprintf(buffer, sizeof(buffer), "%d",
-           config.output_rate);
+  snprintf(buffer, sizeof(buffer), "%d", config.output_rate);
   send_ssnc_metadata('ofps', buffer, strlen(buffer), 1);
-  snprintf(buffer, sizeof(buffer), "%s",
-           sps_format_description_string(config.output_format));  
-  send_ssnc_metadata('ofmt', buffer, strlen(buffer), 1);  
+  snprintf(buffer, sizeof(buffer), "%s", sps_format_description_string(config.output_format));
+  send_ssnc_metadata('ofmt', buffer, strlen(buffer), 1);
 #endif
 
   activity_monitor_start(); // not yet for AP2
