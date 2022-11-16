@@ -1596,10 +1596,10 @@ void exit_function() {
 #ifdef CONFIG_SOXR
       // be careful -- not sure if the thread can be cancelled cleanly, so wait for it to shut down
       if (soxr_time_check_thread_started != 0) {
-        debug(1, "Waiting for SoXr timecheck to terminate...");
+        debug(2, "Waiting for SoXr timecheck to terminate...");
         pthread_join(soxr_time_check_thread, NULL);
         soxr_time_check_thread_started = 0;
-        debug(1, "Waiting for SoXr timecheck to terminate done");
+        debug(2, "Waiting for SoXr timecheck to terminate done");
       }
 
 #endif
