@@ -48,19 +48,6 @@ extern mdns_backend mdns_external_avahi;
 extern mdns_backend mdns_external_dns_sd;
 #endif
 
-#ifdef CONFIG_MBEDTLS
-#include <mbedtls/md5.h>
-#include <mbedtls/version.h>
-#endif
-
-#ifdef CONFIG_POLARSSL
-#include <polarssl/md5.h>
-#endif
-
-#ifdef CONFIG_OPENSSL
-#include <openssl/md5.h>
-#endif
-
 static mdns_backend *mdns_backends[] = {
 #ifdef CONFIG_AVAHI
     &mdns_avahi,
@@ -78,48 +65,11 @@ static mdns_backend *mdns_backends[] = {
     NULL};
 
 void mdns_register(char **txt_records, char **secondary_txt_records) {
-
-  // calculate the 12-hex-digit prefix by hashing the service name.
-  uint8_t ap_md5[16];
-
-debug(1,"size of hw_addr is %u.", sizeof(config.hw_addr));
-#ifdef CONFIG_OPENSSL
-  MD5_CTX ctx;
-  MD5_Init(&ctx);
-  MD5_Update(&ctx, config.service_name, strlen(config.service_name));
-  MD5_Update(&ctx, config.hw_addr, sizeof(config.hw_addr));
-  MD5_Final(ap_md5, &ctx);
-#endif
-
-#ifdef CONFIG_MBEDTLS
-#if MBEDTLS_VERSION_MINOR >= 7
-  mbedtls_md5_context tctx;
-  mbedtls_md5_starts_ret(&tctx);
-  mbedtls_md5_update_ret(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
-  mbedtls_md5_update_ret(&tctx, (unsigned char *)config.hw_addr, sizeof(config.hw_addr));
-  mbedtls_md5_finish_ret(&tctx, ap_md5);
-#else
-  mbedtls_md5_context tctx;
-  mbedtls_md5_starts(&tctx);
-  mbedtls_md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
-  mbedtls_md5_update(&tctx, (unsigned char *)config.hw_addr, sizeof(config.hw_addr));
-  mbedtls_md5_finish(&tctx, ap_md5);
-#endif
-#endif
-
-#ifdef CONFIG_POLARSSL
-  md5_context tctx;
-  md5_starts(&tctx);
-  md5_update(&tctx, (unsigned char *)config.service_name, strlen(config.service_name));
-  md5_update(&tctx, (unsigned char *)config.hw_addr, sizeof(config.hw_addr));
-  md5_finish(&tctx, ap_md5);
-#endif
-
   char *ap1_service_name = alloca(strlen(config.service_name) + 14);
   char *p = ap1_service_name;
   int i;
   for (i = 0; i < 6; i++) {
-    snprintf(p, 3, "%02X", ap_md5[i]);
+    snprintf(p, 3, "%02X", config.hw_addr[i]);
     p += 2;
   }
   *p++ = '@';
