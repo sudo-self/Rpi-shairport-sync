@@ -380,7 +380,6 @@ static void init_buffer(rtsp_conn_info *conn) {
       buffers_allocated++;
     }
   }
-  debug(1, "%" PRId64 " buffers allocated, %" PRId64 " buffers released.", buffers_allocated, buffers_released);
 }
 
 static void free_audio_buffers(rtsp_conn_info *conn) {
@@ -389,6 +388,7 @@ static void free_audio_buffers(rtsp_conn_info *conn) {
     free(conn->audio_buffer[i].data);
     buffers_released++;
   }
+  debug(1, "%" PRId64 " buffers allocated, %" PRId64 " buffers released.", buffers_allocated, buffers_released);
 }
 
 int first_possibly_missing_frame = -1;
@@ -1730,14 +1730,14 @@ void player_thread_cleanup_handler(void *arg) {
     int64_t elapsedMin = (time_playing / 60) % 60;
     int64_t elapsedSec = time_playing % 60;
     if (conn->frame_rate_valid)
-      inform("Connection %d: Playback Stopped. Total playing time %02" PRId64 ":%02" PRId64
+      inform("Connection %d: Playback stopped. Total playing time %02" PRId64 ":%02" PRId64
              ":%02" PRId64 ". "
              "Output: %0.2f (raw), %0.2f (corrected) "
              "frames per second.",
              conn->connection_number, elapsedHours, elapsedMin, elapsedSec, conn->raw_frame_rate,
              conn->corrected_frame_rate);
     else
-      inform("Connection %d: Playback Stopped. Total playing time %02" PRId64 ":%02" PRId64
+      inform("Connection %d: Playback stopped. Total playing time %02" PRId64 ":%02" PRId64
              ":%02" PRId64 ".",
              conn->connection_number, elapsedHours, elapsedMin, elapsedSec);
   }
@@ -2745,14 +2745,14 @@ void *player_thread_func(void *arg) {
                   send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
 #endif
                   if (config.statistics_requested)
-                    inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 1 Compatible.",
+                    inform("Connection %d: Playback started at frame %" PRId64 " -- AirPlay 1 Compatible.",
                          conn->connection_number, inframe->given_timestamp);
                 } else {
 #ifdef CONFIG_METADATA_HUB                
                   send_ssnc_metadata('styp', "Realtime", strlen("Realtime"), 1);
 #endif
                   if (config.statistics_requested)
-                    inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 2 Realtime.",
+                    inform("Connection %d: Playback started at frame %" PRId64 " -- AirPlay 2 Realtime.",
                          conn->connection_number, inframe->given_timestamp);
                 }
               } else {
@@ -2760,7 +2760,7 @@ void *player_thread_func(void *arg) {
                 send_ssnc_metadata('styp', "Buffered", strlen("Buffered"), 1);
 #endif
                 if (config.statistics_requested)
-                  inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 2 Buffered.",
+                  inform("Connection %d: Playback started at frame %" PRId64 " -- AirPlay 2 Buffered.",
                        conn->connection_number, inframe->given_timestamp);
               }
 #else
@@ -2768,7 +2768,7 @@ void *player_thread_func(void *arg) {
               send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
 #endif
               if (config.statistics_requested)
-                inform("Connection %d: Playback Started at frame %" PRId64 " -- AirPlay 1.", conn->connection_number, inframe->given_timestamp);
+                inform("Connection %d: Playback started at frame %" PRId64 " -- AirPlay 1.", conn->connection_number, inframe->given_timestamp);
 #endif
             }
             // not too sure if abs() is implemented for int64_t, so we'll do it manually

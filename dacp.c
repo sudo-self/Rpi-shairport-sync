@@ -1221,8 +1221,8 @@ int dacp_get_volume(int32_t *the_actual_volume) {
     http_response = dacp_get_speaker_list((dacp_spkr_stuff *)&speaker_info, 50, &speaker_count);
     if (http_response == 200) {
       // get our machine number
-      uint16_t *hn = (uint16_t *)config.hw_addr;
-      uint32_t *ln = (uint32_t *)(config.hw_addr + 2);
+      uint16_t *hn = (uint16_t *)config.ap1_prefix;
+      uint32_t *ln = (uint32_t *)(config.ap1_prefix + 2);
       uint64_t t1 = ntohs(*hn);
       uint64_t t2 = ntohl(*ln);
       int64_t machine_number = (t1 << 32) + t2; // this form is useful
@@ -1275,8 +1275,8 @@ int dacp_set_volume(int32_t vo) {
       http_response = dacp_get_speaker_list((dacp_spkr_stuff *)&speaker_info, 50, &speaker_count);
       if (http_response == 200) {
         // get our machine number
-        uint16_t *hn = (uint16_t *)config.hw_addr;
-        uint32_t *ln = (uint32_t *)(config.hw_addr + 2);
+        uint16_t *hn = (uint16_t *)config.ap1_prefix;
+        uint32_t *ln = (uint32_t *)(config.ap1_prefix + 2);
         uint64_t t1 = ntohs(*hn);
         uint64_t t2 = ntohl(*ln);
         int64_t machine_number = (t1 << 32) + t2; // this form is useful

@@ -159,6 +159,7 @@ typedef struct {
   int mqtt_enable_remote;
   char *mqtt_empty_payload_substitute;
 #endif
+  uint8_t ap1_prefix[6]; 
   uint8_t hw_addr[8]; // only needs 6 but 8 is handy when converting this to a number
   int port;
   int udp_port_base;

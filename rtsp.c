@@ -1333,7 +1333,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
   while (msg_size < 0) {
     if (conn->stop != 0) {
-      debug(3, "Connection %d: shutdown requested.", conn->connection_number);
+      debug(3, "Connection %d: Shutdown requested by client.", conn->connection_number);
       reply = rtsp_read_request_response_immediate_shutdown_requested;
       goto shutdown;
     }
@@ -1342,7 +1342,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
     if (nread == 0) {
       // a blocking read that returns zero means eof -- implies connection closed by client      
-      debug(1, "Connection %d: RTSP connection closed by client.",
+      debug(1, "Connection %d: Connection closed by client.",
         conn->connection_number);
       reply = rtsp_read_request_response_channel_closed;
       // Note: the socket will be closed when the thread exits
@@ -4751,7 +4751,7 @@ static void apple_challenge(int fd, rtsp_message *req, rtsp_message *resp) {
   }
 
   for (i = 0; i < 6; i++)
-    *bp++ = config.hw_addr[i];
+    *bp++ = config.ap1_prefix[i];
 
   int buflen, resplen;
   buflen = bp - buf;
@@ -5005,7 +5005,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     conn->audio_socket = 0;
   }
   if (conn->fd > 0) {
-    debug(1, "Connection %d: terminating -- closing RTSP connection socket %d: from %s:%u to self at %s:%u.",
+    debug(2, "Connection %d: terminating -- closing RTSP connection socket %d: from %s:%u to self at %s:%u.",
           conn->connection_number, conn->fd, conn->client_ip_string, conn->client_rtsp_port,
           conn->self_ip_string, conn->self_rtsp_port);
     close(conn->fd);
