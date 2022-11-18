@@ -55,7 +55,7 @@ For AirPlay 2 operation, _before you install the libraries_, please ensure the y
 # yum update
 # yum install make automake gcc gcc-c++ \
     git autoconf automake avahi-devel libconfig-devel openssl-devel popt-devel soxr-devel \
-    ffmpeg ffmpeg-devel libplist-devel libsodium-devel libgcrypt-dev libuuid-devel vim-common \
+    ffmpeg ffmpeg-devel libplist-devel libsodium-devel libgcrypt-devel libuuid-devel vim-common \
     alsa-lib-devel
 ```
 If you are building classic Shairport Sync, the list of packages is shorter:
