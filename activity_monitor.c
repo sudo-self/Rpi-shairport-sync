@@ -56,7 +56,8 @@ pthread_mutex_t activity_monitor_mutex;
 pthread_cond_t activity_monitor_cv;
 
 void going_active(int block) {
-  // debug(1, "activity_monitor: state transitioning to \"active\" with%s blocking", block ? "" : "out");
+  // debug(1, "activity_monitor: state transitioning to \"active\" with%s blocking", block ? "" :
+  // "out");
   if (config.cmd_active_start)
     command_execute(config.cmd_active_start, "", block);
 #ifdef CONFIG_METADATA
@@ -75,7 +76,8 @@ void going_active(int block) {
 }
 
 void going_inactive(int block) {
-  // debug(1, "activity_monitor: state transitioning to \"inactive\" with%s blocking", block ? "" : "out");
+  // debug(1, "activity_monitor: state transitioning to \"inactive\" with%s blocking", block ? "" :
+  // "out");
   if (config.cmd_active_stop)
     command_execute(config.cmd_active_stop, "", block);
 #ifdef CONFIG_METADATA

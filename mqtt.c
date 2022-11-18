@@ -179,9 +179,10 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
         mqtt_publish("songalbum", data, length);
         break;
       case 'asdk':
-        mqtt_publish("songdatakind", data, length); // 0 seem to be a timed item, 1 an untimed stream
+        mqtt_publish("songdatakind", data,
+                     length); // 0 seem to be a timed item, 1 an untimed stream
         break;
-     case 'clip':
+      case 'clip':
         mqtt_publish("client_ip", data, length);
         break;
       case 'cdid':

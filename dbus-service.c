@@ -68,7 +68,8 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
                                                    argc->airplay_volume);
 
   shairport_sync_remote_control_set_client(shairportSyncRemoteControlSkeleton, argc->client_ip);
-  shairport_sync_remote_control_set_client_name(shairportSyncRemoteControlSkeleton, argc->client_name);
+  shairport_sync_remote_control_set_client_name(shairportSyncRemoteControlSkeleton,
+                                                argc->client_name);
 
   // although it's a DACP server, the server is in fact, part of the the AirPlay "client" (their
   // term).
@@ -102,11 +103,9 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
     if ((th == NULL) || (strcasecmp(th, argc->stream_type) != 0)) {
       // debug(1, "Stream type string should be changed");
       shairport_sync_remote_control_set_stream_type(shairportSyncRemoteControlSkeleton,
-                                                        argc->stream_type);
+                                                    argc->stream_type);
     }
   }
-  
-  
 
   switch (argc->player_state) {
   case PS_NOT_AVAILABLE:
@@ -224,8 +223,9 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
   }
 
   // Add in the Song Data Kind based on the 'asdk' metadata if it is valid
-  // It seems that this is 0 for a timed play, e.g. a track or an album, but is 1 for an untimed play, such as a stream.
-  
+  // It seems that this is 0 for a timed play, e.g. a track or an album, but is 1 for an untimed
+  // play, such as a stream.
+
   if (argc->song_data_kind_is_valid != 0) {
     GVariant *songdatakind = g_variant_new_uint32(argc->song_data_kind);
     g_variant_builder_add(dict_builder, "{sv}", "sps:songdatakind", songdatakind);
@@ -1042,7 +1042,8 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 
   shairport_sync_set_service_name(SHAIRPORT_SYNC(shairportSyncSkeleton), config.service_name);
   shairport_sync_set_output_rate(SHAIRPORT_SYNC(shairportSyncSkeleton), config.output_rate);
-  shairport_sync_set_output_format(SHAIRPORT_SYNC(shairportSyncSkeleton), sps_format_description_string(config.output_format));
+  shairport_sync_set_output_format(SHAIRPORT_SYNC(shairportSyncSkeleton),
+                                   sps_format_description_string(config.output_format));
 
 #ifdef CONFIG_AIRPLAY_2
   shairport_sync_set_protocol(SHAIRPORT_SYNC(shairportSyncSkeleton), "AirPlay 2");
@@ -1157,7 +1158,7 @@ void stop_dbus_service() {
   if (ownerID) {
     g_bus_unown_name(ownerID);
   } else if (service_is_running != 0) {
-      debug(1, "Zero OwnerID for running \"org.gnome.ShairportSync\" dbus service.");
+    debug(1, "Zero OwnerID for running \"org.gnome.ShairportSync\" dbus service.");
   }
   service_is_running = 0;
 }

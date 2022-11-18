@@ -2457,7 +2457,7 @@ int main(int argc, char **argv) {
   // calculate the 12-hex-digit prefix by hashing the service name.
   uint8_t ap_md5[16];
 
-debug(1,"size of hw_addr is %u.", sizeof(config.hw_addr));
+  debug(1, "size of hw_addr is %u.", sizeof(config.hw_addr));
 #ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
   MD5_Init(&ctx);
@@ -2491,7 +2491,6 @@ debug(1,"size of hw_addr is %u.", sizeof(config.hw_addr));
 #endif
 
   memcpy(config.ap1_prefix, ap_md5, sizeof(config.ap1_prefix));
-
 
 #ifdef CONFIG_METADATA
   metadata_init(); // create the metadata pipe if necessary

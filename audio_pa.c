@@ -222,10 +222,9 @@ static void do_start() {
   pa_threaded_mainloop_unlock(mainloop);
 }
 
-
 static void start(__attribute__((unused)) int sample_rate,
                   __attribute__((unused)) int sample_format) {
-    do_start();
+  do_start();
 }
 
 static int stream_is_open() {
@@ -247,7 +246,7 @@ static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
   if (stream_is_open() == 0) {
     // debug(1,"pa open stream before play.");
     do_start();
-  }  
+  }
   if (stream_is_open() != 0) {
     // copy the samples into the queue
     size_t bytes_to_transfer = samples * 2 * 2;
@@ -287,7 +286,7 @@ int pa_delay(long *the_delay) {
     // debug(1,"pa open stream before delay.");
     do_start();
   }
-  if (stream_is_open() != 0) {  
+  if (stream_is_open() != 0) {
     pa_usec_t latency;
     int negative;
     pa_threaded_mainloop_lock(mainloop);
@@ -304,7 +303,7 @@ int pa_delay(long *the_delay) {
       reply = 0;
     }
   } else {
-    // debug(2, "could not open pa stream for delay");  
+    // debug(2, "could not open pa stream for delay");
   }
   *the_delay = result;
   return reply;
@@ -327,7 +326,7 @@ void flush(void) {
   }
 }
 
-static void stop(void) {  
+static void stop(void) {
   // debug(1,"Stop.");
   if (stream_is_open() != 0) {
     // Cork the stream so it will stop playing

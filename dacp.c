@@ -803,8 +803,9 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
                 case 'canp': // nowplaying 4 ids: dbid, plid, playlistItem, itemid (from mellowware
                              // see reference above)
                   debug(2, "DACP Composite ID seen");
-                  if ((metadata_store.item_composite_id_is_valid == 0) || (memcmp(metadata_store.item_composite_id, sp - item_size,
-                             sizeof(metadata_store.item_composite_id)) != 0)) {
+                  if ((metadata_store.item_composite_id_is_valid == 0) ||
+                      (memcmp(metadata_store.item_composite_id, sp - item_size,
+                              sizeof(metadata_store.item_composite_id)) != 0)) {
                     memcpy(metadata_store.item_composite_id, sp - item_size,
                            sizeof(metadata_store.item_composite_id));
                     char st[33];

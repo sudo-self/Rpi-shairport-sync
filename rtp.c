@@ -2842,12 +2842,12 @@ void *rtp_buffered_audio_processor(void *arg) {
 
             // https://libsodium.gitbook.io/doc/secret-key_cryptography/aead/chacha20-poly1305/ietf_chacha20-poly1305_construction
             // Note: the eight-byte nonce must be front-padded out to 12 bytes.
-            
+
             response = crypto_aead_chacha20poly1305_ietf_decrypt(
                 m + 7,               // m
                 &new_payload_length, // mlen_p
                 NULL,                // nsec,
-                packet + 12,      // the ciphertext starts 12 bytes in and is followed by the MAC tag,
+                packet + 12, // the ciphertext starts 12 bytes in and is followed by the MAC tag,
                 nread - (8 + 12), // clen -- the last 8 bytes are the nonce
                 packet + 4,       // authenticated additional data
                 8,                // authenticated additional data length

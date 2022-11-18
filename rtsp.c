@@ -1219,12 +1219,13 @@ ssize_t timed_read_from_rtsp_connection(rtsp_conn_info *conn, uint64_t wait_time
   ssize_t result = 0; // closed
   if (conn->fd > 0) {
     int64_t remaining_time = 0;
-    uint64_t time_to_wait_to = get_absolute_time_in_ns();;
+    uint64_t time_to_wait_to = get_absolute_time_in_ns();
+    ;
     time_to_wait_to = time_to_wait_to + wait_time;
 
     // remaining_time will be zero if wait_time is zero
     if (wait_time != 0) {
-      remaining_time = time_to_wait_to - get_absolute_time_in_ns(); 
+      remaining_time = time_to_wait_to - get_absolute_time_in_ns();
     }
     do {
       struct timeval tv;
@@ -1240,7 +1241,8 @@ ssize_t timed_read_from_rtsp_connection(rtsp_conn_info *conn, uint64_t wait_time
 #ifdef CONFIG_AIRPLAY_2
       if (conn->ap2_pairing_context.control_cipher_bundle.cipher_ctx) {
         conn->ap2_pairing_context.control_cipher_bundle.is_encrypted = 1;
-        result = read_encrypted(conn->fd, &conn->ap2_pairing_context.control_cipher_bundle, buf, count);
+        result =
+            read_encrypted(conn->fd, &conn->ap2_pairing_context.control_cipher_bundle, buf, count);
       } else {
         result = read(conn->fd, buf, count);
       }
@@ -1250,11 +1252,13 @@ ssize_t timed_read_from_rtsp_connection(rtsp_conn_info *conn, uint64_t wait_time
       if (wait_time != 0)
         remaining_time = time_to_wait_to - get_absolute_time_in_ns();
       if (((result == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) && (remaining_time > 0))
-        debug(1,"remaining time on a timed read is %" PRId64 " ns.", remaining_time);
-    } while (((result == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) && (remaining_time > 0));
+        debug(1, "remaining time on a timed read is %" PRId64 " ns.", remaining_time);
+    } while (((result == -1) && ((errno == EAGAIN) || (errno == EWOULDBLOCK))) &&
+             (remaining_time > 0));
 
   } else {
-    debug(1,"Connection %d: attempt to read from a closed RTSP connection.",conn->connection_number);
+    debug(1, "Connection %d: attempt to read from a closed RTSP connection.",
+          conn->connection_number);
   }
   return result;
 }
@@ -1268,9 +1272,7 @@ void set_client_as_ptp_clock(rtsp_conn_info *conn) {
   ptp_send_control_message_string(timing_list_message);
 }
 
-void clear_ptp_clock() {
-  ptp_send_control_message_string("T");
-}
+void clear_ptp_clock() { ptp_send_control_message_string("T"); }
 #endif
 
 ssize_t read_from_rtsp_connection(rtsp_conn_info *conn, void *buf, size_t count) {
@@ -1341,9 +1343,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
     nread = read_from_rtsp_connection(conn, buf + inbuf, buflen - inbuf);
 
     if (nread == 0) {
-      // a blocking read that returns zero means eof -- implies connection closed by client      
-      debug(1, "Connection %d: Connection closed by client.",
-        conn->connection_number);
+      // a blocking read that returns zero means eof -- implies connection closed by client
+      debug(1, "Connection %d: Connection closed by client.", conn->connection_number);
       reply = rtsp_read_request_response_channel_closed;
       // Note: the socket will be closed when the thread exits
       goto shutdown;
@@ -1669,7 +1670,6 @@ void handle_record(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) 
 
 #ifdef CONFIG_AIRPLAY_2
 
-
 void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *req,
                      rtsp_message *resp) {
   debug_log_rtsp_message(2, "GET /info:", req);
@@ -1891,8 +1891,8 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
     if ((conn->ap2_flush_requested != 0) && (conn->ap2_flush_from_valid != 0) &&
         (flushFromValid != 0)) {
       // if there is a request already, and it's a deferred request, and the current request is also
-      // deferred... do nothing! -- leave the starting point in place. Yeah, yeah, we know de Morgan's
-      // Law, but this seems clearer
+      // deferred... do nothing! -- leave the starting point in place. Yeah, yeah, we know de
+      // Morgan's Law, but this seems clearer
     } else {
       conn->ap2_flush_from_sequence_number = flushFromSeq;
       conn->ap2_flush_from_rtp_timestamp = flushFromTS;
@@ -1912,7 +1912,7 @@ void handle_flushbuffered(rtsp_conn_info *conn, rtsp_message *req, rtsp_message 
       debug(2, "Deferred Flush Requested");
     else
       debug(2, "Immediate Flush Requested");
-  
+
     plist_free(messagePlist);
     // display_all_flush_requests(conn);
   }
@@ -2011,7 +2011,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
 #ifdef CONFIG_METADATA
         send_ssnc_metadata('paus', NULL, 0, 1); // pause -- contains cancellation points
 #endif
-         if (config.output->stop) {
+        if (config.output->stop) {
           debug(2, "Connection %d: Stop the output backend.", conn->connection_number);
           config.output->stop();
         }
@@ -2567,38 +2567,38 @@ void handle_setpeers(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp
   debug(2, "Connection %d: SETPEERS %s Content-Length %d", conn->connection_number, req->path,
         req->contentlength);
   debug_log_rtsp_message(2, "SETPEERS request", req);
-/*
-  char timing_list_message[4096];
-  timing_list_message[0] = 'T';
-  timing_list_message[1] = 0;
+  /*
+    char timing_list_message[4096];
+    timing_list_message[0] = 'T';
+    timing_list_message[1] = 0;
 
-  // ensure the client itself is first -- it's okay if it's duplicated later
-  strncat(timing_list_message, " ", sizeof(timing_list_message) - 1 - strlen(timing_list_message));
-  strncat(timing_list_message, (const char *)&conn->client_ip_string,
-          sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+    // ensure the client itself is first -- it's okay if it's duplicated later
+    strncat(timing_list_message, " ", sizeof(timing_list_message) - 1 -
+    strlen(timing_list_message)); strncat(timing_list_message, (const char
+    *)&conn->client_ip_string, sizeof(timing_list_message) - 1 - strlen(timing_list_message));
 
-  plist_t addresses_array = NULL;
-  plist_from_memory(req->content, req->contentlength, &addresses_array);
-  uint32_t items = plist_array_get_size(addresses_array);
-  if (items) {
-    uint32_t item;
-    for (item = 0; item < items; item++) {
-      plist_t n = plist_array_get_item(addresses_array, item);
-      char *ip_address = NULL;
-      plist_get_string_val(n, &ip_address);
-      // debug(1,ip_address);
-      strncat(timing_list_message, " ",
-              sizeof(timing_list_message) - 1 - strlen(timing_list_message));
-      strncat(timing_list_message, ip_address,
-              sizeof(timing_list_message) - 1 - strlen(timing_list_message));
-      if (ip_address != NULL)
-        free(ip_address);
+    plist_t addresses_array = NULL;
+    plist_from_memory(req->content, req->contentlength, &addresses_array);
+    uint32_t items = plist_array_get_size(addresses_array);
+    if (items) {
+      uint32_t item;
+      for (item = 0; item < items; item++) {
+        plist_t n = plist_array_get_item(addresses_array, item);
+        char *ip_address = NULL;
+        plist_get_string_val(n, &ip_address);
+        // debug(1,ip_address);
+        strncat(timing_list_message, " ",
+                sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+        strncat(timing_list_message, ip_address,
+                sizeof(timing_list_message) - 1 - strlen(timing_list_message));
+        if (ip_address != NULL)
+          free(ip_address);
+      }
+      ptp_send_control_message_string(timing_list_message);
     }
-    ptp_send_control_message_string(timing_list_message);
-  }
-  plist_free(addresses_array);
-*/
-  //set_client_as_ptp_clock(conn);
+    plist_free(addresses_array);
+  */
+  // set_client_as_ptp_clock(conn);
   resp->respcode = 200;
 }
 #endif
@@ -2845,7 +2845,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
   plist_t messagePlist = plist_from_rtsp_content(req);
   plist_t setupResponsePlist = plist_new_dict();
   resp->respcode = 400;
-  
+
   // see if we can get a name for the client
   char *clientNameString = NULL;
   plist_t nameItem = plist_dict_get_item(messagePlist, "name");
@@ -2864,7 +2864,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           "and open a TCP port.",
           conn->connection_number);
     conn->airplay_stream_category = unspecified_stream_category;
-    
+
     // figure out what category of stream it is, by looking at the plist
     plist_t timingProtocol = plist_dict_get_item(messagePlist, "timingProtocol");
     if (timingProtocol != NULL) {
@@ -2873,8 +2873,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       if (timingProtocolString) {
         if (strcmp(timingProtocolString, "PTP") == 0) {
           debug(1, "Connection %d: AP2 PTP connection from %s:%u (\"%s\") to self at %s:%u.",
-                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port, clientNameString, 
-                conn->self_ip_string, conn->self_rtsp_port);
+                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+                clientNameString, conn->self_ip_string, conn->self_rtsp_port);
           conn->airplay_stream_category = ptp_stream;
           conn->timing_type = ts_ptp;
 #ifdef CONFIG_METADATA
@@ -2888,23 +2888,27 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
 #endif
         } else if (strcmp(timingProtocolString, "NTP") == 0) {
           debug(1, "Connection %d: SETUP: NTP setup from %s:%u (\"%s\") to self at %s:%u.",
-          conn->connection_number, conn->client_ip_string, conn->client_rtsp_port, clientNameString, 
-                conn->self_ip_string, conn->self_rtsp_port);
+                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+                clientNameString, conn->self_ip_string, conn->self_rtsp_port);
           conn->airplay_stream_category = ntp_stream;
           conn->timing_type = ts_ntp;
         } else if (strcmp(timingProtocolString, "None") == 0) {
-          debug(3, "Connection %d: SETUP: a \"None\" setup detected from %s:%u (\"%s\") to self at %s:%u.",
-          conn->connection_number, conn->client_ip_string, conn->client_rtsp_port, clientNameString,
-                conn->self_ip_string, conn->self_rtsp_port);
+          debug(3,
+                "Connection %d: SETUP: a \"None\" setup detected from %s:%u (\"%s\") to self at "
+                "%s:%u.",
+                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+                clientNameString, conn->self_ip_string, conn->self_rtsp_port);
           // now check to see if it's got the "isRemoteControlOnly" item and check it's true
           plist_t isRemoteControlOnly = plist_dict_get_item(messagePlist, "isRemoteControlOnly");
           if (isRemoteControlOnly != NULL) {
             uint8_t isRemoteControlOnlyBoolean = 0;
             plist_get_bool_val(isRemoteControlOnly, &isRemoteControlOnlyBoolean);
             if (isRemoteControlOnlyBoolean != 0) {
-              debug(1, "Connection %d: Remote Control connection from %s:%u (\"%s\") to self at %s:%u.",
-                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port, clientNameString,
-                conn->self_ip_string, conn->self_rtsp_port);
+              debug(
+                  1,
+                  "Connection %d: Remote Control connection from %s:%u (\"%s\") to self at %s:%u.",
+                  conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+                  clientNameString, conn->self_ip_string, conn->self_rtsp_port);
               conn->airplay_stream_category = remote_control_stream;
             } else {
               debug(1,
@@ -3037,7 +3041,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             freeifaddrs(addrs);
 
             // debug(1,"initial timing peer command: \"%s\".", timing_list_message);
-            //ptp_send_control_message_string(timing_list_message);
+            // ptp_send_control_message_string(timing_list_message);
             set_client_as_ptp_clock(conn);
             plist_dict_set_item(timingPeerInfoPlist, "Addresses", addresses);
             plist_dict_set_item(timingPeerInfoPlist, "ID", plist_new_string(conn->self_ip_string));
@@ -3158,7 +3162,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       // get the session key -- it must have one
 
       plist_t item = plist_dict_get_item(stream0, "shk"); // session key
-      uint64_t item_value = 0; // the length
+      uint64_t item_value = 0;                            // the length
       plist_get_data_val(item, (char **)&conn->session_key, &item_value);
 
       // more stuff
@@ -3336,7 +3340,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
       plist_array_append_item(streams_array, stream0dict);
       plist_dict_set_item(setupResponsePlist, "streams", streams_array);
       resp->respcode = 200;
-      
+
     } else if (conn->airplay_stream_category == remote_control_stream) {
       debug(2, "Connection %d (RC): SETUP: Remote Control Stream received from %s.",
             conn->connection_number, conn->client_ip_string);
@@ -4452,8 +4456,8 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     conn->airplay_type = ap_1;
     conn->timing_type = ts_ntp;
     debug(1, "Connection %d: Classic AirPlay connection from %s:%u to self at %s:%u.",
-                conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
-                conn->self_ip_string, conn->self_rtsp_port);
+          conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
+          conn->self_ip_string, conn->self_rtsp_port);
 #endif
 
     conn->stream.type = ast_unknown;
@@ -4547,7 +4551,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     if ((paesiv == NULL) && (prsaaeskey == NULL)) {
       // debug(1,"Unencrypted session requested?");
       conn->stream.encrypted = 0;
-    } else if ((paesiv != NULL) && (prsaaeskey != NULL)){
+    } else if ((paesiv != NULL) && (prsaaeskey != NULL)) {
       conn->stream.encrypted = 1;
       // debug(1,"Encrypted session requested");
     } else {
@@ -4987,25 +4991,27 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
   debug(3, "Connection %d: terminating  -- closing timing, control and audio sockets...",
         conn->connection_number);
   if (conn->control_socket) {
-    debug(3, "Connection %d: terminating  -- closing control_socket %d.",
-          conn->connection_number, conn->control_socket);
+    debug(3, "Connection %d: terminating  -- closing control_socket %d.", conn->connection_number,
+          conn->control_socket);
     close(conn->control_socket);
     conn->control_socket = 0;
   }
   if (conn->timing_socket) {
-    debug(3, "Connection %d: terminating  -- closing timing_socket %d.",
-          conn->connection_number, conn->timing_socket);
+    debug(3, "Connection %d: terminating  -- closing timing_socket %d.", conn->connection_number,
+          conn->timing_socket);
     close(conn->timing_socket);
     conn->timing_socket = 0;
   }
   if (conn->audio_socket) {
-    debug(3, "Connection %d: terminating -- closing audio_socket %d.",
-          conn->connection_number, conn->audio_socket);
+    debug(3, "Connection %d: terminating -- closing audio_socket %d.", conn->connection_number,
+          conn->audio_socket);
     close(conn->audio_socket);
     conn->audio_socket = 0;
   }
   if (conn->fd > 0) {
-    debug(2, "Connection %d: terminating -- closing RTSP connection socket %d: from %s:%u to self at %s:%u.",
+    debug(2,
+          "Connection %d: terminating -- closing RTSP connection socket %d: from %s:%u to self at "
+          "%s:%u.",
           conn->connection_number, conn->fd, conn->client_ip_string, conn->client_rtsp_port,
           conn->self_ip_string, conn->self_rtsp_port);
     close(conn->fd);

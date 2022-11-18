@@ -337,7 +337,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
 
   // Some metadata items are contained in one metadata packet.
   // The start of the metadata packet is signalled by an 'ssnc' 'mdst' item and
-  // the end of it by an 'ssnc 'mden' item. 
+  // the end of it by an 'ssnc 'mden' item.
   // We don't set "changed" for them individually; instead we set it when the  'mden' token
   // comes in if the metadata_packet_item_changed item is set by parsed items
   // within the packet.
@@ -351,10 +351,11 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
     switch (code) {
     case 'asdk': {
       // get the one-byte number as an unsigned number
-      int song_data_kind = data[0]; // one byte
+      int song_data_kind = data[0];           // one byte
       song_data_kind = song_data_kind & 0xFF; // unsigned
       debug(2, "MH Song Data Kind seen: \"%d\" of length %u.", song_data_kind, length);
-      if ((song_data_kind != metadata_store.song_data_kind) || (metadata_store.song_data_kind_is_valid == 0)) {
+      if ((song_data_kind != metadata_store.song_data_kind) ||
+          (metadata_store.song_data_kind_is_valid == 0)) {
         metadata_store.song_data_kind = song_data_kind;
         metadata_store.song_data_kind_changed = 1;
         metadata_store.song_data_kind_is_valid = 1;
@@ -380,7 +381,8 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
     case 'astm': {
       uint32_t ui = ntohl(*(uint32_t *)data);
       debug(2, "MH Song Time seen: \"%u\" of length %u.", ui, length);
-      if ((ui != metadata_store.songtime_in_milliseconds) || (metadata_store.songtime_in_milliseconds_is_valid == 0)) {
+      if ((ui != metadata_store.songtime_in_milliseconds) ||
+          (metadata_store.songtime_in_milliseconds_is_valid == 0)) {
         metadata_store.songtime_in_milliseconds = ui;
         metadata_store.songtime_in_milliseconds_changed = 1;
         metadata_store.songtime_in_milliseconds_is_valid = 1;
@@ -584,8 +586,7 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       break;
     case 'styp':
       cs = strndup(data, length);
-      if (string_update(&metadata_store.stream_type, &metadata_store.stream_type_changed,
-                        cs)) {
+      if (string_update(&metadata_store.stream_type, &metadata_store.stream_type_changed, cs)) {
         changed = 1;
         debug(2, "MH Stream Type set to: \"%s\"", metadata_store.stream_type);
       }
@@ -624,14 +625,14 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       changed = (metadata_store.player_state != PS_PAUSED);
       metadata_store.player_state = PS_PAUSED;
       break;
-/*
-// not using this anymore.
-    case 'pffr': // this is sent when the first frame has been received
-    case 'prsm':
-      changed = (metadata_store.player_state != PS_PLAYING);
-      metadata_store.player_state = PS_PLAYING;
-      break;
-*/
+      /*
+      // not using this anymore.
+          case 'pffr': // this is sent when the first frame has been received
+          case 'prsm':
+            changed = (metadata_store.player_state != PS_PLAYING);
+            metadata_store.player_state = PS_PLAYING;
+            break;
+      */
     case 'pvol': {
       // Note: it's assumed that the config.airplay volume has already been correctly set.
       // int32_t actual_volume;
