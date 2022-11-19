@@ -1,3 +1,8 @@
+Version 4.1-dev-795-g7f279efa
+====
+**Bug Fix**
+* Fix a bug if the ALSA device name isn't available. (Happens in Fedora 37 on Arm in VMWare Fusion on an Apple Silicon Mac.)
+
 Version 4.1-dev-790-g03d291f4
 ====
 **Bug Fix -- Second Attempt!**
