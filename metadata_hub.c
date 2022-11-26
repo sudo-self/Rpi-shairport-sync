@@ -584,6 +584,15 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       }
       free(cs);
       break;
+    case 'phbt':
+      cs = strndup(data, length);
+      if (string_update(&metadata_store.frame_position_string, &metadata_store.frame_position_string_changed,
+                        cs)) {
+        changed = 1;
+        debug(2, "MH Frame Position String set to: \"%s\"", metadata_store.progress_string);
+      }
+      free(cs);
+      break;
     case 'styp':
       cs = strndup(data, length);
       if (string_update(&metadata_store.stream_type, &metadata_store.stream_type_changed, cs)) {
