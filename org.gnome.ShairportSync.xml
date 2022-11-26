@@ -27,6 +27,10 @@
     <property name="ServiceName" type="s" access="read" />
     <property name="OutputFormat" type="s" access="read" />
     <property name="OutputRate" type="i" access="read" />
+    <property name="FramePosition" type="s" access="read" />
+    <method name="SetFramePositionUpdateInterval">
+      <arg name="seconds" type="d" direction="in" />
+    </method>
   </interface>
   <interface name="org.gnome.ShairportSync.Diagnostics">
     <property name="Verbosity" type="i" access="readwrite" />
