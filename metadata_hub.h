@@ -55,6 +55,9 @@ typedef struct metadata_bundle {
   char *progress_string; // progress string, emitted by the source from time to time
   int progress_string_changed;
 
+  char *frame_position_string; // frame position string emitted by SPS on request
+  int frame_position_string_changed;
+
   int player_thread_active; // true if a play thread is running
   int dacp_server_active;   // true if there's a reachable DACP server (assumed to be the Airplay
                             // client) ; false otherwise
