@@ -109,4 +109,4 @@ RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio && addgr
 # Remove anything we don't need.
 RUN rm -rf /lib/apk/db/*
 
-ENTRYPOINT [ "/init", "s6-setuidgid", "shairport-sync", "/usr/local/bin/shairport-sync" ]
+ENTRYPOINT [ "/init", "/usr/local/bin/shairport-sync" ]
