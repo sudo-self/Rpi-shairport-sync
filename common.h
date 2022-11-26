@@ -141,6 +141,7 @@ typedef struct {
   int metadata_sockport;
   size_t metadata_sockmsglength;
   int get_coverart;
+  double metadata_progress_interval; // 0 means no progress reports
 #endif
 #ifdef CONFIG_MQTT
   int mqtt_enabled;

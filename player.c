@@ -1837,7 +1837,9 @@ void player_thread_cleanup_handler(void *arg) {
 
 void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-
+#ifdef CONFIG_METADATA
+  uint64_t time_of_last_metadata_progress_update;
+#endif
   uint64_t previous_frames_played = 0; // initialised to avoid a "possibly uninitialised" warning
   uint64_t previous_raw_measurement_time =
       0; // initialised to avoid a "possibly uninitialised" warning
@@ -2197,7 +2199,7 @@ void *player_thread_func(void *arg) {
 
   debug(2, "Play begin");
   while (1) {
-
+    int this_is_the_first_frame = 0; //will be set if it is
     // check a few parameters to ensure they are non-zero
     if (config.output_rate == 0)
       debug(1, "config.output_rate is zero!");
@@ -2690,6 +2692,7 @@ void *player_thread_func(void *arg) {
 
             if (at_least_one_frame_seen_this_session == 0) {
               at_least_one_frame_seen_this_session = 1;
+              this_is_the_first_frame = 1;
 
               // debug(2,"first frame real sync error (positive --> late): %" PRId64 " frames.",
               // sync_error);
@@ -2740,11 +2743,10 @@ void *player_thread_func(void *arg) {
                 sync_error = 0; // say the error was fixed!
               }
               // since this is the first frame of audio, inform the user if requested...
-
 #ifdef CONFIG_AIRPLAY_2
               if (conn->airplay_stream_type == realtime_stream) {
                 if (conn->airplay_type == ap_1) {
-#ifdef CONFIG_METADATA_HUB
+#ifdef CONFIG_METADATA
                   send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
 #endif
                   if (config.statistics_requested)
@@ -2752,7 +2754,7 @@ void *player_thread_func(void *arg) {
                            " -- AirPlay 1 Compatible.",
                            conn->connection_number, inframe->given_timestamp);
                 } else {
-#ifdef CONFIG_METADATA_HUB
+#ifdef CONFIG_METADATA
                   send_ssnc_metadata('styp', "Realtime", strlen("Realtime"), 1);
 #endif
                   if (config.statistics_requested)
@@ -2761,7 +2763,7 @@ void *player_thread_func(void *arg) {
                            conn->connection_number, inframe->given_timestamp);
                 }
               } else {
-#ifdef CONFIG_METADATA_HUB
+#ifdef CONFIG_METADATA
                 send_ssnc_metadata('styp', "Buffered", strlen("Buffered"), 1);
 #endif
                 if (config.statistics_requested)
@@ -2770,7 +2772,7 @@ void *player_thread_func(void *arg) {
                          conn->connection_number, inframe->given_timestamp);
               }
 #else
-#ifdef CONFIG_METADATA_HUB
+#ifdef CONFIG_METADATA
               send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
 #endif
               if (config.statistics_requested)
@@ -3042,6 +3044,29 @@ void *player_thread_func(void *arg) {
                   }
                   uint64_t should_be_time;
                   frame_to_local_time(inframe->given_timestamp, &should_be_time, conn);
+                  
+#ifdef CONFIG_METADATA
+                  if (config.metadata_progress_interval != 0.0) {
+                    char hb[128];
+                    if (this_is_the_first_frame != 0) {
+                      memset(hb, 0, 128);
+                      snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp, should_be_time);
+                      send_ssnc_metadata('phbt', hb, strlen(hb), 1);
+                      time_of_last_metadata_progress_update = local_time_now;
+                    } else {
+                      uint64_t mx = 1000000000;
+                      uint64_t iv = config.metadata_progress_interval * mx;
+                      iv = iv + time_of_last_metadata_progress_update;
+                      int64_t delta = iv - local_time_now;
+                      if (delta <= 0) {
+                        memset(hb, 0, 128);
+                        snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp, should_be_time);
+                        send_ssnc_metadata('phbt', hb, strlen(hb), 1);
+                        time_of_last_metadata_progress_update = local_time_now;
+                      }
+                    }                
+                  }
+#endif
                   config.output->play(conn->outbuf, play_samples, play_samples_are_timed,
                                       inframe->given_timestamp, should_be_time);
                 }
@@ -3075,6 +3100,7 @@ void *player_thread_func(void *arg) {
             // if this is the first frame, see if it's close to when it's supposed to be
             // release, which will be its time plus latency and any offset_time
             if (at_least_one_frame_seen_this_session == 0) {
+              this_is_the_first_frame = 1;
               at_least_one_frame_seen_this_session = 1;
             }
 
@@ -3090,6 +3116,28 @@ void *player_thread_func(void *arg) {
               }
               uint64_t should_be_time;
               frame_to_local_time(inframe->given_timestamp, &should_be_time, conn);
+#ifdef CONFIG_METADATA
+              if (config.metadata_progress_interval != 0.0) {
+                char hb[128];
+                if (this_is_the_first_frame != 0) {
+                  memset(hb, 0, 128);
+                  snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp, should_be_time);
+                  send_ssnc_metadata('phbt', hb, strlen(hb), 1);
+                  time_of_last_metadata_progress_update = local_time_now;
+                } else {
+                  uint64_t mx = 1000000000;
+                  uint64_t iv = config.metadata_progress_interval * mx;
+                  iv = iv + time_of_last_metadata_progress_update;
+                  int64_t delta = iv - local_time_now;
+                  if (delta <= 0) {
+                    memset(hb, 0, 128);
+                    snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp, should_be_time);
+                    send_ssnc_metadata('phbt', hb, strlen(hb), 1);
+                    time_of_last_metadata_progress_update = local_time_now;
+                  }
+                }                
+              }
+#endif
               config.output->play(conn->outbuf, play_samples, play_samples_are_timed,
                                   inframe->given_timestamp, should_be_time);
             }

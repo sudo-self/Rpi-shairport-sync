@@ -998,6 +998,11 @@ int parse_options(int argc, char **argv) {
       if (config_lookup_string(config.cfg, "metadata.pipe_name", &str)) {
         config.metadata_pipename = (char *)str;
       }
+      
+      if (config_lookup_float(config.cfg, "metadata.progress_interval", &dvalue)) {
+        config.metadata_progress_interval = dvalue;
+      }
+
 
       if (config_lookup_string(config.cfg, "metadata.socket_address", &str)) {
         config.metadata_sockaddr = (char *)str;
