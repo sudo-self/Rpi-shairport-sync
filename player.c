@@ -3045,7 +3045,10 @@ void *player_thread_func(void *arg) {
                   uint64_t should_be_time;
                   frame_to_local_time(inframe->given_timestamp, &should_be_time, conn);
                   
+                  config.output->play(conn->outbuf, play_samples, play_samples_are_timed,
+                                      inframe->given_timestamp, should_be_time);
 #ifdef CONFIG_METADATA
+                  // debug(1,"config.metadata_progress_interval is %f.", config.metadata_progress_interval);
                   if (config.metadata_progress_interval != 0.0) {
                     char hb[128];
                     if (this_is_the_first_frame != 0) {
@@ -3067,8 +3070,6 @@ void *player_thread_func(void *arg) {
                     }                
                   }
 #endif
-                  config.output->play(conn->outbuf, play_samples, play_samples_are_timed,
-                                      inframe->given_timestamp, should_be_time);
                 }
               }
 
@@ -3116,7 +3117,10 @@ void *player_thread_func(void *arg) {
               }
               uint64_t should_be_time;
               frame_to_local_time(inframe->given_timestamp, &should_be_time, conn);
+              config.output->play(conn->outbuf, play_samples, play_samples_are_timed,
+                                  inframe->given_timestamp, should_be_time);
 #ifdef CONFIG_METADATA
+              // debug(1,"config.metadata_progress_interval is %f.", config.metadata_progress_interval);
               if (config.metadata_progress_interval != 0.0) {
                 char hb[128];
                 if (this_is_the_first_frame != 0) {
@@ -3138,8 +3142,6 @@ void *player_thread_func(void *arg) {
                 }                
               }
 #endif
-              config.output->play(conn->outbuf, play_samples, play_samples_are_timed,
-                                  inframe->given_timestamp, should_be_time);
             }
           }
 
