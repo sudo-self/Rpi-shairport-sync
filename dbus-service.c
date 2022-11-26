@@ -102,8 +102,7 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
     th = shairport_sync_get_frame_position(shairportSyncSkeleton);
     if ((th == NULL) || (strcasecmp(th, argc->frame_position_string) != 0)) {
       // debug(1, "Frame position string should be changed");
-      shairport_sync_set_frame_position(shairportSyncSkeleton,
-                                                        argc->frame_position_string);
+      shairport_sync_set_frame_position(shairportSyncSkeleton, argc->frame_position_string);
     }
   }
 
@@ -864,16 +863,15 @@ static gboolean on_handle_drop_session(ShairportSync *skeleton, GDBusMethodInvoc
 }
 
 static gboolean on_handle_set_frame_position_update_interval(ShairportSync *skeleton,
-                                             GDBusMethodInvocation *invocation,
-                                             const gdouble seconds,
-                                             __attribute__((unused)) gpointer user_data) {
+                                                             GDBusMethodInvocation *invocation,
+                                                             const gdouble seconds,
+                                                             __attribute__((unused))
+                                                             gpointer user_data) {
   debug(1, ">> set frame position update interval to %.6f.", seconds);
   config.metadata_progress_interval = seconds;
   shairport_sync_complete_set_frame_position_update_interval(skeleton, invocation);
   return TRUE;
 }
-
-
 
 static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name,
                                   __attribute__((unused)) gpointer user_data) {
@@ -934,8 +932,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                    NULL);
 
   g_signal_connect(shairportSyncSkeleton, "handle-set-frame-position-update-interval",
-                   G_CALLBACK(on_handle_set_frame_position_update_interval),
-                   NULL);
+                   G_CALLBACK(on_handle_set_frame_position_update_interval), NULL);
 
   g_signal_connect(shairportSyncDiagnosticsSkeleton, "notify::verbosity",
                    G_CALLBACK(notify_verbosity_callback), NULL);
@@ -996,7 +993,7 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
                                         config.loudness_reference_volume_db);
   shairport_sync_set_drift_tolerance(SHAIRPORT_SYNC(shairportSyncSkeleton), config.tolerance);
   shairport_sync_set_volume(SHAIRPORT_SYNC(shairportSyncSkeleton), config.airplay_volume);
-  
+
 #ifdef CONFIG_APPLE_ALAC
   if (config.use_apple_decoder == 0) {
     shairport_sync_set_alacdecoder(SHAIRPORT_SYNC(shairportSyncSkeleton), "hammerton");

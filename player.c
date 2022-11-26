@@ -2199,7 +2199,7 @@ void *player_thread_func(void *arg) {
 
   debug(2, "Play begin");
   while (1) {
-    int this_is_the_first_frame = 0; //will be set if it is
+    int this_is_the_first_frame = 0; // will be set if it is
     // check a few parameters to ensure they are non-zero
     if (config.output_rate == 0)
       debug(1, "config.output_rate is zero!");
@@ -3044,16 +3044,18 @@ void *player_thread_func(void *arg) {
                   }
                   uint64_t should_be_time;
                   frame_to_local_time(inframe->given_timestamp, &should_be_time, conn);
-                  
+
                   config.output->play(conn->outbuf, play_samples, play_samples_are_timed,
                                       inframe->given_timestamp, should_be_time);
 #ifdef CONFIG_METADATA
-                  // debug(1,"config.metadata_progress_interval is %f.", config.metadata_progress_interval);
+                  // debug(1,"config.metadata_progress_interval is %f.",
+                  // config.metadata_progress_interval);
                   if (config.metadata_progress_interval != 0.0) {
                     char hb[128];
                     if (this_is_the_first_frame != 0) {
                       memset(hb, 0, 128);
-                      snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp, should_be_time);
+                      snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp,
+                               should_be_time);
                       send_ssnc_metadata('phbt', hb, strlen(hb), 1);
                       time_of_last_metadata_progress_update = local_time_now;
                     } else {
@@ -3063,11 +3065,12 @@ void *player_thread_func(void *arg) {
                       int64_t delta = iv - local_time_now;
                       if (delta <= 0) {
                         memset(hb, 0, 128);
-                        snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp, should_be_time);
+                        snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp,
+                                 should_be_time);
                         send_ssnc_metadata('phbt', hb, strlen(hb), 1);
                         time_of_last_metadata_progress_update = local_time_now;
                       }
-                    }                
+                    }
                   }
 #endif
                 }
@@ -3120,12 +3123,14 @@ void *player_thread_func(void *arg) {
               config.output->play(conn->outbuf, play_samples, play_samples_are_timed,
                                   inframe->given_timestamp, should_be_time);
 #ifdef CONFIG_METADATA
-              // debug(1,"config.metadata_progress_interval is %f.", config.metadata_progress_interval);
+              // debug(1,"config.metadata_progress_interval is %f.",
+              // config.metadata_progress_interval);
               if (config.metadata_progress_interval != 0.0) {
                 char hb[128];
                 if (this_is_the_first_frame != 0) {
                   memset(hb, 0, 128);
-                  snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp, should_be_time);
+                  snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp,
+                           should_be_time);
                   send_ssnc_metadata('phbt', hb, strlen(hb), 1);
                   time_of_last_metadata_progress_update = local_time_now;
                 } else {
@@ -3135,11 +3140,12 @@ void *player_thread_func(void *arg) {
                   int64_t delta = iv - local_time_now;
                   if (delta <= 0) {
                     memset(hb, 0, 128);
-                    snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp, should_be_time);
+                    snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp,
+                             should_be_time);
                     send_ssnc_metadata('phbt', hb, strlen(hb), 1);
                     time_of_last_metadata_progress_update = local_time_now;
                   }
-                }                
+                }
               }
 #endif
             }
