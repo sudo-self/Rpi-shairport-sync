@@ -1,3 +1,7 @@
+Version 4.1-dev-798-g803eddbd
+**Docker**
+* Within the Docker container, launch Shairport Sync as `root` user rather than as the user `shairport-sync`. This is experimental, to investigate possible device access issues.
+
 Version 4.1-dev-795-g7f279efa
 ====
 **Bug Fix**
