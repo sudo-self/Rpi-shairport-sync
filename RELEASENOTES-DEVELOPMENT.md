@@ -1,3 +1,8 @@
+Version 4.1-dev-809-g8a69f5ea
+====
+**Enhancements**
+* Add another item of metadata with the code `phb0` and the DBus property name `FirstFramePosition`. This is similar to the `phbt` and `FramePosition` metadata, except that it is updated for the first frame of a play session. It can be ignored, as a `phbt` token is also sent when the first frame is output.
+
 Version 4.1-dev-805-g50738c36
 ====
 **Enhancements**
