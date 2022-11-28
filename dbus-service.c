@@ -106,6 +106,15 @@ void dbus_metadata_watcher(struct metadata_bundle *argc, __attribute__((unused))
     }
   }
 
+  if (argc->first_frame_position_string) {
+    // debug(1, "Check first frame position string");
+    th = shairport_sync_get_first_frame_position(shairportSyncSkeleton);
+    if ((th == NULL) || (strcasecmp(th, argc->first_frame_position_string) != 0)) {
+      // debug(1, "First frame position string should be changed");
+      shairport_sync_set_first_frame_position(shairportSyncSkeleton, argc->first_frame_position_string);
+    }
+  }
+
   if (argc->stream_type) {
     // debug(1, "Check stream type");
     th = shairport_sync_remote_control_get_stream_type(shairportSyncRemoteControlSkeleton);

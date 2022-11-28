@@ -3056,6 +3056,7 @@ void *player_thread_func(void *arg) {
                       memset(hb, 0, 128);
                       snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp,
                                should_be_time);
+                      send_ssnc_metadata('phb0', hb, strlen(hb), 1);
                       send_ssnc_metadata('phbt', hb, strlen(hb), 1);
                       time_of_last_metadata_progress_update = local_time_now;
                     } else {
@@ -3131,6 +3132,7 @@ void *player_thread_func(void *arg) {
                   memset(hb, 0, 128);
                   snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp,
                            should_be_time);
+                  send_ssnc_metadata('phb0', hb, strlen(hb), 1);
                   send_ssnc_metadata('phbt', hb, strlen(hb), 1);
                   time_of_last_metadata_progress_update = local_time_now;
                 } else {
