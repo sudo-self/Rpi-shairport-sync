@@ -1,4 +1,13 @@
+Version 4.1-dev-805-g50738c36
+====
+**Enhancements**
+* Very provisional additions to the metadata -- add some functionality for Shairport Sync to send information about what frame of audio is being played at a particular time. It can be set up to periodically generate a `phbt` (a Playing HeartBeaT) item comprising the RTP frame number of the audio being played at a particular instant -- the computer's system time in nanoseconds. The two numbers are presented as a string, e.g. `595422363/4697675115573193`. Set the interval in seconds with the new `metadata` setting `progress_interval` – 0.0 means no heartbeat is generated. 
+* Equivalent additions have been made to the native `DBus` interface: the `phbt` information appears as a `FramePosition` property and the update interval can be set using the `SetFramePositionUpdateInterval(Seconds)` method.
+
+Please note that this might all disappear or change radically.
+ 
 Version 4.1-dev-798-g803eddbd
+====
 **Docker**
 * Within the Docker container, launch Shairport Sync as `root` user rather than as the user `shairport-sync`. This is experimental, to investigate possible device access issues.
 
