@@ -5505,11 +5505,19 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
           int keepAliveCount = 5; // check this many times
           int keepAliveInterval = 5; // wait this many seconds between checks
           
+
 #if defined COMPILE_FOR_BSD || defined COMPILE_FOR_OSX
           #define SOL_OPTION IPPROTO_TCP
 #else
           #define SOL_OPTION SOL_TCP
 #endif
+
+#ifdef COMPILE_FOR_OSX
+          #define KEEP_ALIVE_OR_IDLE_OPTION TCP_KEEPALIVE
+#else
+          #define KEEP_ALIVE_OR_IDLE_OPTION TCP_KEEPIDLE
+#endif
+          
 
           if (setsockopt(conn->fd, SOL_OPTION, TCP_KEEPIDLE, (void *)&keepAliveIdleTime, sizeof(keepAliveIdleTime))) {
             debug(1,"can't set the keepidle wait time");
