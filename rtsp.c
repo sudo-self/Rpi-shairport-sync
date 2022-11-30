@@ -47,6 +47,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <netinet/tcp.h>
 
 #include <sys/ioctl.h>
 
@@ -1222,6 +1223,11 @@ ssize_t timed_read_from_rtsp_connection(rtsp_conn_info *conn, uint64_t wait_time
     uint64_t time_to_wait_to = get_absolute_time_in_ns();
     ;
     time_to_wait_to = time_to_wait_to + wait_time;
+    
+    int flags = 1;
+    if (setsockopt(conn->fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&flags, sizeof(flags))) {
+      debug(1,"can't enable keepalive checking on the RTSP socket");
+    }
 
     // remaining_time will be zero if wait_time is zero
     if (wait_time != 0) {
@@ -1349,6 +1355,8 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       // Note: the socket will be closed when the thread exits
       goto shutdown;
     }
+    
+    // An ETIMEDOUT error usually means keepalive has failed.
 
     if (nread < 0) {
       if (errno == EINTR)
@@ -5487,6 +5495,28 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
       } else {
         size_of_reply = sizeof(SOCKADDR);
         if (getsockname(conn->fd, (struct sockaddr *)&conn->local, &size_of_reply) == 0) {
+
+          // Thanks to https://holmeshe.me/network-essentials-setsockopt-SO_KEEPALIVE/ for this.
+  
+          // turn on keepalive stuff -- wait for keepidle + (keepcnt * keepinttvl time) seconds before giving up
+          // an ETIMEOUT error is returned if the keepalive check fails
+
+          int flags = 35; // wait this many seconds before checking for a dropped client
+          if (setsockopt(conn->fd, SOL_TCP, TCP_KEEPIDLE, (void *)&flags, sizeof(flags))) {
+            debug(1,"can't set the keepidle wait time");
+          }
+
+          flags = 5; // check this many times
+          if (setsockopt(conn->fd, SOL_TCP, TCP_KEEPCNT, (void *)&flags, sizeof(flags))) {
+            debug(1,"can't set the keepidle missing count");
+          }
+
+          flags = 5; // wait this many seconds between checks
+          if (setsockopt(conn->fd, SOL_TCP, TCP_KEEPINTVL, (void *)&flags, sizeof(flags))) {
+            debug(1,"can't set the keepidle missing count interval");
+            exit(0);
+          };
+
           // initialise the connection info
           void *client_addr = NULL, *self_addr = NULL;
           conn->connection_ip_family = conn->local.SAFAMILY;
