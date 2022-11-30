@@ -5519,7 +5519,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
 #endif
           
 
-          if (setsockopt(conn->fd, SOL_OPTION, TCP_KEEPIDLE, (void *)&keepAliveIdleTime, sizeof(keepAliveIdleTime))) {
+          if (setsockopt(conn->fd, SOL_OPTION, KEEP_ALIVE_OR_IDLE_OPTION, (void *)&keepAliveIdleTime, sizeof(keepAliveIdleTime))) {
             debug(1,"can't set the keepidle wait time");
           }
 
