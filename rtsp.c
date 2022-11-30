@@ -5501,22 +5501,27 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
           // turn on keepalive stuff -- wait for keepidle + (keepcnt * keepinttvl time) seconds before giving up
           // an ETIMEOUT error is returned if the keepalive check fails
 
-          int flags = 35; // wait this many seconds before checking for a dropped client
-          if (setsockopt(conn->fd, SOL_TCP, TCP_KEEPIDLE, (void *)&flags, sizeof(flags))) {
+          int keepAliveIdleTime = 35; // wait this many seconds before checking for a dropped client
+          int keepAliveCount = 5; // check this many times
+          int keepAliveInterval = 5; // wait this many seconds between checks
+          
+#if defined COMPILE_FOR_BSD || defined COMPILE_FOR_OSX
+          #define SOL_OPTION IPPROTO_TCP
+#else
+          #define SOL_OPTION SOL_TCP
+#endif
+
+          if (setsockopt(conn->fd, SOL_OPTION, TCP_KEEPIDLE, (void *)&keepAliveIdleTime, sizeof(keepAliveIdleTime))) {
             debug(1,"can't set the keepidle wait time");
           }
 
-          flags = 5; // check this many times
-          if (setsockopt(conn->fd, SOL_TCP, TCP_KEEPCNT, (void *)&flags, sizeof(flags))) {
+          if (setsockopt(conn->fd, SOL_OPTION, TCP_KEEPCNT, (void *)&keepAliveCount, sizeof(keepAliveCount))) {
             debug(1,"can't set the keepidle missing count");
           }
-
-          flags = 5; // wait this many seconds between checks
-          if (setsockopt(conn->fd, SOL_TCP, TCP_KEEPINTVL, (void *)&flags, sizeof(flags))) {
+          if (setsockopt(conn->fd, SOL_OPTION	, TCP_KEEPINTVL, (void *)&keepAliveInterval, sizeof(keepAliveInterval))) {
             debug(1,"can't set the keepidle missing count interval");
-            exit(0);
           };
-
+	
           // initialise the connection info
           void *client_addr = NULL, *self_addr = NULL;
           conn->connection_ip_family = conn->local.SAFAMILY;
