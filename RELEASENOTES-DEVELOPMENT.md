@@ -1,7 +1,12 @@
+Version 4.1-dev-818-gf15c3255
+====
+**Enhancement**
+* Add a configuration check for the `xxd` program when building for AirPlay 2. Cleans up an annoying problem mentioned in Issue [#1341](https://github.com/mikebrady/shairport-sync/issues/1341). Thanks to [David Girón](https://github.com/duhow) for the reminder.
+
 Version 4.1-dev-815-gcb097034
 ====
 **Enhancement**
-* Use [TCP `keepalive`](https://en.wikipedia.org/wiki/Keepalive) to close down a play session when the client disappears, e.g. when the player goes out of range of WiFi. A play session is now terminated after a break in connection lasting more than approximately one minute.
+* Use [TCP `keepalive`](https://en.wikipedia.org/wiki/Keepalive) to close down a play session when the client disappears, e.g. when the player goes out of range of WiFi. A play session is now terminated after a break in connection lasting more than approximately one minute. Address the problem reported in Issue [#1584](https://github.com/mikebrady/shairport-sync/issues/1584). Thanks to [JanLp](https://github.com/JanLp) for the report.
 
 Version 4.1-dev-809-g8a69f5ea
 ====
