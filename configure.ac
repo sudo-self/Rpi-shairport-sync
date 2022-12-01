@@ -406,6 +406,8 @@ AM_CONDITIONAL([USE_METADATA], [test "x$with_metadata" = "xyes"])
 AC_ARG_WITH(airplay-2, [AS_HELP_STRING([--with-airplay-2],[Build for AirPlay 2])])
 if test "x$with_airplay_2" = "xyes" ; then
   AC_DEFINE([CONFIG_AIRPLAY_2], 1, [Build for AirPlay 2])
+  AC_CHECK_PROG(XXD_CHECK,xxd,yes)
+  AS_IF([test x"$XXD_CHECK" != x"yes"], [AC_MSG_ERROR([xxd can not be found. Please install xxd for building for AirPlay 2.])])
   PKG_CHECK_MODULES([libplist], [libplist >= 2.0.0],[CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],[
     PKG_CHECK_MODULES([libplist], [libplist-2.0 >= 2.0.0],[CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],[
       AC_MSG_ERROR(AirPlay 2 support requires libplist 2.0.0 or later -- search for pkg libplist-dev on Debian or libplist-2.2.0 or later on FreeBSD!)
