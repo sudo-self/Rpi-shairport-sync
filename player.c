@@ -1753,8 +1753,8 @@ void player_thread_cleanup_handler(void *arg) {
 #endif
 
   // four possibilities
-  // 1 -- regular AirPlay 1
-  // 2 -- AirPlay 2 in AirPlay 1 mode
+  // 1 -- Classic Airplay -- "AirPlay 1"
+  // 2 -- AirPlay 2 in Classic Airplay mode
   // 3 -- AirPlay 2 in Buffered Audio Mode
   // 4 -- AirPlay 3 in Realtime Audio Mode.
 
@@ -2199,7 +2199,9 @@ void *player_thread_func(void *arg) {
 
   debug(2, "Play begin");
   while (1) {
+#ifdef CONFIG_METADATA
     int this_is_the_first_frame = 0; // will be set if it is
+#endif
     // check a few parameters to ensure they are non-zero
     if (config.output_rate == 0)
       debug(1, "config.output_rate is zero!");
@@ -2692,7 +2694,9 @@ void *player_thread_func(void *arg) {
 
             if (at_least_one_frame_seen_this_session == 0) {
               at_least_one_frame_seen_this_session = 1;
+#ifdef CONFIG_METADATA
               this_is_the_first_frame = 1;
+#endif
 
               // debug(2,"first frame real sync error (positive --> late): %" PRId64 " frames.",
               // sync_error);
@@ -2751,7 +2755,7 @@ void *player_thread_func(void *arg) {
 #endif
                   if (config.statistics_requested)
                     inform("Connection %d: Playback started at frame %" PRId64
-                           " -- AirPlay 1 Compatible.",
+                           " -- Classic AirPlay (\"AirPlay 1\") Compatible.",
                            conn->connection_number, inframe->given_timestamp);
                 } else {
 #ifdef CONFIG_METADATA
@@ -2776,7 +2780,7 @@ void *player_thread_func(void *arg) {
               send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
 #endif
               if (config.statistics_requested)
-                inform("Connection %d: Playback started at frame %" PRId64 " -- AirPlay 1.",
+                inform("Connection %d: Playback started at frame %" PRId64 " -- Classic AirPlay (\"AirPlay 1\").",
                        conn->connection_number, inframe->given_timestamp);
 #endif
             }
@@ -3105,7 +3109,9 @@ void *player_thread_func(void *arg) {
             // if this is the first frame, see if it's close to when it's supposed to be
             // release, which will be its time plus latency and any offset_time
             if (at_least_one_frame_seen_this_session == 0) {
+#ifdef CONFIG_METADATA
               this_is_the_first_frame = 1;
+#endif
               at_least_one_frame_seen_this_session = 1;
             }
 
