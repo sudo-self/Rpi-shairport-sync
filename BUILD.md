@@ -23,8 +23,9 @@ Do this until no more copies of `shairport-sync` are found.
 You should also remove any of the following service files that may be present:
 * `/etc/systemd/system/shairport-sync.service`
 * `/etc/systemd/user/shairport-sync.service`
+* `/lib/systemd/system/shairport-sync.service`
 * `/lib/systemd/user/shairport-sync.service`
-*  `/etc/init.d/shairport-sync`
+* `/etc/init.d/shairport-sync`
 
 New service files will be installed if necessary at the `# make install` stage.
 #### Reboot after Cleaning Up

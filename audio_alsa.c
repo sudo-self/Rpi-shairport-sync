@@ -189,7 +189,9 @@ static int precision_delay_available() {
     // this is very crude -- if the device is a hardware device, then it's assumed the delay is
     // precise
     const char *output_device_name = snd_pcm_name(alsa_handle);
-    int is_a_real_hardware_device = (strstr(output_device_name, "hw:") == output_device_name);
+    int is_a_real_hardware_device = 0;
+    if (output_device_name != NULL)
+      is_a_real_hardware_device = (strstr(output_device_name, "hw:") == output_device_name);
 
     // The criteria as to whether precision delay is available
     // is whether the device driver returns non-zero update timestamps

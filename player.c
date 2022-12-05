@@ -363,20 +363,35 @@ static void terminate_decoders(rtsp_conn_info *conn) {
 #endif
 }
 
+uint64_t buffers_allocated = 0;
+uint64_t buffers_released = 0;
 static void init_buffer(rtsp_conn_info *conn) {
   // debug(1,"input_bytes_per_frame: %d.", conn->input_bytes_per_frame);
   // debug(1,"input_bit_depth: %d.", conn->input_bit_depth);
   int i;
-  for (i = 0; i < BUFFER_FRAMES; i++)
+  for (i = 0; i < BUFFER_FRAMES; i++) {
     //    conn->audio_buffer[i].data = malloc(conn->input_bytes_per_frame *
     //    conn->max_frames_per_packet);
-    conn->audio_buffer[i].data = malloc(8 * conn->max_frames_per_packet); // todo
+    void *allocation = malloc(8 * conn->max_frames_per_packet);
+    if (allocation == NULL) {
+      die("could not allocate memory for audio buffers. %" PRId64 " buffers allocated, %" PRId64
+          " buffers released.",
+          buffers_allocated, buffers_released);
+    } else {
+      conn->audio_buffer[i].data = allocation;
+      buffers_allocated++;
+    }
+  }
 }
 
 static void free_audio_buffers(rtsp_conn_info *conn) {
   int i;
-  for (i = 0; i < BUFFER_FRAMES; i++)
+  for (i = 0; i < BUFFER_FRAMES; i++) {
     free(conn->audio_buffer[i].data);
+    buffers_released++;
+  }
+  debug(1, "%" PRId64 " buffers allocated, %" PRId64 " buffers released.", buffers_allocated,
+        buffers_released);
 }
 
 int first_possibly_missing_frame = -1;
@@ -1718,14 +1733,14 @@ void player_thread_cleanup_handler(void *arg) {
     int64_t elapsedMin = (time_playing / 60) % 60;
     int64_t elapsedSec = time_playing % 60;
     if (conn->frame_rate_valid)
-      inform("Connection %d: Playback Stopped. Total playing time %02" PRId64 ":%02" PRId64
+      inform("Connection %d: Playback stopped. Total playing time %02" PRId64 ":%02" PRId64
              ":%02" PRId64 ". "
              "Output: %0.2f (raw), %0.2f (corrected) "
              "frames per second.",
              conn->connection_number, elapsedHours, elapsedMin, elapsedSec, conn->raw_frame_rate,
              conn->corrected_frame_rate);
     else
-      inform("Connection %d: Playback Stopped. Total playing time %02" PRId64 ":%02" PRId64
+      inform("Connection %d: Playback stopped. Total playing time %02" PRId64 ":%02" PRId64
              ":%02" PRId64 ".",
              conn->connection_number, elapsedHours, elapsedMin, elapsedSec);
   }
@@ -1738,8 +1753,8 @@ void player_thread_cleanup_handler(void *arg) {
 #endif
 
   // four possibilities
-  // 1 -- regular AirPlay 1
-  // 2 -- AirPlay 2 in AirPlay 1 mode
+  // 1 -- Classic Airplay -- "AirPlay 1"
+  // 2 -- AirPlay 2 in Classic Airplay mode
   // 3 -- AirPlay 2 in Buffered Audio Mode
   // 4 -- AirPlay 3 in Realtime Audio Mode.
 
@@ -1822,7 +1837,9 @@ void player_thread_cleanup_handler(void *arg) {
 
 void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-
+#ifdef CONFIG_METADATA
+  uint64_t time_of_last_metadata_progress_update;
+#endif
   uint64_t previous_frames_played = 0; // initialised to avoid a "possibly uninitialised" warning
   uint64_t previous_raw_measurement_time =
       0; // initialised to avoid a "possibly uninitialised" warning
@@ -2182,7 +2199,9 @@ void *player_thread_func(void *arg) {
 
   debug(2, "Play begin");
   while (1) {
-
+#ifdef CONFIG_METADATA
+    int this_is_the_first_frame = 0; // will be set if it is
+#endif
     // check a few parameters to ensure they are non-zero
     if (config.output_rate == 0)
       debug(1, "config.output_rate is zero!");
@@ -2675,6 +2694,9 @@ void *player_thread_func(void *arg) {
 
             if (at_least_one_frame_seen_this_session == 0) {
               at_least_one_frame_seen_this_session = 1;
+#ifdef CONFIG_METADATA
+              this_is_the_first_frame = 1;
+#endif
 
               // debug(2,"first frame real sync error (positive --> late): %" PRId64 " frames.",
               // sync_error);
@@ -2725,23 +2747,42 @@ void *player_thread_func(void *arg) {
                 sync_error = 0; // say the error was fixed!
               }
               // since this is the first frame of audio, inform the user if requested...
-              if (config.statistics_requested) {
 #ifdef CONFIG_AIRPLAY_2
-                if (conn->airplay_stream_type == realtime_stream) {
-                  if (conn->airplay_type == ap_1)
-                    inform("Connection %d: Playback Started -- AirPlay 1 Compatible.",
-                           conn->connection_number);
-                  else
-                    inform("Connection %d: Playback Started -- AirPlay 2 Realtime.",
-                           conn->connection_number);
-                } else {
-                  inform("Connection %d: Playback Started -- AirPlay 2 Buffered.",
-                         conn->connection_number);
-                }
-#else
-                inform("Connection %d: Playback Started -- AirPlay 1.", conn->connection_number);
+              if (conn->airplay_stream_type == realtime_stream) {
+                if (conn->airplay_type == ap_1) {
+#ifdef CONFIG_METADATA
+                  send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
 #endif
+                  if (config.statistics_requested)
+                    inform("Connection %d: Playback started at frame %" PRId64
+                           " -- Classic AirPlay (\"AirPlay 1\") Compatible.",
+                           conn->connection_number, inframe->given_timestamp);
+                } else {
+#ifdef CONFIG_METADATA
+                  send_ssnc_metadata('styp', "Realtime", strlen("Realtime"), 1);
+#endif
+                  if (config.statistics_requested)
+                    inform("Connection %d: Playback started at frame %" PRId64
+                           " -- AirPlay 2 Realtime.",
+                           conn->connection_number, inframe->given_timestamp);
+                }
+              } else {
+#ifdef CONFIG_METADATA
+                send_ssnc_metadata('styp', "Buffered", strlen("Buffered"), 1);
+#endif
+                if (config.statistics_requested)
+                  inform("Connection %d: Playback started at frame %" PRId64
+                         " -- AirPlay 2 Buffered.",
+                         conn->connection_number, inframe->given_timestamp);
               }
+#else
+#ifdef CONFIG_METADATA
+              send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
+#endif
+              if (config.statistics_requested)
+                inform("Connection %d: Playback started at frame %" PRId64 " -- Classic AirPlay (\"AirPlay 1\").",
+                       conn->connection_number, inframe->given_timestamp);
+#endif
             }
             // not too sure if abs() is implemented for int64_t, so we'll do it manually
             int64_t abs_sync_error = sync_error;
@@ -3007,8 +3048,36 @@ void *player_thread_func(void *arg) {
                   }
                   uint64_t should_be_time;
                   frame_to_local_time(inframe->given_timestamp, &should_be_time, conn);
+
                   config.output->play(conn->outbuf, play_samples, play_samples_are_timed,
                                       inframe->given_timestamp, should_be_time);
+#ifdef CONFIG_METADATA
+                  // debug(1,"config.metadata_progress_interval is %f.",
+                  // config.metadata_progress_interval);
+                  if (config.metadata_progress_interval != 0.0) {
+                    char hb[128];
+                    if (this_is_the_first_frame != 0) {
+                      memset(hb, 0, 128);
+                      snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp,
+                               should_be_time);
+                      send_ssnc_metadata('phb0', hb, strlen(hb), 1);
+                      send_ssnc_metadata('phbt', hb, strlen(hb), 1);
+                      time_of_last_metadata_progress_update = local_time_now;
+                    } else {
+                      uint64_t mx = 1000000000;
+                      uint64_t iv = config.metadata_progress_interval * mx;
+                      iv = iv + time_of_last_metadata_progress_update;
+                      int64_t delta = iv - local_time_now;
+                      if (delta <= 0) {
+                        memset(hb, 0, 128);
+                        snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp,
+                                 should_be_time);
+                        send_ssnc_metadata('phbt', hb, strlen(hb), 1);
+                        time_of_last_metadata_progress_update = local_time_now;
+                      }
+                    }
+                  }
+#endif
                 }
               }
 
@@ -3040,6 +3109,9 @@ void *player_thread_func(void *arg) {
             // if this is the first frame, see if it's close to when it's supposed to be
             // release, which will be its time plus latency and any offset_time
             if (at_least_one_frame_seen_this_session == 0) {
+#ifdef CONFIG_METADATA
+              this_is_the_first_frame = 1;
+#endif
               at_least_one_frame_seen_this_session = 1;
             }
 
@@ -3057,6 +3129,33 @@ void *player_thread_func(void *arg) {
               frame_to_local_time(inframe->given_timestamp, &should_be_time, conn);
               config.output->play(conn->outbuf, play_samples, play_samples_are_timed,
                                   inframe->given_timestamp, should_be_time);
+#ifdef CONFIG_METADATA
+              // debug(1,"config.metadata_progress_interval is %f.",
+              // config.metadata_progress_interval);
+              if (config.metadata_progress_interval != 0.0) {
+                char hb[128];
+                if (this_is_the_first_frame != 0) {
+                  memset(hb, 0, 128);
+                  snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp,
+                           should_be_time);
+                  send_ssnc_metadata('phb0', hb, strlen(hb), 1);
+                  send_ssnc_metadata('phbt', hb, strlen(hb), 1);
+                  time_of_last_metadata_progress_update = local_time_now;
+                } else {
+                  uint64_t mx = 1000000000;
+                  uint64_t iv = config.metadata_progress_interval * mx;
+                  iv = iv + time_of_last_metadata_progress_update;
+                  int64_t delta = iv - local_time_now;
+                  if (delta <= 0) {
+                    memset(hb, 0, 128);
+                    snprintf(hb, 127, "%" PRIu32 "/%" PRId64 "", inframe->given_timestamp,
+                             should_be_time);
+                    send_ssnc_metadata('phbt', hb, strlen(hb), 1);
+                    time_of_last_metadata_progress_update = local_time_now;
+                  }
+                }
+              }
+#endif
             }
           }
 

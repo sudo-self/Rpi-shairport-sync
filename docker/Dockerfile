@@ -89,6 +89,8 @@ RUN apk -U add \
 COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
 COPY --from=builder /usr/local/bin/nqptp /usr/local/bin/nqptp
 COPY --from=builder /usr/local/lib/libalac.* /usr/local/lib/
+COPY --from=builder /shairport-sync/build/install/etc/shairport-sync.conf /etc/
+COPY --from=builder /shairport-sync/build/install/etc/shairport-sync.conf.sample /etc/
 COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-dbus.conf /etc/dbus-1/system.d/
 COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-mpris.conf /etc/dbus-1/system.d/
 
@@ -107,4 +109,4 @@ RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio && addgr
 # Remove anything we don't need.
 RUN rm -rf /lib/apk/db/*
 
-ENTRYPOINT [ "/init", "s6-setuidgid", "shairport-sync", "/usr/local/bin/shairport-sync" ]
+ENTRYPOINT [ "/init", "/usr/local/bin/shairport-sync" ]

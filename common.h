@@ -141,6 +141,7 @@ typedef struct {
   int metadata_sockport;
   size_t metadata_sockmsglength;
   int get_coverart;
+  double metadata_progress_interval; // 0 means no progress reports
 #endif
 #ifdef CONFIG_MQTT
   int mqtt_enabled;
@@ -159,6 +160,7 @@ typedef struct {
   int mqtt_enable_remote;
   char *mqtt_empty_payload_substitute;
 #endif
+  uint8_t ap1_prefix[6]; 
   uint8_t hw_addr[8]; // only needs 6 but 8 is handy when converting this to a number
   int port;
   int udp_port_base;
