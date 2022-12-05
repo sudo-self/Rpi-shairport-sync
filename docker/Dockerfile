@@ -83,10 +83,15 @@ RUN apk -U add \
         ffmpeg \
         libsodium \
         libgcrypt \
-        libplist
+        libplist \
+        mandoc \
+        man-pages \
+        less \
+        less-doc
 
 # Copy build files.
 COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
+COPY --from=builder /shairport-sync/build/install/usr/local/share/man/man7 /usr/share/man/man7
 COPY --from=builder /usr/local/bin/nqptp /usr/local/bin/nqptp
 COPY --from=builder /usr/local/lib/libalac.* /usr/local/lib/
 COPY --from=builder /shairport-sync/build/install/etc/shairport-sync.conf /etc/
