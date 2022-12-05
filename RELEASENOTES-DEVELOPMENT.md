@@ -1,3 +1,9 @@
+Version 4.1-dev-824-g8e5393ec
+====
+**Enhancements**
+* Add `man` page and `man` utilities to the Docker images.
+* Enable the MQTT client to parse the `phbt` and `phb0` Playing HeartBeaT metadata tokens.
+
 Version 4.1-dev-818-gf15c3255
 ====
 **Enhancement**
