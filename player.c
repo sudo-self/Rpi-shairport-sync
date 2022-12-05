@@ -1838,7 +1838,7 @@ void player_thread_cleanup_handler(void *arg) {
 void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 #ifdef CONFIG_METADATA
-  uint64_t time_of_last_metadata_progress_update;
+  uint64_t time_of_last_metadata_progress_update = 0; // the assignment is to stop a compiler warning...
 #endif
   uint64_t previous_frames_played = 0; // initialised to avoid a "possibly uninitialised" warning
   uint64_t previous_raw_measurement_time =
