@@ -197,6 +197,12 @@ void mqtt_process_metadata(uint32_t type, uint32_t code, char *data, uint32_t le
       case 'daid':
         mqtt_publish("dacp_id", data, length);
         break;
+      case 'phbt':
+        mqtt_publish("frame_position_and_time", data, length);
+        break;
+      case 'phb0':
+        mqtt_publish("first_frame_position_and_time", data, length);
+        break;
       case 'ofmt':
         mqtt_publish("output_format", data, length);
         break;
