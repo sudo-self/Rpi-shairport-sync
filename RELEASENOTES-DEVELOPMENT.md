@@ -12,7 +12,7 @@ Version 4.1-dev-818-gf15c3255
 Version 4.1-dev-815-gcb097034
 ====
 **Enhancement**
-* Use [TCP `keepalive`](https://en.wikipedia.org/wiki/Keepalive) to close down a play session when the client disappears, e.g. when the player goes out of range of WiFi. A play session is now terminated after a break in connection lasting more than approximately one minute. Address the problem reported in Issue [#1584](https://github.com/mikebrady/shairport-sync/issues/1584). Thanks to [JanLp](https://github.com/JanLp) for the report.
+* Use [TCP `keepalive`](https://en.wikipedia.org/wiki/Keepalive) to close down a play session when the client disappears, e.g. when the player goes out of range of WiFi. A play session is now terminated after a break in connection lasting more than approximately one minute. Addresses the problem reported in Issue [#1584](https://github.com/mikebrady/shairport-sync/issues/1584). Thanks to [JanLp](https://github.com/JanLp) for the report.
 
 Version 4.1-dev-809-g8a69f5ea
 ====
