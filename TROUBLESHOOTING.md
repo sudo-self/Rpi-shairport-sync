@@ -66,7 +66,10 @@ There are some more details in some the closed issues on this repository.
 
 ### VPNs
 
-To see the AirPlay service Shairport Sync provides, your devices must be on the same subnet as Shairport Sync. If, say, a device such as an iPhone is on a VPN and Shairport Sync is not, or vice-versa, then even though the devices might be physically on the same network, they are effectively on separate networks due to the VPN and the AirPlay service will not be accessible to the device. So, when you are troubleshooting, look out for VPN issues. 
+To see the AirPlay service Shairport Sync provides, your devices must be on the same subnet as Shairport Sync. If, say, a device such as an iPhone is on a VPN and Shairport Sync is not, or vice-versa, then even though the devices might be physically on the same network, they are effectively on separate networks due to the VPN and the AirPlay service will not be accessible to the device. So, when you are troubleshooting, look out for VPN issues.
+
+### Ubiquiti Routers
+Ubiquiti router settings occasionally cause services that use Boujour/Zeroconf -- including Shairport Sync -- not to appear on the network. (AirPrint is another example of a service that can be affected by this problem.) [This link](https://community.ui.com/questions/Issues-with-Bonjour-on-UDM-Pro/6db37e3f-73cf-4aaf-8dba-8a196fd0e2b1) to a Ubiquiti community discussion might be helpful.
 
 ### Faulty WiFi
 For an example of what it can take to track down a bad WiFi situation – in this case, a faulty WiFi adapter – please look at [this report](https://github.com/mikebrady/shairport-sync/issues/689).
