@@ -3565,6 +3565,9 @@ int player_stop(rtsp_conn_info *conn) {
   // debuglev = 3;
   debug(3, "player_stop");
   if (conn->player_thread) {
+#ifdef CONFIG_AIRPLAY_2
+    ptp_send_control_message_string("E"); // signify play is "E"nding
+#endif
     debug(3, "player_thread cancel...");
     pthread_cancel(*conn->player_thread);
     debug(3, "player_thread join...");

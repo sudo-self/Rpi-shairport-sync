@@ -1276,6 +1276,7 @@ void set_client_as_ptp_clock(rtsp_conn_info *conn) {
   strncat(timing_list_message, (const char *)&conn->client_ip_string,
           sizeof(timing_list_message) - 1 - strlen(timing_list_message));
   ptp_send_control_message_string(timing_list_message);
+  // the clock will be active for a few seconds after this.
 }
 
 void clear_ptp_clock() { ptp_send_control_message_string("T"); }
@@ -2003,6 +2004,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       pthread_cleanup_push(mutex_unlock, &conn->flush_mutex);
       conn->ap2_rate = rate;
       if ((rate & 1) != 0) {
+        ptp_send_control_message_string("B"); // signify play is "B"eginning or resuming
         debug(2, "Connection %d: Start playing, with anchor clock %" PRIx64 ".",
               conn->connection_number, conn->networkTimeTimelineID);
         activity_monitor_signify_activity(1);
@@ -2013,6 +2015,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
         conn->ap2_play_enabled = 1;
       } else {
         debug(2, "Connection %d: Stop playing.", conn->connection_number);
+        ptp_send_control_message_string("P"); // signify play is "P"ausing
         conn->ap2_play_enabled = 0;
         activity_monitor_signify_activity(0);
         reset_anchor_info(conn);
@@ -3161,6 +3164,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
     debug(2, "Connection %d: SETUP on %s. A \"streams\" array has been found",
           conn->connection_number, get_category_string(conn->airplay_stream_category));
     if (conn->airplay_stream_category == ptp_stream) {
+      ptp_send_control_message_string("B"); // signify play is "B"eginning
+      
       // get stream[0]
       plist_t stream0 = plist_array_get_item(streams, 0);
 
