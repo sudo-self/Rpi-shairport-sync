@@ -2,7 +2,7 @@ name: Basic libao configuration for macOS with BREW -- classic only, because mac
 
 on:
   push:
-    branches: [ "development" ]
+    branches: [ "development", "danger" ]
 
 jobs:
   build:
