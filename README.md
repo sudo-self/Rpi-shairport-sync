@@ -7,6 +7,11 @@ Metadata such as artist information and cover art can be requested and provided 
 
 Shairport Sync does not support AirPlay video or photo streaming.
 
+# Danger
+This branch of the Shairport Sync repository is very likely to be buggy and can change very rapidly and without warning. The `development` branch is more stable, although it too may contains bugs. The `master` branch is the most stable.
+
+The `danger` branch version of Shairport Sync may only be compatible with the `danger` branch of NQPTP. 
+
 # Quick Start
 * A building guide is available [here](BUILD.md).
 * A Docker image is available on the [Docker Hub](https://hub.docker.com/r/mikebrady/shairport-sync).
