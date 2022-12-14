@@ -7,6 +7,11 @@ Overall, you'll be building and installing two programs – Shairport Sync itsel
 
 In the commands below, note the convention that a `#` prompt means you are in superuser mode and a `$` prompt means you are in a regular unprivileged user mode. You can use `sudo` *("SUperuser DO")* to temporarily promote yourself from user to superuser, if permitted. For example, if you want to execute `apt-get update` in superuser mode and you are in user mode, enter `sudo apt-get update`.
 
+# Danger
+This branch of the Shairport Sync repository is very likely to be buggy and can change very rapidly and without warning. The `development` branch is more stable, although it too may contains bugs. The `master` branch is the most stable.
+
+The `danger` branch version of Shairport Sync may only be compatible with the `danger` branch of NQPTP. 
+
 ## 1. Prepare
 #### Remove Old Copies of Shairport Sync
 Before you begin building Shairport Sync, it's best to remove any existing copies of the application, called `shairport-sync`. Use the command `$ which shairport-sync` to find them. For example, if `shairport-sync` has been installed previously, this might happen:
@@ -118,11 +123,11 @@ If you are building classic Shairport Sync, the list of packages is shorter:
 ### NQPTP
 Skip this section if you are building classic Shairport Sync – NQPTP is not needed for classic Shairport Sync.
 
-Download, install, enable and start NQPTP from [here](https://github.com/mikebrady/nqptp).
+Download, install, enable and start the `danger` branch of NQPTP from [here](https://github.com/mikebrady/nqptp/blob/danger/README.md).
 
 ### Shairport Sync
 #### Build and Install
-Download Shairport Sync, check out the `development` branch and configure, compile and install it. Before executing the commands, please note the following:
+Download Shairport Sync, check out the `danger` branch and configure, compile and install it. Before executing the commands, please note the following:
 
 * If building for FreeBSD, replace `--with-systemd` with `--with-os=freebsd --with-freebsd-service`.
 * Omit the `--with-airplay-2` from the `./configure` options if you are building classic Shairport Sync.
@@ -131,7 +136,7 @@ Download Shairport Sync, check out the `development` branch and configure, compi
 ```
 $ git clone https://github.com/mikebrady/shairport-sync.git
 $ cd shairport-sync
-$ git checkout development
+$ git checkout danger
 $ autoreconf -fi
 $ ./configure --sysconfdir=/etc --with-alsa \
     --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
