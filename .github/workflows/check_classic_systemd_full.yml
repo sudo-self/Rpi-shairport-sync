@@ -2,7 +2,7 @@ name: Full classic configuration (but without apple-alac) for systemd, using a b
 
 on:
   push:
-    branches: [ "development" ]
+    branches: [ "development", "danger" ]
 
 jobs:
   build:
