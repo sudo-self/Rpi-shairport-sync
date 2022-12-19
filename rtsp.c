@@ -5503,12 +5503,12 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
 
           // Thanks to https://holmeshe.me/network-essentials-setsockopt-SO_KEEPALIVE/ for this.
   
-          // turn on keepalive stuff -- wait for keepidle + (keepcnt * keepinttvl time) seconds before giving up
-          // an ETIMEOUT error is returned if the keepalive check fails
+          // Turn on keepalive stuff -- wait for keepidle + (keepcnt * keepinttvl time) seconds before giving up
+          // An ETIMEOUT error is returned if the keepalive check fails
 
-          int keepAliveIdleTime = 35; // wait this many seconds before checking for a dropped client
+          int keepAliveIdleTime = 10; // wait this many seconds before checking for a dropped client
           int keepAliveCount = 5; // check this many times
-          int keepAliveInterval = 5; // wait this many seconds between checks
+          int keepAliveInterval = 1; // wait this many seconds between checks
           
 
 #if defined COMPILE_FOR_BSD || defined COMPILE_FOR_OSX
