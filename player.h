@@ -168,8 +168,7 @@ typedef struct {
   volatile int stop;
   volatile int running;
   volatile uint64_t watchdog_bark_time;
-  volatile int watchdog_barks;  // number of times the watchdog has timed out and done something
-  int unfixable_error_reported; // set when an unfixable error command has been executed.
+  volatile int watchdog_barks; // number of times the watchdog has timed out and done something
 
   uint64_t playstart;
   uint64_t connection_start_time; // the time the device is selected, which could be a long time

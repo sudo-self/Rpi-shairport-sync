@@ -598,7 +598,8 @@ void metadata_hub_process_metadata(uint32_t type, uint32_t code, char *data, uin
       if (string_update(&metadata_store.first_frame_position_string,
                         &metadata_store.first_frame_position_string_changed, cs)) {
         changed = 1;
-        debug(2, "MH First Frame Position String set to: \"%s\"", metadata_store.first_frame_position_string);
+        debug(2, "MH First Frame Position String set to: \"%s\"",
+              metadata_store.first_frame_position_string);
       }
       free(cs);
       break;

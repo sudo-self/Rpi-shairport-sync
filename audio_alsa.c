@@ -444,13 +444,19 @@ static int actual_open_alsa_device(int do_auto_setup) {
         warn("The output device \"%s\" is busy and can't be used by Shairport Sync at present.",
              alsa_out_dev);
       debug(2, "the alsa output_device \"%s\" is busy.", alsa_out_dev);
-    } else if (ret == -ENOENT) {
-      die("the alsa output_device \"%s\" can not be found.", alsa_out_dev);
     } else {
-      char errorstring[1024];
-      strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
-      die("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring,
-          alsa_out_dev);
+      if (config.unfixable_error_reported == 0) {
+        config.unfixable_error_reported = 1;        
+        char messageString[1024];
+        messageString[0] = '\0';
+        snprintf(messageString, sizeof(messageString), "output_device_error %d", -ret);            
+        if (config.cmd_unfixable) {
+          command_execute(config.cmd_unfixable, messageString, 1);
+        } else {
+          die("an unrecoverable error, \"output_device_error %d\", has been "
+              "detected.", -ret);
+        }
+      }
     }
     alsa_handle_status = ret;
     frames_sent_break_occurred = 1;
@@ -1795,10 +1801,23 @@ static int do_play(void *buf, int samples) {
             }
           }
         } else {
-          char errorstring[1024];
-          strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
-          debug(1, "alsa: error %d (\"%s\") writing %d samples to alsa device.", ret,
-                (char *)errorstring, samples);
+
+          if (ret == -ENODEV) {
+            if (config.unfixable_error_reported == 0) {
+              config.unfixable_error_reported = 1;
+              if (config.cmd_unfixable) {
+                command_execute(config.cmd_unfixable, "output_device_error 19", 1);
+              } else {
+                die("an unrecoverable error, \"output_device_error 19\", has been "
+                    "detected.");
+              }
+            }
+          } else {
+            char errorstring[1024];
+            strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
+            debug(1, "alsa: error %d (\"%s\") writing %d samples to alsa device.", ret,
+                  (char *)errorstring, samples);
+          }
         }
       }
     }

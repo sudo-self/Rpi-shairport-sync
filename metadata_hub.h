@@ -48,7 +48,7 @@ typedef struct metadata_bundle {
 
   char *server_ip; // IP number used by Shairport Sync
   int server_ip_changed;
-  
+
   char *stream_type; // Realtime or Buffered
   int stream_type_changed;
 
@@ -79,7 +79,7 @@ typedef struct metadata_bundle {
 
   char *cover_art_pathname;
   int cover_art_pathname_changed;
-  
+
   uint64_t item_id; // seems to be a track ID -- see itemid in DACP.c
   int item_id_changed;
   int item_id_is_valid;
@@ -89,11 +89,10 @@ typedef struct metadata_bundle {
   int item_composite_id_changed;
   int item_composite_id_is_valid;
 
-
   int song_data_kind;
   int song_data_kind_changed;
   int song_data_kind_is_valid;
-  
+
   char *track_name;
   int track_name_changed;
 
@@ -139,7 +138,6 @@ typedef struct metadata_bundle {
   uint32_t songtime_in_milliseconds;
   int songtime_in_milliseconds_changed;
   int songtime_in_milliseconds_is_valid;
-  
 
   // end
 
