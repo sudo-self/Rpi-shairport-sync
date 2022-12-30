@@ -37,7 +37,8 @@ typedef enum {
 typedef enum {
   TOE_normal,
   TOE_emergency,
-  TOE_dbus // a request was made on a D-Bus interface (the native D-Bus or MPRIS interfaces)-- don't wait for the dbus thread to exit
+  TOE_dbus // a request was made on a D-Bus interface (the native D-Bus or MPRIS interfaces)-- don't
+           // wait for the dbus thread to exit
 } type_of_exit_type;
 
 #define sps_extra_code_output_stalled 32768
@@ -160,7 +161,7 @@ typedef struct {
   int mqtt_enable_remote;
   char *mqtt_empty_payload_substitute;
 #endif
-  uint8_t ap1_prefix[6]; 
+  uint8_t ap1_prefix[6];
   uint8_t hw_addr[8]; // only needs 6 but 8 is handy when converting this to a number
   int port;
   int udp_port_base;
@@ -313,6 +314,7 @@ typedef struct {
   char *airplay_pi;        // UUID in the Bonjour advertisement and the GETINFO Plist
   char *nqptp_shared_memory_interface_name; // client name for nqptp service
 #endif
+  int unfixable_error_reported; // only report once.
 } shairport_cfg;
 
 // accessors to config for multi-thread access

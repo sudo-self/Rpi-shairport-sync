@@ -39,11 +39,10 @@
 static int fd = -1;
 static int warned = 0;
 
-
 static void start(__attribute__((unused)) int sample_rate,
                   __attribute__((unused)) int sample_format) {
   fd = STDOUT_FILENO;
-  warned = 0;  
+  warned = 0;
 }
 
 static int play(void *buf, int samples, __attribute__((unused)) int sample_type,

@@ -37,6 +37,7 @@
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -47,7 +48,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <netinet/tcp.h>
 
 #include <sys/ioctl.h>
 
@@ -665,8 +665,8 @@ void *player_watchdog_thread_code(void *arg) {
             conn->stop = 1;
             pthread_cancel(conn->thread);
           } else if (conn->watchdog_barks == 3) {
-            if ((config.cmd_unfixable) && (conn->unfixable_error_reported == 0)) {
-              conn->unfixable_error_reported = 1;
+            if ((config.cmd_unfixable) && (config.unfixable_error_reported == 0)) {
+              config.unfixable_error_reported = 1;
               command_execute(config.cmd_unfixable, "unable_to_cancel_play_session", 1);
             } else {
               die("an unrecoverable error, \"unable_to_cancel_play_session\", has been detected.",
@@ -1223,10 +1223,10 @@ ssize_t timed_read_from_rtsp_connection(rtsp_conn_info *conn, uint64_t wait_time
     uint64_t time_to_wait_to = get_absolute_time_in_ns();
     ;
     time_to_wait_to = time_to_wait_to + wait_time;
-    
+
     int flags = 1;
     if (setsockopt(conn->fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&flags, sizeof(flags))) {
-      debug(1,"can't enable keepalive checking on the RTSP socket");
+      debug(1, "can't enable keepalive checking on the RTSP socket");
     }
 
     // remaining_time will be zero if wait_time is zero
@@ -1356,7 +1356,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       // Note: the socket will be closed when the thread exits
       goto shutdown;
     }
-    
+
     // An ETIMEDOUT error usually means keepalive has failed.
 
     if (nread < 0) {
@@ -2070,7 +2070,7 @@ struct pairings {
   uint8_t public_key[32];
 
   struct pairings *next;
-} * pairings;
+} *pairings;
 
 static struct pairings *pairing_find(const char *device_id) {
   for (struct pairings *pairing = pairings; pairing; pairing = pairing->next) {
@@ -3165,7 +3165,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           conn->connection_number, get_category_string(conn->airplay_stream_category));
     if (conn->airplay_stream_category == ptp_stream) {
       ptp_send_control_message_string("B"); // signify play is "B"eginning
-      
+
       // get stream[0]
       plist_t stream0 = plist_array_get_item(streams, 0);
 
@@ -5502,39 +5502,40 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
         if (getsockname(conn->fd, (struct sockaddr *)&conn->local, &size_of_reply) == 0) {
 
           // Thanks to https://holmeshe.me/network-essentials-setsockopt-SO_KEEPALIVE/ for this.
-  
-          // Turn on keepalive stuff -- wait for keepidle + (keepcnt * keepinttvl time) seconds before giving up
-          // An ETIMEOUT error is returned if the keepalive check fails
+
+          // Turn on keepalive stuff -- wait for keepidle + (keepcnt * keepinttvl time) seconds
+          // before giving up An ETIMEOUT error is returned if the keepalive check fails
 
           int keepAliveIdleTime = 10; // wait this many seconds before checking for a dropped client
-          int keepAliveCount = 5; // check this many times
-          int keepAliveInterval = 1; // wait this many seconds between checks
-          
+          int keepAliveCount = 5;     // check this many times
+          int keepAliveInterval = 1;  // wait this many seconds between checks
 
 #if defined COMPILE_FOR_BSD || defined COMPILE_FOR_OSX
-          #define SOL_OPTION IPPROTO_TCP
+#define SOL_OPTION IPPROTO_TCP
 #else
-          #define SOL_OPTION SOL_TCP
+#define SOL_OPTION SOL_TCP
 #endif
 
 #ifdef COMPILE_FOR_OSX
-          #define KEEP_ALIVE_OR_IDLE_OPTION TCP_KEEPALIVE
+#define KEEP_ALIVE_OR_IDLE_OPTION TCP_KEEPALIVE
 #else
-          #define KEEP_ALIVE_OR_IDLE_OPTION TCP_KEEPIDLE
+#define KEEP_ALIVE_OR_IDLE_OPTION TCP_KEEPIDLE
 #endif
-          
 
-          if (setsockopt(conn->fd, SOL_OPTION, KEEP_ALIVE_OR_IDLE_OPTION, (void *)&keepAliveIdleTime, sizeof(keepAliveIdleTime))) {
-            debug(1,"can't set the keepidle wait time");
+          if (setsockopt(conn->fd, SOL_OPTION, KEEP_ALIVE_OR_IDLE_OPTION,
+                         (void *)&keepAliveIdleTime, sizeof(keepAliveIdleTime))) {
+            debug(1, "can't set the keepidle wait time");
           }
 
-          if (setsockopt(conn->fd, SOL_OPTION, TCP_KEEPCNT, (void *)&keepAliveCount, sizeof(keepAliveCount))) {
-            debug(1,"can't set the keepidle missing count");
+          if (setsockopt(conn->fd, SOL_OPTION, TCP_KEEPCNT, (void *)&keepAliveCount,
+                         sizeof(keepAliveCount))) {
+            debug(1, "can't set the keepidle missing count");
           }
-          if (setsockopt(conn->fd, SOL_OPTION	, TCP_KEEPINTVL, (void *)&keepAliveInterval, sizeof(keepAliveInterval))) {
-            debug(1,"can't set the keepidle missing count interval");
+          if (setsockopt(conn->fd, SOL_OPTION, TCP_KEEPINTVL, (void *)&keepAliveInterval,
+                         sizeof(keepAliveInterval))) {
+            debug(1, "can't set the keepidle missing count interval");
           };
-	
+
           // initialise the connection info
           void *client_addr = NULL, *self_addr = NULL;
           conn->connection_ip_family = conn->local.SAFAMILY;

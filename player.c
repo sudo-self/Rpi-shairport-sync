@@ -106,7 +106,7 @@ int64_t first_frame_early_bias = 8;
 
 // default buffer size
 // needs to be a power of 2 because of the way BUFIDX(seqno) works
-//#define BUFFER_FRAMES 512
+// #define BUFFER_FRAMES 512
 #define MAX_PACKET 2048
 
 // DAC buffer occupancy stuff
@@ -531,9 +531,9 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
           (uint64_t)(config.resend_control_first_check_time * (uint64_t)1000000000);
       uint64_t resend_repeat_interval =
           (uint64_t)(config.resend_control_check_interval_time * (uint64_t)1000000000);
-      uint64_t minimum_remaining_time = (uint64_t)(
-          (config.resend_control_last_check_time + config.audio_backend_buffer_desired_length) *
-          (uint64_t)1000000000);
+      uint64_t minimum_remaining_time = (uint64_t)((config.resend_control_last_check_time +
+                                                    config.audio_backend_buffer_desired_length) *
+                                                   (uint64_t)1000000000);
       uint64_t latency_time = (uint64_t)(conn->latency * (uint64_t)1000000000);
       latency_time = latency_time / (uint64_t)conn->input_rate;
 
@@ -1271,14 +1271,13 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                     } else {
 
                       if (resp == sps_extra_code_output_stalled) {
-                        if (conn->unfixable_error_reported == 0) {
-                          conn->unfixable_error_reported = 1;
+                        if (config.unfixable_error_reported == 0) {
+                          config.unfixable_error_reported = 1;
                           if (config.cmd_unfixable) {
                             command_execute(config.cmd_unfixable, "output_device_stalled", 1);
                           } else {
                             die("an unrecoverable error, \"output_device_stalled\", has been "
-                                "detected.",
-                                conn->connection_number);
+                                "detected.");
                           }
                         }
                       } else {
@@ -1838,7 +1837,8 @@ void player_thread_cleanup_handler(void *arg) {
 void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 #ifdef CONFIG_METADATA
-  uint64_t time_of_last_metadata_progress_update = 0; // the assignment is to stop a compiler warning...
+  uint64_t time_of_last_metadata_progress_update =
+      0; // the assignment is to stop a compiler warning...
 #endif
   uint64_t previous_frames_played = 0; // initialised to avoid a "possibly uninitialised" warning
   uint64_t previous_raw_measurement_time =
@@ -1982,15 +1982,16 @@ void *player_thread_func(void *arg) {
 
   debug(3, "Output frame bytes is %d.", conn->output_bytes_per_frame);
 
-  conn->dac_buffer_queue_minimum_length = (uint64_t)(
-      config.audio_backend_buffer_interpolation_threshold_in_seconds * config.output_rate);
+  conn->dac_buffer_queue_minimum_length =
+      (uint64_t)(config.audio_backend_buffer_interpolation_threshold_in_seconds *
+                 config.output_rate);
   debug(3, "dac_buffer_queue_minimum_length is %" PRIu64 " frames.",
         conn->dac_buffer_queue_minimum_length);
 
   conn->session_corrections = 0;
   conn->connection_state_to_output = get_requested_connection_state_to_output();
 // this is about half a minute
-//#define trend_interval 3758
+// #define trend_interval 3758
 
 // this is about 8 seconds
 #define trend_interval 1003
@@ -2629,8 +2630,8 @@ void *player_thread_func(void *arg) {
             } else {
               current_delay = 0;
               if ((resp == sps_extra_code_output_stalled) &&
-                  (conn->unfixable_error_reported == 0)) {
-                conn->unfixable_error_reported = 1;
+                  (config.unfixable_error_reported == 0)) {
+                config.unfixable_error_reported = 1;
                 if (config.cmd_unfixable) {
                   warn("Connection %d: An unfixable error has been detected -- output device is "
                        "stalled. Executing the "
@@ -2780,7 +2781,8 @@ void *player_thread_func(void *arg) {
               send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
 #endif
               if (config.statistics_requested)
-                inform("Connection %d: Playback started at frame %" PRId64 " -- Classic AirPlay (\"AirPlay 1\").",
+                inform("Connection %d: Playback started at frame %" PRId64
+                       " -- Classic AirPlay (\"AirPlay 1\").",
                        conn->connection_number, inframe->given_timestamp);
 #endif
             }

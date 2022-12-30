@@ -50,8 +50,7 @@
 // When the clock is inactive, it can stop running. This causes the offset to decrease.
 // NQPTP clock smoothing would treat this as a network delay, causing true sync to be lost.
 // To avoid this, when the clock goes from inactive to active,
-// NQPTP resets clock smoothing to the new offset. 
-
+// NQPTP resets clock smoothing to the new offset.
 
 #include <inttypes.h>
 #include <pthread.h>
