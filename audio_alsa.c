@@ -449,11 +449,11 @@ static int actual_open_alsa_device(int do_auto_setup) {
         config.unfixable_error_reported = 1;        
         char messageString[1024];
         messageString[0] = '\0';
-        snprintf(messageString, sizeof(messageString), "output_device_error %d", -ret);            
+        snprintf(messageString, sizeof(messageString), "output_device_error_%d", -ret);            
         if (config.cmd_unfixable) {
           command_execute(config.cmd_unfixable, messageString, 1);
         } else {
-          die("an unrecoverable error, \"output_device_error %d\", has been "
+          die("an unrecoverable error, \"output_device_error_%d\", has been "
               "detected.", -ret);
         }
       }
@@ -1806,9 +1806,9 @@ static int do_play(void *buf, int samples) {
             if (config.unfixable_error_reported == 0) {
               config.unfixable_error_reported = 1;
               if (config.cmd_unfixable) {
-                command_execute(config.cmd_unfixable, "output_device_error 19", 1);
+                command_execute(config.cmd_unfixable, "output_device_error_19", 1);
               } else {
-                die("an unrecoverable error, \"output_device_error 19\", has been "
+                die("an unrecoverable error, \"output_device_error_19\", has been "
                     "detected.");
               }
             }
