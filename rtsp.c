@@ -665,8 +665,8 @@ void *player_watchdog_thread_code(void *arg) {
             conn->stop = 1;
             pthread_cancel(conn->thread);
           } else if (conn->watchdog_barks == 3) {
-            if ((config.cmd_unfixable) && (conn->unfixable_error_reported == 0)) {
-              conn->unfixable_error_reported = 1;
+            if ((config.cmd_unfixable) && (config.unfixable_error_reported == 0)) {
+              config.unfixable_error_reported = 1;
               command_execute(config.cmd_unfixable, "unable_to_cancel_play_session", 1);
             } else {
               die("an unrecoverable error, \"unable_to_cancel_play_session\", has been detected.",
