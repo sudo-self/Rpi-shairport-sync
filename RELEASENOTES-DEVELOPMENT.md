@@ -1,3 +1,7 @@
+Version 4.1-dev-846-gb5bb2fef
+====
+* Improvements to the detection of a missing or non-existent output device. Look for `ENODEV` and `ENOENT` errors when opening or playing to an output device.
+
 Version 4.1-dev-843-gae5910e2
 ====
 **Bug Fix**
