@@ -1769,7 +1769,7 @@ static int do_play(void *buf, int samples) {
       debug(1, "alsa: SND_PCM_STATE_* %d, error %d (\"%s\") writing %d samples to alsa device.",
             state, ret, (char *)errorstring, samples);
     }
-    if (ret == -ENODEV) // if the device isn't there...
+    if ((ret == -ENOENT) || (ret == -ENODEV)) // if the device isn't there...
       handle_unfixable_error(-ret);
   }
   return ret;
@@ -1798,7 +1798,7 @@ static int do_open(int do_auto_setup) {
       frames_sent_for_playing = 0;
       alsa_backend_state = abm_connected; // only do this if it really opened it.
     } else {
-      if (ret == -ENODEV) // if the device isn't there...
+      if ((ret == -ENOENT) || (ret == -ENODEV)) // if the device isn't there...
         handle_unfixable_error(-ret);
     }
   } else {
