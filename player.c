@@ -531,9 +531,9 @@ void player_put_packet(int original_format, seq_t seqno, uint32_t actual_timesta
           (uint64_t)(config.resend_control_first_check_time * (uint64_t)1000000000);
       uint64_t resend_repeat_interval =
           (uint64_t)(config.resend_control_check_interval_time * (uint64_t)1000000000);
-      uint64_t minimum_remaining_time = (uint64_t)((config.resend_control_last_check_time +
-                                                    config.audio_backend_buffer_desired_length) *
-                                                   (uint64_t)1000000000);
+      uint64_t minimum_remaining_time = (uint64_t)(
+          (config.resend_control_last_check_time + config.audio_backend_buffer_desired_length) *
+          (uint64_t)1000000000);
       uint64_t latency_time = (uint64_t)(conn->latency * (uint64_t)1000000000);
       latency_time = latency_time / (uint64_t)conn->input_rate;
 
@@ -1982,9 +1982,8 @@ void *player_thread_func(void *arg) {
 
   debug(3, "Output frame bytes is %d.", conn->output_bytes_per_frame);
 
-  conn->dac_buffer_queue_minimum_length =
-      (uint64_t)(config.audio_backend_buffer_interpolation_threshold_in_seconds *
-                 config.output_rate);
+  conn->dac_buffer_queue_minimum_length = (uint64_t)(
+      config.audio_backend_buffer_interpolation_threshold_in_seconds * config.output_rate);
   debug(3, "dac_buffer_queue_minimum_length is %" PRIu64 " frames.",
         conn->dac_buffer_queue_minimum_length);
 
