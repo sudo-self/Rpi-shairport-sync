@@ -1,3 +1,12 @@
+Version 4.1-dev-843-gae5910e2
+====
+**Bug Fix**
+* Stop endless error messages from the `stdout` backend.
+
+**Enhancements**
+* Call the unfixable error handler if the output device can't be opened or generates errors while being used. If no program is attached to the `run_this_if_an_unfixable_error_is_detected` hook in the `sessioncontrol` section of the configuration file, the program will exit instead.
+* Shorten the amount of time to wait after a client disappears before terminating a play session.
+
 Version 4.1-dev-824-g8e5393ec
 ====
 **Enhancements**
