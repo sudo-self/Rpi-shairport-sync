@@ -2645,8 +2645,8 @@ void *player_thread_func(void *arg) {
                        conn->connection_number);
                 }
               } else {
-                if (resp != -EBUSY) // delay errors can be reported if the device is (hopefully
-                                    // temporarily) busy
+                if ((resp != -EBUSY) && (resp != -ENODEV)) // delay and not-there errors can be reported if the device is (hopefully
+                                    // temporarily) busy or unavailable
                   debug(1, "Delay error %d when checking running latency.", resp);
               }
             }
