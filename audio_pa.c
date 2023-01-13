@@ -93,10 +93,8 @@ static void connect_stream() {
   buffer_attr.prebuf = (uint32_t)0;
   buffer_attr.minreq = (uint32_t)-1;
 
-  // Settings copied as per the chromium browser source
   pa_stream_flags_t stream_flags;
   stream_flags = PA_STREAM_START_CORKED | PA_STREAM_INTERPOLATE_TIMING | PA_STREAM_NOT_MONOTONIC |
-                 //        PA_STREAM_AUTO_TIMING_UPDATE;
                  PA_STREAM_AUTO_TIMING_UPDATE | PA_STREAM_ADJUST_LATENCY;
 
   int connect_result;
@@ -212,6 +210,7 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
   }
 
   pa_threaded_mainloop_unlock(mainloop);
+  connect_stream();
   return 0;
 }
 
