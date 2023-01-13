@@ -1,6 +1,6 @@
 /*
  * Asynchronous PulseAudio Backend. This file is part of Shairport Sync.
- * Copyright (c) Mike Brady 2017 -- 2023
+ * Copyright (c) Mike Brady 2017-2023
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -44,14 +44,6 @@
 #define buffer_allocation 44100 * 4 * 2 * 2
 
 static pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-/*
-static struct {
-  char *server;
-  char *sink;
-  char *service_name;
-} pulse_options = {.server = NULL, .sink = NULL, .service_name = NULL};
-*/
 
 pa_threaded_mainloop *mainloop;
 pa_mainloop_api *mainloop_api;
