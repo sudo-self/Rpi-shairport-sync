@@ -218,12 +218,12 @@ static void deinit(void) {
   pa_stream_disconnect(stream);
   pa_threaded_mainloop_stop(mainloop);
   pa_threaded_mainloop_free(mainloop);
-  debug(1, "pa deinit done");
+  // debug(1, "pa deinit done");
 }
 
 static void start(__attribute__((unused)) int sample_rate,
                   __attribute__((unused)) int sample_format) {
-  debug(1, "pa_start");
+  // debug(1, "pa_start");
 }
 
 static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
@@ -281,7 +281,7 @@ int pa_delay(long *the_delay) {
 }
 
 void flush(void) {
-  debug(1, "pa_flush.");
+  // debug(1, "pa_flush.");
   pa_threaded_mainloop_lock(mainloop);
   if (pa_stream_is_corked(stream) == 0) {
     // debug(1,"Flush and cork for flush.");
@@ -295,7 +295,7 @@ void flush(void) {
 }
 
 static void stop(void) {
-  debug(1, "pa_stop.");
+  // debug(1, "pa_stop.");
   // Cork the stream so it will stop playing
   pa_threaded_mainloop_lock(mainloop);
   if (pa_stream_is_corked(stream) == 0) {
