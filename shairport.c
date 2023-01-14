@@ -1986,14 +1986,13 @@ int main(int argc, char **argv) {
   config.debugger_show_file_and_line =
       1; // by default, log the file and line of the originating message
   config.debugger_show_relative_time =
-      1;                         // by default, log the  time back to the previous debug message
+      1;                // by default, log the  time back to the previous debug message
   config.timeout = 120; // this number of seconds to wait for [more] audio before switching to idle.
   config.buffer_start_fill = 220;
-  
-  config.resync_threshold = 0.050; // default
+
+  config.resync_threshold = 0.050;   // default
   config.resync_recovery_time = 0.1; // drop this amount of frames following the resync delay.
   config.tolerance = 0.002;
-
 
 #ifdef CONFIG_AIRPLAY_2
   config.timeout = 0; // disable watchdog
@@ -2374,9 +2373,8 @@ int main(int argc, char **argv) {
   debug(1, "mdns backend \"%s\".", strnull(config.mdns_name));
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
   debug(1, "interpolation setting is \"%s\".",
-        config.packet_stuffing == ST_basic  ? "basic"
-        : config.packet_stuffing == ST_soxr ? "soxr"
-                                            : "auto");
+        config.packet_stuffing == ST_basic ? "basic"
+                                           : config.packet_stuffing == ST_soxr ? "soxr" : "auto");
   debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
   debug(1, "resync time is %f seconds.", config.resync_threshold);
   debug(1, "resync recovery time is %f seconds.", config.resync_recovery_time);

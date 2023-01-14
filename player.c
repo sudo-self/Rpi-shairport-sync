@@ -2645,8 +2645,9 @@ void *player_thread_func(void *arg) {
                        conn->connection_number);
                 }
               } else {
-                if ((resp != -EBUSY) && (resp != -ENODEV)) // delay and not-there errors can be reported if the device is (hopefully
-                                    // temporarily) busy or unavailable
+                if ((resp != -EBUSY) &&
+                    (resp != -ENODEV)) // delay and not-there errors can be reported if the device
+                                       // is (hopefully temporarily) busy or unavailable
                   debug(1, "Delay error %d when checking running latency.", resp);
               }
             }
@@ -2832,7 +2833,8 @@ void *player_thread_func(void *arg) {
                 source_frames_to_drop = source_frames_to_drop / conn->output_sample_ratio;
 
                 // drop some extra frames to give the pipeline a chance to recover
-                int64_t extra_frames_to_drop = (int64_t)(conn->input_rate * config.resync_recovery_time);
+                int64_t extra_frames_to_drop =
+                    (int64_t)(conn->input_rate * config.resync_recovery_time);
                 source_frames_to_drop += extra_frames_to_drop;
 
                 uint32_t frames_to_drop = source_frames_to_drop;
