@@ -4,7 +4,7 @@
  * All rights reserved.
  *
  * Modifications for audio synchronisation, AirPlay 2
- * and related work, copyright (c) Mike Brady 2014 -- 2022
+ * and related work, copyright (c) Mike Brady 2014 -- 2023
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -2791,8 +2791,8 @@ void *player_thread_func(void *arg) {
               abs_sync_error = -abs_sync_error;
 
             if ((config.no_sync == 0) && (inframe->given_timestamp != 0) &&
-                (config.resyncthreshold > 0.0) &&
-                (abs_sync_error > config.resyncthreshold * config.output_rate)) {
+                (config.resync_threshold > 0.0) &&
+                (abs_sync_error > config.resync_threshold * config.output_rate)) {
               sync_error_out_of_bounds++;
             } else {
               sync_error_out_of_bounds = 0;
@@ -2815,7 +2815,7 @@ void *player_thread_func(void *arg) {
               }
 
               int64_t filler_length =
-                  (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
+                  (int64_t)(config.resync_threshold * config.output_rate); // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
                 debug(1,
                       "Large positive (i.e. late) sync error of %" PRId64
@@ -2831,9 +2831,8 @@ void *player_thread_func(void *arg) {
                 int64_t source_frames_to_drop = sync_error;
                 source_frames_to_drop = source_frames_to_drop / conn->output_sample_ratio;
 
-                // add some time to give the pipeline a chance to recover -- a bit hacky
-                double extra_time_to_drop = 0.1; // seconds
-                int64_t extra_frames_to_drop = (int64_t)(conn->input_rate * extra_time_to_drop);
+                // drop some extra frames to give the pipeline a chance to recover
+                int64_t extra_frames_to_drop = (int64_t)(conn->input_rate * config.resync_recovery_time);
                 source_frames_to_drop += extra_frames_to_drop;
 
                 uint32_t frames_to_drop = source_frames_to_drop;
@@ -3086,8 +3085,8 @@ void *player_thread_func(void *arg) {
               // timestamp of zero means an inserted silent frame in place of a missing frame
               /*
               if ((config.no_sync == 0) && (inframe->timestamp != 0) &&
-                  && (config.resyncthreshold > 0.0) &&
-                  (abs_sync_error > config.resyncthreshold * config.output_rate)) {
+                  && (config.resync_threshold > 0.0) &&
+                  (abs_sync_error > config.resync_threshold * config.output_rate)) {
                 sync_error_out_of_bounds++;
                 // debug(1,"Sync error out of bounds: Error: %lld; previous error: %lld; DAC: %lld;
                 // timestamp: %llx, time now

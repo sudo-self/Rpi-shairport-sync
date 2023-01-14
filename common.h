@@ -171,9 +171,9 @@ typedef struct {
   int volume_max_db;
   int no_sync;            // disable synchronisation, even if it's available
   int no_mmap;            // disable use of mmap-based output, even if it's available
-  double resyncthreshold; // if it get's out of whack my more than this number of seconds, resync.
-                          // Zero means never
-                          // resync.
+  double resync_threshold; // if it gets out of whack by more than this number of seconds, do a resync.
+                          // if zero, never do a resync.
+  double resync_recovery_time; // if sync is late, drop the delay but also drop the following frames up to the resync_recovery_time
   int allow_session_interruption;
   int timeout; // while in play mode, exit if no packets of audio come in for more than this number
                // of seconds . Zero means never exit.

@@ -2,7 +2,7 @@
  * Shairport, an Apple Airplay receiver
  * Copyright (c) James Laird 2013
  * All rights reserved.
- * Modifications and additions (c) Mike Brady 2014--2022
+ * Modifications and additions (c) Mike Brady 2014--2023
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -343,8 +343,8 @@ int parse_options(int argc, char **argv) {
   char *stuffing = NULL;         /* used for picking up the stuffing option */
   signed char c;                 /* used for argument parsing */
   // int i = 0;                     /* used for tracking options */
-  int fResyncthreshold = (int)(config.resyncthreshold * 44100);
-  int fTolerance = (int)(config.tolerance * 44100);
+  int resync_threshold_in_frames = 0;
+  int tolerance_in_frames = 0;
   poptContext optCon; /* context for parsing command-line options */
   struct poptOption optionsTable[] = {
       {"verbose", 'v', POPT_ARG_NONE, NULL, 'v', NULL, NULL},
@@ -365,10 +365,10 @@ int parse_options(int argc, char **argv) {
       {"mdns", 'm', POPT_ARG_STRING, &config.mdns_name, 0, NULL, NULL},
       {"latency", 'L', POPT_ARG_INT, &config.userSuppliedLatency, 0, NULL, NULL},
       {"stuffing", 'S', POPT_ARG_STRING, &stuffing, 'S', NULL, NULL},
-      {"resync", 'r', POPT_ARG_INT, &fResyncthreshold, 0, NULL, NULL},
+      {"resync", 'r', POPT_ARG_INT, &resync_threshold_in_frames, 'r', NULL, NULL},
       {"timeout", 't', POPT_ARG_INT, &config.timeout, 't', NULL, NULL},
       {"password", 0, POPT_ARG_STRING, &config.password, 0, NULL, NULL},
-      {"tolerance", 'z', POPT_ARG_INT, &fTolerance, 0, NULL, NULL},
+      {"tolerance", 'z', POPT_ARG_INT, &tolerance_in_frames, 'z', NULL, NULL},
       {"use-stderr", 'u', POPT_ARG_NONE, NULL, 'u', NULL, NULL},
       {"log-to-syslog", 0, POPT_ARG_NONE, &log_to_syslog_selected, 0, NULL, NULL},
 #ifdef CONFIG_METADATA
@@ -424,10 +424,12 @@ int parse_options(int argc, char **argv) {
           "automatically received from forkedDaapd");
       break;
     case 'r':
+      config.resync_threshold = (resync_threshold_in_frames * 1.0) / 44100;
       inform("Warning: the option -r or --resync is deprecated. Please use the "
              "\"resync_threshold_in_seconds\" setting in the config file instead.");
       break;
     case 'z':
+      config.tolerance = (tolerance_in_frames * 1.0) / 44100;
       inform("Warning: the option --tolerance is deprecated. Please use the "
              "\"drift_tolerance_in_seconds\" setting in the config file instead.");
       break;
@@ -462,8 +464,6 @@ int parse_options(int argc, char **argv) {
   };
 #endif
 
-  config.resyncthreshold = 1.0 * fResyncthreshold / 44100;
-  config.tolerance = 1.0 * fTolerance / 44100;
   config.audio_backend_silent_lead_in_time_auto =
       1;                         // start outputting silence as soon as packets start arriving
   config.airplay_volume = -24.0; // if no volume is ever set, default to initial default value if
@@ -692,7 +692,7 @@ int parse_options(int argc, char **argv) {
       if (config_lookup_int(config.cfg, "general.resync_threshold", &value)) {
         inform("The resync_threshold setting is deprecated. Use "
                "resync_threshold_in_seconds instead");
-        config.resyncthreshold = 1.0 * value / 44100;
+        config.resync_threshold = 1.0 * value / 44100;
       }
 
       /* Get the drift tolerance setting. */
@@ -701,7 +701,11 @@ int parse_options(int argc, char **argv) {
 
       /* Get the resync setting. */
       if (config_lookup_float(config.cfg, "general.resync_threshold_in_seconds", &dvalue))
-        config.resyncthreshold = dvalue;
+        config.resync_threshold = dvalue;
+
+      /* Get the resync recovery time setting. */
+      if (config_lookup_float(config.cfg, "general.resync_recovery_time_in_seconds", &dvalue))
+        config.resync_recovery_time = dvalue;
 
       /* Get the verbosity setting. */
       if (config_lookup_int(config.cfg, "general.log_verbosity", &value)) {
@@ -1983,11 +1987,13 @@ int main(int argc, char **argv) {
       1; // by default, log the file and line of the originating message
   config.debugger_show_relative_time =
       1;                         // by default, log the  time back to the previous debug message
-  config.resyncthreshold = 0.05; // 50 ms
   config.timeout = 120; // this number of seconds to wait for [more] audio before switching to idle.
-  config.tolerance =
-      0.002; // this number of seconds of timing error before attempting to correct it.
   config.buffer_start_fill = 220;
+  
+  config.resync_threshold = 0.050; // default
+  config.resync_recovery_time = 0.1; // drop this amount of frames following the resync delay.
+  config.tolerance = 0.002;
+
 
 #ifdef CONFIG_AIRPLAY_2
   config.timeout = 0; // disable watchdog
@@ -2372,7 +2378,8 @@ int main(int argc, char **argv) {
         : config.packet_stuffing == ST_soxr ? "soxr"
                                             : "auto");
   debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
-  debug(1, "resync time is %f seconds.", config.resyncthreshold);
+  debug(1, "resync time is %f seconds.", config.resync_threshold);
+  debug(1, "resync recovery time is %f seconds.", config.resync_recovery_time);
   debug(1, "allow a session to be interrupted: %d.", config.allow_session_interruption);
   debug(1, "busy timeout time is %d.", config.timeout);
   debug(1, "drift tolerance is %f seconds.", config.tolerance);
