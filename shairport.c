@@ -465,9 +465,14 @@ int parse_options(int argc, char **argv) {
 #endif
 
   config.audio_backend_silent_lead_in_time_auto =
-      1;                         // start outputting silence as soon as packets start arriving
-  config.airplay_volume = -24.0; // if no volume is ever set, default to initial default value if
-                                 // nothing else comes in first.
+      1; // start outputting silence as soon as packets start arriving
+  config.default_airplay_volume = -24.0;
+  config.high_threshold_airplay_volume =
+      -20.0; // if the volume exceeds this, reset to this if idle for the
+             // limit_to_high_volume_threshold_time_in_minutes time
+  config.limit_to_high_volume_threshold_time_in_minutes =
+      1; // after this time, if the volume is higher, use the high_threshold_airplay_volume volume
+         // for new play sessions.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
   config.active_state_timeout = 10.0;
@@ -1440,6 +1445,10 @@ int parse_options(int argc, char **argv) {
   if (tdebuglev != 0)
     debuglev = tdebuglev;
 
+  // now set the initial volume to the default volume
+  config.airplay_volume =
+      config.default_airplay_volume; // if no volume is ever set or requested, default to initial
+                                     // default value if nothing else comes in first.
   // now, do the substitutions in the service name
   char hostname[100];
   gethostname(hostname, 100);
@@ -2373,8 +2382,9 @@ int main(int argc, char **argv) {
   debug(1, "mdns backend \"%s\".", strnull(config.mdns_name));
   debug(2, "userSuppliedLatency is %d.", config.userSuppliedLatency);
   debug(1, "interpolation setting is \"%s\".",
-        config.packet_stuffing == ST_basic ? "basic"
-                                           : config.packet_stuffing == ST_soxr ? "soxr" : "auto");
+        config.packet_stuffing == ST_basic  ? "basic"
+        : config.packet_stuffing == ST_soxr ? "soxr"
+                                            : "auto");
   debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
   debug(1, "resync time is %f seconds.", config.resync_threshold);
   debug(1, "resync recovery time is %f seconds.", config.resync_recovery_time);

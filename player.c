@@ -1702,6 +1702,41 @@ void statistics_item(const char *heading, const char *format, ...) {
   statistics_column++;
 }
 
+double suggested_volume(rtsp_conn_info *conn) {
+  double response = config.airplay_volume;
+  if (conn) {
+    if (conn->own_airplay_volume_set != 0) {
+      response = conn->own_airplay_volume;
+    } else if (config.airplay_volume > config.high_threshold_airplay_volume) {
+      int64_t volume_validity_time = config.limit_to_high_volume_threshold_time_in_minutes;
+      // zero means never check the volume
+      if (volume_validity_time != 0) {
+        // If the volume is higher than the high volume threshold
+        // and enough time has gone past, suggest the default volume.
+        uint64_t time_now = get_absolute_time_in_ns();
+        int64_t time_since_last_access_to_volume_info =
+            time_now - config.last_access_to_volume_info_time;
+
+        volume_validity_time = volume_validity_time * 60;         // to seconds
+        volume_validity_time = volume_validity_time * 1000000000; // to nanoseconds
+
+        if ((config.airplay_volume > config.high_threshold_airplay_volume) &&
+            ((config.last_access_to_volume_info_time == 0) ||
+             (time_since_last_access_to_volume_info > volume_validity_time))) {
+
+          debug(2,
+                "the current volume %.6f is higher than the high volume threshold %.6f, so the "
+                "default volume %.6f is suggested.",
+                config.airplay_volume, config.high_threshold_airplay_volume,
+                config.default_airplay_volume);
+          response = config.default_airplay_volume;
+        }
+      }
+    }
+  }
+  return response;
+}
+
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   if (pthread_mutex_trylock(&playing_conn_lock) == 0) {
@@ -2192,9 +2227,11 @@ void *player_thread_func(void *arg) {
 
   pthread_setcancelstate(oldState, NULL);
 
-  double initial_volume = config.airplay_volume; // default
-  // set the default volume to whatever it was before, as stored in the config airplay_volume
-  debug(2, "Set initial volume to %f.", initial_volume);
+  // if not already set, set the volume to the pending_airplay_volume, if any, or otherwise to the
+  // suggested volume.
+
+  double initial_volume = suggested_volume(conn);
+  debug(2, "Set initial volume to %.6f.", initial_volume);
   player_volume(initial_volume, conn); // will contain a cancellation point if asked to wait
 
   debug(2, "Play begin");
@@ -2216,6 +2253,9 @@ void *player_thread_func(void *arg) {
     abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not
                                               // guaranteed that they'll always be executed
     uint64_t local_time_now = get_absolute_time_in_ns(); // types okay
+    config.last_access_to_volume_info_time =
+        local_time_now; // ensure volume info remains seen as valid
+
     if (inframe) {
       inbuf = inframe->data;
       inbuflength = inframe->length;
@@ -3462,6 +3502,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
   }
   // here, store the volume for possible use in the future
   config.airplay_volume = airplay_volume;
+  conn->own_airplay_volume = airplay_volume;
   debug_mutex_unlock(&conn->volume_control_mutex, 3);
 }
 

@@ -3,7 +3,7 @@
  * Copyright (c) James Laird 2013
 
  * Modifications associated with audio synchronization, multithreading and
- * metadata handling copyright (c) Mike Brady 2014-2022
+ * metadata handling copyright (c) Mike Brady 2014-2023
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -739,10 +739,13 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
   debug_mutex_unlock(&conns_lock, 3);
 }
 
+int old_connection_count = -1;
+
 void cleanup_threads(void) {
 
   void *retval;
   int i;
+  int connection_count = 0;
   // debug(2, "culling threads.");
   debug_mutex_lock(&conns_lock, 1000000, 3);
   for (i = 0; i < nconns; i++) {
@@ -754,8 +757,19 @@ void cleanup_threads(void) {
       free(conns[i]);
       conns[i] = NULL;
     }
+    if (conns[i] != NULL)
+      connection_count++;
   }
   debug_mutex_unlock(&conns_lock, 3);
+  if (old_connection_count != connection_count) {
+    if (connection_count == 0)
+      debug(2, "No active connections.");
+    else if (connection_count == 1)
+      debug(2, "One active connection.");
+    else
+      debug(2, "%d active connections.", connection_count);
+    old_connection_count = connection_count;
+  }
 }
 
 // park a null at the line ending, and return the next line pointer
@@ -3572,9 +3586,15 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
       } else {
 #endif
         lock_player();
-        if (playing_conn == conn)
+        if (playing_conn == conn) {
           player_volume(volume, conn);
+        }
+        if (conn != NULL) {
+          conn->own_airplay_volume = volume;
+          conn->own_airplay_volume_set = 1;
+        }
         unlock_player();
+        config.last_access_to_volume_info_time = get_absolute_time_in_ns();
 #ifdef CONFIG_DBUS_INTERFACE
       }
 #endif
@@ -4327,12 +4347,13 @@ static void handle_get_parameter(__attribute__((unused)) rtsp_conn_info *conn, r
 
   if ((req->content) && (req->contentlength == strlen("volume\r\n")) &&
       strstr(req->content, "volume") == req->content) {
-    debug(1, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
-          config.airplay_volume);
+    debug(2, "Connection %d: current volume (%.6f) requested", conn->connection_number,
+          suggested_volume(conn));
+
     char *p = malloc(128); // will be automatically deallocated with the response is deleted
     if (p) {
       resp->content = p;
-      resp->contentlength = snprintf(p, 128, "\r\nvolume: %.6f\r\n", config.airplay_volume);
+      resp->contentlength = snprintf(p, 128, "\r\nvolume: %.6f\r\n", suggested_volume(conn));
     } else {
       debug(1, "Couldn't allocate space for a response.");
     }

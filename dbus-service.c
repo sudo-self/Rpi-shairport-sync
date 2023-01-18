@@ -636,11 +636,14 @@ gboolean notify_volume_callback(ShairportSync *skeleton,
     debug(2, ">> setting volume to %7.4f.", iv);
 
     lock_player();
-    config.airplay_volume = iv;
-    if (playing_conn != NULL)
+    if (playing_conn != NULL) {
       player_volume(iv, playing_conn);
+      playing_conn->own_airplay_volume = iv;
+      playing_conn->own_airplay_volume_set = 1;
+    }
     unlock_player();
-
+    config.airplay_volume = iv;
+    config.last_access_to_volume_info_time = get_absolute_time_in_ns();
   } else {
     debug(1, ">> invalid volume: %f. Ignored.", iv);
     shairport_sync_set_volume(skeleton, config.airplay_volume);

@@ -240,21 +240,6 @@ void log_to_syslog() {
 
 shairport_cfg config;
 
-// accessors for multi-thread-access fields in the conn structure
-
-double get_config_airplay_volume() {
-  config_lock;
-  double v = config.airplay_volume;
-  config_unlock;
-  return v;
-}
-
-void set_config_airplay_volume(double v) {
-  config_lock;
-  config.airplay_volume = v;
-  config_unlock;
-}
-
 volatile int debuglev = 0;
 
 sigset_t pselect_sigset;
