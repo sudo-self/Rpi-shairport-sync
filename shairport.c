@@ -468,10 +468,10 @@ int parse_options(int argc, char **argv) {
       1; // start outputting silence as soon as packets start arriving
   config.default_airplay_volume = -24.0;
   config.high_threshold_airplay_volume =
-      -20.0; // if the volume exceeds this, reset to this if idle for the
+      -16.0; // if the volume exceeds this, reset to the default volume if idle for the
              // limit_to_high_volume_threshold_time_in_minutes time
   config.limit_to_high_volume_threshold_time_in_minutes =
-      1; // after this time, if the volume is higher, use the high_threshold_airplay_volume volume
+      3 * 60; // after this time in minutes, if the volume is higher, use the default_airplay_volume volume
          // for new play sessions.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
@@ -2276,7 +2276,7 @@ int main(int argc, char **argv) {
   if (sodium_init() < 0) {
     debug(1, "Can't initialise libsodium!");
   } else {
-    debug(1, "libsodium initialised.");
+    debug(2, "libsodium initialised.");
   }
 
   // this code is based on
@@ -2301,7 +2301,7 @@ int main(int argc, char **argv) {
   /* Tell Libgcrypt that initialization has completed. */
   gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 
-  debug(1, "libgcrypt initialised.");
+  debug(2, "libgcrypt initialised.");
 
 #endif
 
