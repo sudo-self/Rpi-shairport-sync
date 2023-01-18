@@ -58,6 +58,38 @@ void stream_state_cb(pa_stream *s, void *mainloop);
 void stream_success_cb(pa_stream *stream, int success, void *userdata);
 void stream_write_cb(pa_stream *stream, size_t requested_bytes, void *userdata);
 
+int status_error_notifications = 0;
+static void check_pa_stream_status(const pa_stream *p, const char *message) {
+  if (status_error_notifications < 10) {
+    if (p == NULL) {
+      warn("%s No pulseaudio stream!", message);
+      status_error_notifications++;
+    } else {
+      status_error_notifications++; // assume an error
+      switch (pa_stream_get_state(p)) {
+      case PA_STREAM_UNCONNECTED:
+        warn("%s Pulseaudio stream unconnected!", message);
+        break;
+      case PA_STREAM_CREATING:
+        warn("%s Pulseaudio stream being created!", message);
+        break;
+      case PA_STREAM_READY:
+        status_error_notifications--; // no error
+        break;
+      case PA_STREAM_FAILED:
+        warn("%s Pulseaudio stream failed!", message);
+        break;
+      case PA_STREAM_TERMINATED:
+        warn("%s Pulseaudio stream unexpectedly terminated!", message);
+        break;
+      default:
+        warn("%s Pulseaudio stream in unexpected state %d!", message, pa_stream_get_state(p));
+        break;
+      }
+    }
+  }
+}
+
 static void connect_stream() {
   // debug(1, "connect_stream");
   uint32_t buffer_size_in_bytes = (uint32_t)2 * 2 * RATE * 0.1; // hard wired in here
@@ -203,10 +235,12 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
 
   pa_threaded_mainloop_unlock(mainloop);
   connect_stream();
+  check_pa_stream_status(stream, "audio_pa initialisation.");
   return 0;
 }
 
 static void deinit(void) {
+  check_pa_stream_status(stream, "audio_pa deinitialisation.");
   pa_stream_disconnect(stream);
   pa_threaded_mainloop_stop(mainloop);
   pa_threaded_mainloop_free(mainloop);
@@ -215,7 +249,7 @@ static void deinit(void) {
 
 static void start(__attribute__((unused)) int sample_rate,
                   __attribute__((unused)) int sample_format) {
-  // debug(1, "pa_start");
+  check_pa_stream_status(stream, "audio_pa start.");
 }
 
 static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
@@ -223,6 +257,7 @@ static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
                 __attribute__((unused)) uint64_t playtime) {
   // debug(1,"pa_play of %d samples.",samples);
   // copy the samples into the queue
+  check_pa_stream_status(stream, "audio_pa play.");
   size_t bytes_to_transfer = samples * 2 * 2;
   size_t space_to_end_of_buffer = audio_umb - audio_eoq;
   if (space_to_end_of_buffer >= bytes_to_transfer) {
@@ -250,6 +285,7 @@ static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
 }
 
 int pa_delay(long *the_delay) {
+  check_pa_stream_status(stream, "audio_pa delay.");
   // debug(1,"pa_delay");
   long result = 0;
   int reply = 0;
@@ -273,7 +309,7 @@ int pa_delay(long *the_delay) {
 }
 
 void flush(void) {
-  // debug(1, "pa_flush.");
+  check_pa_stream_status(stream, "audio_pa flush.");
   pa_threaded_mainloop_lock(mainloop);
   if (pa_stream_is_corked(stream) == 0) {
     // debug(1,"Flush and cork for flush.");
@@ -287,7 +323,7 @@ void flush(void) {
 }
 
 static void stop(void) {
-  // debug(1, "pa_stop.");
+  check_pa_stream_status(stream, "audio_pa stop.");
   // Cork the stream so it will stop playing
   pa_threaded_mainloop_lock(mainloop);
   if (pa_stream_is_corked(stream) == 0) {
@@ -329,6 +365,7 @@ void stream_state_cb(__attribute__((unused)) pa_stream *s, void *mainloop) {
 
 void stream_write_cb(pa_stream *stream, size_t requested_bytes,
                      __attribute__((unused)) void *userdata) {
+  check_pa_stream_status(stream, "audio_pa stream_write_cb.");
   int bytes_to_transfer = requested_bytes;
   int bytes_transferred = 0;
   uint8_t *buffer = NULL;
