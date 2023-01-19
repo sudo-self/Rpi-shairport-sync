@@ -758,7 +758,7 @@ void cleanup_threads(void) {
       conns[i] = NULL;
     }
     if (conns[i] != NULL) {
-      debug(1, "Airplay Volume for connection %d is %.6f.", conns[i]->connection_number,
+      debug(2, "Airplay Volume for connection %d is %.6f.", conns[i]->connection_number,
             suggested_volume(conns[i]));
       connection_count++;
     }
@@ -774,7 +774,7 @@ void cleanup_threads(void) {
       debug(2, "%d active connections.", connection_count);
     old_connection_count = connection_count;
   }
-  debug(1, "Airplay Volume for new connections is %.6f.", suggested_volume(NULL));
+  debug(2, "Airplay Volume for new connections is %.6f.", suggested_volume(NULL));
 }
 
 // park a null at the line ending, and return the next line pointer

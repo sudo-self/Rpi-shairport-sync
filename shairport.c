@@ -2423,14 +2423,14 @@ int main(int argc, char **argv) {
   debug(1, "busy timeout time is %d.", config.timeout);
   debug(1, "drift tolerance is %f seconds.", config.tolerance);
   debug(1, "password is \"%s\".", strnull(config.password));
-  debug(1, "default airplay volume is %.6f.", config.default_airplay_volume);
-  debug(1, "high threshold airplay volume is %.6f.", config.high_threshold_airplay_volume);
+  debug(1, "default airplay volume is: %.6f.", config.default_airplay_volume);
+  debug(1, "high threshold airplay volume is: %.6f.", config.high_threshold_airplay_volume);
   if (config.limit_to_high_volume_threshold_time_in_minutes == 0)
     debug(1, "check for higher-than-threshold volume for new play session is disabled.");
   else
     debug(1,
-          "suggest default airplay volume for new play session instead of higher-than-threshold "
-          "airplay volume after %d minutes.",
+          "suggest default airplay volume for new play sessions instead of higher-than-threshold "
+          "airplay volume after: %d minutes.",
           config.limit_to_high_volume_threshold_time_in_minutes);
   debug(1, "ignore_volume_control is %d.", config.ignore_volume_control);
   if (config.volume_max_db_set)
@@ -2516,7 +2516,7 @@ int main(int argc, char **argv) {
   // calculate the 12-hex-digit prefix by hashing the service name.
   uint8_t ap_md5[16];
 
-  debug(1, "size of hw_addr is %u.", sizeof(config.hw_addr));
+  // debug(1, "size of hw_addr is %u.", sizeof(config.hw_addr));
 #ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
   MD5_Init(&ctx);
