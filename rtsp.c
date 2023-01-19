@@ -2022,6 +2022,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       pthread_cleanup_push(mutex_unlock, &conn->flush_mutex);
       conn->ap2_rate = rate;
       if ((rate & 1) != 0) {
+        ptp_send_control_message_string("B"); // signify play is "B"eginning or resuming
         debug(2, "Connection %d: Start playing, with anchor clock %" PRIx64 ".",
               conn->connection_number, conn->networkTimeTimelineID);
         activity_monitor_signify_activity(1);
@@ -2031,7 +2032,8 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
 #endif
         conn->ap2_play_enabled = 1;
       } else {
-        debug(2, "Connection %d: Stop playing.", conn->connection_number);
+        ptp_send_control_message_string("P"); // signify play is "P"ausing
+        debug(2, "Connection %d: Pause playing.", conn->connection_number);
         conn->ap2_play_enabled = 0;
         activity_monitor_signify_activity(0);
         reset_anchor_info(conn);
@@ -2955,6 +2957,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         // if it's a full service PTP stream, we get groupUUID, groupContainsGroupLeader and
         // timingPeerList
         if (conn->airplay_stream_category == ptp_stream) {
+          ptp_send_control_message_string("B"); // signify play is "B"eginning
           if (ptp_shm_interface_open() !=
               0) // it should be open already, but just in case it isn't...
             die("Can not access the NQPTP service. Has it stopped running?");
