@@ -471,8 +471,8 @@ int parse_options(int argc, char **argv) {
       -16.0; // if the volume exceeds this, reset to the default volume if idle for the
              // limit_to_high_volume_threshold_time_in_minutes time
   config.limit_to_high_volume_threshold_time_in_minutes =
-      3 * 60; // after this time in minutes, if the volume is higher, use the default_airplay_volume volume
-         // for new play sessions.
+      0; // after this time in minutes, if the volume is higher, use the default_airplay_volume
+         // volume for new play sessions.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
   config.active_state_timeout = 10.0;
@@ -843,6 +843,37 @@ int parse_options(int argc, char **argv) {
         // debug(1, "Max volume setting of %f dB", dvalue);
         config.volume_max_db = dvalue;
         config.volume_max_db_set = 1;
+      }
+
+      /* Get the optional default_volume setting. */
+      if (config_lookup_float(config.cfg, "general.default_airplay_volume", &dvalue)) {
+        // debug(1, "Default airplay volume setting of %f on the -30.0 to 0 scale", dvalue);
+        if ((dvalue >= -30.0) && (dvalue <= 0.0)) {
+          config.default_airplay_volume = dvalue;
+        } else {
+          warn("The default airplay volume setting must be between -30.0 and 0.0.");
+        }
+      }
+
+      /* Get the optional high_volume_threshold setting. */
+      if (config_lookup_float(config.cfg, "general.high_threshold_airplay_volume", &dvalue)) {
+        // debug(1, "High threshold airplay volume setting of %f on the -30.0 to 0 scale", dvalue);
+        if ((dvalue >= -30.0) && (dvalue <= 0.0)) {
+          config.high_threshold_airplay_volume = dvalue;
+        } else {
+          warn("The high threshold airplay volume setting must be between -30.0 and 0.0.");
+        }
+      }
+
+      /* Get the optional high volume idle tiomeout setting. */
+      if (config_lookup_float(config.cfg, "general.high_volume_idle_timeout_in_minutes", &dvalue)) {
+        // debug(1, "High high_volume_idle_timeout_in_minutes setting of %f", dvalue);
+        if (dvalue >= 0.0) {
+          config.limit_to_high_volume_threshold_time_in_minutes = dvalue;
+        } else {
+          warn("The high volume idle timeout in minutes setting must be 0.0 or greater. A setting "
+               "of 0.0 disables the high volume check.");
+        }
       }
 
       if (config_lookup_string(config.cfg, "general.run_this_when_volume_is_set", &str)) {
@@ -2392,6 +2423,15 @@ int main(int argc, char **argv) {
   debug(1, "busy timeout time is %d.", config.timeout);
   debug(1, "drift tolerance is %f seconds.", config.tolerance);
   debug(1, "password is \"%s\".", strnull(config.password));
+  debug(1, "default airplay volume is %.6f.", config.default_airplay_volume);
+  debug(1, "high threshold airplay volume is %.6f.", config.high_threshold_airplay_volume);
+  if (config.limit_to_high_volume_threshold_time_in_minutes == 0)
+    debug(1, "check for higher-than-threshold volume for new play session is disabled.");
+  else
+    debug(1,
+          "suggest default airplay volume for new play session instead of higher-than-threshold "
+          "airplay volume after %d minutes.",
+          config.limit_to_high_volume_threshold_time_in_minutes);
   debug(1, "ignore_volume_control is %d.", config.ignore_volume_control);
   if (config.volume_max_db_set)
     debug(1, "volume_max_db is %d.", config.volume_max_db);

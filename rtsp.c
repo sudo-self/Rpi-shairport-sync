@@ -757,19 +757,24 @@ void cleanup_threads(void) {
       free(conns[i]);
       conns[i] = NULL;
     }
-    if (conns[i] != NULL)
+    if (conns[i] != NULL) {
+      debug(1, "Airplay Volume for connection %d is %.6f.", conns[i]->connection_number,
+            suggested_volume(conns[i]));
       connection_count++;
+    }
   }
   debug_mutex_unlock(&conns_lock, 3);
+
   if (old_connection_count != connection_count) {
-    if (connection_count == 0)
+    if (connection_count == 0) {
       debug(2, "No active connections.");
-    else if (connection_count == 1)
+    } else if (connection_count == 1)
       debug(2, "One active connection.");
     else
       debug(2, "%d active connections.", connection_count);
     old_connection_count = connection_count;
   }
+  debug(1, "Airplay Volume for new connections is %.6f.", suggested_volume(NULL));
 }
 
 // park a null at the line ending, and return the next line pointer
@@ -5477,6 +5482,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
         FD_SET(sockfd[i], &fds);
 
       ret = select(maxfd + 1, &fds, 0, 0, &tv);
+
       if (ret < 0) {
         if (errno == EINTR)
           continue;

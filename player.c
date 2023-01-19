@@ -1704,33 +1704,31 @@ void statistics_item(const char *heading, const char *format, ...) {
 
 double suggested_volume(rtsp_conn_info *conn) {
   double response = config.airplay_volume;
-  if (conn) {
-    if (conn->own_airplay_volume_set != 0) {
-      response = conn->own_airplay_volume;
-    } else if (config.airplay_volume > config.high_threshold_airplay_volume) {
-      int64_t volume_validity_time = config.limit_to_high_volume_threshold_time_in_minutes;
-      // zero means never check the volume
-      if (volume_validity_time != 0) {
-        // If the volume is higher than the high volume threshold
-        // and enough time has gone past, suggest the default volume.
-        uint64_t time_now = get_absolute_time_in_ns();
-        int64_t time_since_last_access_to_volume_info =
-            time_now - config.last_access_to_volume_info_time;
+  if ((conn != NULL) && (conn->own_airplay_volume_set != 0)) {
+    response = conn->own_airplay_volume;
+  } else if (config.airplay_volume > config.high_threshold_airplay_volume) {
+    int64_t volume_validity_time = config.limit_to_high_volume_threshold_time_in_minutes;
+    // zero means never check the volume
+    if (volume_validity_time != 0) {
+      // If the volume is higher than the high volume threshold
+      // and enough time has gone past, suggest the default volume.
+      uint64_t time_now = get_absolute_time_in_ns();
+      int64_t time_since_last_access_to_volume_info =
+          time_now - config.last_access_to_volume_info_time;
 
-        volume_validity_time = volume_validity_time * 60;         // to seconds
-        volume_validity_time = volume_validity_time * 1000000000; // to nanoseconds
+      volume_validity_time = volume_validity_time * 60;         // to seconds
+      volume_validity_time = volume_validity_time * 1000000000; // to nanoseconds
 
-        if ((config.airplay_volume > config.high_threshold_airplay_volume) &&
-            ((config.last_access_to_volume_info_time == 0) ||
-             (time_since_last_access_to_volume_info > volume_validity_time))) {
+      if ((config.airplay_volume > config.high_threshold_airplay_volume) &&
+          ((config.last_access_to_volume_info_time == 0) ||
+           (time_since_last_access_to_volume_info > volume_validity_time))) {
 
-          debug(2,
-                "the current volume %.6f is higher than the high volume threshold %.6f, so the "
-                "default volume %.6f is suggested.",
-                config.airplay_volume, config.high_threshold_airplay_volume,
-                config.default_airplay_volume);
-          response = config.default_airplay_volume;
-        }
+        debug(2,
+              "the current volume %.6f is higher than the high volume threshold %.6f, so the "
+              "default volume %.6f is suggested.",
+              config.airplay_volume, config.high_threshold_airplay_volume,
+              config.default_airplay_volume);
+        response = config.default_airplay_volume;
       }
     }
   }
