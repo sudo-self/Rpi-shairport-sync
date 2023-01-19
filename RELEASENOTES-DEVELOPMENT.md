@@ -1,3 +1,14 @@
+Version 4.1-dev-862-g6eb70eee
+====
+***Pesky Changes You Can't Ignore***
+
+* **Important**. Please update and re-start NQPTP. The Shared Memory Interface protocol that Shairport Sync and NQPTP use to communicate with one another has been updated to version 9 to reflect changes in NQPTP's operation.
+
+**Enhancements**
+* A new "high volume check" attempts to prevent the unpleasant surprise of a new session playing at the same very high volume as the previous session if that previous session was some time, e.g. some hours, ago. How it works is that if a timeout period has elapsed since the last play session and the last play session was very loud, a lower volume will be suggested for new play sessions. Most apps accept the suggestion. The timeout, loudness threshold and suggested volume are all settable in the configuration file. Please refer to the sample configuration file for more details. The feature is disabled by default.
+
+* The PulseAudio backend has been reworked to simplify the code and to remove a number of issues. Hopefully nothing has been broken.
+
 Version 4.1-dev-846-gb5bb2fef
 ====
 * Improvements to the detection of a missing or non-existent output device. Look for `ENODEV` and `ENOENT` errors when opening or playing to an output device.
