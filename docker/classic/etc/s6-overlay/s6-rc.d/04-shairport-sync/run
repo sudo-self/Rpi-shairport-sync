@@ -4,4 +4,4 @@ while [ ! -f /var/run/avahi-daemon/pid ]; do
   sleep 1
 done
 echo "Starting shairport-sync"
-exec /usr/local/bin/shairport-sync
+exec /usr/local/bin/shairport-sync $ARG

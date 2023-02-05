@@ -113,5 +113,3 @@ RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio && addgr
 
 # Remove anything we don't need.
 RUN rm -rf /lib/apk/db/*
-
-ENTRYPOINT [ "/init" ]
