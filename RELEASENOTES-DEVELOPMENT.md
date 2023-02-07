@@ -1,3 +1,10 @@
+Version 4.1-dev-870-gc924387a
+====
+**Bug Fix**
+* When built for AirPlay 2, ensure the hexadecimal string that prefixes the AirPlay 1 Service Name in the Bonjour text strings matches the AirPlay 2 Device ID. For example, if the Service Name is `Kitchen` and the AirPlay 2 Device ID is `b8:2f:eb:d7:85:df`, the AirPlay 1 Service Name should be `B82FEBD785DF@Kitchen`. (When built for AirPlay 1, the hexadecimal prefix is simply a hash of the Service Name.)
+
+   Thanks to [Casper](https://github.com/casperghst42) for raising the [issue](https://github.com/owntone/owntone-server/issues/1578) and to [ejurgensen](https://github.com/ejurgensen) for identifying the cause of the problem.
+
 Version 4.1-dev-862-g6eb70eee
 ====
 ***Pesky Changes You Can't Ignore***
