@@ -1411,6 +1411,9 @@ int parse_options(int argc, char **argv) {
   int i;
   char hexchar[] = "0123456789abcdef";
   for (i = 5; i >= 0; i--) {
+    // In AirPlay 2 mode, the AP1 name prefix must be
+    // the same as the AirPlay 2 device id less the colons.
+    config.ap1_prefix[i] = temporary_airplay_id & 0xFF; 
     apids[i * 3 + 1] = hexchar[temporary_airplay_id & 0xF];
     temporary_airplay_id = temporary_airplay_id >> 4;
     apids[i * 3] = hexchar[temporary_airplay_id & 0xF];
@@ -2513,7 +2516,11 @@ int main(int argc, char **argv) {
   soxr_time_check_thread_started = 1;
 #endif
 
-  // calculate the 12-hex-digit prefix by hashing the service name.
+
+  // In AirPlay 2 mode, the AP1 prefix is the same as the device ID less the colons
+  // In AirPlay 1 mode, the AP1 prefix is calculated by hashing the service name.
+#ifndef CONFIG_AIRPLAY_2
+
   uint8_t ap_md5[16];
 
   // debug(1, "size of hw_addr is %u.", sizeof(config.hw_addr));
@@ -2550,6 +2557,7 @@ int main(int argc, char **argv) {
 #endif
 
   memcpy(config.ap1_prefix, ap_md5, sizeof(config.ap1_prefix));
+#endif
 
 #ifdef CONFIG_METADATA
   metadata_init(); // create the metadata pipe if necessary
