@@ -3088,6 +3088,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                   conn->connection_number, err);
             }
 
+            listen(conn->event_socket, 128); // ensure socket is open before telling client
+
             debug(2, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number,
                   conn->local_event_port);
 
@@ -3110,7 +3112,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             debug(2, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
                   get_category_string(conn->airplay_stream_category));
             mdns_update(NULL, secondary_txt_records);
-
             resp->respcode = 200;
           } else {
             debug(1, "SETUP on Connection %d: PTP setup -- no timingPeerInfo plist.",
@@ -3141,6 +3142,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 "port",
                 conn->connection_number, err);
           }
+
+          listen(conn->event_socket, 128); // ensure socket is open before telling client
 
           debug(2, "Connection %d SETUP (RC): TCP Remote Control event port opened: %u.",
                 conn->connection_number, conn->local_event_port);
@@ -3330,6 +3333,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
               conn->connection_number, err);
         }
 
+        listen(conn->buffered_audio_socket, 128); // ensure it's open before telling the client
+
         debug(2, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number,
               conn->local_buffered_audio_port);
 
@@ -3356,7 +3361,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         // call in the SETRATEANCHORI handler, which should come up right away
         activity_monitor_signify_activity(0);
         player_play(conn);
-
         conn->rtp_running = 1; // hack!
       } break;
       default:

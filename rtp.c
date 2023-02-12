@@ -1575,7 +1575,7 @@ void *rtp_event_receiver(void *arg) {
     debug(2, "Connection %d: AP2 Event Receiver started", conn->connection_number);
   pthread_cleanup_push(rtp_event_receiver_cleanup_handler, arg);
 
-  listen(conn->event_socket, 5);
+  // listen(conn->event_socket, 5); // this is now done in the handle_setup_2 code
 
   uint8_t packet[4096];
   ssize_t nread;
@@ -2017,7 +2017,8 @@ void *buffered_tcp_reader(void *arg) {
   pthread_cleanup_push(buffered_tcp_reader_cleanup_handler, NULL);
   buffered_tcp_desc *descriptor = (buffered_tcp_desc *)arg;
 
-  listen(descriptor->sock_fd, 5);
+  // listen(descriptor->sock_fd, 5); // this is done in the handle_setup_2 code to ensure it's open
+  // when the client hears about it...
   ssize_t nread;
   SOCKADDR remote_addr;
   memset(&remote_addr, 0, sizeof(remote_addr));
@@ -2059,8 +2060,7 @@ void *buffered_tcp_reader(void *arg) {
     // do the read
     // debug(1, "Request buffered read  of up to %d bytes.", bytes_to_request);
     nread = recv(fd, descriptor->eoq, bytes_to_request, 0);
-    // debug(1, "Received %d bytes for a buffer size of %d bytes.",nread,
-    // descriptor->buffer_occupancy + nread);
+    // debug(1, "Received %d bytes for a buffer size of %d bytes.",nread, descriptor->buffer_occupancy + nread);
     if (pthread_mutex_lock(&descriptor->mutex) != 0)
       debug(1, "problem with not empty mutex");
     pthread_cleanup_push(mutex_unlock, (void *)&descriptor->mutex);
