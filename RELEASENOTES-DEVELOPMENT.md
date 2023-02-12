@@ -1,3 +1,8 @@
+Version 4.1-dev-872-g65c6975e
+====
+**Bug Fix**
+* Remove three potential race conditions between Shairport Sync opening a TCP connection and the client checkiing that the connections are open. The problem was that the connections were being opened in threads that were created just before the client was given the connection information. If the threads were delayed (e.g. on a slow or busy processor), the client could use the connection information to check the connections, but find that they were not (yet) open. This could cause the client to terminate the session immediately with a `TEARDOWN`. The fix was to open the connections before creating those threads and before sending the connection information back to the client. In this way, the connections are guaranteed to be open before the client has the information it needs to try to open them, even if the threads ared delayed in starting. This bug would manifest itself by allowing play to proceed but not play anything.
+
 Version 4.1-dev-870-gc924387a
 ====
 **Bug Fix**
