@@ -1385,6 +1385,12 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
               conn->connection_number);
         continue;
       }
+      if (errno == ETIMEDOUT) {
+        debug(1, "Connection %d: ETIMEDOUT -- keepalive timeout.", conn->connection_number);
+        reply = rtsp_read_request_response_channel_closed;
+        // Note: the socket will be closed when the thread exits
+        goto shutdown;
+      }
       if (errno != ECONNRESET) {
         char errorstring[1024];
         strerror_r(errno, (char *)errorstring, sizeof(errorstring));
