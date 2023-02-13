@@ -1,3 +1,8 @@
+Version 4.1-dev-874-g551734b3
+====
+**Bug Fix**
+* Use TCP keepalive a little more generally -- treat it the same as a client closing the link rather than just an error.
+
 Version 4.1-dev-872-g65c6975e
 ====
 **Bug Fix**
