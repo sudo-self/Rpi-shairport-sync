@@ -150,7 +150,7 @@ The MQTT service can parse the above raw messages into a subset of human-readabl
 * `title` -- text of song title
 * `volume` -- The volume is sent as a string -- "airplay_volume,volume,lowest_volume,highest_volume", where "volume", "lowest_volume" and "highest_volume" are given in dB. (see above)
 
-and empty messages at the following topics are published.
+and empty messages (`--`) at the following topics are published.
 
 * `play_start` -- fired at the begining of every song
 * `play_end` -- fired at the end of every song
@@ -168,22 +168,24 @@ Users will find examples on how to consume the MQTT data in various home automat
 ### Home Assistant Variable Templates
 
 Examples of consuming "parsed" MQTT data in [Home Assistant](https://www.home-assistant.io/)
-The `active_start` and `active_end` have good potential use as triggers to turn on and off various connect receivers/zones.  The messages published are empty and therefor no "payload_on" is set, "payload_off" however is set to prevent accidental triggering.
+The `active_start` and `active_end` have good potential use as triggers to turn on and off various connect receivers/zones. "payload_off" is set to prevent accidental triggering.
 
 ```yml
-mqtt:
-  binary_sensor:
-    - name: "shairport active start"
-      state_topic: "shairport/active_start"
-      payload_on: ""
-      payload_off: "OFF"
-      off_delay: 300
+binary_sensor:
 
-    - name: "shairport active end"
-      state_topic: "shairport/active_end"
-      payload_on: ""
-      payload_off: "OFF"
-      off_delay: 300
+  - platform: mqtt
+    name: "shairport active start"
+    state_topic: "shairport/active_start"
+    payload_on: "--"
+    payload_off: "OFF"
+    off_delay: 300
+
+  - platform: mqtt
+    name: "shairport active end"
+    state_topic: "shairport/active_end"
+    payload_on: "--"
+    payload_off: "OFF"
+    off_delay: 300
 ```
 
 Below parsed data is saved into the Home Assistant database as sensor data.  Please note the conversion of the volume from dB to percentage.
