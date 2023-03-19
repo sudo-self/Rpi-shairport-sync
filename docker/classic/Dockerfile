@@ -1,4 +1,4 @@
-FROM alpine:3.12 AS builder
+FROM alpine:3.17 AS builder
 
 # Classic (aka AirPlay 1) Build
 
@@ -49,7 +49,7 @@ WORKDIR /
 ##### SPS END #####
 
 # Shairport Sync Runtime System
-FROM crazymax/alpine-s6:3.12-3.1.1.2
+FROM crazymax/alpine-s6:3.17-3.1.1.2
 
 RUN apk -U add \
         alsa-lib \
@@ -78,7 +78,7 @@ COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-
 COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-mpris.conf /etc/dbus-1/system.d/
 
 COPY ./docker/classic/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
-RUN chmod +x /etc/s6-overlay/s6-rc.d/startup/script.sh
+RUN chmod +x /etc/s6-overlay/s6-rc.d/01-startup/script.sh
 
 # Create non-root user for running the container -- running as the user 'shairport-sync' also allows
 # Shairport Sync to provide the D-Bus and MPRIS interfaces within the container
@@ -92,4 +92,8 @@ RUN addgroup -g 29 docker_audio && addgroup shairport-sync docker_audio && addgr
 # Remove anything we don't need.
 RUN rm -rf /lib/apk/db/*
 
-ENTRYPOINT [ "/init", "/usr/local/bin/shairport-sync" ]
+# Add run script that will start SPS
+COPY ./docker/run.sh ./run.sh
+RUN chmod +x /run.sh
+
+Entrypoint ["/init","./run.sh"]

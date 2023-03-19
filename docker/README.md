@@ -32,6 +32,7 @@ $ docker run -d --restart unless-stopped --net host --device /dev/snd \
 ### Options
 
 Command line options will be passed to Shairport Sync. Here is an example:
+
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
     mikebrady/shairport-sync:latest \
