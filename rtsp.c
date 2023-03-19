@@ -2028,7 +2028,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       pthread_cleanup_push(mutex_unlock, &conn->flush_mutex);
       conn->ap2_rate = rate;
       if ((rate & 1) != 0) {
-        ptp_send_control_message_string("B"); // signify play is "B"eginning or resuming
+        ptp_send_control_message_string("B"); // signify clock dependability period is "B"eginning (or resuming)
         debug(2, "Connection %d: Start playing, with anchor clock %" PRIx64 ".",
               conn->connection_number, conn->networkTimeTimelineID);
         activity_monitor_signify_activity(1);
@@ -2963,7 +2963,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         // if it's a full service PTP stream, we get groupUUID, groupContainsGroupLeader and
         // timingPeerList
         if (conn->airplay_stream_category == ptp_stream) {
-          ptp_send_control_message_string("B"); // signify play is "B"eginning
           if (ptp_shm_interface_open() !=
               0) // it should be open already, but just in case it isn't...
             die("Can not access the NQPTP service. Has it stopped running?");
@@ -3079,6 +3078,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             // debug(1,"initial timing peer command: \"%s\".", timing_list_message);
             // ptp_send_control_message_string(timing_list_message);
             set_client_as_ptp_clock(conn);
+            ptp_send_control_message_string("B"); // signify clock dependability period is "B"eginning (or continuing)
             plist_dict_set_item(timingPeerInfoPlist, "Addresses", addresses);
             plist_dict_set_item(timingPeerInfoPlist, "ID", plist_new_string(conn->self_ip_string));
             plist_dict_set_item(setupResponsePlist, "timingPeerInfo", timingPeerInfoPlist);
@@ -3193,6 +3193,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           conn->connection_number, get_category_string(conn->airplay_stream_category));
     if (conn->airplay_stream_category == ptp_stream) {
       // get stream[0]
+      ptp_send_control_message_string("B"); // signify clock dependability period is "B"eginning (or continuing)
       plist_t stream0 = plist_array_get_item(streams, 0);
 
       plist_t streams_array = plist_new_array(); // to hold the ports and stuff

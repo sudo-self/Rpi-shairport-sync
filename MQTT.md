@@ -191,34 +191,29 @@ binary_sensor:
 Below parsed data is saved into the Home Assistant database as sensor data.  Please note the conversion of the volume from dB to percentage.
 
 ```yml
-sensor:
-  - platform: mqtt
-    name: "shairport album"
-    state_topic: "shairport/album"
-    expire_after: 600
-  
-  - platform: mqtt
-    name: "shairport artist"
-    state_topic: "shairport/artist"
-    expire_after: 600
-    
-  - platform: mqtt
-    name: "shairport title"
-    state_topic: "shairport/title"
-    expire_after: 600
-    
-  - platform: mqtt
-    name: "shairport genre"
-    state_topic: "shairport/genre" 
-    expire_after: 600
-    
-  - platform: mqtt
-    name: "shairport volume (dB)"
-    state_topic: "shairport/volume"
-    
-  - platform: mqtt
-    name: "shairport volume (PCT)"
-    state_topic: "shairport/volume"
-    value_template: "{{ value |  regex_findall_index(find='^(.+?),', index=0, ignorecase=False) | float / 30 + 1  }}"
-    unit_of_measurement: 'percent'
+mqtt:
+  sensor:
+    - name: "shairport album"
+      state_topic: "shairport/album"
+      expire_after: 600
+
+    - name: "shairport artist"
+      state_topic: "shairport/artist"
+      expire_after: 600
+
+    - name: "shairport title"
+      state_topic: "shairport/title"
+      expire_after: 600
+
+    - name: "shairport genre"
+      state_topic: "shairport/genre"
+      expire_after: 600
+
+    - name: "shairport volume (dB)"
+      state_topic: "shairport/volume"
+
+    - name: "shairport volume (PCT)"
+      state_topic: "shairport/volume"
+      value_template: "{{ value |  regex_findall_index(find='^(.+?),', index=0, ignorecase=False) | float / 30 + 1  }}"
+      unit_of_measurement: 'percent'
 ```

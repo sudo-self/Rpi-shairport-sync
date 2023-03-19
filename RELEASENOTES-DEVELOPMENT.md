@@ -1,3 +1,8 @@
+Version 4.1-dev-876-g29ca3225
+====
+**Bug Fix**
+* Fix a bug reported in Issue [#1633](https://github.com/mikebrady/shairport-sync/issues/1633). The bug was that when a Realtime Audio stream (e.g. playing from Spotify on iOS or using Shairport Sync as the Sound Output on a Mac) was played, it was fine, but when a second stream was started, it could not be heard. The problem was that the PTP clock was not being correctly revalidated for second and subsequent Realtime Audio streams. The fix was to ensure that the PTP clock is revalidated on second and subsequent plays on the same connection. Thanks again to [David Leibovic](https://github.com/dasl-) for finding the problem.
+
 Version 4.1-dev-874-g551734b3
 ====
 **Bug Fix**
