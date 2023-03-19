@@ -1,7 +1,7 @@
 Version 4.1-dev-886-ge74300d7
 ====
 **Updates and Enhancements**
-* Merge [Pull Request #1635](https://github.com/mikebrady/shairport-sync/pull/1635) and [Pull Request #1636](https://github.com/mikebrady/shairport-sync/pull/1636) . The PRs update the MQTT documentation to correspond to updates in [Hoome Assistant](https://www.home-assistant.io/blog/2022/06/01/release-20226/#breaking-changes). Thanks to [hunhejj](https://github.com/hunhejj) for these.
+* Merge [Pull Request #1635](https://github.com/mikebrady/shairport-sync/pull/1635) and [Pull Request #1636](https://github.com/mikebrady/shairport-sync/pull/1636) . The PRs update the MQTT documentation to correspond to updates in [Home Assistant](https://www.home-assistant.io/blog/2022/06/01/release-20226/#breaking-changes). Thanks to [hunhejj](https://github.com/hunhejj) for these.
 * Merge [Pull Request #1624](https://github.com/mikebrady/shairport-sync/pull/1624). The PR updates the Docker images to use Alpine 3.17 and ensure services such as Avahi and D-Bus start in the correct order. Thanks to [yubiuser](https://github.com/yubiuser) for their work on this.
 
 Version 4.1-dev-876-g29ca3225
