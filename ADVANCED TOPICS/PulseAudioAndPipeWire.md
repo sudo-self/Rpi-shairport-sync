@@ -21,14 +21,13 @@ Now, consider a Linux system with a Graphical User Interface (GUI) that has Puls
 # The Problem
 When Shairport Sync is installed as a system service, it starts after the system has booted up.
 It runs under a low-priviliged user called `shairport-sync`. 
-Unfortunately, per (4) above, since it was not logged in through the GUI, it won't have a PulseAudio service.
-Therefore, per (5) above, the ALSA `"default"` device either won't exist or -- if it does exist -- won't work. Hence, Shairport Sync will either terminate
-or remain silent.
+Unfortunately, per (4) above, since it was not logged in through the GUI, it won't have a PulseAudio service. If you are using the `"pa"` backend, Shairport Sync may well crash.
+Per (5) above, the ALSA `"default"` device either won't exist or -- if it does exist -- won't work. Hence, using the `"alsa"` backend, Shairport Sync will either terminate or remain silent.
 
 # The Fixes
 There are three ways to address this problem:
 1. Stop using Shairport Sync as a system service. Instead, launch it from a terminal window after log-in through the GUI.
 Alternatively, create a user service startup script so that it will be launched automatically after the user has logged in. This means that the system can not run without user intervention.
-2. Stop using the ALSA `"default"` device. Instead, set the output device to a real ALSA hardware output device. Use `$ shairport-sync -h` (or, better, `sps-alsa-explore`) to get a list of output devices, and use the configuration file to set the device. Now this might prevent PulseAudio from working properly. 
+2. If you are using the `"alsa"` backend, set the output device to a real ALSA hardware output device. Use `$ shairport-sync -h` (or, better, `sps-alsa-explore`) to get a list of output devices, and use the configuration file to set the device. Now this might prevent PulseAudio from working properly. 
 # The Best Fix
 3. The best of all fixes is, if possible, to avoid using a system containing PulseAudio altogether. Linux operating systems typically have a "server", "lite" or "headless" version that has no GUI and no PulseAudio.
