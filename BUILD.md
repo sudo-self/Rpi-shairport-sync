@@ -155,7 +155,8 @@ If you have problems, please check the items in Final Notes below, or in the [TR
 Note: Shairport Sync will run indefinitely -- use Control-C it to stop it.
 
 ## 5. Enable and Start Service
-Once you are happy that Shairport Sync runs from the command line, you should Control-C out of it and enable and start the `shairport-sync` service. This will launch Shairport Sync automatically as a background "daemon" service when the system powers up:
+If your system has a Graphical User Interface (GUI) it probably uses PulseAudio or PipeWire for audio services. If that is the case, please review [Working with PulseAudio or PipeWire](https://github.com/mikebrady/shairport-sync/blob/development/ADVANCED%20TOPICS/PulseAudioAndPipeWire.md).
+Otherwise, once you are happy that Shairport Sync runs from the command line, you should enable and start the `shairport-sync` service. This will launch Shairport Sync automatically as a background "daemon" service when the system powers up:
 
 ### Linux
 ```
