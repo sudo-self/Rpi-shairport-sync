@@ -1,4 +1,4 @@
-# Introduction
+# Working with PulseAudio or PipeWire
 Many Linux systems have [PulseAudio](https://www.freedesktop.org/wiki/Software/PulseAudio/) or [PipeWire](https://pipewire.org) installed as [sound servers](https://en.wikipedia.org/wiki/Sound_server), typically providing
 audio facilities for the system's GUI. Unfortunately, they cause problems for Shairport Sync. As you'll see, these problems can be worked around.
 
