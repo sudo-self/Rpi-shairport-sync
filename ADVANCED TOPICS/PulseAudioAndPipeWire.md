@@ -28,6 +28,6 @@ Per (5) above, the ALSA `"default"` device either won't exist or -- if it does e
 There are three ways to address this problem:
 1. Stop using Shairport Sync as a system service. Instead, launch it from a terminal window after log-in through the GUI.
 Alternatively, create a user service startup script so that it will be launched automatically after the user has logged in. This means that the system can not run without user intervention.
-2. If you are using the `"alsa"` backend, set the output device to a real ALSA hardware output device. Use `$ shairport-sync -h` (or, better, `sps-alsa-explore`) to get a list of output devices, and use the configuration file to set the device. Now this might prevent PulseAudio from working properly. 
+2. If you are using the `"alsa"` backend, set the output device to a real ALSA hardware output device. Use `$ shairport-sync -h` (or, better, [`sps-alsa-explore`](https://github.com/mikebrady/sps-alsa-explore)) to get a list of output devices, and use the configuration file to set the device. There is a possibility this might prevent PulseAudio from working properly. 
 # The Best Fix
 3. The best of all fixes is, if possible, to avoid using a system containing PulseAudio altogether. Linux operating systems typically have a "server", "lite" or "headless" version that has no GUI and no PulseAudio.
