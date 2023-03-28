@@ -8,25 +8,26 @@ ARG NQPTP_BRANCH
 RUN test -n "$NQPTP_BRANCH"
 
 RUN apk -U add \
-        git \
-        build-base \
+        alsa-lib-dev \
         autoconf \
         automake \
-        libtool \
-        dbus \
-        alsa-lib-dev \
-        popt-dev \
-        soxr-dev \
         avahi-dev \
-        libconfig-dev \
-        libsndfile-dev \
-        mosquitto-dev \
-        libsodium-dev \
-        libgcrypt-dev \
+        build-base \
+        dbus \
         ffmpeg-dev \
-        xxd \
+        git \
+        libconfig-dev \
+        libgcrypt-dev \
+        libplist-dev \
         libressl-dev \
-        libplist-dev
+        libsndfile-dev \
+        libsodium-dev \
+        libtool \
+        mosquitto-dev \
+        popt-dev \
+        pulseaudio-dev \
+        soxr-dev \
+        xxd
 
 ##### ALAC #####
 RUN git clone https://github.com/mikebrady/alac
@@ -55,8 +56,8 @@ COPY . .
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
 WORKDIR /shairport-sync/build
 RUN autoreconf -i ../
-RUN ../configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=openssl --with-airplay-2 \
-        --with-metadata --with-dummy --with-pipe --with-dbus-interface \
+RUN ../configure --sysconfdir=/etc --with-alsa -=-with-pa --with-soxr --with-avahi --with-ssl=openssl \
+        --with-airplay-2 --with-metadata --with-dummy --with-pipe --with-dbus-interface \
         --with-stdout --with-mpris-interface --with-mqtt-client \
         --with-apple-alac --with-convolution
 RUN make -j $(nproc)
@@ -69,25 +70,26 @@ FROM crazymax/alpine-s6:3.17-3.1.1.2
 
 RUN apk -U add \
         alsa-lib \
-        dbus \
-        popt \
-        glib \
-        soxr \
         avahi \
         avahi-tools \
-        libconfig \
-        libsndfile \
-        mosquitto \
-        libuuid \
+        dbus \
         ffmpeg \
-        libsodium \
-        libgcrypt \
-        libressl3.6-libcrypto \
-        libplist \
-        mandoc \
-        man-pages \
+        glib \
         less \
-        less-doc
+        less-doc \
+        libconfig \
+        libgcrypt \
+        libplist \
+        libpulse \
+        libressl3.6-libcrypto \
+        libsndfile \
+        libsodium \
+        libuuid \
+        man-pages \
+        mandoc \
+        mosquitto \
+        popt \
+        soxr
 
 # Copy build files.
 COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync

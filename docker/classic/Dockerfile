@@ -8,20 +8,21 @@ ARG SHAIRPORT_SYNC_BRANCH
 RUN test -n "$SHAIRPORT_SYNC_BRANCH"
 
 RUN apk -U add \
-        git \
-        build-base \
+        alsa-lib-dev \
         autoconf \
         automake \
-        libtool \
-        dbus \
-        alsa-lib-dev \
-        popt-dev \
-        mbedtls-dev \
-        soxr-dev \
         avahi-dev \
+        build-base \
+        dbus \
+        git \
         libconfig-dev \
+        libsndfile-dev \
+        libtool \
+        mbedtls-dev \
         mosquitto-dev \
-        libsndfile-dev
+        popt-dev \
+        pulseaudio-dev \
+        soxr-dev
 
 ##### ALAC #####
 RUN git clone https://github.com/mikebrady/alac
@@ -39,7 +40,7 @@ COPY . .
 RUN git checkout "$SHAIRPORT_SYNC_BRANCH"
 WORKDIR /shairport-sync/build
 RUN autoreconf -i ../
-RUN ../configure --sysconfdir=/etc --with-alsa --with-soxr --with-avahi --with-ssl=mbedtls \
+RUN ../configure --sysconfdir=/etc --with-alsa --with-pa --with-soxr --with-avahi --with-ssl=mbedtls \
         --with-metadata --with-dummy --with-pipe --with-dbus-interface \
         --with-stdout --with-mpris-interface --with-mqtt-client \
         --with-apple-alac --with-convolution
@@ -53,20 +54,21 @@ FROM crazymax/alpine-s6:3.17-3.1.1.2
 
 RUN apk -U add \
         alsa-lib \
-        dbus \
-        popt \
-        glib \
-        mbedtls \
-        soxr \
         avahi \
         avahi-tools \
-        libconfig \
-        mosquitto \
-        libsndfile-dev \
-        mandoc \
-        man-pages \
+        dbus \
+        glib \
         less \
-        less-doc
+        less-doc \
+        libconfig \
+        libsndfile-dev \
+        libpulse \
+        man-pages \
+        mandoc \
+        mbedtls \
+        mosquitto \
+        popt \
+        soxr \
 
 # Copy build files.
 COPY --from=builder /shairport-sync/build/install/usr/local/bin/shairport-sync /usr/local/bin/shairport-sync
