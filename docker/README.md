@@ -40,9 +40,21 @@ $ docker run -d --restart unless-stopped --net host --device /dev/snd \
 ```
 This will send audio to alsa hardware device `hw:0` and make use of the that device's mixer control called `PCM`. The service will be visible as `DenSystem` on the network.
 
+The image is built with PulseAudio backend support. To use it, refer to [`docker-compose.yaml`](docker-compose.yaml) for required environment variables and mounts. You might need to adjust authentication on your PulseAudio server ([PA documentation](https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/User/Modules/#module-native-protocol-unixtcp)) and set default backend to `pa` via either command line option `-o` or `general.output_backend` field in config file.
+
 ## Configuration File
 
 To get access to the full range of configuration options, pass the configuration file to `/etc/shairport-sync.conf` in the container using the `-v` option or docker compose.
+
+## Environment variables
+
+Set `IPV4ONLY` to any value to force NQPTP to use IPv4 (might be useful on hosts not running IPv6):
+
+```
+$ docker run --env IPV4ONLY=yes -d --restart unless-stopped --net host --device /dev/snd \
+    mikebrady/shairport-sync:latest \
+    -v --statistics -a DenSystem -d hw:0 -c PCM
+```
 
 ## Building
 ### Build Example (for arm7 devices)

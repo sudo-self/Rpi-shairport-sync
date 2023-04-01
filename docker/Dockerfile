@@ -103,6 +103,7 @@ COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-
 COPY --from=builder /shairport-sync/build/install/etc/dbus-1/system.d/shairport-sync-mpris.conf /etc/dbus-1/system.d/
 
 COPY ./docker/etc/s6-overlay/s6-rc.d /etc/s6-overlay/s6-rc.d
+COPY ./docker/etc/pulse /etc/pulse
 RUN chmod +x /etc/s6-overlay/s6-rc.d/01-startup/script.sh
 
 # Create non-root user for running the container -- running as the user 'shairport-sync' also allows
