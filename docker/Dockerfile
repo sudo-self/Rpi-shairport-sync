@@ -40,7 +40,8 @@ WORKDIR /
 ##### ALAC END #####
 
 ##### NQPTP #####
-RUN git clone https://github.com/mikebrady/nqptp
+#RUN git clone https://github.com/mikebrady/nqptp
+RUN git clone https://github.com/nipsufn/nqptp
 WORKDIR /nqptp
 RUN git checkout "$NQPTP_BRANCH"
 RUN autoreconf -i
