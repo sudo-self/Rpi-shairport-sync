@@ -8,7 +8,6 @@ services:
     # environment:
     #  PULSE_SERVER: unix:/tmp/pulseaudio.socket # Path for PulseAudio socket
     #  PULSE_COOKIE: /tmp/pulseaudio.cookie # Path for PulseAudio cookie
-    #  IPV4ONLY: "yes" # Force IPv4 in nqptp
     devices:
       - "/dev/snd" # ALSA device
     # volumes:

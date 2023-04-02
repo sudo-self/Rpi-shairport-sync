@@ -1,7 +1,3 @@
 #!/command/with-contenv sh
 echo "Starting nqptp"
-if [ -z ${IPV4ONLY+x} ]; then
-    exec /usr/local/bin/nqptp
-else
-    exec /usr/local/bin/nqptp -ipv4-only
-fi
+exec /usr/local/bin/nqptp
