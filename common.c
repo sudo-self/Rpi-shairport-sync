@@ -1937,48 +1937,61 @@ int32_t mod32Difference(uint32_t a, uint32_t b) {
 }
 
 int get_device_id(uint8_t *id, int int_length) {
-  int response = 0;
+
+  uint64_t wait_time = 10000000000L; // wait up to this (ns) long to get a MAC address
+
+  int response = -1;
   struct ifaddrs *ifaddr = NULL;
   struct ifaddrs *ifa = NULL;
+
   int i = 0;
   uint8_t *t = id;
   for (i = 0; i < int_length; i++) {
     *t++ = 0;
   }
 
-  if (getifaddrs(&ifaddr) == -1) {
-    response = -1;
-  } else {
-    t = id;
-    int found = 0;
+  uint64_t wait_until = get_absolute_time_in_ns();
+  wait_until = wait_until + wait_time;
 
-    for (ifa = ifaddr; ((ifa != NULL) && (found == 0)); ifa = ifa->ifa_next) {
+  int64_t time_to_wait;
+  do {
+    if (getifaddrs(&ifaddr) == 0) {
+      t = id;
+      int found = 0;
+
+      for (ifa = ifaddr; ((ifa != NULL) && (found == 0)); ifa = ifa->ifa_next) {
 #ifdef AF_PACKET
-      if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
-        struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
-        if ((strcmp(ifa->ifa_name, "lo") != 0)) {
-          found = 1;
-          for (i = 0; ((i < s->sll_halen) && (i < int_length)); i++) {
-            *t++ = s->sll_addr[i];
+        if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
+          struct sockaddr_ll *s = (struct sockaddr_ll *)ifa->ifa_addr;
+          if ((strcmp(ifa->ifa_name, "lo") != 0)) {
+            found = 1;
+            response = 0;
+            for (i = 0; ((i < s->sll_halen) && (i < int_length)); i++) {
+              *t++ = s->sll_addr[i];
+            }
           }
         }
-      }
 #else
 #ifdef AF_LINK
-      struct sockaddr_dl *sdl = (struct sockaddr_dl *)ifa->ifa_addr;
-      if ((sdl) && (sdl->sdl_family == AF_LINK)) {
-        if (sdl->sdl_type == IFT_ETHER) {
-          found = 1;
-          uint8_t *s = (uint8_t *)LLADDR(sdl);
-          for (i = 0; ((i < sdl->sdl_alen) && (i < int_length)); i++) {
-            *t++ = *s++;
+        struct sockaddr_dl *sdl = (struct sockaddr_dl *)ifa->ifa_addr;
+        if ((sdl) && (sdl->sdl_family == AF_LINK)) {
+          if (sdl->sdl_type == IFT_ETHER) {
+            found = 1;
+            response = 0;
+            uint8_t *s = (uint8_t *)LLADDR(sdl);
+            for (i = 0; ((i < sdl->sdl_alen) && (i < int_length)); i++) {
+              *t++ = *s++;
+            }
           }
         }
+#endif
+#endif
       }
-#endif
-#endif
+      freeifaddrs(ifaddr);
     }
-    freeifaddrs(ifaddr);
-  }
+    time_to_wait = wait_until - get_absolute_time_in_ns();
+  } while ((response != 0) && (time_to_wait > 0));
+  if (response != 0)
+    warn("Can't create a device ID -- no valid MAC address can be found.");
   return response;
 }
