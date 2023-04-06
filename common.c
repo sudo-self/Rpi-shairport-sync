@@ -1989,6 +1989,10 @@ int get_device_id(uint8_t *id, int int_length) {
       }
       freeifaddrs(ifaddr);
     }
+    // wait a little time if we haven't got a response
+    if (response != 0) {
+      usleep(100000);
+    }
     time_to_wait = wait_until - get_absolute_time_in_ns();
   } while ((response != 0) && (time_to_wait > 0));
   if (response != 0)
