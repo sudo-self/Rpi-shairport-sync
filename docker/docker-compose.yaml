@@ -5,10 +5,14 @@ services:
     image: mikebrady/shairport-sync:latest
     network_mode: host
     restart: unless-stopped
+    # environment:
+    #  PULSE_SERVER: unix:/tmp/pulseaudio.socket # Path for PulseAudio socket
+    #  PULSE_COOKIE: /tmp/pulseaudio.cookie # Path for PulseAudio cookie
     devices:
-      - "/dev/snd"
+      - "/dev/snd" # ALSA device
     # volumes:
     #   - ./volumes/shairport-sync/shairport-sync.conf:/etc/shairport-sync.conf # Customised Shairport Sync configuration file.
+    #   - /run/user/1000/pulse/native:/tmp/pulseaudio.socket # PulseAudio socket when using that backend
     logging:
       options:
         max-size: "200k"
