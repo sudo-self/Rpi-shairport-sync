@@ -1,4 +1,4 @@
-# Shairport Sync
+# Shairport Sync for Apple streaming on Raspberry pi4
 ## Shairport Sync does not support AirPlay video or photo streaming.
 # Quick Start
 ## apt install --no-install-recommends build-essential git autoconf automake libtool \
@@ -25,14 +25,12 @@
 ## systemctl enable shairport-sync
 ## sudo reboot
 
-### ![2](https://user-images.githubusercontent.com/119916323/235683687-5055f3eb-9e40-411b-85f3-777bd0bc2e5d.jpeg)
-### ![1](https://user-images.githubusercontent.com/119916323/235683727-c9e14fd2-e7f0-4481-869b-c41d7c7be394.jpeg)
+### ![2](https://user-images.githubusercontent.com/119916323/235684196-fa20faff-b189-437e-9733-0f908eab071b.png)
 
+### ![1](https://user-images.githubusercontent.com/119916323/235684301-56048f28-7e7c-4555-9497-e255457e08dd.png)
 
 * A building guide is available [here](BUILD.md).
 * Next Steps and Advanced Topics are [here](ADVANCED%20TOPICS/README.md).
-![2](https://user-images.githubusercontent.com/119916323/235680254-d8875bc7-0cd4-47d0-b0e3-081d8ed331af.jpg)
-![1](https://user-images.githubusercontent.com/119916323/235680066-75291086-8d8a-46bd-80e9-25e32671621c.JPG)
 
 # Status
 Shairport Sync was designed to [run best](ADVANCED%20TOPICS/GetTheBest.md) on stable, dedicated, stand-alone low-power "headless" systems with ALSA as the audio system and with a decent CD-quality Digital to Analog Converter (DAC).
