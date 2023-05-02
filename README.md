@@ -1,33 +1,41 @@
 # Shairport Sync
-Shairport Sync is an [AirPlay](https://www.pocket-lint.com/speakers/news/apple/144646-apple-airplay-2-vs-airplay-what-s-the-difference) audio player for Linux and FreeBSD. It plays audio streamed from Apple devices and from AirPlay sources such as [OwnTone](https://github.com/owntone/owntone-server) (formerly `forked-daapd`).
-
-Shairport Sync can be built as an AirPlay 2 player (with [some limitations](AIRPLAY2.md#features-and-limitations)) or as "classic" Shairport Sync – a player for the older, but still supported, AirPlay (aka "AirPlay 1") protocol.
-
-Metadata such as artist information and cover art can be requested and provided to other applications. Shairport Sync can interface with other applications through MQTT, an MPRIS-like interface and D-Bus.
-
-Shairport Sync does not support AirPlay video or photo streaming.
+## Shairport Sync does not support AirPlay video or photo streaming.
 
 # Quick Start
+## apt install --no-install-recommends build-essential git autoconf automake libtool \
+    libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
+    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd
+## systemctl enable avahi-daemon
+## systemctl start avahi-daemon
+## apt install --no-install-recommends build-essential git autoconf automake libtool \
+    libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
+    libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd
+## git clone https://github.com/mikebrady/shairport-sync.git
+## cd shairport-sync
+## autoreconf -fi
+##  ./configure --sysconfdir=/etc --with-alsa \
+>     --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-airplay-2
+## make && make install
+## git clone https://github.com/mikebrady/nqptp.git && cd nqptp 
+## autoreconf -fi
+## ./configure --with-systemd-startup
+## make && make install 
+## systemctl start nqptp
+## systemctl restart shairport-sync
+## shairport-sync
+## iwconfig wlan0 power off
+## shairport-sync -d
+## shairport-sync -v
+## systemctl enable shairport-sync
+## sudo reboot
+
+
+
 * A building guide is available [here](BUILD.md).
-* A Docker image is available on the [Docker Hub](https://hub.docker.com/r/mikebrady/shairport-sync).
 * Next Steps and Advanced Topics are [here](ADVANCED%20TOPICS/README.md).
-* Runtime settings are documented [here](scripts/shairport-sync.conf).
-* Build configuration options are detailed in [CONFIGURATION FLAGS.md](CONFIGURATION%20FLAGS.md).
-* The `man` page, detailing command line options, is [here](https://htmlpreview.github.io/?https://github.com/mikebrady/shairport-sync/blob/master/man/shairport-sync.html).
+![2](https://user-images.githubusercontent.com/119916323/235680254-d8875bc7-0cd4-47d0-b0e3-081d8ed331af.jpg)
+![1](https://user-images.githubusercontent.com/119916323/235680066-75291086-8d8a-46bd-80e9-25e32671621c.JPG)
 
-# Features
-* Outputs AirPlay audio to [ALSA](https://www.alsa-project.org/wiki/Main_Page), [sndio](http://www.sndio.org), [PulseAudio](https://www.freedesktop.org/wiki/Software/PulseAudio/), [Jack Audio](http://jackaudio.org), to a unix pipe or to `STDOUT`. It also has experimental support for [PipeWire](https://pipewire.org) and limited support for [libao](https://xiph.org/ao/) and for [libsoundio](http://libsound.io).
-* Metadata — Shairport Sync can deliver metadata supplied by the source, such as Album Name, Artist Name, Cover Art, etc. through a pipe or UDP socket to a recipient application program — see https://github.com/mikebrady/shairport-sync-metadata-reader for a sample recipient. Sources that supply metadata include iTunes and the Music app in macOS and iOS.
-* An interface to [MQTT](https://en.wikipedia.org/wiki/MQTT), a popular protocol for Inter Process Communication, Machine-to-Machine, Internet of Things and Home Automation projects. The interface provides access to metadata and artwork, and has limited remote control.
-* Digital Signal Processing facilities – please see the [DSP Wiki Page Guide](https://github.com/mikebrady/shairport-sync/wiki/Digital-Signal-Processing-with-Shairport-Sync). (Thanks to [Yann Pomarède](https://github.com/yannpom) for the code and to [Paul Wieland](https://github.com/PaulWieland) for the guide.)
-* An [MPRIS](https://specifications.freedesktop.org/mpris-spec/2.2/)-like interface, partially complete and very functional, including access to metadata and artwork, and limited remote control.
-* A native D-Bus interface, including access to metadata and artwork, limited remote control and system settings.
-* Better Volume Control — Shairport Sync offers finer control at very top and very bottom of the volume range. See http://tangentsoft.net/audio/atten.html for a good discussion of audio "attenuators", upon which volume control in Shairport Sync is modelled. See also the diagram of the volume transfer function in the documents folder. In addition, Shairport Sync can offer an extended volume control range on devices with a restricted range.
-* Support for the [Apple ALAC decoder](https://macosforge.github.io/alac/) (library available [here](https://github.com/mikebrady/alac)).
-* Output bit depths of 8, 16, 24 and 32 bits, rather than the standard 16 bits.
-* Output frame rates of 44,100, 88,200, 176,000 or 352,000 frames per second.
-
-Some features require configuration at build time – see [CONFIGURATION FLAGS.md](CONFIGURATION%20FLAGS.md).
 
 # Status
 Shairport Sync was designed to [run best](ADVANCED%20TOPICS/GetTheBest.md) on stable, dedicated, stand-alone low-power "headless" systems with ALSA as the audio system and with a decent CD-quality Digital to Analog Converter (DAC).
@@ -36,24 +44,7 @@ Shairport Sync runs on recent (2018 onwards) Linux systems and FreeBSD from 12.1
 
 Classic Shairport Sync runs on a wider variety of Linux sytems, including OpenWrt and Cygwin and it also runs on OpenBSD. Many embedded devices are powerful enough to power classic Shairport Sync.
 
-# Heritage and Acknowledgements
-The functionality offered by Shairport Sync is the result of study and analysis of the AirPlay and AirPlay 2 protocols by many people over the years. These protocols have not been officially published, and there is no assurance that Shairport Sync will continue to work in future.
 
-Shairport Sync is a substantial rewrite of the fantastic work done in Shairport 1.0 by James Wah (aka [abrasive](https://github.com/abrasive)), James Laird and others — please see [this list](https://github.com/abrasive/shairport/blob/master/README.md#contributors-to-version-1x) of the contributors to Shairport 1.x and Shairport 0.x. From a "heritage" point of view, Shairport Sync is a fork of Shairport 1.0.
-
-For the development of AirPlay 2 support, special thanks are due to:
-* [JD Smith](https://github.com/jdtsmith) for really thorough testing, support and encouragement.
-* [ejurgensen](https://github.com/ejurgensen) for advice and [code to deal with pairing and encryption](https://github.com/ejurgensen/pair_ap).
-* [ckdo](https://github.com/ckdo) for pointing the way, particularly with pairing and encryption protocols, with a [functional Python implementation](https://github.com/ckdo/airplay2-receiver) of AirPlay 2.
-* [invano](https://github.com/invano) for showing what might be possible and for initial Python development.
-* [Charles Omer](https://github.com/charlesomer) for Docker automation, repository management automation, testing, encouragement, enthusiasm.
-
-Much of Shairport Sync's AirPlay 2 functionality is based on ideas developed at the [openairplay airplay2-receiver]( https://github.com/openairplay/airplay2-receiver) repository. It is a pleasure to acknowledge the work of the contributors there.
-
-Thanks to everyone who has supported and improved Shairport Sync over the years.
-
-# More about Shairport Sync
-The audio that Shairport Sync receives is sent to the computer's sound system, to a named unix pipe or to `STDOUT`. By far the best sound system to use is ALSA. This is because ALSA can give direct access to the Digital to Analog Converter (DAC) hardware of the machine. Audio samples can be sent through ALSA directly to the DAC, maximising fidelity, and accurate timing information can be obtained from the DAC, maximising synchronisation. Direct access to hardware is given through ALSA devices with names beginning with `hw:`. 
 
 ## Synchronised Audio
 Shairport Sync offers *full audio synchronisation*. Full audio synchronisation means that audio is played on the output device at exactly the time specified by the audio source. To accomplish this, Shairport Sync needs access to audio systems – such as ALSA on Linux and `sndio` on FreeBSD – that provide very accurate timing information about audio being streamed to output devices. Ideally, Shairport Sync should have direct access to the output device used, which should be a real sound card capable of working with 44,100, 88,200 or 176,400 samples per second, interleaved PCM stereo of 8, 16, 24 or 32 bits. Using the ALSA sound system, Shairport Sync will choose the greatest bit depth available at 44,100 samples per second, resorting to multiples of 44,100 if it is not available. You'll get a message in the log if there's a problem. With all other sound systems, a sample rate of 44,100 is chosen with a bit depth of 16 bit.
