@@ -24,10 +24,7 @@
 ## shairport-sync -v
 ## systemctl enable shairport-sync
 ## sudo reboot
-
-### ![2](https://user-images.githubusercontent.com/119916323/235684196-fa20faff-b189-437e-9733-0f908eab071b.png)
-
-### ![1](https://user-images.githubusercontent.com/119916323/235684301-56048f28-7e7c-4555-9497-e255457e08dd.png)
+<img width="487" alt="Screenshot 2023-05-02 at 7 44 59 AM" src="https://user-images.githubusercontent.com/119916323/235685570-51b0568c-6bce-4fad-8775-13b57a2b6673.png">
 
 * A building guide is available [here](BUILD.md).
 * Next Steps and Advanced Topics are [here](ADVANCED%20TOPICS/README.md).
