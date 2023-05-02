@@ -1,8 +1,5 @@
 # Shairport Sync
 ## Shairport Sync does not support AirPlay video or photo streaming.
-![2](https://user-images.githubusercontent.com/119916323/235683100-e9f4253e-2e97-4eb6-ae0a-a79aec5317f5.jpg)
-![1](https://user-images.githubusercontent.com/119916323/235683159-96d834bd-38b9-48f4-8921-d8e139756458.JPG)
-
 # Quick Start
 ## apt install --no-install-recommends build-essential git autoconf automake libtool \
     libpopt-dev libconfig-dev libasound2-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev \
@@ -27,6 +24,10 @@
 ## shairport-sync -v
 ## systemctl enable shairport-sync
 ## sudo reboot
+
+### ![2](https://user-images.githubusercontent.com/119916323/235683687-5055f3eb-9e40-411b-85f3-777bd0bc2e5d.jpeg)
+### ![1](https://user-images.githubusercontent.com/119916323/235683727-c9e14fd2-e7f0-4481-869b-c41d7c7be394.jpeg)
+
 
 * A building guide is available [here](BUILD.md).
 * Next Steps and Advanced Topics are [here](ADVANCED%20TOPICS/README.md).
