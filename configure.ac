@@ -408,27 +408,78 @@ if test "x$with_airplay_2" = "xyes" ; then
   AC_DEFINE([CONFIG_AIRPLAY_2], 1, [Build for AirPlay 2])
   AC_CHECK_PROG(XXD_CHECK,xxd,yes)
   AS_IF([test x"$XXD_CHECK" != x"yes"], [AC_MSG_ERROR([xxd can not be found. Please install xxd for building for AirPlay 2.])])
-  PKG_CHECK_MODULES([libplist], [libplist >= 2.0.0],[CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],[
-    PKG_CHECK_MODULES([libplist], [libplist-2.0 >= 2.0.0],[CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],[
-      AC_MSG_ERROR(AirPlay 2 support requires libplist 2.0.0 or later -- search for pkg libplist-dev on Debian or libplist-2.2.0 or later on FreeBSD!)
-    ])
+  PKG_CHECK_MODULES(
+    [libplist], [libplist >= 2.3.0],
+    [CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}" AC_DEFINE([HAVE_LIBPLIST_GE_2_3_0], 1, [libplist >= 2.3.0])],
+    [PKG_CHECK_MODULES(
+      [libplist], [libplist-2.0 >= 2.3.0],
+      [CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}" AC_DEFINE([HAVE_LIBPLIST_GE_2_3_0], 1, [libplist >= 2.3.0])],
+      [PKG_CHECK_MODULES(
+        [libplist], [libplist >= 2.0.0],
+        [CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],
+        [PKG_CHECK_MODULES(
+            [libplist], [libplist-2.0 >= 2.0.0],
+            [CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],
+            [AC_MSG_ERROR(AirPlay 2 support requires libplist 2.0.0 or later -- search for pkg libplist-dev on Debian or libplist-2.2.0 or later on FreeBSD!)]
+        )]
+      )]
+    )]
+  )
+  PKG_CHECK_MODULES(
+    [libsodium], [libsodium],
+    [CFLAGS="${libsodium_CFLAGS} ${CFLAGS}" LIBS="${libsodium_LIBS} ${LIBS}"],
+    [AC_MSG_ERROR(AirPlay 2 support requires libsodium -- libsodium-dev suggested)]
+  )
+  PKG_CHECK_MODULES(
+    [libgcrypt], [libgcrypt],
+    [CFLAGS="${libgcrypt_CFLAGS} ${CFLAGS}" LIBS="${libgcrypt_LIBS} ${LIBS}"],
+    [AC_CHECK_LIB(
+      [gcrypt], [gcry_control],
+      [],
+      [AC_MSG_ERROR([Airplay 2 support requires libgcrypt -- libgcrypt-dev suggested])]
+    )
   ])
-  PKG_CHECK_MODULES([libsodium], [libsodium],[CFLAGS="${libsodium_CFLAGS} ${CFLAGS}" LIBS="${libsodium_LIBS} ${LIBS}"],[AC_MSG_ERROR(AirPlay 2 support requires libsodium -- libsodium-dev suggested)])
-  PKG_CHECK_MODULES([libgcrypt], [libgcrypt],[CFLAGS="${libgcrypt_CFLAGS} ${CFLAGS}" LIBS="${libgcrypt_LIBS} ${LIBS}"],[
-    AC_CHECK_LIB([gcrypt], [gcry_control], [], [
-      AC_MSG_ERROR([Airplay 2 support requires libgcrypt -- libgcrypt-dev suggested])
-    ])
-  ])
-  PKG_CHECK_MODULES([libavutil], [libavutil],[CFLAGS="${libavutil_CFLAGS} ${CFLAGS}" LIBS="${libavutil_LIBS} ${LIBS}"],[
-      AC_MSG_ERROR(AirPlay 2 support requires libavutil -- libavutil-dev suggested)])
-  PKG_CHECK_MODULES([libavcodec], [libavcodec],[CFLAGS="${libavcodec_CFLAGS} ${CFLAGS}" LIBS="${libavcodec_LIBS} ${LIBS}"],[
-    AC_CHECK_LIB([avcodec], [avcodec_find_decoder], [], [
-      AC_MSG_ERROR(AirPlay 2 support requires libavcodec -- libavcodec-dev suggested)
-    ])
-  ])
-  AC_CHECK_LIB([avformat],[avformat_new_stream], [], [AC_MSG_ERROR([AirPlay 2 support requires libavformat -- libavformat-dev suggested])])
-  AC_CHECK_LIB([swresample],[swr_convert], [], [AC_MSG_ERROR([AirPlay 2 support requires libswresample -- libswresample-dev suggested])])
-  AC_CHECK_LIB([uuid],[uuid_generate], [], [AC_MSG_ERROR([AirPlay 2 support requires the uuid library -- uuid-dev suggested])])
+  PKG_CHECK_MODULES(
+    [libavutil], [libavutil],
+    [CFLAGS="${libavutil_CFLAGS} ${CFLAGS}" LIBS="${libavutil_LIBS} ${LIBS}"],
+    [AC_MSG_ERROR(AirPlay 2 support requires libavutil -- libavutil-dev suggested)]
+  )
+  PKG_CHECK_MODULES(
+    [libavcodec], [libavcodec],
+    [CFLAGS="${libavcodec_CFLAGS} ${CFLAGS}" LIBS="${libavcodec_LIBS} ${LIBS}"],
+    [AC_CHECK_LIB(
+      [avcodec], [avcodec_find_decoder],
+      [],
+      [AC_MSG_ERROR(AirPlay 2 support requires libavcodec -- libavcodec-dev suggested)]
+    )]
+  )
+  PKG_CHECK_MODULES(
+    [libavformat], [libavformat],
+    [CFLAGS="${libavformat_CFLAGS} ${CFLAGS}" LIBS="${libavformat_LIBS} ${LIBS}"],
+    [AC_CHECK_LIB(
+      [avformat], [avformat_new_stream],
+      [],
+      [AC_MSG_ERROR([AirPlay 2 support requires libavformat -- libavformat-dev suggested])]
+    )]
+  )
+  PKG_CHECK_MODULES(
+    [libswresample], [libswresample],
+    [CFLAGS="${libswresample_CFLAGS} ${CFLAGS}" LIBS="${libswresample_LIBS} ${LIBS}"],
+    [AC_CHECK_LIB(
+      [swresample], [swr_convert],
+      [],
+      [AC_MSG_ERROR([AirPlay 2 support requires libswresample -- libswresample-dev suggested])]
+    )]
+  )
+  PKG_CHECK_MODULES(
+    [libuuid], [uuid],
+    [CFLAGS="${libuuid_CFLAGS} ${CFLAGS}" LIBS="${libuuid_LIBS} ${LIBS}"],
+    [AC_CHECK_LIB(
+      [uuid], [uuid_generate],
+      [],
+      [AC_MSG_ERROR([AirPlay 2 support requires the uuid library -- uuid-dev suggested])]
+    )]
+  )
 fi
 AM_CONDITIONAL([USE_AIRPLAY_2], [test "x$with_airplay_2" = "xyes"])
 
