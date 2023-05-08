@@ -408,21 +408,15 @@ if test "x$with_airplay_2" = "xyes" ; then
   AC_DEFINE([CONFIG_AIRPLAY_2], 1, [Build for AirPlay 2])
   AC_CHECK_PROG(XXD_CHECK,xxd,yes)
   AS_IF([test x"$XXD_CHECK" != x"yes"], [AC_MSG_ERROR([xxd can not be found. Please install xxd for building for AirPlay 2.])])
+  LIBPLIST_PACKAGE=libplist
+  PKG_CHECK_EXISTS(libplist-2.0, LIBPLIST_PACKAGE=libplist-2.0)
   PKG_CHECK_MODULES(
-    [libplist], [libplist >= 2.3.0],
+    [libplist], [${LIBPLIST_PACKAGE} >= 2.3.0],
     [CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}" AC_DEFINE([HAVE_LIBPLIST_GE_2_3_0], 1, [libplist >= 2.3.0])],
     [PKG_CHECK_MODULES(
-      [libplist], [libplist-2.0 >= 2.3.0],
-      [CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}" AC_DEFINE([HAVE_LIBPLIST_GE_2_3_0], 1, [libplist >= 2.3.0])],
-      [PKG_CHECK_MODULES(
-        [libplist], [libplist >= 2.0.0],
-        [CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],
-        [PKG_CHECK_MODULES(
-            [libplist], [libplist-2.0 >= 2.0.0],
-            [CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],
-            [AC_MSG_ERROR(AirPlay 2 support requires libplist 2.0.0 or later -- search for pkg libplist-dev on Debian or libplist-2.2.0 or later on FreeBSD!)]
-        )]
-      )]
+      [libplist], [${LIBPLIST_PACKAGE} >= 2.0.0],
+      [CFLAGS="${libplist_CFLAGS} ${CFLAGS}" LIBS="${libplist_LIBS} ${LIBS}"],
+      [AC_MSG_ERROR(AirPlay 2 support requires libplist 2.0.0 or later -- search for pkg libplist-dev on Debian or libplist-2.2.0 or later on FreeBSD!)]
     )]
   )
   PKG_CHECK_MODULES(
