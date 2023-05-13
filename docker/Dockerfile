@@ -68,6 +68,9 @@ WORKDIR /
 # Shairport Sync Runtime System
 FROM crazymax/alpine-s6:3.17-3.1.1.2
 
+ENV S6_CMD_WAIT_FOR_SERVICES=1
+ENV S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0
+
 RUN apk -U add \
         alsa-lib \
         avahi \
