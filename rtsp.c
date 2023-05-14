@@ -91,6 +91,10 @@
 #include "plist/plist.h"
 #include "plist_xml_strings.h"
 #include "ptp-utilities.h"
+
+#ifdef HAVE_LIBPLIST_GE_2_3_0
+#define plist_from_memory(plist_data, length, plist) plist_from_memory((plist_data), (length), (plist), NULL)
+#endif
 #endif
 
 #ifdef CONFIG_DBUS_INTERFACE
@@ -4247,7 +4251,7 @@ int send_metadata_to_queue(pc_queue *queue, uint32_t type, uint32_t code, char *
   //   pointer to data or NULL,
   //   length of data or NULL,
   //   the rtsp_message or NULL,
-  
+
   // the rtsp_message is sent for 'core' messages, because it contains the data
   // and must not be freed until the data has been read.
   // So, it is passed to send_metadata to be retained, sent to the thread where metadata
@@ -4265,7 +4269,7 @@ int send_metadata_to_queue(pc_queue *queue, uint32_t type, uint32_t code, char *
   // If the rtsp_message is NULL, then if the pointer is non-null then the data it
   // points to, of the length specified, is memcpy'd and passed to the metadata
   // handler. The handler should free it when done.
-  
+
   // If the rtsp_message is NULL and the pointer is also NULL, nothing further
   // is done.
   // clang-format on
