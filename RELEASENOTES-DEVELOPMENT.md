@@ -1,3 +1,11 @@
+Version 4.1-dev-919-gbd068fb6
+====
+**Enhancements**
+* Allow compilation with `libplist` 2.3.0. Thanks to [Markus Reiter](https://github.com/reitermarkus) for the update.
+* Updates to GitHub Action Workflows -- many thanks to [yubiuser](https://github.com/yubiuser) for this detailed work.
+* Include PulseAudio support in the Shairport Sync builds within the Docker images. Thanks to [Ferdynand Naczynski](https://github.com/nipsufn) and thanks also to [Noel Hibbard](https://github.com/noelhibbard) for championing this idea for a long time.
+* Documentation Updates.
+
 Version 4.1-dev-896-g03961830
 ====
 **Bug Fix**
