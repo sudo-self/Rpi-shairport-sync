@@ -3,7 +3,7 @@
  * Copyright (c) James Laird 2013
 
  * Modifications associated with audio synchronization, multithreading and
- * metadata handling copyright (c) Mike Brady 2014-2022
+ * metadata handling copyright (c) Mike Brady 2014-2023
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -37,6 +37,7 @@
 #include <net/if.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -47,7 +48,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <netinet/tcp.h>
 
 #include <sys/ioctl.h>
 
@@ -91,6 +91,10 @@
 #include "plist/plist.h"
 #include "plist_xml_strings.h"
 #include "ptp-utilities.h"
+
+#ifdef HAVE_LIBPLIST_GE_2_3_0
+#define plist_from_memory(plist_data, length, plist) plist_from_memory((plist_data), (length), (plist), NULL)
+#endif
 #endif
 
 #ifdef CONFIG_DBUS_INTERFACE
@@ -665,8 +669,8 @@ void *player_watchdog_thread_code(void *arg) {
             conn->stop = 1;
             pthread_cancel(conn->thread);
           } else if (conn->watchdog_barks == 3) {
-            if ((config.cmd_unfixable) && (conn->unfixable_error_reported == 0)) {
-              conn->unfixable_error_reported = 1;
+            if ((config.cmd_unfixable) && (config.unfixable_error_reported == 0)) {
+              config.unfixable_error_reported = 1;
               command_execute(config.cmd_unfixable, "unable_to_cancel_play_session", 1);
             } else {
               die("an unrecoverable error, \"unable_to_cancel_play_session\", has been detected.",
@@ -739,10 +743,13 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
   debug_mutex_unlock(&conns_lock, 3);
 }
 
+int old_connection_count = -1;
+
 void cleanup_threads(void) {
 
   void *retval;
   int i;
+  int connection_count = 0;
   // debug(2, "culling threads.");
   debug_mutex_lock(&conns_lock, 1000000, 3);
   for (i = 0; i < nconns; i++) {
@@ -754,8 +761,24 @@ void cleanup_threads(void) {
       free(conns[i]);
       conns[i] = NULL;
     }
+    if (conns[i] != NULL) {
+      debug(2, "Airplay Volume for connection %d is %.6f.", conns[i]->connection_number,
+            suggested_volume(conns[i]));
+      connection_count++;
+    }
   }
   debug_mutex_unlock(&conns_lock, 3);
+
+  if (old_connection_count != connection_count) {
+    if (connection_count == 0) {
+      debug(2, "No active connections.");
+    } else if (connection_count == 1)
+      debug(2, "One active connection.");
+    else
+      debug(2, "%d active connections.", connection_count);
+    old_connection_count = connection_count;
+  }
+  debug(2, "Airplay Volume for new connections is %.6f.", suggested_volume(NULL));
 }
 
 // park a null at the line ending, and return the next line pointer
@@ -1223,10 +1246,10 @@ ssize_t timed_read_from_rtsp_connection(rtsp_conn_info *conn, uint64_t wait_time
     uint64_t time_to_wait_to = get_absolute_time_in_ns();
     ;
     time_to_wait_to = time_to_wait_to + wait_time;
-    
+
     int flags = 1;
     if (setsockopt(conn->fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&flags, sizeof(flags))) {
-      debug(1,"can't enable keepalive checking on the RTSP socket");
+      debug(1, "can't enable keepalive checking on the RTSP socket");
     }
 
     // remaining_time will be zero if wait_time is zero
@@ -1355,7 +1378,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
       // Note: the socket will be closed when the thread exits
       goto shutdown;
     }
-    
+
     // An ETIMEDOUT error usually means keepalive has failed.
 
     if (nread < 0) {
@@ -1365,6 +1388,12 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
         debug(1, "Connection %d: getting Error 11 -- EAGAIN from a blocking read!",
               conn->connection_number);
         continue;
+      }
+      if (errno == ETIMEDOUT) {
+        debug(1, "Connection %d: ETIMEDOUT -- keepalive timeout.", conn->connection_number);
+        reply = rtsp_read_request_response_channel_closed;
+        // Note: the socket will be closed when the thread exits
+        goto shutdown;
       }
       if (errno != ECONNRESET) {
         char errorstring[1024];
@@ -2003,6 +2032,7 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
       pthread_cleanup_push(mutex_unlock, &conn->flush_mutex);
       conn->ap2_rate = rate;
       if ((rate & 1) != 0) {
+        ptp_send_control_message_string("B"); // signify clock dependability period is "B"eginning (or resuming)
         debug(2, "Connection %d: Start playing, with anchor clock %" PRIx64 ".",
               conn->connection_number, conn->networkTimeTimelineID);
         activity_monitor_signify_activity(1);
@@ -2012,7 +2042,8 @@ void handle_setrateanchori(rtsp_conn_info *conn, rtsp_message *req, rtsp_message
 #endif
         conn->ap2_play_enabled = 1;
       } else {
-        debug(2, "Connection %d: Stop playing.", conn->connection_number);
+        ptp_send_control_message_string("P"); // signify play is "P"ausing
+        debug(2, "Connection %d: Pause playing.", conn->connection_number);
         conn->ap2_play_enabled = 0;
         activity_monitor_signify_activity(0);
         reset_anchor_info(conn);
@@ -3051,6 +3082,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             // debug(1,"initial timing peer command: \"%s\".", timing_list_message);
             // ptp_send_control_message_string(timing_list_message);
             set_client_as_ptp_clock(conn);
+            ptp_send_control_message_string("B"); // signify clock dependability period is "B"eginning (or continuing)
             plist_dict_set_item(timingPeerInfoPlist, "Addresses", addresses);
             plist_dict_set_item(timingPeerInfoPlist, "ID", plist_new_string(conn->self_ip_string));
             plist_dict_set_item(setupResponsePlist, "timingPeerInfo", timingPeerInfoPlist);
@@ -3065,6 +3097,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                   "port",
                   conn->connection_number, err);
             }
+
+            listen(conn->event_socket, 128); // ensure socket is open before telling client
 
             debug(2, "Connection %d: TCP PTP event port opened: %u.", conn->connection_number,
                   conn->local_event_port);
@@ -3088,7 +3122,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
             debug(2, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
                   get_category_string(conn->airplay_stream_category));
             mdns_update(NULL, secondary_txt_records);
-
             resp->respcode = 200;
           } else {
             debug(1, "SETUP on Connection %d: PTP setup -- no timingPeerInfo plist.",
@@ -3119,6 +3152,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                 "port",
                 conn->connection_number, err);
           }
+
+          listen(conn->event_socket, 128); // ensure socket is open before telling client
 
           debug(2, "Connection %d SETUP (RC): TCP Remote Control event port opened: %u.",
                 conn->connection_number, conn->local_event_port);
@@ -3162,6 +3197,7 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           conn->connection_number, get_category_string(conn->airplay_stream_category));
     if (conn->airplay_stream_category == ptp_stream) {
       // get stream[0]
+      ptp_send_control_message_string("B"); // signify clock dependability period is "B"eginning (or continuing)
       plist_t stream0 = plist_array_get_item(streams, 0);
 
       plist_t streams_array = plist_new_array(); // to hold the ports and stuff
@@ -3308,6 +3344,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
               conn->connection_number, err);
         }
 
+        listen(conn->buffered_audio_socket, 128); // ensure it's open before telling the client
+
         debug(2, "Connection %d: TCP Buffered Audio port opened: %u.", conn->connection_number,
               conn->local_buffered_audio_port);
 
@@ -3334,7 +3372,6 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
         // call in the SETRATEANCHORI handler, which should come up right away
         activity_monitor_signify_activity(0);
         player_play(conn);
-
         conn->rtp_running = 1; // hack!
       } break;
       default:
@@ -3572,9 +3609,15 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
       } else {
 #endif
         lock_player();
-        if (playing_conn == conn)
+        if (playing_conn == conn) {
           player_volume(volume, conn);
+        }
+        if (conn != NULL) {
+          conn->own_airplay_volume = volume;
+          conn->own_airplay_volume_set = 1;
+        }
         unlock_player();
+        config.last_access_to_volume_info_time = get_absolute_time_in_ns();
 #ifdef CONFIG_DBUS_INTERFACE
       }
 #endif
@@ -4208,7 +4251,7 @@ int send_metadata_to_queue(pc_queue *queue, uint32_t type, uint32_t code, char *
   //   pointer to data or NULL,
   //   length of data or NULL,
   //   the rtsp_message or NULL,
-  
+
   // the rtsp_message is sent for 'core' messages, because it contains the data
   // and must not be freed until the data has been read.
   // So, it is passed to send_metadata to be retained, sent to the thread where metadata
@@ -4226,7 +4269,7 @@ int send_metadata_to_queue(pc_queue *queue, uint32_t type, uint32_t code, char *
   // If the rtsp_message is NULL, then if the pointer is non-null then the data it
   // points to, of the length specified, is memcpy'd and passed to the metadata
   // handler. The handler should free it when done.
-  
+
   // If the rtsp_message is NULL and the pointer is also NULL, nothing further
   // is done.
   // clang-format on
@@ -4327,12 +4370,13 @@ static void handle_get_parameter(__attribute__((unused)) rtsp_conn_info *conn, r
 
   if ((req->content) && (req->contentlength == strlen("volume\r\n")) &&
       strstr(req->content, "volume") == req->content) {
-    debug(1, "Connection %d: Current volume (%.6f) requested", conn->connection_number,
-          config.airplay_volume);
+    debug(2, "Connection %d: current volume (%.6f) requested", conn->connection_number,
+          suggested_volume(conn));
+
     char *p = malloc(128); // will be automatically deallocated with the response is deleted
     if (p) {
       resp->content = p;
-      resp->contentlength = snprintf(p, 128, "\r\nvolume: %.6f\r\n", config.airplay_volume);
+      resp->contentlength = snprintf(p, 128, "\r\nvolume: %.6f\r\n", suggested_volume(conn));
     } else {
       debug(1, "Couldn't allocate space for a response.");
     }
@@ -5456,6 +5500,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
         FD_SET(sockfd[i], &fds);
 
       ret = select(maxfd + 1, &fds, 0, 0, &tv);
+
       if (ret < 0) {
         if (errno == EINTR)
           continue;
@@ -5497,39 +5542,40 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
         if (getsockname(conn->fd, (struct sockaddr *)&conn->local, &size_of_reply) == 0) {
 
           // Thanks to https://holmeshe.me/network-essentials-setsockopt-SO_KEEPALIVE/ for this.
-  
-          // turn on keepalive stuff -- wait for keepidle + (keepcnt * keepinttvl time) seconds before giving up
-          // an ETIMEOUT error is returned if the keepalive check fails
+
+          // turn on keepalive stuff -- wait for keepidle + (keepcnt * keepinttvl time) seconds
+          // before giving up an ETIMEOUT error is returned if the keepalive check fails
 
           int keepAliveIdleTime = 35; // wait this many seconds before checking for a dropped client
-          int keepAliveCount = 5; // check this many times
-          int keepAliveInterval = 5; // wait this many seconds between checks
-          
+          int keepAliveCount = 5;     // check this many times
+          int keepAliveInterval = 5;  // wait this many seconds between checks
 
 #if defined COMPILE_FOR_BSD || defined COMPILE_FOR_OSX
-          #define SOL_OPTION IPPROTO_TCP
+#define SOL_OPTION IPPROTO_TCP
 #else
-          #define SOL_OPTION SOL_TCP
+#define SOL_OPTION SOL_TCP
 #endif
 
 #ifdef COMPILE_FOR_OSX
-          #define KEEP_ALIVE_OR_IDLE_OPTION TCP_KEEPALIVE
+#define KEEP_ALIVE_OR_IDLE_OPTION TCP_KEEPALIVE
 #else
-          #define KEEP_ALIVE_OR_IDLE_OPTION TCP_KEEPIDLE
+#define KEEP_ALIVE_OR_IDLE_OPTION TCP_KEEPIDLE
 #endif
-          
 
-          if (setsockopt(conn->fd, SOL_OPTION, KEEP_ALIVE_OR_IDLE_OPTION, (void *)&keepAliveIdleTime, sizeof(keepAliveIdleTime))) {
-            debug(1,"can't set the keepidle wait time");
+          if (setsockopt(conn->fd, SOL_OPTION, KEEP_ALIVE_OR_IDLE_OPTION,
+                         (void *)&keepAliveIdleTime, sizeof(keepAliveIdleTime))) {
+            debug(1, "can't set the keepidle wait time");
           }
 
-          if (setsockopt(conn->fd, SOL_OPTION, TCP_KEEPCNT, (void *)&keepAliveCount, sizeof(keepAliveCount))) {
-            debug(1,"can't set the keepidle missing count");
+          if (setsockopt(conn->fd, SOL_OPTION, TCP_KEEPCNT, (void *)&keepAliveCount,
+                         sizeof(keepAliveCount))) {
+            debug(1, "can't set the keepidle missing count");
           }
-          if (setsockopt(conn->fd, SOL_OPTION	, TCP_KEEPINTVL, (void *)&keepAliveInterval, sizeof(keepAliveInterval))) {
-            debug(1,"can't set the keepidle missing count interval");
+          if (setsockopt(conn->fd, SOL_OPTION, TCP_KEEPINTVL, (void *)&keepAliveInterval,
+                         sizeof(keepAliveInterval))) {
+            debug(1, "can't set the keepidle missing count interval");
           };
-	
+
           // initialise the connection info
           void *client_addr = NULL, *self_addr = NULL;
           conn->connection_ip_family = conn->local.SAFAMILY;

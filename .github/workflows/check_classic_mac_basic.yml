@@ -2,7 +2,7 @@ name: Basic libao configuration for macOS with BREW -- classic only, because mac
 
 on:
   push:
-    branches: [ "development" ]
+    branches: [ "development", "danger" ]
 
 jobs:
   build:
@@ -10,10 +10,9 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v3.5.2
     - name: Install Dependencies
       run: |
-        brew update
         brew install automake
         brew install openssl
         brew install popt

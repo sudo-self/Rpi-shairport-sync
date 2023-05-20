@@ -32,12 +32,15 @@ $ docker run -d --restart unless-stopped --net host --device /dev/snd \
 ### Options
 
 Command line options will be passed to Shairport Sync. Here is an example:
+
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
     mikebrady/shairport-sync:latest \
     -v --statistics -a DenSystem -d hw:0 -c PCM
 ```
 This will send audio to alsa hardware device `hw:0` and make use of the that device's mixer control called `PCM`. The service will be visible as `DenSystem` on the network.
+
+The image is built with PulseAudio backend support. To use it, refer to [`docker-compose.yaml`](docker-compose.yaml) for required environment variables and mounts. You might need to adjust authentication on your PulseAudio server ([PA documentation](https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/User/Modules/#module-native-protocol-unixtcp)) and set default backend to `pa` via either command line option `-o` or `general.output_backend` field in config file.
 
 ## Configuration File
 

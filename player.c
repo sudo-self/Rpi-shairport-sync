@@ -4,7 +4,7 @@
  * All rights reserved.
  *
  * Modifications for audio synchronisation, AirPlay 2
- * and related work, copyright (c) Mike Brady 2014 -- 2022
+ * and related work, copyright (c) Mike Brady 2014 -- 2023
  * All rights reserved.
  *
  * Permission is hereby granted, free of charge, to any person
@@ -106,7 +106,7 @@ int64_t first_frame_early_bias = 8;
 
 // default buffer size
 // needs to be a power of 2 because of the way BUFIDX(seqno) works
-//#define BUFFER_FRAMES 512
+// #define BUFFER_FRAMES 512
 #define MAX_PACKET 2048
 
 // DAC buffer occupancy stuff
@@ -1271,14 +1271,13 @@ static abuf_t *buffer_get_frame(rtsp_conn_info *conn) {
                     } else {
 
                       if (resp == sps_extra_code_output_stalled) {
-                        if (conn->unfixable_error_reported == 0) {
-                          conn->unfixable_error_reported = 1;
+                        if (config.unfixable_error_reported == 0) {
+                          config.unfixable_error_reported = 1;
                           if (config.cmd_unfixable) {
                             command_execute(config.cmd_unfixable, "output_device_stalled", 1);
                           } else {
                             die("an unrecoverable error, \"output_device_stalled\", has been "
-                                "detected.",
-                                conn->connection_number);
+                                "detected.");
                           }
                         }
                       } else {
@@ -1703,6 +1702,39 @@ void statistics_item(const char *heading, const char *format, ...) {
   statistics_column++;
 }
 
+double suggested_volume(rtsp_conn_info *conn) {
+  double response = config.airplay_volume;
+  if ((conn != NULL) && (conn->own_airplay_volume_set != 0)) {
+    response = conn->own_airplay_volume;
+  } else if (config.airplay_volume > config.high_threshold_airplay_volume) {
+    int64_t volume_validity_time = config.limit_to_high_volume_threshold_time_in_minutes;
+    // zero means never check the volume
+    if (volume_validity_time != 0) {
+      // If the volume is higher than the high volume threshold
+      // and enough time has gone past, suggest the default volume.
+      uint64_t time_now = get_absolute_time_in_ns();
+      int64_t time_since_last_access_to_volume_info =
+          time_now - config.last_access_to_volume_info_time;
+
+      volume_validity_time = volume_validity_time * 60;         // to seconds
+      volume_validity_time = volume_validity_time * 1000000000; // to nanoseconds
+
+      if ((config.airplay_volume > config.high_threshold_airplay_volume) &&
+          ((config.last_access_to_volume_info_time == 0) ||
+           (time_since_last_access_to_volume_info > volume_validity_time))) {
+
+        debug(2,
+              "the current volume %.6f is higher than the high volume threshold %.6f, so the "
+              "default volume %.6f is suggested.",
+              config.airplay_volume, config.high_threshold_airplay_volume,
+              config.default_airplay_volume);
+        response = config.default_airplay_volume;
+      }
+    }
+  }
+  return response;
+}
+
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
   if (pthread_mutex_trylock(&playing_conn_lock) == 0) {
@@ -1838,7 +1870,8 @@ void player_thread_cleanup_handler(void *arg) {
 void *player_thread_func(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 #ifdef CONFIG_METADATA
-  uint64_t time_of_last_metadata_progress_update = 0; // the assignment is to stop a compiler warning...
+  uint64_t time_of_last_metadata_progress_update =
+      0; // the assignment is to stop a compiler warning...
 #endif
   uint64_t previous_frames_played = 0; // initialised to avoid a "possibly uninitialised" warning
   uint64_t previous_raw_measurement_time =
@@ -1990,7 +2023,7 @@ void *player_thread_func(void *arg) {
   conn->session_corrections = 0;
   conn->connection_state_to_output = get_requested_connection_state_to_output();
 // this is about half a minute
-//#define trend_interval 3758
+// #define trend_interval 3758
 
 // this is about 8 seconds
 #define trend_interval 1003
@@ -2192,9 +2225,11 @@ void *player_thread_func(void *arg) {
 
   pthread_setcancelstate(oldState, NULL);
 
-  double initial_volume = config.airplay_volume; // default
-  // set the default volume to whatever it was before, as stored in the config airplay_volume
-  debug(2, "Set initial volume to %f.", initial_volume);
+  // if not already set, set the volume to the pending_airplay_volume, if any, or otherwise to the
+  // suggested volume.
+
+  double initial_volume = suggested_volume(conn);
+  debug(2, "Set initial volume to %.6f.", initial_volume);
   player_volume(initial_volume, conn); // will contain a cancellation point if asked to wait
 
   debug(2, "Play begin");
@@ -2216,6 +2251,9 @@ void *player_thread_func(void *arg) {
     abuf_t *inframe = buffer_get_frame(conn); // this has cancellation point(s), but it's not
                                               // guaranteed that they'll always be executed
     uint64_t local_time_now = get_absolute_time_in_ns(); // types okay
+    config.last_access_to_volume_info_time =
+        local_time_now; // ensure volume info remains seen as valid
+
     if (inframe) {
       inbuf = inframe->data;
       inbuflength = inframe->length;
@@ -2629,8 +2667,8 @@ void *player_thread_func(void *arg) {
             } else {
               current_delay = 0;
               if ((resp == sps_extra_code_output_stalled) &&
-                  (conn->unfixable_error_reported == 0)) {
-                conn->unfixable_error_reported = 1;
+                  (config.unfixable_error_reported == 0)) {
+                config.unfixable_error_reported = 1;
                 if (config.cmd_unfixable) {
                   warn("Connection %d: An unfixable error has been detected -- output device is "
                        "stalled. Executing the "
@@ -2645,8 +2683,9 @@ void *player_thread_func(void *arg) {
                        conn->connection_number);
                 }
               } else {
-                if (resp != -EBUSY) // delay errors can be reported if the device is (hopefully
-                                    // temporarily) busy
+                if ((resp != -EBUSY) &&
+                    (resp != -ENODEV)) // delay and not-there errors can be reported if the device
+                                       // is (hopefully temporarily) busy or unavailable
                   debug(1, "Delay error %d when checking running latency.", resp);
               }
             }
@@ -2780,7 +2819,8 @@ void *player_thread_func(void *arg) {
               send_ssnc_metadata('styp', "Classic", strlen("Classic"), 1);
 #endif
               if (config.statistics_requested)
-                inform("Connection %d: Playback started at frame %" PRId64 " -- Classic AirPlay (\"AirPlay 1\").",
+                inform("Connection %d: Playback started at frame %" PRId64
+                       " -- Classic AirPlay (\"AirPlay 1\").",
                        conn->connection_number, inframe->given_timestamp);
 #endif
             }
@@ -2790,8 +2830,8 @@ void *player_thread_func(void *arg) {
               abs_sync_error = -abs_sync_error;
 
             if ((config.no_sync == 0) && (inframe->given_timestamp != 0) &&
-                (config.resyncthreshold > 0.0) &&
-                (abs_sync_error > config.resyncthreshold * config.output_rate)) {
+                (config.resync_threshold > 0.0) &&
+                (abs_sync_error > config.resync_threshold * config.output_rate)) {
               sync_error_out_of_bounds++;
             } else {
               sync_error_out_of_bounds = 0;
@@ -2814,7 +2854,7 @@ void *player_thread_func(void *arg) {
               }
 
               int64_t filler_length =
-                  (int64_t)(config.resyncthreshold * config.output_rate); // number of samples
+                  (int64_t)(config.resync_threshold * config.output_rate); // number of samples
               if ((sync_error > 0) && (sync_error > filler_length)) {
                 debug(1,
                       "Large positive (i.e. late) sync error of %" PRId64
@@ -2830,9 +2870,9 @@ void *player_thread_func(void *arg) {
                 int64_t source_frames_to_drop = sync_error;
                 source_frames_to_drop = source_frames_to_drop / conn->output_sample_ratio;
 
-                // add some time to give the pipeline a chance to recover -- a bit hacky
-                double extra_time_to_drop = 0.1; // seconds
-                int64_t extra_frames_to_drop = (int64_t)(conn->input_rate * extra_time_to_drop);
+                // drop some extra frames to give the pipeline a chance to recover
+                int64_t extra_frames_to_drop =
+                    (int64_t)(conn->input_rate * config.resync_recovery_time);
                 source_frames_to_drop += extra_frames_to_drop;
 
                 uint32_t frames_to_drop = source_frames_to_drop;
@@ -3085,8 +3125,8 @@ void *player_thread_func(void *arg) {
               // timestamp of zero means an inserted silent frame in place of a missing frame
               /*
               if ((config.no_sync == 0) && (inframe->timestamp != 0) &&
-                  && (config.resyncthreshold > 0.0) &&
-                  (abs_sync_error > config.resyncthreshold * config.output_rate)) {
+                  && (config.resync_threshold > 0.0) &&
+                  (abs_sync_error > config.resync_threshold * config.output_rate)) {
                 sync_error_out_of_bounds++;
                 // debug(1,"Sync error out of bounds: Error: %lld; previous error: %lld; DAC: %lld;
                 // timestamp: %llx, time now
@@ -3460,6 +3500,7 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
   }
   // here, store the volume for possible use in the future
   config.airplay_volume = airplay_volume;
+  conn->own_airplay_volume = airplay_volume;
   debug_mutex_unlock(&conn->volume_control_mutex, 3);
 }
 
@@ -3565,6 +3606,9 @@ int player_stop(rtsp_conn_info *conn) {
   // debuglev = 3;
   debug(3, "player_stop");
   if (conn->player_thread) {
+#ifdef CONFIG_AIRPLAY_2
+    ptp_send_control_message_string("E"); // signify play is "E"nding
+#endif
     debug(3, "player_thread cancel...");
     pthread_cancel(*conn->player_thread);
     debug(3, "player_thread join...");

@@ -2,6 +2,11 @@ Here is how to add a Shairport Sync device to the Apple Home application on iOS 
 
 ***
 
+Step 0: Speaker & TV access.
+---
+
+In the Home app > Home settings "Allow Speaker & TV access", select the option "Anyone On the Same Network".
+
 Step 1: Open the "Home" app
 ---
 

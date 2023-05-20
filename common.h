@@ -37,7 +37,8 @@ typedef enum {
 typedef enum {
   TOE_normal,
   TOE_emergency,
-  TOE_dbus // a request was made on a D-Bus interface (the native D-Bus or MPRIS interfaces)-- don't wait for the dbus thread to exit
+  TOE_dbus // a request was made on a D-Bus interface (the native D-Bus or MPRIS interfaces)-- don't
+           // wait for the dbus thread to exit
 } type_of_exit_type;
 
 #define sps_extra_code_output_stalled 32768
@@ -121,7 +122,14 @@ typedef struct {
   config_t *cfg;
   int endianness;
   double airplay_volume; // stored here for reloading when necessary
-  char *appName;         // normally the app is called shairport-syn, but it may be symlinked
+  double default_airplay_volume;
+  double high_threshold_airplay_volume;
+  uint64_t last_access_to_volume_info_time;
+  int limit_to_high_volume_threshold_time_in_minutes; // revert to the high threshold volume level
+                                                      // if the existing volume level exceeds this
+                                                      // and hasn't been used for this amount of
+                                                      // time (0 means never revert)
+  char *appName; // normally the app is called shairport-syn, but it may be symlinked
   char *password;
   char *service_name; // the name for the shairport service, e.g. "Shairport Sync Version %v running
                       // on host %h"
@@ -160,7 +168,7 @@ typedef struct {
   int mqtt_enable_remote;
   char *mqtt_empty_payload_substitute;
 #endif
-  uint8_t ap1_prefix[6]; 
+  uint8_t ap1_prefix[6];
   uint8_t hw_addr[8]; // only needs 6 but 8 is handy when converting this to a number
   int port;
   int udp_port_base;
@@ -168,11 +176,12 @@ typedef struct {
   int ignore_volume_control;
   int volume_max_db_set; // set to 1 if a maximum volume db has been set
   int volume_max_db;
-  int no_sync;            // disable synchronisation, even if it's available
-  int no_mmap;            // disable use of mmap-based output, even if it's available
-  double resyncthreshold; // if it get's out of whack my more than this number of seconds, resync.
-                          // Zero means never
-                          // resync.
+  int no_sync;                 // disable synchronisation, even if it's available
+  int no_mmap;                 // disable use of mmap-based output, even if it's available
+  double resync_threshold;     // if it gets out of whack by more than this number of seconds, do a
+                               // resync. if zero, never do a resync.
+  double resync_recovery_time; // if sync is late, drop the delay but also drop the following frames
+                               // up to the resync_recovery_time
   int allow_session_interruption;
   int timeout; // while in play mode, exit if no packets of audio come in for more than this number
                // of seconds . Zero means never exit.
@@ -313,11 +322,8 @@ typedef struct {
   char *airplay_pi;        // UUID in the Bonjour advertisement and the GETINFO Plist
   char *nqptp_shared_memory_interface_name; // client name for nqptp service
 #endif
+  int unfixable_error_reported; // only report once.
 } shairport_cfg;
-
-// accessors to config for multi-thread access
-double get_config_airplay_volume();
-void set_config_airplay_volume(double v);
 
 uint32_t nctohl(const uint8_t *p);  // read 4 characters from *p and do ntohl on them
 uint16_t nctohs(const uint8_t *p);  // read 2 characters from *p and do ntohs on them

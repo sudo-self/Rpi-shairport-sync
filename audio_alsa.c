@@ -166,6 +166,22 @@ int volume_based_mute_is_active =
 // use this to allow the use of snd_pcm_writei or snd_pcm_mmap_writei
 snd_pcm_sframes_t (*alsa_pcm_write)(snd_pcm_t *, const void *, snd_pcm_uframes_t) = snd_pcm_writei;
 
+void handle_unfixable_error(int errorCode) {
+  if (config.unfixable_error_reported == 0) {
+    config.unfixable_error_reported = 1;
+    char messageString[1024];
+    messageString[0] = '\0';
+    snprintf(messageString, sizeof(messageString), "output_device_error_%d", errorCode);
+    if (config.cmd_unfixable) {
+      command_execute(config.cmd_unfixable, messageString, 1);
+    } else {
+      die("An unrecoverable error, \"output_device_error_%d\", has been "
+          "detected. Doing an emergency exit, as no run_this_if_an_unfixable_error_is_detected program.",
+          errorCode);
+    }
+  }
+}
+
 static int precision_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
                                       yndk_type *using_update_timestamps);
 static int standard_delay_and_status(snd_pcm_state_t *state, snd_pcm_sframes_t *delay,
@@ -277,40 +293,33 @@ static void help(void) {
 void set_alsa_out_dev(char *dev) { alsa_out_dev = dev; } // ugh -- not static!
 
 // assuming pthread cancellation is disabled
+// returns zero of all is okay, a Unx error code if there's a problem
 static int open_mixer() {
   int response = 0;
   if (alsa_mix_ctrl != NULL) {
     debug(3, "Open Mixer");
-    int ret = 0;
     snd_mixer_selem_id_alloca(&alsa_mix_sid);
     snd_mixer_selem_id_set_index(alsa_mix_sid, alsa_mix_index);
     snd_mixer_selem_id_set_name(alsa_mix_sid, alsa_mix_ctrl);
 
-    if ((snd_mixer_open(&alsa_mix_handle, 0)) < 0) {
+    if ((response = snd_mixer_open(&alsa_mix_handle, 0)) < 0) {
       debug(1, "Failed to open mixer");
-      response = -1;
     } else {
       debug(3, "Mixer device name is \"%s\".", alsa_mix_dev);
-      if ((snd_mixer_attach(alsa_mix_handle, alsa_mix_dev)) < 0) {
+      if ((response = snd_mixer_attach(alsa_mix_handle, alsa_mix_dev)) < 0) {
         debug(1, "Failed to attach mixer");
-        response = -2;
       } else {
-        if ((snd_mixer_selem_register(alsa_mix_handle, NULL, NULL)) < 0) {
+        if ((response = snd_mixer_selem_register(alsa_mix_handle, NULL, NULL)) < 0) {
           debug(1, "Failed to register mixer element");
-          response = -3;
         } else {
-          ret = snd_mixer_load(alsa_mix_handle);
-          if (ret < 0) {
+          if ((response = snd_mixer_load(alsa_mix_handle)) < 0) {
             debug(1, "Failed to load mixer element");
-            response = -4;
           } else {
             debug(3, "Mixer control is \"%s\",%d.", alsa_mix_ctrl, alsa_mix_index);
             alsa_mix_elem = snd_mixer_find_selem(alsa_mix_handle, alsa_mix_sid);
             if (!alsa_mix_elem) {
               warn("failed to find mixer control \"%s\",%d.", alsa_mix_ctrl, alsa_mix_index);
-              response = -5;
-            } else {
-              response = 1; // we found a hardware mixer and successfully opened it
+              response = -ENXIO; // don't let this be ENODEV!
             }
           }
         }
@@ -321,21 +330,25 @@ static int open_mixer() {
 }
 
 // assuming pthread cancellation is disabled
-static void close_mixer() {
+static int close_mixer() {
+  int ret = 0;
   if (alsa_mix_handle) {
-    snd_mixer_close(alsa_mix_handle);
+    ret = snd_mixer_close(alsa_mix_handle);
     alsa_mix_handle = NULL;
   }
+  return ret;
 }
 
 // assuming pthread cancellation is disabled
-static void do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double vol) {
-  if (snd_mixer_selem_set_playback_dB_all(mix_elem, vol, 0) != 0) {
+static int do_snd_mixer_selem_set_playback_dB_all(snd_mixer_elem_t *mix_elem, double vol) {
+  int response = 0;
+  if ((response = snd_mixer_selem_set_playback_dB_all(mix_elem, vol, 0)) != 0) {
     debug(1, "Can't set playback volume accurately to %f dB.", vol);
-    if (snd_mixer_selem_set_playback_dB_all(mix_elem, vol, -1) != 0)
-      if (snd_mixer_selem_set_playback_dB_all(mix_elem, vol, 1) != 0)
+    if ((response = snd_mixer_selem_set_playback_dB_all(mix_elem, vol, -1)) != 0)
+      if ((response = snd_mixer_selem_set_playback_dB_all(mix_elem, vol, 1)) != 0)
         debug(1, "Could not set playback dB volume on the mixer.");
   }
+  return response;
 }
 
 // This array is a sequence of the output rates to be tried if automatic speed selection is
@@ -444,13 +457,6 @@ static int actual_open_alsa_device(int do_auto_setup) {
         warn("The output device \"%s\" is busy and can't be used by Shairport Sync at present.",
              alsa_out_dev);
       debug(2, "the alsa output_device \"%s\" is busy.", alsa_out_dev);
-    } else if (ret == -ENOENT) {
-      die("the alsa output_device \"%s\" can not be found.", alsa_out_dev);
-    } else {
-      char errorstring[1024];
-      strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
-      die("alsa: error %d (\"%s\") opening alsa device \"%s\".", ret, (char *)errorstring,
-          alsa_out_dev);
     }
     alsa_handle_status = ret;
     frames_sent_break_occurred = 1;
@@ -900,11 +906,11 @@ static int prepare_mixer() {
     // Now, start trying to initialise the alsa device with the settings
     // obtained
     pthread_cleanup_debug_mutex_lock(&alsa_mixer_mutex, 1000, 1);
-    if (open_mixer() == 1) {
+    if (open_mixer() == 0) {
       if (snd_mixer_selem_get_playback_volume_range(alsa_mix_elem, &alsa_mix_minv, &alsa_mix_maxv) <
-          0)
+          0) {
         debug(1, "Can't read mixer's [linear] min and max volumes.");
-      else {
+      } else {
         if (snd_mixer_selem_get_playback_dB_range(alsa_mix_elem, &alsa_mix_mindb,
                                                   &alsa_mix_maxdb) == 0) {
 
@@ -934,14 +940,12 @@ static int prepare_mixer() {
                "a dB volume scale.",
                alsa_mix_ctrl);
 
-          if (snd_ctl_open(&ctl, alsa_mix_dev, 0) < 0) {
+          if ((response = snd_ctl_open(&ctl, alsa_mix_dev, 0)) < 0) {
             warn("Cannot open control \"%s\"", alsa_mix_dev);
-            response = -1;
           }
-          if (snd_ctl_elem_id_malloc(&elem_id) < 0) {
+          if ((response = snd_ctl_elem_id_malloc(&elem_id)) < 0) {
             debug(1, "Cannot allocate memory for control \"%s\"", alsa_mix_dev);
             elem_id = NULL;
-            response = -2;
           } else {
             snd_ctl_elem_id_set_interface(elem_id, SND_CTL_ELEM_IFACE_MIXER);
             snd_ctl_elem_id_set_name(elem_id, alsa_mix_ctrl);
@@ -959,22 +963,6 @@ static int prepare_mixer() {
               debug(1, "Cannot get the dB range from the volume control \"%s\"", alsa_mix_ctrl);
             }
           }
-          /*
-          debug(1, "Min and max volumes are %d and
-          %d.",alsa_mix_minv,alsa_mix_maxv);
-          alsa_mix_maxdb = 0;
-          if ((alsa_mix_maxv!=0) && (alsa_mix_minv!=0))
-            alsa_mix_mindb =
-          -20*100*(log10(alsa_mix_maxv*1.0)-log10(alsa_mix_minv*1.0));
-          else if (alsa_mix_maxv!=0)
-            alsa_mix_mindb = -20*100*log10(alsa_mix_maxv*1.0);
-          audio_alsa.volume = &linear_volume; // insert the linear volume
-          function
-          audio_alsa.parameters = &parameters; // likewise the parameters
-          stuff
-          debug(1,"Max and min dB calculated are %d and
-          %d.",alsa_mix_maxdb,alsa_mix_mindb);
-          */
         }
       }
       if (((config.alsa_use_hardware_mute == 1) &&
@@ -986,7 +974,8 @@ static int prepare_mixer() {
       } else {
         // debug(1, "Has mixer but not using hardware mute.");
       }
-      close_mixer();
+      if (response == 0)
+        response = close_mixer();
     }
     debug_mutex_unlock(&alsa_mixer_mutex, 3); // release the mutex
     pthread_cleanup_pop(0);
@@ -1393,7 +1382,7 @@ static int set_mute_state() {
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   pthread_cleanup_debug_mutex_lock(&alsa_mixer_mutex, 10000, 0);
   if ((alsa_backend_state != abm_disconnected) && (config.alsa_use_hardware_mute == 1) &&
-      (open_mixer() == 1)) {
+      (open_mixer() == 0)) {
     response = 0; // okay if actually using the mute facility
     debug(2, "alsa: actually set_mute_state");
     int mute = 0;
@@ -1712,36 +1701,20 @@ static int stats(uint64_t *raw_measurement_time, uint64_t *corrected_measurement
   *the_delay = hd;
   return ret;
 }
-/*
-static int get_rate_information(uint64_t *elapsed_time, uint64_t *frames_played) {
-  // elapsed_time is in nanoseconds
-  int response = 0; // zero means okay
-  if (measurement_data_is_valid) {
-    *elapsed_time = measurement_time - measurement_start_time;
-    *frames_played = frames_played_at_measurement_time - frames_played_at_measurement_start_time;
-  } else {
-    *elapsed_time = 0;
-    *frames_played = 0;
-    response = -1;
-  }
-  return response;
-}
-*/
 
 static int do_play(void *buf, int samples) {
   // assuming the alsa_mutex has been acquired
-  // debug(3,"audio_alsa play called.");
-  int oldState;
-  pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
+  int ret = 0;
+  if ((samples != 0) && (buf != NULL)) {
 
-  snd_pcm_state_t state;
-  snd_pcm_sframes_t my_delay;
-  int ret = delay_and_status(&state, &my_delay, NULL);
+    int oldState;
+    pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
 
-  if (ret == 0) { // will be non-zero if an error or a stall
+    snd_pcm_state_t state;
+    snd_pcm_sframes_t my_delay;
+    ret = delay_and_status(&state, &my_delay, NULL);
 
-    if ((samples != 0) && (buf != NULL)) {
-
+    if (ret == 0) { // will be non-zero if an error or a stall
       // just check the state of the DAC
 
       if ((state != SND_PCM_STATE_PREPARED) && (state != SND_PCM_STATE_RUNNING) &&
@@ -1778,38 +1751,27 @@ static int do_play(void *buf, int samples) {
             debug(1, "alsa: recovering from a previous underrun.");
           else
             debug(1, "alsa: underrun while writing %d samples to alsa device.", samples);
-          int tret = snd_pcm_recover(alsa_handle, ret, 1);
-          if (tret < 0) {
-            warn("alsa: can't recover from SND_PCM_STATE_XRUN: %s.", snd_strerror(tret));
-          }
+          ret = snd_pcm_recover(alsa_handle, ret, 1);
         } else if (ret == -ESTRPIPE) { /* suspended */
-          debug(1, "alsa: suspended while writing %d samples to alsa device.", samples);
-          int tret;
-          while ((tret = snd_pcm_resume(alsa_handle)) == -EAGAIN) {
-            sleep(1); /* wait until the suspend flag is released */
-            if (tret < 0) {
-              warn("alsa: can't recover from SND_PCM_STATE_SUSPENDED state, "
-                   "snd_pcm_prepare() "
-                   "failed: %s.",
-                   snd_strerror(tret));
-            }
-          }
-        } else {
-          char errorstring[1024];
-          strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
-          debug(1, "alsa: error %d (\"%s\") writing %d samples to alsa device.", ret,
-                (char *)errorstring, samples);
+          if (state != prior_state)
+            debug(1, "alsa: suspended while writing %d samples to alsa device.", samples);
+          if ((ret = snd_pcm_resume(alsa_handle)) == -ENOSYS)
+            ret = snd_pcm_prepare(alsa_handle);
+        } else if (ret >= 0) {
+          debug(1, "alsa: only %d of %d samples output.", ret, samples);
         }
       }
     }
-  } else {
-    debug(1,
-          "alsa: device status returns fault status %d and SND_PCM_STATE_* "
-          "%d  for play.",
-          ret, state);
+    pthread_setcancelstate(oldState, NULL);
+    if (ret < 0) {
+      char errorstring[1024];
+      strerror_r(-ret, (char *)errorstring, sizeof(errorstring));
+      debug(1, "alsa: SND_PCM_STATE_* %d, error %d (\"%s\") writing %d samples to alsa device.",
+            state, ret, (char *)errorstring, samples);
+    }
+    if ((ret == -ENOENT) || (ret == -ENODEV)) // if the device isn't there...
+      handle_unfixable_error(-ret);
   }
-
-  pthread_setcancelstate(oldState, NULL);
   return ret;
 }
 
@@ -1835,6 +1797,9 @@ static int do_open(int do_auto_setup) {
       // any previously-reported frame count
       frames_sent_for_playing = 0;
       alsa_backend_state = abm_connected; // only do this if it really opened it.
+    } else {
+      if ((ret == -ENOENT) || (ret == -ENODEV)) // if the device isn't there...
+        handle_unfixable_error(-ret);
     }
   } else {
     debug(1, "alsa: do_open() -- output device already open.");
@@ -1987,7 +1952,7 @@ static void do_volume(double vol) { // caller is assumed to have the alsa_mutex 
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState); // make this un-cancellable
   set_volume = vol;
   pthread_cleanup_debug_mutex_lock(&alsa_mixer_mutex, 1000, 1);
-  if (volume_set_request && (open_mixer() == 1)) {
+  if (volume_set_request && (open_mixer() == 0)) {
     if (has_softvol) {
       if (ctl && elem_id) {
         snd_ctl_elem_value_t *value;

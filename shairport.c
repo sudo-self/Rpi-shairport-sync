@@ -2,7 +2,7 @@
  * Shairport, an Apple Airplay receiver
  * Copyright (c) James Laird 2013
  * All rights reserved.
- * Modifications and additions (c) Mike Brady 2014--2022
+ * Modifications and additions (c) Mike Brady 2014--2023
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -343,8 +343,8 @@ int parse_options(int argc, char **argv) {
   char *stuffing = NULL;         /* used for picking up the stuffing option */
   signed char c;                 /* used for argument parsing */
   // int i = 0;                     /* used for tracking options */
-  int fResyncthreshold = (int)(config.resyncthreshold * 44100);
-  int fTolerance = (int)(config.tolerance * 44100);
+  int resync_threshold_in_frames = 0;
+  int tolerance_in_frames = 0;
   poptContext optCon; /* context for parsing command-line options */
   struct poptOption optionsTable[] = {
       {"verbose", 'v', POPT_ARG_NONE, NULL, 'v', NULL, NULL},
@@ -365,10 +365,10 @@ int parse_options(int argc, char **argv) {
       {"mdns", 'm', POPT_ARG_STRING, &config.mdns_name, 0, NULL, NULL},
       {"latency", 'L', POPT_ARG_INT, &config.userSuppliedLatency, 0, NULL, NULL},
       {"stuffing", 'S', POPT_ARG_STRING, &stuffing, 'S', NULL, NULL},
-      {"resync", 'r', POPT_ARG_INT, &fResyncthreshold, 0, NULL, NULL},
+      {"resync", 'r', POPT_ARG_INT, &resync_threshold_in_frames, 'r', NULL, NULL},
       {"timeout", 't', POPT_ARG_INT, &config.timeout, 't', NULL, NULL},
       {"password", 0, POPT_ARG_STRING, &config.password, 0, NULL, NULL},
-      {"tolerance", 'z', POPT_ARG_INT, &fTolerance, 0, NULL, NULL},
+      {"tolerance", 'z', POPT_ARG_INT, &tolerance_in_frames, 'z', NULL, NULL},
       {"use-stderr", 'u', POPT_ARG_NONE, NULL, 'u', NULL, NULL},
       {"log-to-syslog", 0, POPT_ARG_NONE, &log_to_syslog_selected, 0, NULL, NULL},
 #ifdef CONFIG_METADATA
@@ -424,10 +424,12 @@ int parse_options(int argc, char **argv) {
           "automatically received from forkedDaapd");
       break;
     case 'r':
+      config.resync_threshold = (resync_threshold_in_frames * 1.0) / 44100;
       inform("Warning: the option -r or --resync is deprecated. Please use the "
              "\"resync_threshold_in_seconds\" setting in the config file instead.");
       break;
     case 'z':
+      config.tolerance = (tolerance_in_frames * 1.0) / 44100;
       inform("Warning: the option --tolerance is deprecated. Please use the "
              "\"drift_tolerance_in_seconds\" setting in the config file instead.");
       break;
@@ -462,12 +464,15 @@ int parse_options(int argc, char **argv) {
   };
 #endif
 
-  config.resyncthreshold = 1.0 * fResyncthreshold / 44100;
-  config.tolerance = 1.0 * fTolerance / 44100;
   config.audio_backend_silent_lead_in_time_auto =
-      1;                         // start outputting silence as soon as packets start arriving
-  config.airplay_volume = -24.0; // if no volume is ever set, default to initial default value if
-                                 // nothing else comes in first.
+      1; // start outputting silence as soon as packets start arriving
+  config.default_airplay_volume = -24.0;
+  config.high_threshold_airplay_volume =
+      -16.0; // if the volume exceeds this, reset to the default volume if idle for the
+             // limit_to_high_volume_threshold_time_in_minutes time
+  config.limit_to_high_volume_threshold_time_in_minutes =
+      0; // after this time in minutes, if the volume is higher, use the default_airplay_volume
+         // volume for new play sessions.
   config.fixedLatencyOffset = 11025; // this sounds like it works properly.
   config.diagnostic_drop_packet_fraction = 0.0;
   config.active_state_timeout = 10.0;
@@ -692,7 +697,7 @@ int parse_options(int argc, char **argv) {
       if (config_lookup_int(config.cfg, "general.resync_threshold", &value)) {
         inform("The resync_threshold setting is deprecated. Use "
                "resync_threshold_in_seconds instead");
-        config.resyncthreshold = 1.0 * value / 44100;
+        config.resync_threshold = 1.0 * value / 44100;
       }
 
       /* Get the drift tolerance setting. */
@@ -701,7 +706,11 @@ int parse_options(int argc, char **argv) {
 
       /* Get the resync setting. */
       if (config_lookup_float(config.cfg, "general.resync_threshold_in_seconds", &dvalue))
-        config.resyncthreshold = dvalue;
+        config.resync_threshold = dvalue;
+
+      /* Get the resync recovery time setting. */
+      if (config_lookup_float(config.cfg, "general.resync_recovery_time_in_seconds", &dvalue))
+        config.resync_recovery_time = dvalue;
 
       /* Get the verbosity setting. */
       if (config_lookup_int(config.cfg, "general.log_verbosity", &value)) {
@@ -834,6 +843,37 @@ int parse_options(int argc, char **argv) {
         // debug(1, "Max volume setting of %f dB", dvalue);
         config.volume_max_db = dvalue;
         config.volume_max_db_set = 1;
+      }
+
+      /* Get the optional default_volume setting. */
+      if (config_lookup_float(config.cfg, "general.default_airplay_volume", &dvalue)) {
+        // debug(1, "Default airplay volume setting of %f on the -30.0 to 0 scale", dvalue);
+        if ((dvalue >= -30.0) && (dvalue <= 0.0)) {
+          config.default_airplay_volume = dvalue;
+        } else {
+          warn("The default airplay volume setting must be between -30.0 and 0.0.");
+        }
+      }
+
+      /* Get the optional high_volume_threshold setting. */
+      if (config_lookup_float(config.cfg, "general.high_threshold_airplay_volume", &dvalue)) {
+        // debug(1, "High threshold airplay volume setting of %f on the -30.0 to 0 scale", dvalue);
+        if ((dvalue >= -30.0) && (dvalue <= 0.0)) {
+          config.high_threshold_airplay_volume = dvalue;
+        } else {
+          warn("The high threshold airplay volume setting must be between -30.0 and 0.0.");
+        }
+      }
+
+      /* Get the optional high volume idle tiomeout setting. */
+      if (config_lookup_float(config.cfg, "general.high_volume_idle_timeout_in_minutes", &dvalue)) {
+        // debug(1, "High high_volume_idle_timeout_in_minutes setting of %f", dvalue);
+        if (dvalue >= 0.0) {
+          config.limit_to_high_volume_threshold_time_in_minutes = dvalue;
+        } else {
+          warn("The high volume idle timeout in minutes setting must be 0.0 or greater. A setting "
+               "of 0.0 disables the high volume check.");
+        }
       }
 
       if (config_lookup_string(config.cfg, "general.run_this_when_volume_is_set", &str)) {
@@ -1371,6 +1411,9 @@ int parse_options(int argc, char **argv) {
   int i;
   char hexchar[] = "0123456789abcdef";
   for (i = 5; i >= 0; i--) {
+    // In AirPlay 2 mode, the AP1 name prefix must be
+    // the same as the AirPlay 2 device id less the colons.
+    config.ap1_prefix[i] = temporary_airplay_id & 0xFF; 
     apids[i * 3 + 1] = hexchar[temporary_airplay_id & 0xF];
     temporary_airplay_id = temporary_airplay_id >> 4;
     apids[i * 3] = hexchar[temporary_airplay_id & 0xF];
@@ -1436,6 +1479,10 @@ int parse_options(int argc, char **argv) {
   if (tdebuglev != 0)
     debuglev = tdebuglev;
 
+  // now set the initial volume to the default volume
+  config.airplay_volume =
+      config.default_airplay_volume; // if no volume is ever set or requested, default to initial
+                                     // default value if nothing else comes in first.
   // now, do the substitutions in the service name
   char hostname[100];
   gethostname(hostname, 100);
@@ -1982,12 +2029,13 @@ int main(int argc, char **argv) {
   config.debugger_show_file_and_line =
       1; // by default, log the file and line of the originating message
   config.debugger_show_relative_time =
-      1;                         // by default, log the  time back to the previous debug message
-  config.resyncthreshold = 0.05; // 50 ms
+      1;                // by default, log the  time back to the previous debug message
   config.timeout = 120; // this number of seconds to wait for [more] audio before switching to idle.
-  config.tolerance =
-      0.002; // this number of seconds of timing error before attempting to correct it.
   config.buffer_start_fill = 220;
+
+  config.resync_threshold = 0.050;   // default
+  config.resync_recovery_time = 0.1; // drop this amount of frames following the resync delay.
+  config.tolerance = 0.002;
 
 #ifdef CONFIG_AIRPLAY_2
   config.timeout = 0; // disable watchdog
@@ -2262,7 +2310,7 @@ int main(int argc, char **argv) {
   if (sodium_init() < 0) {
     debug(1, "Can't initialise libsodium!");
   } else {
-    debug(1, "libsodium initialised.");
+    debug(2, "libsodium initialised.");
   }
 
   // this code is based on
@@ -2287,7 +2335,7 @@ int main(int argc, char **argv) {
   /* Tell Libgcrypt that initialization has completed. */
   gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
 
-  debug(1, "libgcrypt initialised.");
+  debug(2, "libgcrypt initialised.");
 
 #endif
 
@@ -2372,11 +2420,21 @@ int main(int argc, char **argv) {
         : config.packet_stuffing == ST_soxr ? "soxr"
                                             : "auto");
   debug(1, "interpolation soxr_delay_threshold is %d.", config.soxr_delay_threshold);
-  debug(1, "resync time is %f seconds.", config.resyncthreshold);
+  debug(1, "resync time is %f seconds.", config.resync_threshold);
+  debug(1, "resync recovery time is %f seconds.", config.resync_recovery_time);
   debug(1, "allow a session to be interrupted: %d.", config.allow_session_interruption);
   debug(1, "busy timeout time is %d.", config.timeout);
   debug(1, "drift tolerance is %f seconds.", config.tolerance);
   debug(1, "password is \"%s\".", strnull(config.password));
+  debug(1, "default airplay volume is: %.6f.", config.default_airplay_volume);
+  debug(1, "high threshold airplay volume is: %.6f.", config.high_threshold_airplay_volume);
+  if (config.limit_to_high_volume_threshold_time_in_minutes == 0)
+    debug(1, "check for higher-than-threshold volume for new play session is disabled.");
+  else
+    debug(1,
+          "suggest default airplay volume for new play sessions instead of higher-than-threshold "
+          "airplay volume after: %d minutes.",
+          config.limit_to_high_volume_threshold_time_in_minutes);
   debug(1, "ignore_volume_control is %d.", config.ignore_volume_control);
   if (config.volume_max_db_set)
     debug(1, "volume_max_db is %d.", config.volume_max_db);
@@ -2458,10 +2516,14 @@ int main(int argc, char **argv) {
   soxr_time_check_thread_started = 1;
 #endif
 
-  // calculate the 12-hex-digit prefix by hashing the service name.
+
+  // In AirPlay 2 mode, the AP1 prefix is the same as the device ID less the colons
+  // In AirPlay 1 mode, the AP1 prefix is calculated by hashing the service name.
+#ifndef CONFIG_AIRPLAY_2
+
   uint8_t ap_md5[16];
 
-  debug(1, "size of hw_addr is %u.", sizeof(config.hw_addr));
+  // debug(1, "size of hw_addr is %u.", sizeof(config.hw_addr));
 #ifdef CONFIG_OPENSSL
   MD5_CTX ctx;
   MD5_Init(&ctx);
@@ -2495,6 +2557,7 @@ int main(int argc, char **argv) {
 #endif
 
   memcpy(config.ap1_prefix, ap_md5, sizeof(config.ap1_prefix));
+#endif
 
 #ifdef CONFIG_METADATA
   metadata_init(); // create the metadata pipe if necessary

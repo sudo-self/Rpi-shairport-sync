@@ -150,7 +150,7 @@ The MQTT service can parse the above raw messages into a subset of human-readabl
 * `title` -- text of song title
 * `volume` -- The volume is sent as a string -- "airplay_volume,volume,lowest_volume,highest_volume", where "volume", "lowest_volume" and "highest_volume" are given in dB. (see above)
 
-and empty messages at the following topics are published.
+and empty messages (`--`) at the following topics are published.
 
 * `play_start` -- fired at the begining of every song
 * `play_end` -- fired at the end of every song
@@ -168,7 +168,7 @@ Users will find examples on how to consume the MQTT data in various home automat
 ### Home Assistant Variable Templates
 
 Examples of consuming "parsed" MQTT data in [Home Assistant](https://www.home-assistant.io/)
-The `active_start` and `active_end` have good potential use as triggers to turn on and off various connect receivers/zones.  The messages published are empty and therefor no "payload_on" is set, "payload_off" however is set to prevent accidental triggering.
+The `active_start` and `active_end` have good potential use as triggers to turn on and off various connect receivers/zones. "payload_off" is set to prevent accidental triggering.
 
 ```yml
 binary_sensor:
@@ -176,14 +176,14 @@ binary_sensor:
   - platform: mqtt
     name: "shairport active start"
     state_topic: "shairport/active_start"
-    payload_on: ""
+    payload_on: "--"
     payload_off: "OFF"
     off_delay: 300
 
   - platform: mqtt
     name: "shairport active end"
     state_topic: "shairport/active_end"
-    payload_on: ""
+    payload_on: "--"
     payload_off: "OFF"
     off_delay: 300
 ```
@@ -191,34 +191,29 @@ binary_sensor:
 Below parsed data is saved into the Home Assistant database as sensor data.  Please note the conversion of the volume from dB to percentage.
 
 ```yml
-sensor:
-  - platform: mqtt
-    name: "shairport album"
-    state_topic: "shairport/album"
-    expire_after: 600
-  
-  - platform: mqtt
-    name: "shairport artist"
-    state_topic: "shairport/artist"
-    expire_after: 600
-    
-  - platform: mqtt
-    name: "shairport title"
-    state_topic: "shairport/title"
-    expire_after: 600
-    
-  - platform: mqtt
-    name: "shairport genre"
-    state_topic: "shairport/genre" 
-    expire_after: 600
-    
-  - platform: mqtt
-    name: "shairport volume (dB)"
-    state_topic: "shairport/volume"
-    
-  - platform: mqtt
-    name: "shairport volume (PCT)"
-    state_topic: "shairport/volume"
-    value_template: "{{ value |  regex_findall_index(find='^(.+?),', index=0, ignorecase=False) | float / 30 + 1  }}"
-    unit_of_measurement: 'percent'
+mqtt:
+  sensor:
+    - name: "shairport album"
+      state_topic: "shairport/album"
+      expire_after: 600
+
+    - name: "shairport artist"
+      state_topic: "shairport/artist"
+      expire_after: 600
+
+    - name: "shairport title"
+      state_topic: "shairport/title"
+      expire_after: 600
+
+    - name: "shairport genre"
+      state_topic: "shairport/genre"
+      expire_after: 600
+
+    - name: "shairport volume (dB)"
+      state_topic: "shairport/volume"
+
+    - name: "shairport volume (PCT)"
+      state_topic: "shairport/volume"
+      value_template: "{{ value |  regex_findall_index(find='^(.+?),', index=0, ignorecase=False) | float / 30 + 1  }}"
+      unit_of_measurement: 'percent'
 ```

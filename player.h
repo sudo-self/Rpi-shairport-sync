@@ -168,8 +168,7 @@ typedef struct {
   volatile int stop;
   volatile int running;
   volatile uint64_t watchdog_bark_time;
-  volatile int watchdog_barks;  // number of times the watchdog has timed out and done something
-  int unfixable_error_reported; // set when an unfixable error command has been executed.
+  volatile int watchdog_barks; // number of times the watchdog has timed out and done something
 
   uint64_t playstart;
   uint64_t connection_start_time; // the time the device is selected, which could be a long time
@@ -225,8 +224,8 @@ typedef struct {
   pthread_mutex_t ab_mutex, flush_mutex, volume_control_mutex;
 
   int fix_volume;
-  double initial_airplay_volume;
-  int initial_airplay_volume_set;
+  double own_airplay_volume;
+  int own_airplay_volume_set;
 
   uint32_t timestamp_epoch, last_timestamp,
       maximum_timestamp_interval; // timestamp_epoch of zero means not initialised, could start at 2
@@ -448,5 +447,7 @@ int64_t monotonic_timestamp(uint32_t timestamp,
 // which is about 2*10^8 * 1,000 seconds at 384,000 frames per second -- about 2 trillion seconds.
 // assumes, without checking, that successive timestamps in a series always span an interval of less
 // than one minute.
+
+double suggested_volume(rtsp_conn_info *conn); // volume suggested for the connection
 
 #endif //_PLAYER_H
