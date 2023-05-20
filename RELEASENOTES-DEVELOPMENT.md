@@ -1,3 +1,8 @@
+Version 4.1-dev-922-gffeeacc4
+====
+**Enhancement**
+* When built for AirPlay 2, include the Shared Memory Interface (SMI) version number in the version string, in the form: `smi*` where `*` is the version number, e.g. `smi9`. This must be same as the SMI version number of NQPTP, which can be listed by entering `$ nqptp -V`.
+
 Version 4.1-dev-919-gbd068fb6
 ====
 **Enhancements**
