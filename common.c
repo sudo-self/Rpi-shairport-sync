@@ -110,6 +110,10 @@
 void set_alsa_out_dev(char *);
 #endif
 
+#ifdef CONFIG_AIRPLAY_2
+#include "nqptp-shm-structures.h"
+#endif
+
 config_t config_file_stuff;
 int type_of_exit_cleanup;
 uint64_t ns_time_at_startup, ns_time_at_last_debug_message;
@@ -1612,6 +1616,9 @@ char *get_version_string() {
       strcpy(version_string, PACKAGE_VERSION);
 #ifdef CONFIG_AIRPLAY_2
     strcat(version_string, "-AirPlay2");
+    char smiv[1024];
+    snprintf(smiv, 1024, "-smi%u", NQPTP_SHM_STRUCTURES_VERSION);
+    strcat(version_string, smiv);
 #endif
 #ifdef CONFIG_APPLE_ALAC
     strcat(version_string, "-alac");
