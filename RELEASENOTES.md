@@ -1,6 +1,6 @@
 Version 4.2
 ====
-This release consists of enhancements and bug fixes to Version 4.1. For information on the new features of 4.1, including AirPlay 2 support, please see the section "Version 4.1" below.
+This release consists of enhancements and a number of important bug fixes to Version 4.1. For information on the new features of 4.1, including AirPlay 2 support, please see the section "Version 4.1" below.
 
 Important
 ----
