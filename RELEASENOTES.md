@@ -10,9 +10,9 @@ If you are updating an existing installation of Shairport Sync, you must also up
 
 **Enhancements**
 * Allow compilation with `libplist` version `2.3.0`. Thanks to [Markus Reiter](https://github.com/reitermarkus).
-* Updates to GitHub Action Workflows -- many thanks to [yubiuser](https://github.com/yubiuser).
-* Update to the MQTT documentation to correspond to updates in [Home Assistant](https://www.home-assistant.io/blog/2022/06/01/release-20226/#breaking-changes). Thanks to [hunhejj](https://github.com/hunhejj).
-* Updates to the PTP clock to improve performance. Shairport Sync now passes activity information to NQPTP, enabling it to process timing data more accurately.
+* Update GitHub Action Workflows -- many thanks to [yubiuser](https://github.com/yubiuser).
+* Update MQTT documentation to correspond to updates in [Home Assistant](https://www.home-assistant.io/blog/2022/06/01/release-20226/#breaking-changes). Thanks to [hunhejj](https://github.com/hunhejj).
+* Update NQPTP communication to improve performance. Shairport Sync now passes activity information to NQPTP, enabling it to process timing data more accurately.
 
 **Docker Image Enhancements**
 * Add basic PulseAudio support. Thanks to [Ferdynand Naczynski](https://github.com/nipsufn) and thanks also to [Noel Hibbard](https://github.com/noelhibbard) for championing this idea for a long time.
