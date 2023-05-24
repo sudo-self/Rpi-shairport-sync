@@ -131,6 +131,7 @@ static int init(int argc, char **argv) {
     fmt.rate = 44100;
     fmt.channels = 2;
     fmt.byte_format = AO_FMT_NATIVE;
+    fmt.matrix = strdup("L,R");
   }
   return 0;
 }
