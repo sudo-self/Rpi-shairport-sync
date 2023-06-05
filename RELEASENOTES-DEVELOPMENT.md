@@ -1,5 +1,12 @@
+Version 4.2.1d0-5-gc3d99f96
+====
+**Enhancement**
+* Increase the level of detail in the debug log at verbosity level 2 (i.e. `-vv`).
+
 Version 4.1-dev-922-gffeeacc4
 ====
+This is (approximately) Version 4.2 release.
+
 **Enhancement**
 * When built for AirPlay 2, include the Shared Memory Interface (SMI) version number in the version string, in the form: `smi*` where `*` is the version number, e.g. `smi9`. This must be same as the SMI version number of NQPTP, which can be listed by entering `$ nqptp -V`.
 
