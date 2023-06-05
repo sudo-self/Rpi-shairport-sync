@@ -5172,7 +5172,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
 #endif
 
   while (conn->stop == 0) {
-    int debug_level = 3; // for printing the request and response
+    int debug_level = 2; // for printing the request and response
     reply = rtsp_read_request(conn, &req);
     if (reply == rtsp_read_request_response_ok) {
       pthread_cleanup_push(msg_cleanup_function, (void *)&req);
@@ -5180,10 +5180,10 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       pthread_cleanup_push(msg_cleanup_function, (void *)&resp);
       resp->respcode = 501; // Not Implemented
       int dl = debug_level;
-      if ((strcmp(req->method, "OPTIONS") == 0) ||
-          (strcmp(req->method, "POST") ==
-           0)) // the options message is very common, so don't log it until level 3
-        dl = 3;
+      //if ((strcmp(req->method, "OPTIONS") == 0) ||
+      //    (strcmp(req->method, "POST") ==
+      //     0)) // the options message is very common, so don't log it until level 3
+      //  dl = 3;
 
       if (conn->airplay_stream_category == remote_control_stream) {
         debug(dl, "Connection %d (RC): Received an RTSP Packet of type \"%s\":",
