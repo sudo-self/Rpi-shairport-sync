@@ -2531,7 +2531,9 @@ int main(int argc, char **argv) {
   EVP_DigestUpdate(mdctx, config.service_name, strlen(config.service_name));
   EVP_DigestUpdate(mdctx, config.hw_addr, sizeof(config.hw_addr));
   unsigned int md5_digest_len = EVP_MD_size(EVP_md5());
-  EVP_DigestFinal_ex(mdctx, ap_md5, &md5_digest_len); 
+  EVP_DigestFinal_ex(mdctx, ap_md5, &md5_digest_len);
+  EVP_MD_CTX_free(mdctx);
+
 #endif
 
 #ifdef CONFIG_MBEDTLS

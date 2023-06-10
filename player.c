@@ -58,7 +58,6 @@
 
 #ifdef CONFIG_OPENSSL
 #include <openssl/bio.h> // needed for BIO_new_mem_buf
-// #include <openssl/buffer.h>
 #include <openssl/aes.h> // needed for older AES stuff
 #include <openssl/err.h> // needed for ERR_error_string, ERR_get_error
 #include <openssl/evp.h> // needed for EVP_PKEY_CTX_new, EVP_PKEY_sign_init, EVP_PKEY_sign
