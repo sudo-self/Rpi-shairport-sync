@@ -59,7 +59,7 @@ void stream_success_cb(pa_stream *stream, int success, void *userdata);
 void stream_write_cb(pa_stream *stream, size_t requested_bytes, void *userdata);
 
 int status_error_notifications = 0;
-static void check_pa_stream_status(const pa_stream *p, const char *message) {
+static void check_pa_stream_status(pa_stream *p, const char *message) {
   if (status_error_notifications < 10) {
     if (p == NULL) {
       warn("%s No pulseaudio stream!", message);
