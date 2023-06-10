@@ -71,11 +71,12 @@
 #endif
 
 #ifdef CONFIG_OPENSSL
-#include <openssl/bio.h>
-#include <openssl/buffer.h>
-#include <openssl/evp.h>
-#include <openssl/pem.h>
-#include <openssl/rsa.h>
+#include <openssl/bio.h> // needed for BIO_new_mem_buf
+#include <openssl/aes.h> // needed for older AES stuff
+#include <openssl/err.h> // needed for ERR_error_string, ERR_get_error
+#include <openssl/evp.h> // needed for EVP_PKEY_CTX_new, EVP_PKEY_sign_init, EVP_PKEY_sign
+#include <openssl/pem.h> // needed for PEM_read_bio_RSAPrivateKey, EVP_PKEY_CTX_set_rsa_padding
+#include <openssl/rsa.h> // needed for EVP_PKEY_CTX_set_rsa_padding
 #endif
 
 #ifdef CONFIG_POLARSSL
@@ -808,25 +809,83 @@ static char super_secret_key[] =
 uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  RSA *rsa = NULL;
-  if (!rsa) {
-    BIO *bmem = BIO_new_mem_buf(super_secret_key, -1);
-    rsa = PEM_read_bio_RSAPrivateKey(bmem, NULL, NULL, NULL);
-    BIO_free(bmem);
-  }
+  uint8_t *out = NULL;
+  BIO *bmem = BIO_new_mem_buf(super_secret_key, -1);                  // 1.0.2
+  EVP_PKEY *rsaKey = PEM_read_bio_PrivateKey(bmem, NULL, NULL, NULL); // 1.0.2
+  BIO_free(bmem);
+  size_t ol = 0;
+  if (rsaKey != NULL) {
+    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(rsaKey, NULL); // 1.0.2
+    if (ctx != NULL) {
 
-  uint8_t *out = malloc(RSA_size(rsa));
-  switch (mode) {
-  case RSA_MODE_AUTH:
-    *outlen = RSA_private_encrypt(inlen, input, out, rsa, RSA_PKCS1_PADDING);
-    break;
-  case RSA_MODE_KEY:
-    *outlen = RSA_private_decrypt(inlen, input, out, rsa, RSA_PKCS1_OAEP_PADDING);
-    break;
-  default:
-    die("bad rsa mode");
+      switch (mode) {
+      case RSA_MODE_AUTH: {
+        if (EVP_PKEY_sign_init(ctx) > 0) {                                                // 1.0.2
+          if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) > 0) {                 // 1.0.2
+            if (EVP_PKEY_sign(ctx, NULL, &ol, (const unsigned char *)input, inlen) > 0) { // 1.0.2
+              debug(1, "output size = %lu.", ol);
+              out = (unsigned char *)malloc(ol);
+              if (EVP_PKEY_sign(ctx, out, &ol, (const unsigned char *)input, inlen) > 0) { // 1.0.2
+                debug(1, "success with output length of %lu.", ol);
+              } else {
+                debug(1, "error 2 \"%s\" with EVP_PKEY_sign:",
+                      ERR_error_string(ERR_get_error(), NULL));
+              }
+            } else {
+              debug(1,
+                    "error 1 \"%s\" with EVP_PKEY_sign:", ERR_error_string(ERR_get_error(), NULL));
+            }
+          } else {
+            debug(1, "error \"%s\" with EVP_PKEY_CTX_set_rsa_padding:",
+                  ERR_error_string(ERR_get_error(), NULL));
+          }
+        } else {
+          debug(1,
+                "error \"%s\" with EVP_PKEY_sign_init:", ERR_error_string(ERR_get_error(), NULL));
+        }
+      } break;
+      case RSA_MODE_KEY: {
+        if (EVP_PKEY_decrypt_init(ctx) > 0) {
+          if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) > 0) {
+            /* Determine buffer length */
+            if (EVP_PKEY_decrypt(ctx, NULL, &ol, (const unsigned char *)input, inlen) > 0) {
+              out = OPENSSL_malloc(ol);
+              if (out != NULL) {
+                if (EVP_PKEY_decrypt(ctx, out, &ol, (const unsigned char *)input, inlen) > 0) {
+                  debug(1, "decrypt success");
+                } else {
+                  debug(1, "error \"%s\" with EVP_PKEY_decrypt:",
+                        ERR_error_string(ERR_get_error(), NULL));
+                }
+              } else {
+                debug(1, "OPENSSL_malloc failed");
+              }
+            } else {
+              debug(1,
+                    "error \"%s\" with EVP_PKEY_decrypt:", ERR_error_string(ERR_get_error(), NULL));
+            }
+          } else {
+            debug(1, "error \"%s\" with EVP_PKEY_CTX_set_rsa_padding:",
+                  ERR_error_string(ERR_get_error(), NULL));
+          }
+        } else {
+          debug(1, "error \"%s\" with EVP_PKEY_decrypt_init:",
+                ERR_error_string(ERR_get_error(), NULL));
+        }
+      } break;
+      default:
+        debug(1, "Unknown mode");
+        break;
+      }
+      EVP_PKEY_CTX_free(ctx); // 1.0.2
+    } else {
+      printf("error \"%s\" with EVP_PKEY_CTX_new:\n", ERR_error_string(ERR_get_error(), NULL));
+    }
+    EVP_PKEY_free(rsaKey); // 1.0.2
+  } else {
+    printf("error \"%s\" with EVP_PKEY_new:\n", ERR_error_string(ERR_get_error(), NULL));
   }
-  RSA_free(rsa);
+  *outlen = ol;
   pthread_setcancelstate(oldState, NULL);
   return out;
 }
