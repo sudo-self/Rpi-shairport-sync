@@ -246,10 +246,6 @@ typedef struct {
   aes_context dctx;
 #endif
 
-#ifdef CONFIG_OPENSSL
-  AES_KEY aes;
-#endif
-
   int amountStuffed;
 
   int32_t framesProcessedInThisEpoch;

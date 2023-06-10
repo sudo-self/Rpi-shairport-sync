@@ -57,7 +57,13 @@
 #endif
 
 #ifdef CONFIG_OPENSSL
-#include <openssl/aes.h>
+#include <openssl/bio.h> // needed for BIO_new_mem_buf
+// #include <openssl/buffer.h>
+#include <openssl/aes.h> // needed for older AES stuff
+#include <openssl/err.h> // needed for ERR_error_string, ERR_get_error
+#include <openssl/evp.h> // needed for EVP_PKEY_CTX_new, EVP_PKEY_sign_init, EVP_PKEY_sign
+#include <openssl/pem.h> // needed for PEM_read_bio_RSAPrivateKey, EVP_PKEY_CTX_set_rsa_padding
+#include <openssl/rsa.h> // needed for EVP_PKEY_CTX_set_rsa_padding
 #endif
 
 #ifdef CONFIG_SOXR
@@ -190,6 +196,41 @@ void unencrypted_packet_decode(unsigned char *packet, int length, short *dest, i
   }
 }
 
+#ifdef CONFIG_OPENSSL
+// Thanks to
+// https://stackoverflow.com/questions/27558625/how-do-i-use-aes-cbc-encrypt-128-openssl-properly-in-ubuntu
+// for inspiration. Changed to a 128-bit key and no padding.
+
+int openssl_aes_decrypt_cbc(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
+                unsigned char *iv, unsigned char *plaintext) {
+  EVP_CIPHER_CTX *ctx;
+  int len;
+  int plaintext_len = 0;
+  ctx = EVP_CIPHER_CTX_new();
+  if (ctx != NULL) {
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv) == 1) {
+      EVP_CIPHER_CTX_set_padding(ctx, 0); // no padding -- always returns 1
+      // no need to allow space for padding in the output, as padding is disabled
+      if (EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len) == 1) {
+        plaintext_len = len;
+        if (EVP_DecryptFinal_ex(ctx, plaintext + len, &len) == 1) {
+          plaintext_len += len;
+        } else {
+          debug(1, "EVP_DecryptFinal_ex error \"%s\".", ERR_error_string(ERR_get_error(), NULL));
+        }
+      } else {
+        debug(1, "EVP_DecryptUpdate error \"%s\".", ERR_error_string(ERR_get_error(), NULL));
+      }
+    } else {
+      debug(1, "EVP_DecryptInit_ex error \"%s\".", ERR_error_string(ERR_get_error(), NULL));
+    }
+    EVP_CIPHER_CTX_free(ctx);
+  } else {
+    debug(1, "EVP_CIPHER_CTX_new error \"%s\".", ERR_error_string(ERR_get_error(), NULL));
+  }
+  return plaintext_len;
+}
+#endif
 int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_conn_info *conn) {
   // parameters: where the decoded stuff goes, its length in samples,
   // the incoming packet, the length of the incoming packet in bytes
@@ -218,7 +259,7 @@ int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_c
     aes_crypt_cbc(&conn->dctx, AES_DECRYPT, aeslen, iv, buf, packet);
 #endif
 #ifdef CONFIG_OPENSSL
-    AES_cbc_encrypt(buf, packet, aeslen, &conn->aes, iv, AES_DECRYPT);
+    openssl_aes_decrypt_cbc(buf, aeslen, conn->stream.aeskey, iv, packet);
 #endif
     memcpy(packet + aeslen, buf + aeslen, len - aeslen);
     unencrypted_packet_decode(packet, len, dest, &outsize, maximum_possible_outsize, conn);
@@ -1922,10 +1963,6 @@ void *player_thread_func(void *arg) {
 #ifdef CONFIG_POLARSSL
     memset(&conn->dctx, 0, sizeof(aes_context));
     aes_setkey_dec(&conn->dctx, conn->stream.aeskey, 128);
-#endif
-
-#ifdef CONFIG_OPENSSL
-    AES_set_decrypt_key(conn->stream.aeskey, 128, &conn->aes);
 #endif
   }
 
