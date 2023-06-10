@@ -823,10 +823,9 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
         if (EVP_PKEY_sign_init(ctx) > 0) {                                                // 1.0.2
           if (EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) > 0) {                 // 1.0.2
             if (EVP_PKEY_sign(ctx, NULL, &ol, (const unsigned char *)input, inlen) > 0) { // 1.0.2
-              debug(1, "output size = %lu.", ol);
               out = (unsigned char *)malloc(ol);
               if (EVP_PKEY_sign(ctx, out, &ol, (const unsigned char *)input, inlen) > 0) { // 1.0.2
-                debug(1, "success with output length of %lu.", ol);
+                debug(3, "success with output length of %lu.", ol);
               } else {
                 debug(1, "error 2 \"%s\" with EVP_PKEY_sign:",
                       ERR_error_string(ERR_get_error(), NULL));
@@ -852,7 +851,7 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode) {
               out = OPENSSL_malloc(ol);
               if (out != NULL) {
                 if (EVP_PKEY_decrypt(ctx, out, &ol, (const unsigned char *)input, inlen) > 0) {
-                  debug(1, "decrypt success");
+                  debug(3, "decrypt success");
                 } else {
                   debug(1, "error \"%s\" with EVP_PKEY_decrypt:",
                         ERR_error_string(ERR_get_error(), NULL));

@@ -62,6 +62,7 @@
 
 #ifdef CONFIG_OPENSSL
 #include <openssl/md5.h>
+#include <openssl/evp.h>
 #endif
 
 #if defined(CONFIG_DBUS_INTERFACE)
@@ -2525,11 +2526,12 @@ int main(int argc, char **argv) {
 
   // debug(1, "size of hw_addr is %u.", sizeof(config.hw_addr));
 #ifdef CONFIG_OPENSSL
-  MD5_CTX ctx;
-  MD5_Init(&ctx);
-  MD5_Update(&ctx, config.service_name, strlen(config.service_name));
-  MD5_Update(&ctx, config.hw_addr, sizeof(config.hw_addr));
-  MD5_Final(ap_md5, &ctx);
+  EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+  EVP_DigestInit_ex(mdctx, EVP_md5(), NULL);
+  EVP_DigestUpdate(mdctx, config.service_name, strlen(config.service_name));
+  EVP_DigestUpdate(mdctx, config.hw_addr, sizeof(config.hw_addr));
+  unsigned int md5_digest_len = EVP_MD_size(EVP_md5());
+  EVP_DigestFinal_ex(mdctx, ap_md5, &md5_digest_len); 
 #endif
 
 #ifdef CONFIG_MBEDTLS
