@@ -1,3 +1,9 @@
+Version 4.2.1d0-15-g97dd0b1e
+====
+**Enhancements**
+* Stop using deprecated OpenSSL calls. Thanks to [yubiuser](https://github.com/yubiuser) for their [PR](https://github.com/mikebrady/shairport-sync/pull/1684) -- which did some of the updating -- and for their guidance.
+* Run workflow-based tests on PRs automatically. Thanks to [yubiuser](https://github.com/yubiuser) for their [PR](https://github.com/mikebrady/shairport-sync/pull/1687).
+
 Version 4.2.1d0-5-gc3d99f96
 ====
 **Enhancement**
