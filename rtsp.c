@@ -55,7 +55,7 @@
 #include "config.h"
 
 #ifdef CONFIG_OPENSSL
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 #endif
 
 #ifdef CONFIG_MBEDTLS
@@ -4882,22 +4882,31 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
   uint8_t digest_urp[16], digest_mu[16], digest_total[16];
 
 #ifdef CONFIG_OPENSSL
-  MD5_CTX ctx;
-
+  EVP_MD_CTX *ctx;
+  unsigned int digest_urp_len = EVP_MD_size(EVP_md5());
+  unsigned int digest_mu_len = EVP_MD_size(EVP_md5());
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  MD5_Init(&ctx);
-  MD5_Update(&ctx, username, strlen(username));
-  MD5_Update(&ctx, ":", 1);
-  MD5_Update(&ctx, realm, strlen(realm));
-  MD5_Update(&ctx, ":", 1);
-  MD5_Update(&ctx, config.password, strlen(config.password));
-  MD5_Final(digest_urp, &ctx);
-  MD5_Init(&ctx);
-  MD5_Update(&ctx, req->method, strlen(req->method));
-  MD5_Update(&ctx, ":", 1);
-  MD5_Update(&ctx, uri, strlen(uri));
-  MD5_Final(digest_mu, &ctx);
+  ctx = EVP_MD_CTX_new();
+  EVP_DigestInit_ex(ctx, EVP_md5(), NULL);
+
+  EVP_DigestUpdate(ctx, username, strlen(username));
+  EVP_DigestUpdate(ctx, ":", 1);
+  EVP_DigestUpdate(ctx, realm, strlen(realm));
+  EVP_DigestUpdate(ctx, ":", 1);
+  EVP_DigestUpdate(ctx, config.password, strlen(config.password));
+  EVP_DigestFinal_ex(ctx, digest_urp, &digest_urp_len);
+  EVP_MD_CTX_free(ctx);
+
+  ctx = EVP_MD_CTX_new();
+  EVP_DigestInit_ex(ctx, EVP_md5(), NULL);
+
+  EVP_DigestUpdate(ctx, req->method, strlen(req->method));
+  EVP_DigestUpdate(ctx, ":", 1);
+  EVP_DigestUpdate(ctx, uri, strlen(uri));
+
+  EVP_DigestFinal_ex(ctx, digest_mu, &digest_mu_len);
+  EVP_MD_CTX_free(ctx);
   pthread_setcancelstate(oldState, NULL);
 #endif
 
@@ -4956,15 +4965,20 @@ static int rtsp_auth(char **nonce, rtsp_message *req, rtsp_message *resp) {
 
 #ifdef CONFIG_OPENSSL
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  MD5_Init(&ctx);
-  MD5_Update(&ctx, buf, 32);
-  MD5_Update(&ctx, ":", 1);
-  MD5_Update(&ctx, *nonce, strlen(*nonce));
-  MD5_Update(&ctx, ":", 1);
+  unsigned int digest_total_len = EVP_MD_size(EVP_md5());
+
+  ctx = EVP_MD_CTX_new();
+  EVP_DigestInit_ex(ctx, EVP_md5(), NULL);
+
+  EVP_DigestUpdate(ctx, buf, 32);
+  EVP_DigestUpdate(ctx, ":", 1);
+  EVP_DigestUpdate(ctx, *nonce, strlen(*nonce));
+  EVP_DigestUpdate(ctx, ":", 1);
   for (i = 0; i < 16; i++)
     snprintf((char *)buf + 2 * i, 3, "%02x", digest_mu[i]);
-  MD5_Update(&ctx, buf, 32);
-  MD5_Final(digest_total, &ctx);
+  EVP_DigestUpdate(ctx, buf, 32);
+  EVP_DigestFinal_ex(ctx, digest_total, &digest_total_len);
+  EVP_MD_CTX_free(ctx);
   pthread_setcancelstate(oldState, NULL);
 #endif
 

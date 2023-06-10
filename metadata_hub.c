@@ -56,7 +56,7 @@
 #endif
 
 #ifdef CONFIG_OPENSSL
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 #endif
 
 struct metadata_bundle metadata_store;
@@ -209,10 +209,14 @@ char *metadata_write_image_file(const char *buf, int len) {
     // uint8_t ap_md5[16];
 
 #ifdef CONFIG_OPENSSL
-    MD5_CTX ctx;
-    MD5_Init(&ctx);
-    MD5_Update(&ctx, buf, len);
-    MD5_Final(img_md5, &ctx);
+    EVP_MD_CTX *ctx;
+    unsigned int img_md5_len = EVP_MD_size(EVP_md5());
+    
+    ctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(ctx, EVP_md5(), NULL);
+    EVP_DigestUpdate(ctx, buf, len);
+    EVP_DigestFinal_ex(ctx, img_md5, &img_md5_len);
+    EVP_MD_CTX_free(ctx);
 #endif
 
 #ifdef CONFIG_MBEDTLS
