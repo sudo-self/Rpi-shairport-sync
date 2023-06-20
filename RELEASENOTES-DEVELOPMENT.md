@@ -1,3 +1,8 @@
+Version 4.2.1d0-21-g2f52e699
+====
+**Bug Fix**
+* Add an important missing format string argument to a call in the Jack Audio backend. Many thanks to [michieldwitte](https://github.com/michieldwitte) for their [PR](https://github.com/mikebrady/shairport-sync/pull/1693).
+
 Version 4.2.1d0-17-g17414f57
 ====
 **Enhancements**
