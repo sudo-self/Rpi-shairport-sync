@@ -1,3 +1,8 @@
+Version 4.2.1d0-23-g46a215b6
+====
+**Enhancement**
+* On graceful shutdown, an `active_end` signal should now be generated if the system was in the active state. Addresses issue [#1647](https://github.com/mikebrady/shairport-sync/issues/1647). Thanks to [Tucker Kern](https://github.com/mill1000) for raising the issue.
+
 Version 4.2.1d0-21-g2f52e699
 ====
 **Bug Fix**
