@@ -1,3 +1,8 @@
+Version 4.2.1d0-26-g716aa051
+====
+**Bug Fix**
+* Classic Airplay Remote Control. Always use a revision number of 1 when looking for status updates on the DACP remote control port. This is ia quick-and-dirty change to try out a (good) suggestion in [Issue #1658](https://github.com/mikebrady/shairport-sync/issues/1658) -- if it works change will be made permanent. Thanks to [ejurgensen](https://github.com/ejurgensen), as ever, for the report and the suggested fix.
+
 Version 4.2.1d0-23-g46a215b6
 ====
 **Enhancement**
