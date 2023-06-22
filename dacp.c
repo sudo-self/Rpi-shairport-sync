@@ -411,6 +411,7 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
     debug(2, "set_dacp_server_information set IP to \"%s\" and DACP id to \"%s\".",
           dacp_server.ip_string, dacp_server.dacp_id);
 
+/*
     // If the client is forked-daapd, then we always use revision number 1
     // because otherwise the return read will hang in a "long poll" if there
     // are no changes.
@@ -424,6 +425,10 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
         dacp_server.always_use_revision_number_1 = 1;
       }
     }
+*/
+
+    // always use revision number 1
+    dacp_server.always_use_revision_number_1 = 1;
 
     metadata_hub_modify_prolog();
     int ch = metadata_store.dacp_server_active != dacp_server.scan_enable;
