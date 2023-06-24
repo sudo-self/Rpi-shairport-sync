@@ -1,3 +1,8 @@
+Version 4.2.1d0-28-g0ca5fd3c
+====
+**Tiny Bug Fix**
+* Fix a `statistics` bug (the minimum buffer size was incorrectly logged) and also tidy up the statistics logging interval logic for resetting min and max counters.
+
 Version 4.2.1d0-26-g716aa051
 ====
 **Bug Fix**
