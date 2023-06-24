@@ -57,8 +57,8 @@
 #endif
 
 #ifdef CONFIG_OPENSSL
-#include <openssl/bio.h> // needed for BIO_new_mem_buf
 #include <openssl/aes.h> // needed for older AES stuff
+#include <openssl/bio.h> // needed for BIO_new_mem_buf
 #include <openssl/err.h> // needed for ERR_error_string, ERR_get_error
 #include <openssl/evp.h> // needed for EVP_PKEY_CTX_new, EVP_PKEY_sign_init, EVP_PKEY_sign
 #include <openssl/pem.h> // needed for PEM_read_bio_RSAPrivateKey, EVP_PKEY_CTX_set_rsa_padding
@@ -201,7 +201,7 @@ void unencrypted_packet_decode(unsigned char *packet, int length, short *dest, i
 // for inspiration. Changed to a 128-bit key and no padding.
 
 int openssl_aes_decrypt_cbc(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
-                unsigned char *iv, unsigned char *plaintext) {
+                            unsigned char *iv, unsigned char *plaintext) {
   EVP_CIPHER_CTX *ctx;
   int len;
   int plaintext_len = 0;
@@ -2065,14 +2065,14 @@ void *player_thread_func(void *arg) {
 #define trend_interval 1003
 
   int number_of_statistics, oldest_statistic, newest_statistic;
-  int at_least_one_frame_seen = 0;
+  int frames_seen_in_this_logging_interval = 0;
   int at_least_one_frame_seen_this_session = 0;
   int64_t tsum_of_sync_errors, tsum_of_corrections, tsum_of_insertions_and_deletions,
       tsum_of_drifts;
   int64_t previous_sync_error = 0, previous_correction = 0;
-  uint64_t minimum_dac_queue_size = UINT64_MAX;
-  int32_t minimum_buffer_occupancy = INT32_MAX;
-  int32_t maximum_buffer_occupancy = INT32_MIN;
+  uint64_t minimum_dac_queue_size;
+  int32_t minimum_buffer_occupancy;
+  int32_t maximum_buffer_occupancy;
 
 #ifdef CONFIG_AIRPLAY_2
   conn->ap2_audio_buffer_minimum_size = -1;
@@ -2481,7 +2481,7 @@ void *player_thread_func(void *arg) {
           // now, go back as far as the total latency less, say, 100 ms, and check the presence of
           // frames from then onwards
 
-          at_least_one_frame_seen = 1;
+          frames_seen_in_this_logging_interval++;
 
           // This is the timing error for the next audio frame in the DAC, if applicable
           int64_t sync_error = 0;
@@ -2508,10 +2508,12 @@ void *player_thread_func(void *arg) {
           int16_t bo = conn->ab_write - conn->ab_read; // do this in 16 bits
           conn->buffer_occupancy = bo;                 // 32 bits
 
-          if (conn->buffer_occupancy < minimum_buffer_occupancy)
+          if ((frames_seen_in_this_logging_interval == 1) ||
+              (conn->buffer_occupancy < minimum_buffer_occupancy))
             minimum_buffer_occupancy = conn->buffer_occupancy;
 
-          if (conn->buffer_occupancy > maximum_buffer_occupancy)
+          if ((frames_seen_in_this_logging_interval == 1) ||
+              (conn->buffer_occupancy > maximum_buffer_occupancy))
             maximum_buffer_occupancy = conn->buffer_occupancy;
 
           // now, before outputting anything to the output device, check the stats
@@ -2600,7 +2602,7 @@ void *player_thread_func(void *arg) {
 
             if (config.statistics_requested) {
 
-              if (at_least_one_frame_seen) {
+              if (frames_seen_in_this_logging_interval) {
                 do {
                   line_of_stats[0] = '\0';
                   statistics_column = 0;
@@ -2668,13 +2670,9 @@ void *player_thread_func(void *arg) {
                 inform("No frames received in the last sampling interval.");
               }
             }
-            minimum_dac_queue_size = UINT64_MAX;  // hack reset
-            maximum_buffer_occupancy = INT32_MIN; // can't be less than this
-            minimum_buffer_occupancy = INT32_MAX; // can't be more than this
 #ifdef CONFIG_AIRPLAY_2
             conn->ap2_audio_buffer_minimum_size = -1;
 #endif
-            at_least_one_frame_seen = 0;
           }
 
           // here, we want to check (a) if we are meant to do synchronisation,
@@ -2697,7 +2695,8 @@ void *player_thread_func(void *arg) {
                 current_delay =
                     0; // could get a negative value if there was underrun, but ignore it.
               }
-              if (current_delay < minimum_dac_queue_size) {
+              if ((frames_seen_in_this_logging_interval == 1) ||
+                  (current_delay < minimum_dac_queue_size)) {
                 minimum_dac_queue_size = current_delay; // update for display later
               }
             } else {
@@ -3240,6 +3239,13 @@ void *player_thread_func(void *arg) {
           inframe->sequence_number = 0;
           inframe->resend_time = 0;
           inframe->initialisation_time = 0;
+
+          // if we've just printed out statistics, note that in the next interval
+          // we haven't seen any frames yet
+
+          if (play_number % print_interval == 0) {
+            frames_seen_in_this_logging_interval = 0;
+          }
 
           // update the watchdog
           if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
