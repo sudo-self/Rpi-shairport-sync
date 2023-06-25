@@ -430,7 +430,7 @@ static void free_audio_buffers(rtsp_conn_info *conn) {
     free(conn->audio_buffer[i].data);
     buffers_released++;
   }
-  debug(1, "%" PRId64 " buffers allocated, %" PRId64 " buffers released.", buffers_allocated,
+  debug(2, "%" PRId64 " buffers allocated, %" PRId64 " buffers released.", buffers_allocated,
         buffers_released);
 }
 
