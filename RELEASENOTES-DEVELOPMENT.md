@@ -1,3 +1,8 @@
+Version 4.2.1d0-31-gb0f2fb9a
+====
+**Bug Fix**
+* Fix a bug that could ocassionally cause a crash if `allow_session_interruption` is set to `"yes"` and a Classic AirPlay session is interrupted by a play session request from another device.
+
 Version 4.2.1d0-28-g0ca5fd3c
 ====
 **Tiny Bug Fix**
