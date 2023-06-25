@@ -4487,7 +4487,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     // now, if this new session did not break in, then it's okay to reset the next UDP ports
     // to the start of the range
 
-    if (get_play_status == 1) { // will be zero if it wasn't waiting to break in
+    if (get_play_status == 0) { // will be zero if it wasn't waiting to break in
       resetFreeUDPPort();
     }
 
