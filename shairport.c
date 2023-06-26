@@ -1593,6 +1593,16 @@ void exit_function() {
       #endif
       */
 
+      debug(2, "Stopping the activity monitor.");
+      activity_monitor_stop(0);
+      debug(2, "Stopping the activity monitor done.");
+
+#ifdef CONFIG_DACP_CLIENT
+      debug(2, "Stopping DACP Monitor");
+      dacp_monitor_stop();
+      debug(2, "Stopping DACP Monitor Done");
+#endif
+
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
       /*
       Actually, there is no stop_mpris_service() function.
@@ -1618,11 +1628,6 @@ void exit_function() {
       }
 #endif
 
-#ifdef CONFIG_DACP_CLIENT
-      debug(2, "Stopping DACP Monitor");
-      dacp_monitor_stop();
-      debug(2, "Stopping DACP Monitor Done");
-#endif
 
 #ifdef CONFIG_METADATA_HUB
       debug(2, "Stopping metadata hub");
@@ -1635,9 +1640,6 @@ void exit_function() {
       metadata_stop(); // close down the metadata pipe
       debug(2, "Stopping metadata done");
 #endif
-      debug(2, "Stopping the activity monitor.");
-      activity_monitor_stop(0);
-      debug(2, "Stopping the activity monitor done.");
 
       if ((config.output) && (config.output->deinit)) {
         debug(2, "Deinitialise the audio backend.");
