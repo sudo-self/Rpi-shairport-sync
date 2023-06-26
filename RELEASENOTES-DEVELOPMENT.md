@@ -1,3 +1,8 @@
+Version 4.2.1d0-33-gd4e00380
+====
+**Bug Fix**
+* If an `active_end` signal is generated when the system is shutdown gracefully, ensure it is sent before shutting down the metadata transmission system, duh.
+
 Version 4.2.1d0-31-gb0f2fb9a
 ====
 **Bug Fix**
