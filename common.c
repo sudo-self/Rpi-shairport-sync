@@ -37,6 +37,7 @@
 #include <fcntl.h>
 #include <inttypes.h> // PRIdPTR
 #include <libgen.h>
+#include <math.h>
 #include <memory.h>
 #include <poll.h>
 #include <popt.h>
@@ -1205,6 +1206,32 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
   }
   return vol_setting;
 }
+
+double logarithmic_vol2attn(double vol, long max_db, long min_db) {
+  double vol_setting = min_db; // if all else fails, set this, for safety
+
+  if ((vol <= 0.0) && (vol >= -30.0)) {
+    double vol_pct = 1 - (vol / -30.0); // This will be in the range [0, 1]
+    if (vol_pct <= 0) {
+      return min_db;
+    }
+
+    vol_setting = 1000 * log10(vol_pct) / log10(2); // This will be in the range [-inf, 0]
+    if (vol_setting < min_db) {
+      return min_db;
+    }
+    if (vol_setting > max_db) {
+      return max_db;
+    }
+    return vol_setting;
+  } else if (vol != -144.0) {
+    debug(1,
+          "Logarithmic volume request value %f is out of range: should be from 0.0 to -30.0 or -144.0.",
+          vol);
+  }
+  return vol_setting;
+}
+
 // Given a volume (0 to -30) and high and low attenuations available in the mixer in dB, return an
 // attenuation depending on the volume and the function's transfer function
 // See http://tangentsoft.net/audio/atten.html for data on good attenuators.

@@ -3432,6 +3432,9 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
       else if (config.volume_control_profile == VCP_flat)
         scaled_attenuation =
             flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
+      else if (config.volume_control_profile == VCP_logarithmic)
+        scaled_attenuation =
+            logarithmic_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
       else
         debug(1, "player_volume_without_notification: unrecognised volume control profile");
     }

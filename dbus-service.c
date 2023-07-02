@@ -765,6 +765,8 @@ gboolean notify_volume_control_profile_callback(ShairportSync *skeleton,
     config.volume_control_profile = VCP_standard;
   else if (strcasecmp(th, "flat") == 0)
     config.volume_control_profile = VCP_flat;
+  else if (strcasecmp(th, "logarithmic") == 0)
+    config.volume_control_profile = VCP_logarithmic;
   else {
     warn("Unrecognised Volume Control Profile: \"%s\".", th);
     switch (config.volume_control_profile) {
@@ -773,6 +775,9 @@ gboolean notify_volume_control_profile_callback(ShairportSync *skeleton,
       break;
     case VCP_flat:
       shairport_sync_set_volume_control_profile(skeleton, "flat");
+      break;
+    case VCP_logarithmic:
+      shairport_sync_set_volume_control_profile(skeleton, "logarithmic");
       break;
     default:
       debug(1, "This should never happen!");
@@ -1065,6 +1070,8 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
 
   if (config.volume_control_profile == VCP_standard)
     shairport_sync_set_volume_control_profile(SHAIRPORT_SYNC(shairportSyncSkeleton), "standard");
+  else if (config.volume_control_profile == VCP_logarithmic)
+    shairport_sync_set_volume_control_profile(SHAIRPORT_SYNC(shairportSyncSkeleton), "logarithmic");
   else
     shairport_sync_set_volume_control_profile(SHAIRPORT_SYNC(shairportSyncSkeleton), "flat");
 

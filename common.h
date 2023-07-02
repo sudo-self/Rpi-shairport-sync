@@ -73,6 +73,7 @@ typedef enum {
 typedef enum {
   VCP_standard = 0,
   VCP_flat,
+  VCP_logarithmic,
 } volume_control_profile_type;
 
 typedef enum {
@@ -389,6 +390,10 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode);
 // given a volume (0 to -30) and high and low attenuations in dB*100 (e.g. 0 to -6000 for 0 to -60
 // dB), return an attenuation depending on a linear interpolation along along the range
 double flat_vol2attn(double vol, long max_db, long min_db);
+
+// given a volume (0 to -30) and high and low attenuations in dB*100 (e.g. 0 to -6000 for 0 to -60
+// dB), return an attenuation depending on a logarithmic interpolation along along the range
+double logarithmic_vol2attn(double vol, long max_db, long min_db);
 
 // given a volume (0 to -30) and high and low attenuations in dB*100 (e.g. 0 to -6000 for 0 to -60
 // dB), return an attenuation depending on the transfer function
