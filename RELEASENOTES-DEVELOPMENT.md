@@ -1,3 +1,8 @@
+Version 4.2.1d0-35-g6acd73da
+====
+**Update**
+* Confirm the bug fix made in [4.2.1d0-26](#version-421d0-26-g716aa051) to Classic Airplay Remote Control: always use a revision number of 1 when looking for status updates on the DACP remote control port.
+
 Version 4.2.1d0-33-gd4e00380
 ====
 **Bug Fix**
