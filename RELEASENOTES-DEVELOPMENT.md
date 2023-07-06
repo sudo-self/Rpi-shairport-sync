@@ -1,3 +1,8 @@
+Version 4.2.1d0-37-g9a8f1ba1
+====
+**Bug Fix**
+* Update the mDNS strings for the Classic AirPlay feature of AP2, so that it does not appear to provide MFi authentication. Addresses [this discussion](https://github.com/mikebrady/shairport-sync/discussions/1691).
+
 Version 4.2.1d0-35-g6acd73da
 ====
 **Update**
