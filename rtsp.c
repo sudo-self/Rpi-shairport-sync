@@ -270,10 +270,15 @@ void build_bonjour_strings(__attribute((unused)) rtsp_conn_info *conn) {
 
   txt_records[entry_number++] = "cn=0,1";
   txt_records[entry_number++] = "da=true";
-  txt_records[entry_number++] = "et=0,4";
+  txt_records[entry_number++] = "et=0,1";
   txt_records[entry_number++] = ap1_featuresString;
   txt_records[entry_number++] = firmware_version;
-  txt_records[entry_number++] = "md=2";
+#ifdef CONFIG_METADATA
+  if (config.get_coverart == 0)
+    txt_records[entry_number++] = "md=0,2";
+  else
+    txt_records[entry_number++] = "md=0,1,2";
+#endif
   txt_records[entry_number++] = "am=Shairport Sync";
   txt_records[entry_number++] = "sf=0x4";
   txt_records[entry_number++] = "tp=UDP";
