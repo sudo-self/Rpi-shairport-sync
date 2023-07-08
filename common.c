@@ -1216,7 +1216,7 @@ double logarithmic_vol2attn(double vol, long max_db, long min_db) {
       return min_db;
     }
 
-    vol_setting = 1000 * log10(vol_pct) / log10(2); // This will be in the range [-inf, 0]
+    vol_setting = max_db + 1000 * log10(vol_pct) / log10(2); // This will be in the range [-inf, max_db]
     if (vol_setting < min_db) {
       return min_db;
     }
