@@ -1,3 +1,8 @@
+Version 4.2.1d0-40-g9ef4e351
+====
+**Bug Fix**
+* Fix a cross-compliation error caused by not looking for the correct version of the `ar` tool. The fix was to substitute the correct version during the `autoreconf` phase. Thanks to [sternenseemann](https://github.com/sternenseemann) for raising the [issue](https://github.com/mikebrady/shairport-sync/issues/1705) and the [PR](https://github.com/mikebrady/shairport-sync/pull/1706) containing the fix.
+
 Version 4.2.1d0-37-g9a8f1ba1
 ====
 **Bug Fix**
