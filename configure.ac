@@ -33,6 +33,7 @@ esac
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
+AC_CHECK_TOOL(AR, ar, :)
 AC_PROG_INSTALL
 
 PKG_PROG_PKG_CONFIG([0.9.0])
