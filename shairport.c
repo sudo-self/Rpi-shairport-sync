@@ -905,11 +905,11 @@ int parse_options(int argc, char **argv) {
           config.volume_control_profile = VCP_standard;
         else if (strcasecmp(str, "flat") == 0)
           config.volume_control_profile = VCP_flat;
-        else if (strcasecmp(str, "logarithmic") == 0)
-          config.volume_control_profile = VCP_logarithmic;
+        else if (strcasecmp(str, "dasl_tapered") == 0)
+          config.volume_control_profile = VCP_dasl_tapered;
         else
           die("Invalid volume_control_profile choice \"%s\". It should be \"standard\" (default), "
-              "\"logarithmic\", or \"flat\"",
+              "\"dasl_tapered\", or \"flat\"",
               str);
       }
 

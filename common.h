@@ -73,7 +73,7 @@ typedef enum {
 typedef enum {
   VCP_standard = 0,
   VCP_flat,
-  VCP_logarithmic,
+  VCP_dasl_tapered,
 } volume_control_profile_type;
 
 typedef enum {
@@ -392,8 +392,11 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode);
 double flat_vol2attn(double vol, long max_db, long min_db);
 
 // given a volume (0 to -30) and high and low attenuations in dB*100 (e.g. 0 to -6000 for 0 to -60
-// dB), return an attenuation depending on a logarithmic interpolation along along the range
-double logarithmic_vol2attn(double vol, long max_db, long min_db);
+// dB), return an attenuation depending on a logarithmic interpolation along along the range.
+// The intention behind this attenuation function is that a given percentage change in volume
+// should result in the same percentage change in perceived loudness. For instance, a doubling
+// (100% increase) of volume level should result in a doubling of perceived loudness.
+double dasl_tapered_vol2attn(double vol, long max_db, long min_db);
 
 // given a volume (0 to -30) and high and low attenuations in dB*100 (e.g. 0 to -6000 for 0 to -60
 // dB), return an attenuation depending on the transfer function

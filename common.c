@@ -1207,7 +1207,7 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
   return vol_setting;
 }
 
-double logarithmic_vol2attn(double vol, long max_db, long min_db) {
+double dasl_tapered_vol2attn(double vol, long max_db, long min_db) {
   double vol_setting = min_db; // if all else fails, set this, for safety
 
   if ((vol <= 0.0) && (vol >= -30.0)) {
@@ -1226,7 +1226,7 @@ double logarithmic_vol2attn(double vol, long max_db, long min_db) {
     return vol_setting;
   } else if (vol != -144.0) {
     debug(1,
-          "Logarithmic volume request value %f is out of range: should be from 0.0 to -30.0 or -144.0.",
+          "dasl_tapered volume request value %f is out of range: should be from 0.0 to -30.0 or -144.0.",
           vol);
   }
   return vol_setting;
