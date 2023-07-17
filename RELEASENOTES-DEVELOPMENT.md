@@ -1,7 +1,7 @@
 Version 4.2.1d0-46-g57061dfb
 ====
 **Enhancement**
-* Add a new volume-control profile called `dasl-tapered`. Shairport Sync already has two volume control profiles -- the `standard` profile -- which is the default -- and a `flat` profile. A feature of the `dasl-tapered` profile is that halving the volume control setting (e.g. moving the volume slider from full to half, or from half to a quarter) reduces the output level by 10dB, which roughly corresponds with a perceived halving of the audio volume level. Many thanks to David Leibovic, aka [dasl-](https://github.com/dasl-) for this.
+* Add a new volume-control profile called `dasl-tapered`. Shairport Sync already has two volume control profiles -- the `standard` profile -- which is the default -- and a `flat` profile. A feature of the `dasl-tapered` profile is that halving the volume control setting (e.g. moving the volume slider from full to half, or from half to a quarter) reduces the output level by 10dB, which roughly corresponds with a perceived halving of the audio volume level. Many thanks to David Leibovic, aka [dasl-](https://github.com/dasl-), for this.
 To activate the `dasl-tapered` profile, set the `volume_control_profile` to `"dasl_tapered"` in the configuration file and restart Shairport Sync.
 There may be some more minor adjustments to this profile for devices with a restricted attenuation range...
 
