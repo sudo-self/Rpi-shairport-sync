@@ -1192,7 +1192,25 @@ uint32_t uatoi(const char *nptr) {
   return r;
 }
 
+// clang-format off
+
+// Given an AirPlay volume (0 to -30) and the highest and lowest attenuations available in the mixer,
+// the *vol2attn functions return anmattenuation depending on the AirPlay volume
+// and the function's transfer function.
+
+// Note that the max_db and min_db are given as dB*100
+
+// clang-format on
+
 double flat_vol2attn(double vol, long max_db, long min_db) {
+// clang-format off
+
+// This "flat" volume control profile has the property that a given change in the AirPlay volume
+// always results in the same change in output dB. For example, if a change of AirPlay volume
+// from 0 to -4 resulted in a 7 dB change, then a change in AirPlay volume from -20 to -24
+// would also result in a 7 dB change.
+
+// clang-format on
   double vol_setting = min_db; // if all else fails, set this, for safety
 
   if ((vol <= 0.0) && (vol >= -30.0)) {
@@ -1201,13 +1219,39 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
     // max_db);
   } else if (vol != -144.0) {
     debug(1,
-          "Linear volume request value %f is out of range: should be from 0.0 to -30.0 or -144.0.",
+          "flat_vol2attn volume request value %f is out of range: should be from 0.0 to -30.0 or -144.0.",
           vol);
   }
   return vol_setting;
 }
 
+ 
 double dasl_tapered_vol2attn(double vol, long max_db, long min_db) {
+// clang-format off
+
+// The "dasl_tapered" volume control profile has the property that halving the AirPlay volume (the "vol" parameter)
+// reduces the output level by 10 dB, which corresponds to roughly halving the perceived volume.
+
+// For example, if the AirPlay volume goes from 0.0 to -15.0, the output level will decrease by 10 dB.
+// Halving the AirPlay volume again, from -15 to -22.5, will decrease output by a further 10 dB.
+// Reducing the AirPlay volume from rom -22.5 to -25.25 decreases the output by a further 10 dB,
+// meaning that at AirPlay volume -25.25, the volume is decreased 30 dB.
+
+// If the attenuation range of the mixer is restricted -- for example, if it is just 30 dB --
+// the output level would reach its minimum before the AirPlay volume reached its minimum.
+// This would result in part of the AirPlay volume control's range where
+// changing the AirPlay volume would make no difference to the output level.
+
+// In the example of an attenuator with a range of 00.dB to -30.0dB, this
+// "dead zone" would be from AirPlay volume -30.0 to -25.25,
+// i.e. about one sixth of its -30.0 to 0.0 travel.
+
+// To work around this, the "flat" output level is used if it gives a
+// higher output dB value than the calculation described above.
+// If the device's attenuation range is over about 50 dB,
+// the flat output level will hardly be needed at all.
+
+// clang-format on
   double vol_setting = min_db; // if all else fails, set this, for safety
 
   if ((vol <= 0.0) && (vol >= -30.0)) {
@@ -1215,10 +1259,12 @@ double dasl_tapered_vol2attn(double vol, long max_db, long min_db) {
     if (vol_pct <= 0) {
       return min_db;
     }
-
+    
+    double flat_setting = min_db + (max_db - min_db) * vol_pct;
     vol_setting = max_db + 1000 * log10(vol_pct) / log10(2); // This will be in the range [-inf, max_db]
-    if (vol_setting < min_db) {
-      return min_db;
+    if (vol_setting < flat_setting) {
+      debug(3, "dasl_tapered_vol2attn returning a flat setting of %f for AirPlay volume %f instead of a tapered setting of %f in a range from %f to %f.", flat_setting, vol, vol_setting, 1.0 * min_db, 1.0 *  max_db);
+      return flat_setting;
     }
     if (vol_setting > max_db) {
       return max_db;
@@ -1232,15 +1278,12 @@ double dasl_tapered_vol2attn(double vol, long max_db, long min_db) {
   return vol_setting;
 }
 
-// Given a volume (0 to -30) and high and low attenuations available in the mixer in dB, return an
-// attenuation depending on the volume and the function's transfer function
-// See http://tangentsoft.net/audio/atten.html for data on good attenuators.
-// We want a smooth attenuation function, like, for example, the ALPS RK27 Potentiometer transfer
-// functions referred to at the link above.
-
-// Note that the max_db and min_db are given as dB*100
-
 double vol2attn(double vol, long max_db, long min_db) {
+
+  // See http://tangentsoft.net/audio/atten.html for data on good attenuators.
+
+  // We want a smooth attenuation function, like, for example, the ALPS RK27 Potentiometer transfer
+  // functions referred to at the link above.
 
   // We use a little coordinate geometry to build a transfer function from the volume passed in to
   // the device's dynamic range. (See the diagram in the documents folder.) The x axis is the
@@ -1284,7 +1327,7 @@ double vol2attn(double vol, long max_db, long min_db) {
     }
     vol_setting += max_db;
   } else if (vol != -144.0) {
-    debug(1, "Volume request value %f is out of range: should be from 0.0 to -30.0 or -144.0.",
+    debug(1, "vol2attn request value %f is out of range: should be from 0.0 to -30.0 or -144.0.",
           vol);
     vol_setting = min_db; // for safety, return the lowest setting...
   } else {
