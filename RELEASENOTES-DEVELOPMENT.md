@@ -15,7 +15,7 @@ would have no further effect on the output level, since it's already at the lowe
 
   To work around this, the "flat" output level is used if it gives a higher output dB value than the calculation described above. It means that changing the AirPlay volume, even at low levels, will always change the output level, while the original advantage of the `dasl_tapered` profile is retained at higher AirPlay volumes.
 
-In practice, if the device's attenuation range is over about 50 dB, the flat output level will hardly be needed at all.
+  In practice, if the device's attenuation range is over about 50 dB, the flat output level will hardly be needed at all.
 
 Version 4.2.1d0-46-g57061dfb
 ====
