@@ -1,3 +1,22 @@
+Version 4.2.1d0-51-gbc2fda52
+====
+**Enhancement**
+* Modify the new `dasl_tapered` volume control profile to work better with mixers with a restricted attenuation range.
+  
+  This volume control profile has the property that halving the AirPlay volume reduces the output level by 10 dB, which corresponds to roughly halving the perceived volume.
+  
+  For example, if the AirPlay volume goes from 0.0 to -15.0, the output level will decrease by 10 dB.
+Halving the AirPlay volume again, from -15 to -22.5, will decrease output by another 10 dB.
+Halving the AirPlay volume once more, from -22.5 to -25.25, decreases the output by a further 10 dB,
+meaning that at AirPlay volume -25.25, the volume is decreased by 30 dB relative to the level at AirPlay volume 0.0.
+
+  Now, if the attenuation range of the mixer is only 30 dB, then changing the AirPlay volume in the range from -25.25 down to -30.0
+would have no further effect on the output level, since it's already at the lowest possible level permitted by the attenuator. This "dead zone" is about one sixth of the full range of the AirPlay volume control.
+
+  To work around this, the "flat" output level is used if it gives a higher output dB value than the calculation described above. It means that changing the AirPlay volume, even at low levels, will always change the output level, while the original advantage of the `dasl_tapered` profile is retained at higher AirPlay volumes.
+
+In practice, if the device's attenuation range is over about 50 dB, the flat output level will hardly be needed at all.
+
 Version 4.2.1d0-46-g57061dfb
 ====
 **Enhancement**
