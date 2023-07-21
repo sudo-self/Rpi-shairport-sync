@@ -1234,7 +1234,7 @@ double dasl_tapered_vol2attn(double vol, long max_db, long min_db) {
 
 // For example, if the AirPlay volume goes from 0.0 to -15.0, the output level will decrease by 10 dB.
 // Halving the AirPlay volume again, from -15 to -22.5, will decrease output by a further 10 dB.
-// Reducing the AirPlay volume from rom -22.5 to -25.25 decreases the output by a further 10 dB,
+// Reducing the AirPlay volume by half again, this time from -22.5 to -25.25 decreases the output by a further 10 dB,
 // meaning that at AirPlay volume -25.25, the volume is decreased 30 dB.
 
 // If the attenuation range of the mixer is restricted -- for example, if it is just 30 dB --
