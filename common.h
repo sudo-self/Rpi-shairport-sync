@@ -391,13 +391,12 @@ uint8_t *rsa_apply(uint8_t *input, int inlen, int *outlen, int mode);
 // dB), return an attenuation depending on a linear interpolation along the range
 double flat_vol2attn(double vol, long max_db, long min_db);
 
-// given a volume (0 to -30) and high and low attenuations in dB*100 (e.g. 0 to -6000 for 0 to -60
-// dB), return an attenuation depending on a logarithmic interpolation along the range.
-// The intention behind this attenuation function is that a given percentage change in volume
-// should result in the same percentage change in perceived loudness. For instance, a doubling
-// (100% increase) of volume level should result in a doubling of perceived loudness.
+// The intention behind dasl_tapered is that a given percentage change in volume should result in the same percentage change in
+// perceived loudness. For instance, doubling the volume level should result in doubling the perceived loudness.
+// With the range of AirPlay volume being from -30 to 0, doubling the volume from -22.5 to -15 results in an increase of 10 dB.
+// Similarly, doubling the volume from -15 to 0 results in an increase of 10 dB.
+// For compatibility with mixers having a restricted attenuation range (e.g. 30 dB), "dasl_tapered" will switch to a flat profile at low AirPlay volumes.
 double dasl_tapered_vol2attn(double vol, long max_db, long min_db);
-
 // given a volume (0 to -30) and high and low attenuations in dB*100 (e.g. 0 to -6000 for 0 to -60
 // dB), return an attenuation depending on the transfer function
 double vol2attn(double vol, long max_db, long min_db);
