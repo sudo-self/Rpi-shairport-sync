@@ -1,3 +1,9 @@
+Version 4.2.1d0-56-ga9000de6
+====
+**Bug Fixes**
+* The `active_end` enhancement in 4.2.1d0-23 didn't work and has been rewritten here.
+* A crashing bug in NQPTP has been fixed in the `development` version -- please update. (The updated version will be incorporated automatically in the `development` version of the Docker image.)
+
 Version 4.2.1d0-51-gbc2fda52
 ====
 **Enhancement**
