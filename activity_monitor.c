@@ -50,7 +50,6 @@ enum am_state state;
 enum ps_state { ps_inactive, ps_active } player_state;
 
 int activity_monitor_running = 0;
-int activity_monitor_is_shutting_down = 0;
 
 pthread_t activity_monitor_thread;
 pthread_mutex_t activity_monitor_mutex;
@@ -121,7 +120,7 @@ void activity_monitor_signify_activity(int active) {
     pthread_mutex_unlock(&activity_monitor_mutex);
     going_active(config.cmd_blocking);
   } else if ((state == am_active) && (player_state == ps_inactive) &&
-             ((config.active_state_timeout == 0.0) || (activity_monitor_is_shutting_down != 0))) {
+             (config.active_state_timeout == 0.0)) {
     state = am_inactive;
     pthread_mutex_unlock(&activity_monitor_mutex);
     going_inactive(config.cmd_blocking);
@@ -241,9 +240,11 @@ void activity_monitor_start() {
 
 void activity_monitor_stop() {
   if (activity_monitor_running) {
-    activity_monitor_is_shutting_down = 1;
-    debug(3, "activity_monitor_stop start...");
-    activity_monitor_signify_activity(0); // tell it to go inactive...
+    debug(2, "activity_monitor_stop begin. state: %d, player_state: %d.", state, player_state);
+    if ((state == am_active) || (state == am_timing_out)) {
+      going_inactive(config.cmd_blocking);
+      state = am_inactive;
+    }
     pthread_cancel(activity_monitor_thread);
     pthread_join(activity_monitor_thread, NULL);
     debug(2, "activity_monitor_stop complete");
