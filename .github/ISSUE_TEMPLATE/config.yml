@@ -2,7 +2,7 @@ blank_issues_enabled: false
 contact_links:
   - name: Questions?
     url: https://github.com/mikebrady/shairport-sync/discussions/categories/q-a
-    about: Please ask and answer questions here.
+    about: If you have questions about installing or configuring Shairport Sync, please check through Issues (including closed issues) or raise a new Issue. Got more general questions? If so, please ask and answer questions here.
   - name: Feature Requests
     url: https://github.com/mikebrady/shairport-sync/discussions/categories/ideas
     about: Please submit feature requests/enhancements here.
