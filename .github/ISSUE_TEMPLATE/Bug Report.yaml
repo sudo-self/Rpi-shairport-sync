@@ -42,8 +42,8 @@ body:
       description: Does your system use a sound server like PulseAudio or PipeWire? (If it has a GUI, it probably does...)
       options:
         - label: Check if your system uses a Sound Server.
-      validations:
-        required: true
+    validations:
+      required: true
 
   - type: dropdown
     id: install
