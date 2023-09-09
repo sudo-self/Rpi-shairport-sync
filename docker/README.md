@@ -36,7 +36,7 @@ Command line options will be passed to Shairport Sync. Here is an example:
 ```
 $ docker run -d --restart unless-stopped --net host --device /dev/snd \
     mikebrady/shairport-sync:latest \
-    -v --statistics -a DenSystem -d hw:0 -c PCM
+    -v --statistics -a DenSystem -- -d hw:0 -c PCM
 ```
 This will send audio to alsa hardware device `hw:0` and make use of the that device's mixer control called `PCM`. The service will be visible as `DenSystem` on the network.
 
