@@ -635,13 +635,14 @@ gboolean notify_volume_callback(ShairportSync *skeleton,
   if (((iv >= -30.0) && (iv <= 0.0)) || (iv == -144.0)) {
     debug(2, ">> setting volume to %7.4f.", iv);
 
-    lock_player();
-    if (playing_conn != NULL) {
-      player_volume(iv, playing_conn);
-      playing_conn->own_airplay_volume = iv;
-      playing_conn->own_airplay_volume_set = 1;
+    pthread_cleanup_debug_mutex_lock(&principal_conn_lock, 100000, 1);
+
+    if (principal_conn != NULL) {
+      player_volume(iv, principal_conn);
+      principal_conn->own_airplay_volume = iv;
+      principal_conn->own_airplay_volume_set = 1;
     }
-    unlock_player();
+    pthread_cleanup_pop(1); // release the principal_conn lock
     config.airplay_volume = iv;
     config.last_access_to_volume_info_time = get_absolute_time_in_ns();
   } else {
@@ -873,8 +874,6 @@ static gboolean on_handle_remote_command(ShairportSync *skeleton, GDBusMethodInv
 
 static gboolean on_handle_drop_session(ShairportSync *skeleton, GDBusMethodInvocation *invocation,
                                        __attribute__((unused)) gpointer user_data) {
-  if (playing_conn != NULL)
-    debug(1, ">> stopping current play session");
   get_play_lock(NULL, 1); // stop any current session and don't replace it
   shairport_sync_complete_drop_session(skeleton, invocation);
   return TRUE;
@@ -1071,7 +1070,8 @@ static void on_dbus_name_acquired(GDBusConnection *connection, const gchar *name
   if (config.volume_control_profile == VCP_standard)
     shairport_sync_set_volume_control_profile(SHAIRPORT_SYNC(shairportSyncSkeleton), "standard");
   else if (config.volume_control_profile == VCP_dasl_tapered)
-    shairport_sync_set_volume_control_profile(SHAIRPORT_SYNC(shairportSyncSkeleton), "dasl_tapered");
+    shairport_sync_set_volume_control_profile(SHAIRPORT_SYNC(shairportSyncSkeleton),
+                                              "dasl_tapered");
   else
     shairport_sync_set_volume_control_profile(SHAIRPORT_SYNC(shairportSyncSkeleton), "flat");
 

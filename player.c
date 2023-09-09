@@ -101,7 +101,7 @@
 
 #include "activity_monitor.h"
 
-// m<ake the first audio packet deliberately early to bias the sync error of
+// make the first audio packet deliberately early to bias the sync error of
 // the very first packet, making the error more likely to be too early
 // rather than too late. It it's too early,
 // a delay exactly compensating for it can be sent just before the
@@ -1777,20 +1777,15 @@ double suggested_volume(rtsp_conn_info *conn) {
 
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  if (pthread_mutex_trylock(&playing_conn_lock) == 0) {
 
-    pthread_cleanup_push(mutex_unlock, &playing_conn_lock);
-    if (playing_conn == conn) {
-      if (config.output->stop) {
-        debug(3, "Connection %d: Stop the output backend.", conn->connection_number);
-        config.output->stop();
-      }
-    } else {
-      debug(1, "This is not the playing conn.");
+  if ((principal_conn == conn) && (conn != NULL)) {
+    if (config.output->stop) {
+      debug(2, "Connection %d: Stop the output backend.", conn->connection_number);
+      config.output->stop();
     }
-    pthread_cleanup_pop(1); // unlock the mutex
   } else {
-    debug(1, "Can not acquire play lock.");
+    if (conn != NULL)
+      debug(1, "Connection %d: this conn is not the principal_conn.", conn->connection_number);
   }
 
   int oldState;
@@ -1900,8 +1895,6 @@ void player_thread_cleanup_handler(void *arg) {
   if (conn->stream.type == ast_apple_lossless)
     terminate_decoders(conn);
 
-  // reset_anchor_info(conn);
-  // release_play_lock(conn);
   conn->rtp_running = 0;
   pthread_setcancelstate(oldState, NULL);
   debug(2, "Connection %d: player terminated.", conn->connection_number);
@@ -3631,14 +3624,21 @@ int player_prepare_to_play(rtsp_conn_info *conn) {
 }
 
 int player_play(rtsp_conn_info *conn) {
-  pthread_t *pt = malloc(sizeof(pthread_t));
-  if (pt == NULL)
-    die("Couldn't allocate space for pthread_t");
-  conn->player_thread = pt;
-  int rc = pthread_create(pt, NULL, player_thread_func, (void *)conn);
-  if (rc)
-    debug(1, "Error creating player_thread: %s", strerror(errno));
-
+  debug(2, "Connection %d: player_play.", conn->connection_number);
+  pthread_cleanup_debug_mutex_lock(&conn->player_create_delete_mutex, 5000, 1);
+  if (conn->player_thread == NULL) {
+    pthread_t *pt = malloc(sizeof(pthread_t));
+    if (pt == NULL)
+      die("Couldn't allocate space for pthread_t");
+    int rc = pthread_create(pt, NULL, player_thread_func, (void *)conn);
+    if (rc)
+      debug(1, "Connection %d: error creating player_thread: %s", conn->connection_number,
+            strerror(errno));
+    conn->player_thread = pt; // set _after_ creation of thread
+  } else {
+    debug(1, "Connection %d: player thread already exists.", conn->connection_number);
+  }
+  pthread_cleanup_pop(1); // release the player_create_delete_mutex
 #ifdef CONFIG_METADATA
   send_ssnc_metadata('pbeg', NULL, 0, 1); // contains cancellation points
 #endif
@@ -3647,35 +3647,38 @@ int player_play(rtsp_conn_info *conn) {
 
 int player_stop(rtsp_conn_info *conn) {
   // note -- this may be called from another connection thread.
-  // int dl = debuglev;
-  // debuglev = 3;
-  debug(3, "player_stop");
-  if (conn->player_thread) {
-#ifdef CONFIG_AIRPLAY_2
-    ptp_send_control_message_string("E"); // signify play is "E"nding
-#endif
+  debug(2, "Connection %d: player_stop.", conn->connection_number);
+  int response = 0; // okay
+  pthread_cleanup_debug_mutex_lock(&conn->player_create_delete_mutex, 5000, 1);
+  pthread_t *pt = conn->player_thread;
+  if (pt) {
     debug(3, "player_thread cancel...");
-    pthread_cancel(*conn->player_thread);
+    conn->player_thread = NULL; // cleared _before_ cancelling of thread
+    pthread_cancel(*pt);
     debug(3, "player_thread join...");
-    if (pthread_join(*conn->player_thread, NULL) == -1) {
+    if (pthread_join(*pt, NULL) == -1) {
       char errorstring[1024];
       strerror_r(errno, (char *)errorstring, sizeof(errorstring));
       debug(1, "Connection %d: error %d joining player thread: \"%s\".", conn->connection_number,
             errno, (char *)errorstring);
     } else {
-      debug(3, "player_thread joined.");
+      debug(2, "Connection %d: player_stop successful.", conn->connection_number);
     }
-    free(conn->player_thread);
-    conn->player_thread = NULL;
+    free(pt);
+    response = 0; // deleted
+  } else {
+    debug(2, "Connection %d: no player thread.", conn->connection_number);
+    response = -1; // already deleted or never created...
+  }
+  pthread_cleanup_pop(1); // release the player_create_delete_mutex
+  if (response == 0) {    // if the thread was just stopped and deleted...
+#ifdef CONFIG_AIRPLAY_2
+    ptp_send_control_message_string("E"); // signify play is "E"nding
+#endif
 #ifdef CONFIG_METADATA
     send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
-    // debuglev = dl;
     command_stop();
-    return 0;
-  } else {
-    debug(3, "Connection %d: player thread already deleted.", conn->connection_number);
-    // debuglev = dl;
-    return -1;
   }
+  return response;
 }
