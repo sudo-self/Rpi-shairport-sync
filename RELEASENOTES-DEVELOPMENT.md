@@ -1,3 +1,8 @@
+Version 4.2.1d0-60-g702e8285
+====
+**Bug Fix**
+* Fixes a bug that causes the Docker image to crash occasionally when OwnTone attempts to interrupt an existing iOS session. Thanks to [aaronk6](https://github.com/aaronk6) for the report.
+
 Version 4.2.1d0-56-ga9000de6
 ====
 **Bug Fixes**
