@@ -2727,13 +2727,8 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
       teardown_phase_two(conn);
       debug(2, "Connection %d: TEARDOWN %s -- close the connection complete",
             conn->connection_number, get_category_string(conn->airplay_stream_category));
+      release_play_lock(conn);
     }
-    //} else {
-    //  warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
-    //       conn->connection_number);
-    //  resp->respcode = 451;
-
-    release_play_lock(conn);
 
     plist_free(messagePlist);
     resp->respcode = 200;
