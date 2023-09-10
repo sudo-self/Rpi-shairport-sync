@@ -1,3 +1,8 @@
+Version 4.2.1d0-62-g556419e8
+====
+**Bug Fix**
+* Fix a bug introducted in the last `development` push, 4.2.1d0-60-g702e8285, whereby volume control changes would be ignored after a pause in playing of longer than about 8 minutes.
+
 Version 4.2.1d0-60-g702e8285
 ====
 **Bug Fix**
