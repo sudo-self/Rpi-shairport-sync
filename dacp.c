@@ -411,14 +411,14 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
     debug(2, "set_dacp_server_information set IP to \"%s\" and DACP id to \"%s\".",
           dacp_server.ip_string, dacp_server.dacp_id);
 
-/*
+    /*
 
-"long polling" is not implemented by Shairport Sync, whereby by sending the client the
-last-received revision number, the link will hang until a change occurs.
+    "long polling" is not implemented by Shairport Sync, whereby by sending the client the
+    last-received revision number, the link will hang until a change occurs.
 
-Instead, at present, Shairport Sync always uses a revision number of 1.
+    Instead, at present, Shairport Sync always uses a revision number of 1.
 
-*/
+    */
 
     // always use revision number 1
     dacp_server.always_use_revision_number_1 = 1;

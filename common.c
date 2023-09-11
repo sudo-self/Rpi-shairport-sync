@@ -72,8 +72,8 @@
 #endif
 
 #ifdef CONFIG_OPENSSL
-#include <openssl/bio.h> // needed for BIO_new_mem_buf
 #include <openssl/aes.h> // needed for older AES stuff
+#include <openssl/bio.h> // needed for BIO_new_mem_buf
 #include <openssl/err.h> // needed for ERR_error_string, ERR_get_error
 #include <openssl/evp.h> // needed for EVP_PKEY_CTX_new, EVP_PKEY_sign_init, EVP_PKEY_sign
 #include <openssl/pem.h> // needed for PEM_read_bio_RSAPrivateKey, EVP_PKEY_CTX_set_rsa_padding
@@ -1203,14 +1203,14 @@ uint32_t uatoi(const char *nptr) {
 // clang-format on
 
 double flat_vol2attn(double vol, long max_db, long min_db) {
-// clang-format off
+  // clang-format off
 
 // This "flat" volume control profile has the property that a given change in the AirPlay volume
 // always results in the same change in output dB. For example, if a change of AirPlay volume
 // from 0 to -4 resulted in a 7 dB change, then a change in AirPlay volume from -20 to -24
 // would also result in a 7 dB change.
 
-// clang-format on
+  // clang-format on
   double vol_setting = min_db; // if all else fails, set this, for safety
 
   if ((vol <= 0.0) && (vol >= -30.0)) {
@@ -1219,15 +1219,15 @@ double flat_vol2attn(double vol, long max_db, long min_db) {
     // max_db);
   } else if (vol != -144.0) {
     debug(1,
-          "flat_vol2attn volume request value %f is out of range: should be from 0.0 to -30.0 or -144.0.",
+          "flat_vol2attn volume request value %f is out of range: should be from 0.0 to -30.0 or "
+          "-144.0.",
           vol);
   }
   return vol_setting;
 }
 
- 
 double dasl_tapered_vol2attn(double vol, long max_db, long min_db) {
-// clang-format off
+  // clang-format off
 
 // The "dasl_tapered" volume control profile has the property that halving the AirPlay volume (the "vol" parameter)
 // reduces the output level by 10 dB, which corresponds to roughly halving the perceived volume.
@@ -1251,7 +1251,7 @@ double dasl_tapered_vol2attn(double vol, long max_db, long min_db) {
 // If the device's attenuation range is over about 50 dB,
 // the flat output level will hardly be needed at all.
 
-// clang-format on
+  // clang-format on
   double vol_setting = min_db; // if all else fails, set this, for safety
 
   if ((vol <= 0.0) && (vol >= -30.0)) {
@@ -1259,11 +1259,15 @@ double dasl_tapered_vol2attn(double vol, long max_db, long min_db) {
     if (vol_pct <= 0) {
       return min_db;
     }
-    
+
     double flat_setting = min_db + (max_db - min_db) * vol_pct;
-    vol_setting = max_db + 1000 * log10(vol_pct) / log10(2); // This will be in the range [-inf, max_db]
+    vol_setting =
+        max_db + 1000 * log10(vol_pct) / log10(2); // This will be in the range [-inf, max_db]
     if (vol_setting < flat_setting) {
-      debug(3, "dasl_tapered_vol2attn returning a flat setting of %f for AirPlay volume %f instead of a tapered setting of %f in a range from %f to %f.", flat_setting, vol, vol_setting, 1.0 * min_db, 1.0 *  max_db);
+      debug(3,
+            "dasl_tapered_vol2attn returning a flat setting of %f for AirPlay volume %f instead of "
+            "a tapered setting of %f in a range from %f to %f.",
+            flat_setting, vol, vol_setting, 1.0 * min_db, 1.0 * max_db);
       return flat_setting;
     }
     if (vol_setting > max_db) {
@@ -1272,7 +1276,8 @@ double dasl_tapered_vol2attn(double vol, long max_db, long min_db) {
     return vol_setting;
   } else if (vol != -144.0) {
     debug(1,
-          "dasl_tapered volume request value %f is out of range: should be from 0.0 to -30.0 or -144.0.",
+          "dasl_tapered volume request value %f is out of range: should be from 0.0 to -30.0 or "
+          "-144.0.",
           vol);
   }
   return vol_setting;

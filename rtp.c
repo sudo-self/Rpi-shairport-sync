@@ -2917,7 +2917,8 @@ void *rtp_buffered_audio_processor(void *arg) {
                             debug(1, "error %d during decoding", ret);
                           } else {
 #if LIBAVUTIL_VERSION_MAJOR >= 57
-                            av_samples_alloc(&pcm_audio, &dst_linesize, codec_context->ch_layout.nb_channels,
+                            av_samples_alloc(&pcm_audio, &dst_linesize,
+                                             codec_context->ch_layout.nb_channels,
                                              decoded_frame->nb_samples, av_format, 1);
 #else
                             av_samples_alloc(&pcm_audio, &dst_linesize, codec_context->channels,
@@ -2929,7 +2930,8 @@ void *rtp_buffered_audio_processor(void *arg) {
                                               decoded_frame->nb_samples);
 #if LIBAVUTIL_VERSION_MAJOR >= 57
                             dst_bufsize = av_samples_get_buffer_size(
-                                &dst_linesize, codec_context->ch_layout.nb_channels, ret, av_format, 1);
+                                &dst_linesize, codec_context->ch_layout.nb_channels, ret, av_format,
+                                1);
 #else
                             dst_bufsize = av_samples_get_buffer_size(
                                 &dst_linesize, codec_context->channels, ret, av_format, 1);

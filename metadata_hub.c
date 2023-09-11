@@ -211,7 +211,7 @@ char *metadata_write_image_file(const char *buf, int len) {
 #ifdef CONFIG_OPENSSL
     EVP_MD_CTX *ctx;
     unsigned int img_md5_len = EVP_MD_size(EVP_md5());
-    
+
     ctx = EVP_MD_CTX_new();
     EVP_DigestInit_ex(ctx, EVP_md5(), NULL);
     EVP_DigestUpdate(ctx, buf, len);
