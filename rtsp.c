@@ -5213,7 +5213,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
           }
         }
         if (method_selected == 0) {
-          debug(1,
+          debug(2,
                 "Connection %d: Unrecognised and unhandled rtsp request \"%s\". HTTP Response Code "
                 "501 (\"Not Implemented\") returned.",
                 conn->connection_number, req->method);
@@ -5232,7 +5232,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
               obfp += 2;
             };
             *obfp = 0;
-            debug(1, "Content: \"%s\".", obf);
+            debug(2, "Content: \"%s\".", obf);
           }
         }
       }
