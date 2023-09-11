@@ -1,6 +1,6 @@
 /*
  * This file is part of the nqptp distribution (https://github.com/mikebrady/nqptp).
- * Copyright (c) 2021--2022 Mike Brady.
+ * Copyright (c) 2021--2023 Mike Brady.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,10 +62,13 @@ typedef struct {
   uint64_t master_clock_start_time;     // this is when the master clock became master
 } shm_structure_set;
 
-// The secondary record must be written strictly after all writes to the main record are
-// complete.
-// This is ensured using the __sync_synchronize() construct.
+// The actual interface comprises a shared memory region of type struct shm_structure.
+// This comprises two records of type shm_structure_set. 
+// The secondary record is written strictly after all writes to the main record are
+// complete. This is ensured using the __sync_synchronize() construct.
 // The reader should ensure that both copies match for a read to be valid.
+// For safety, the secondary record should be read strictly after the first.
+
 struct shm_structure {
   uint16_t version; // check this is equal to NQPTP_SHM_STRUCTURES_VERSION
   shm_structure_set main;
