@@ -262,12 +262,12 @@ endif # INSTALL_CONFIG_FILES
 INSTALL_GROUP_TARGET = install-group-local
 
 $(INSTALL_GROUP_TARGET):
-	getent group shairport-sync &>/dev/null || groupadd -r shairport-sync >/dev/null
+	getent group shairport-sync &>/dev/null || groupadd -r shairport-sync &>/dev/null
 
 INSTALL_USER_TARGET = install-user-local
 
 $(INSTALL_USER_TARGET): $(INSTALL_GROUP_TARGET)
-	getent passwd shairport-sync &> /dev/null || useradd -r -M -g shairport-sync -s /usr/sbin/nologin -G audio shairport-sync >/dev/null
+	getent passwd shairport-sync &>/dev/null || useradd -r -M -g shairport-sync -s /usr/sbin/nologin -G audio shairport-sync &>/dev/null
 
 if INSTALL_SYSTEMV
 
