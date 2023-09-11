@@ -1,3 +1,11 @@
+Version 4.2.1d0-67-gef14cace
+===
+**IMPORTANT Bug Fixes**
+* A recent security audit has identified a number of issues with NQPTP that have been fixed in latest update to NQPTP and in this corresponding update to Shairport Sync.
+* Please update to the latest `development` branch version of NQPTP before updating Shairport Sync. (Shairport Sync now requires the Shared Memory Interface version 10, i.e. `smi10`.)
+* When updating NQPTP on Linux, ensure you remove the old service file as directed in the README.
+* Having completed both updates and installations, remember to restart NQPTP first and then restart Shairport Sync.
+
 Version 4.2.1d0-62-g556419e8
 ====
 **Bug Fix**
