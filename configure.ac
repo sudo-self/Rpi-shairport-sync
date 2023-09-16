@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.50])
-AC_INIT([shairport-sync], [4.2], [4265913+mikebrady@users.noreply.github.com])
+AC_INIT([shairport-sync], [4.2.1], [4265913+mikebrady@users.noreply.github.com])
 AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_SRCDIR([shairport.c])
 AC_CONFIG_HEADERS([config.h])
@@ -33,6 +33,7 @@ esac
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
+AC_CHECK_TOOL(AR, ar, :)
 AC_PROG_INSTALL
 
 PKG_PROG_PKG_CONFIG([0.9.0])

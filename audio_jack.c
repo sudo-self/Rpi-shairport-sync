@@ -298,7 +298,8 @@ static int jack_init(__attribute__((unused)) int argc, __attribute__((unused)) c
       }
       while (port_list[i++] != NULL) {
         inform(
-            "Additional matching port %s found. Check that the connections are what you intended.");
+            "Additional matching port %s found. Check that the connections are what you intended.",
+            port_list[i - 1]);
       }
       jack_free(port_list);
     }

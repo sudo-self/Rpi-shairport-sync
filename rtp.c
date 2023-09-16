@@ -2916,14 +2916,27 @@ void *rtp_buffered_audio_processor(void *arg) {
                           else if (ret < 0) {
                             debug(1, "error %d during decoding", ret);
                           } else {
+#if LIBAVUTIL_VERSION_MAJOR >= 57
+                            av_samples_alloc(&pcm_audio, &dst_linesize,
+                                             codec_context->ch_layout.nb_channels,
+                                             decoded_frame->nb_samples, av_format, 1);
+#else
                             av_samples_alloc(&pcm_audio, &dst_linesize, codec_context->channels,
                                              decoded_frame->nb_samples, av_format, 1);
+#endif
                             // remember to free pcm_audio
                             ret = swr_convert(swr, &pcm_audio, decoded_frame->nb_samples,
                                               (const uint8_t **)decoded_frame->extended_data,
                                               decoded_frame->nb_samples);
+#if LIBAVUTIL_VERSION_MAJOR >= 57
+                            dst_bufsize = av_samples_get_buffer_size(
+                                &dst_linesize, codec_context->ch_layout.nb_channels, ret, av_format,
+                                1);
+#else
                             dst_bufsize = av_samples_get_buffer_size(
                                 &dst_linesize, codec_context->channels, ret, av_format, 1);
+#endif
+
                             // debug(1,"generated %d bytes of PCM", dst_bufsize);
                             // copy the PCM audio into the PCM buffer.
                             // make sure it's big enough first

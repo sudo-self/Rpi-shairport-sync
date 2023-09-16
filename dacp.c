@@ -411,19 +411,17 @@ void set_dacp_server_information(rtsp_conn_info *conn) {
     debug(2, "set_dacp_server_information set IP to \"%s\" and DACP id to \"%s\".",
           dacp_server.ip_string, dacp_server.dacp_id);
 
-    // If the client is forked-daapd, then we always use revision number 1
-    // because otherwise the return read will hang in a "long poll" if there
-    // are no changes.
-    // This is different to other AirPlay clients
-    // which return immediately with a 403 code if there are no changes.
-    dacp_server.always_use_revision_number_1 = 0;
-    if (conn->UserAgent != NULL) {
-      char *p = strstr(conn->UserAgent, "forked-daapd");
-      if ((p != 0) &&
-          (p == conn->UserAgent)) { // must exist and be at the start of the UserAgent string
-        dacp_server.always_use_revision_number_1 = 1;
-      }
-    }
+    /*
+
+    "long polling" is not implemented by Shairport Sync, whereby by sending the client the
+    last-received revision number, the link will hang until a change occurs.
+
+    Instead, at present, Shairport Sync always uses a revision number of 1.
+
+    */
+
+    // always use revision number 1
+    dacp_server.always_use_revision_number_1 = 1;
 
     metadata_hub_modify_prolog();
     int ch = metadata_store.dacp_server_active != dacp_server.scan_enable;
@@ -653,7 +651,7 @@ void *dacp_monitor_thread_code(__attribute__((unused)) void *na) {
         char *response = NULL;
         int32_t item_size;
         char command[1024] = "";
-        if (always_use_revision_number_1 != 0) // for forked-daapd
+        if (always_use_revision_number_1 != 0) // see the "long polling" note above
           revision_number = 1;
         snprintf(command, sizeof(command) - 1, "playstatusupdate?revision-number=%d",
                  revision_number);

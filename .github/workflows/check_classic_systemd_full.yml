@@ -3,6 +3,8 @@ name: Full classic configuration (but without apple-alac) for systemd, using a b
 on:
   push:
     branches: [ "development", "danger" ]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   build:

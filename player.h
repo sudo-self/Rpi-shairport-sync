@@ -107,7 +107,8 @@ typedef enum {
   unspecified_stream_category = 0,
   ptp_stream,
   ntp_stream,
-  remote_control_stream
+  remote_control_stream,
+  classic_airplay_stream
 } airplay_stream_c; // "c" for category
 
 #ifdef CONFIG_AIRPLAY_2
@@ -221,7 +222,7 @@ typedef struct {
   int32_t last_seqno_read;
   // mutexes and condition variables
   pthread_cond_t flowcontrol;
-  pthread_mutex_t ab_mutex, flush_mutex, volume_control_mutex;
+  pthread_mutex_t ab_mutex, flush_mutex, volume_control_mutex, player_create_delete_mutex;
 
   int fix_volume;
   double own_airplay_volume;
@@ -244,10 +245,6 @@ typedef struct {
 
 #ifdef CONFIG_POLARSSL
   aes_context dctx;
-#endif
-
-#ifdef CONFIG_OPENSSL
-  AES_KEY aes;
 #endif
 
   int amountStuffed;
@@ -418,7 +415,7 @@ typedef struct {
   uint64_t dac_buffer_queue_minimum_length;
 } rtsp_conn_info;
 
-extern pthread_mutex_t playing_conn_lock;
+extern pthread_mutex_t principal_conn_lock;
 extern int statistics_row; // will be reset to zero when debug level changes or statistics enabled
 
 void reset_buffer(rtsp_conn_info *conn);

@@ -61,6 +61,7 @@
 #endif
 
 #ifdef CONFIG_OPENSSL
+#include <openssl/evp.h>
 #include <openssl/md5.h>
 #endif
 
@@ -904,9 +905,11 @@ int parse_options(int argc, char **argv) {
           config.volume_control_profile = VCP_standard;
         else if (strcasecmp(str, "flat") == 0)
           config.volume_control_profile = VCP_flat;
+        else if (strcasecmp(str, "dasl_tapered") == 0)
+          config.volume_control_profile = VCP_dasl_tapered;
         else
-          die("Invalid volume_control_profile choice \"%s\". It should be \"standard\" (default) "
-              "or \"flat\"",
+          die("Invalid volume_control_profile choice \"%s\". It should be \"standard\" (default), "
+              "\"dasl_tapered\", or \"flat\"",
               str);
       }
 
@@ -1413,7 +1416,7 @@ int parse_options(int argc, char **argv) {
   for (i = 5; i >= 0; i--) {
     // In AirPlay 2 mode, the AP1 name prefix must be
     // the same as the AirPlay 2 device id less the colons.
-    config.ap1_prefix[i] = temporary_airplay_id & 0xFF; 
+    config.ap1_prefix[i] = temporary_airplay_id & 0xFF;
     apids[i * 3 + 1] = hexchar[temporary_airplay_id & 0xF];
     temporary_airplay_id = temporary_airplay_id >> 4;
     apids[i * 3] = hexchar[temporary_airplay_id & 0xF];
@@ -1592,6 +1595,16 @@ void exit_function() {
       #endif
       */
 
+      debug(2, "Stopping the activity monitor.");
+      activity_monitor_stop(0);
+      debug(2, "Stopping the activity monitor done.");
+
+#ifdef CONFIG_DACP_CLIENT
+      debug(2, "Stopping DACP Monitor");
+      dacp_monitor_stop();
+      debug(2, "Stopping DACP Monitor Done");
+#endif
+
 #if defined(CONFIG_DBUS_INTERFACE) || defined(CONFIG_MPRIS_INTERFACE)
       /*
       Actually, there is no stop_mpris_service() function.
@@ -1617,12 +1630,6 @@ void exit_function() {
       }
 #endif
 
-#ifdef CONFIG_DACP_CLIENT
-      debug(2, "Stopping DACP Monitor");
-      dacp_monitor_stop();
-      debug(2, "Stopping DACP Monitor Done");
-#endif
-
 #ifdef CONFIG_METADATA_HUB
       debug(2, "Stopping metadata hub");
       metadata_hub_stop();
@@ -1634,9 +1641,6 @@ void exit_function() {
       metadata_stop(); // close down the metadata pipe
       debug(2, "Stopping metadata done");
 #endif
-      debug(2, "Stopping the activity monitor.");
-      activity_monitor_stop(0);
-      debug(2, "Stopping the activity monitor done.");
 
       if ((config.output) && (config.output->deinit)) {
         debug(2, "Deinitialise the audio backend.");
@@ -2516,7 +2520,6 @@ int main(int argc, char **argv) {
   soxr_time_check_thread_started = 1;
 #endif
 
-
   // In AirPlay 2 mode, the AP1 prefix is the same as the device ID less the colons
   // In AirPlay 1 mode, the AP1 prefix is calculated by hashing the service name.
 #ifndef CONFIG_AIRPLAY_2
@@ -2525,11 +2528,14 @@ int main(int argc, char **argv) {
 
   // debug(1, "size of hw_addr is %u.", sizeof(config.hw_addr));
 #ifdef CONFIG_OPENSSL
-  MD5_CTX ctx;
-  MD5_Init(&ctx);
-  MD5_Update(&ctx, config.service_name, strlen(config.service_name));
-  MD5_Update(&ctx, config.hw_addr, sizeof(config.hw_addr));
-  MD5_Final(ap_md5, &ctx);
+  EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
+  EVP_DigestInit_ex(mdctx, EVP_md5(), NULL);
+  EVP_DigestUpdate(mdctx, config.service_name, strlen(config.service_name));
+  EVP_DigestUpdate(mdctx, config.hw_addr, sizeof(config.hw_addr));
+  unsigned int md5_digest_len = EVP_MD_size(EVP_md5());
+  EVP_DigestFinal_ex(mdctx, ap_md5, &md5_digest_len);
+  EVP_MD_CTX_free(mdctx);
+
 #endif
 
 #ifdef CONFIG_MBEDTLS
@@ -2592,25 +2598,51 @@ int main(int argc, char **argv) {
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
-  ptp_send_control_message_string("T"); // get nqptp to create the named shm interface
-  int ptp_check_times = 0;
-  const int ptp_wait_interval_us = 5000;
-  // wait for up to ten seconds for NQPTP to come online
+  ptp_send_control_message_string(
+      "T"); // send this message to get nqptp to create the named shm interface
+  uint64_t nqptp_start_waiting_time = get_absolute_time_in_ns();
+  int continue_waiting = 0;
+  int response = 0;
+  int64_t time_spent_waiting = 0;
   do {
-    ptp_send_control_message_string("T"); // get nqptp to create the named shm interface
-    usleep(ptp_wait_interval_us);
-    ptp_check_times++;
-  } while ((ptp_shm_interface_open() != 0) &&
-           (ptp_check_times < (10000000 / ptp_wait_interval_us)));
+    continue_waiting = 0;
+    response = ptp_shm_interface_open();
+    if ((response == -1) && (errno == ENOENT)) {
+      time_spent_waiting = get_absolute_time_in_ns() - nqptp_start_waiting_time;
+      if (time_spent_waiting < 10000000000L) {
+        continue_waiting = 1;
+        usleep(50000);
+      }
+    }
+  } while (continue_waiting != 0);
 
-  if (ptp_shm_interface_open() != 0) {
-    die("Can't access NQPTP! Is it installed and running?");
-  } else {
-    if (ptp_check_times == 1)
-      debug(1, "NQPTP is online.");
-    else
-      debug(1, "NQPTP is online after %u microseconds.", ptp_check_times * ptp_wait_interval_us);
+  if ((response == -1) && (errno == ENOENT)) {
+    die("Shairport Sync can not find the nqptp service on this system.  Is nqptp installed and "
+        "running?");
+  } else if ((response == -1) && (errno == EACCES)) {
+    die("Shairport Sync must have read access to the nqptp shared memory file in /dev/shm/.");
+  } else if (response != 0) {
+    die("an error occurred accessing the nqptp service.");
   }
+
+  int ptp_clock_version = ptp_get_clock_version();
+  if (ptp_clock_version == 0) {
+    die("The nqptp service on this system, which is required for Shairport Sync to operate, does "
+        "not seem to be initialised.");
+  } else if (ptp_clock_version < NQPTP_SHM_STRUCTURES_VERSION) {
+    die("The nqptp service (SMI Version %d) on this system is too old for this version of "
+        "Shairport Sync, which requires SMI Version %d. Please update.",
+        ptp_clock_version, NQPTP_SHM_STRUCTURES_VERSION);
+  } else if (ptp_clock_version > NQPTP_SHM_STRUCTURES_VERSION) {
+    die("This version of Shairport Sync (SMI Version %d) is too old for the version of nqptp (SMI "
+        "Version %d) on this system. Please update.",
+        NQPTP_SHM_STRUCTURES_VERSION, ptp_clock_version);
+  }
+
+  if (time_spent_waiting == 0)
+    debug(1, "NQPTP is online.");
+  else
+    debug(1, "NQPTP came online after %.3f milliseconds.", 0.000001 * time_spent_waiting);
 #endif
 
 #ifdef CONFIG_METADATA

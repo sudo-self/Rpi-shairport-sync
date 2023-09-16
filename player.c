@@ -57,7 +57,12 @@
 #endif
 
 #ifdef CONFIG_OPENSSL
-#include <openssl/aes.h>
+#include <openssl/aes.h> // needed for older AES stuff
+#include <openssl/bio.h> // needed for BIO_new_mem_buf
+#include <openssl/err.h> // needed for ERR_error_string, ERR_get_error
+#include <openssl/evp.h> // needed for EVP_PKEY_CTX_new, EVP_PKEY_sign_init, EVP_PKEY_sign
+#include <openssl/pem.h> // needed for PEM_read_bio_RSAPrivateKey, EVP_PKEY_CTX_set_rsa_padding
+#include <openssl/rsa.h> // needed for EVP_PKEY_CTX_set_rsa_padding
 #endif
 
 #ifdef CONFIG_SOXR
@@ -96,7 +101,7 @@
 
 #include "activity_monitor.h"
 
-// m<ake the first audio packet deliberately early to bias the sync error of
+// make the first audio packet deliberately early to bias the sync error of
 // the very first packet, making the error more likely to be too early
 // rather than too late. It it's too early,
 // a delay exactly compensating for it can be sent just before the
@@ -190,6 +195,41 @@ void unencrypted_packet_decode(unsigned char *packet, int length, short *dest, i
   }
 }
 
+#ifdef CONFIG_OPENSSL
+// Thanks to
+// https://stackoverflow.com/questions/27558625/how-do-i-use-aes-cbc-encrypt-128-openssl-properly-in-ubuntu
+// for inspiration. Changed to a 128-bit key and no padding.
+
+int openssl_aes_decrypt_cbc(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
+                            unsigned char *iv, unsigned char *plaintext) {
+  EVP_CIPHER_CTX *ctx;
+  int len;
+  int plaintext_len = 0;
+  ctx = EVP_CIPHER_CTX_new();
+  if (ctx != NULL) {
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key, iv) == 1) {
+      EVP_CIPHER_CTX_set_padding(ctx, 0); // no padding -- always returns 1
+      // no need to allow space for padding in the output, as padding is disabled
+      if (EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len) == 1) {
+        plaintext_len = len;
+        if (EVP_DecryptFinal_ex(ctx, plaintext + len, &len) == 1) {
+          plaintext_len += len;
+        } else {
+          debug(1, "EVP_DecryptFinal_ex error \"%s\".", ERR_error_string(ERR_get_error(), NULL));
+        }
+      } else {
+        debug(1, "EVP_DecryptUpdate error \"%s\".", ERR_error_string(ERR_get_error(), NULL));
+      }
+    } else {
+      debug(1, "EVP_DecryptInit_ex error \"%s\".", ERR_error_string(ERR_get_error(), NULL));
+    }
+    EVP_CIPHER_CTX_free(ctx);
+  } else {
+    debug(1, "EVP_CIPHER_CTX_new error \"%s\".", ERR_error_string(ERR_get_error(), NULL));
+  }
+  return plaintext_len;
+}
+#endif
 int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_conn_info *conn) {
   // parameters: where the decoded stuff goes, its length in samples,
   // the incoming packet, the length of the incoming packet in bytes
@@ -218,7 +258,7 @@ int audio_packet_decode(short *dest, int *destlen, uint8_t *buf, int len, rtsp_c
     aes_crypt_cbc(&conn->dctx, AES_DECRYPT, aeslen, iv, buf, packet);
 #endif
 #ifdef CONFIG_OPENSSL
-    AES_cbc_encrypt(buf, packet, aeslen, &conn->aes, iv, AES_DECRYPT);
+    openssl_aes_decrypt_cbc(buf, aeslen, conn->stream.aeskey, iv, packet);
 #endif
     memcpy(packet + aeslen, buf + aeslen, len - aeslen);
     unencrypted_packet_decode(packet, len, dest, &outsize, maximum_possible_outsize, conn);
@@ -390,7 +430,7 @@ static void free_audio_buffers(rtsp_conn_info *conn) {
     free(conn->audio_buffer[i].data);
     buffers_released++;
   }
-  debug(1, "%" PRId64 " buffers allocated, %" PRId64 " buffers released.", buffers_allocated,
+  debug(2, "%" PRId64 " buffers allocated, %" PRId64 " buffers released.", buffers_allocated,
         buffers_released);
 }
 
@@ -1737,20 +1777,15 @@ double suggested_volume(rtsp_conn_info *conn) {
 
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
-  if (pthread_mutex_trylock(&playing_conn_lock) == 0) {
 
-    pthread_cleanup_push(mutex_unlock, &playing_conn_lock);
-    if (playing_conn == conn) {
-      if (config.output->stop) {
-        debug(3, "Connection %d: Stop the output backend.", conn->connection_number);
-        config.output->stop();
-      }
-    } else {
-      debug(1, "This is not the playing conn.");
+  if ((principal_conn == conn) && (conn != NULL)) {
+    if (config.output->stop) {
+      debug(2, "Connection %d: Stop the output backend.", conn->connection_number);
+      config.output->stop();
     }
-    pthread_cleanup_pop(1); // unlock the mutex
   } else {
-    debug(1, "Can not acquire play lock.");
+    if (conn != NULL)
+      debug(1, "Connection %d: this conn is not the principal_conn.", conn->connection_number);
   }
 
   int oldState;
@@ -1860,8 +1895,6 @@ void player_thread_cleanup_handler(void *arg) {
   if (conn->stream.type == ast_apple_lossless)
     terminate_decoders(conn);
 
-  // reset_anchor_info(conn);
-  // release_play_lock(conn);
   conn->rtp_running = 0;
   pthread_setcancelstate(oldState, NULL);
   debug(2, "Connection %d: player terminated.", conn->connection_number);
@@ -1922,10 +1955,6 @@ void *player_thread_func(void *arg) {
 #ifdef CONFIG_POLARSSL
     memset(&conn->dctx, 0, sizeof(aes_context));
     aes_setkey_dec(&conn->dctx, conn->stream.aeskey, 128);
-#endif
-
-#ifdef CONFIG_OPENSSL
-    AES_set_decrypt_key(conn->stream.aeskey, 128, &conn->aes);
 #endif
   }
 
@@ -2029,14 +2058,14 @@ void *player_thread_func(void *arg) {
 #define trend_interval 1003
 
   int number_of_statistics, oldest_statistic, newest_statistic;
-  int at_least_one_frame_seen = 0;
+  int frames_seen_in_this_logging_interval = 0;
   int at_least_one_frame_seen_this_session = 0;
   int64_t tsum_of_sync_errors, tsum_of_corrections, tsum_of_insertions_and_deletions,
       tsum_of_drifts;
   int64_t previous_sync_error = 0, previous_correction = 0;
-  uint64_t minimum_dac_queue_size = UINT64_MAX;
-  int32_t minimum_buffer_occupancy = INT32_MAX;
-  int32_t maximum_buffer_occupancy = INT32_MIN;
+  uint64_t minimum_dac_queue_size;
+  int32_t minimum_buffer_occupancy;
+  int32_t maximum_buffer_occupancy;
 
 #ifdef CONFIG_AIRPLAY_2
   conn->ap2_audio_buffer_minimum_size = -1;
@@ -2445,7 +2474,7 @@ void *player_thread_func(void *arg) {
           // now, go back as far as the total latency less, say, 100 ms, and check the presence of
           // frames from then onwards
 
-          at_least_one_frame_seen = 1;
+          frames_seen_in_this_logging_interval++;
 
           // This is the timing error for the next audio frame in the DAC, if applicable
           int64_t sync_error = 0;
@@ -2472,10 +2501,12 @@ void *player_thread_func(void *arg) {
           int16_t bo = conn->ab_write - conn->ab_read; // do this in 16 bits
           conn->buffer_occupancy = bo;                 // 32 bits
 
-          if (conn->buffer_occupancy < minimum_buffer_occupancy)
+          if ((frames_seen_in_this_logging_interval == 1) ||
+              (conn->buffer_occupancy < minimum_buffer_occupancy))
             minimum_buffer_occupancy = conn->buffer_occupancy;
 
-          if (conn->buffer_occupancy > maximum_buffer_occupancy)
+          if ((frames_seen_in_this_logging_interval == 1) ||
+              (conn->buffer_occupancy > maximum_buffer_occupancy))
             maximum_buffer_occupancy = conn->buffer_occupancy;
 
           // now, before outputting anything to the output device, check the stats
@@ -2564,7 +2595,7 @@ void *player_thread_func(void *arg) {
 
             if (config.statistics_requested) {
 
-              if (at_least_one_frame_seen) {
+              if (frames_seen_in_this_logging_interval) {
                 do {
                   line_of_stats[0] = '\0';
                   statistics_column = 0;
@@ -2632,13 +2663,9 @@ void *player_thread_func(void *arg) {
                 inform("No frames received in the last sampling interval.");
               }
             }
-            minimum_dac_queue_size = UINT64_MAX;  // hack reset
-            maximum_buffer_occupancy = INT32_MIN; // can't be less than this
-            minimum_buffer_occupancy = INT32_MAX; // can't be more than this
 #ifdef CONFIG_AIRPLAY_2
             conn->ap2_audio_buffer_minimum_size = -1;
 #endif
-            at_least_one_frame_seen = 0;
           }
 
           // here, we want to check (a) if we are meant to do synchronisation,
@@ -2661,7 +2688,8 @@ void *player_thread_func(void *arg) {
                 current_delay =
                     0; // could get a negative value if there was underrun, but ignore it.
               }
-              if (current_delay < minimum_dac_queue_size) {
+              if ((frames_seen_in_this_logging_interval == 1) ||
+                  (current_delay < minimum_dac_queue_size)) {
                 minimum_dac_queue_size = current_delay; // update for display later
               }
             } else {
@@ -3205,6 +3233,13 @@ void *player_thread_func(void *arg) {
           inframe->resend_time = 0;
           inframe->initialisation_time = 0;
 
+          // if we've just printed out statistics, note that in the next interval
+          // we haven't seen any frames yet
+
+          if (play_number % print_interval == 0) {
+            frames_seen_in_this_logging_interval = 0;
+          }
+
           // update the watchdog
           if ((config.dont_check_timeout == 0) && (config.timeout != 0)) {
             uint64_t time_now = get_absolute_time_in_ns();
@@ -3390,6 +3425,9 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
       else if (config.volume_control_profile == VCP_flat)
         scaled_attenuation =
             flat_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
+      else if (config.volume_control_profile == VCP_dasl_tapered)
+        scaled_attenuation =
+            dasl_tapered_vol2attn(airplay_volume, max_db, min_db); // no cancellation points
       else
         debug(1, "player_volume_without_notification: unrecognised volume control profile");
     }
@@ -3586,14 +3624,21 @@ int player_prepare_to_play(rtsp_conn_info *conn) {
 }
 
 int player_play(rtsp_conn_info *conn) {
-  pthread_t *pt = malloc(sizeof(pthread_t));
-  if (pt == NULL)
-    die("Couldn't allocate space for pthread_t");
-  conn->player_thread = pt;
-  int rc = pthread_create(pt, NULL, player_thread_func, (void *)conn);
-  if (rc)
-    debug(1, "Error creating player_thread: %s", strerror(errno));
-
+  debug(2, "Connection %d: player_play.", conn->connection_number);
+  pthread_cleanup_debug_mutex_lock(&conn->player_create_delete_mutex, 5000, 1);
+  if (conn->player_thread == NULL) {
+    pthread_t *pt = malloc(sizeof(pthread_t));
+    if (pt == NULL)
+      die("Couldn't allocate space for pthread_t");
+    int rc = pthread_create(pt, NULL, player_thread_func, (void *)conn);
+    if (rc)
+      debug(1, "Connection %d: error creating player_thread: %s", conn->connection_number,
+            strerror(errno));
+    conn->player_thread = pt; // set _after_ creation of thread
+  } else {
+    debug(1, "Connection %d: player thread already exists.", conn->connection_number);
+  }
+  pthread_cleanup_pop(1); // release the player_create_delete_mutex
 #ifdef CONFIG_METADATA
   send_ssnc_metadata('pbeg', NULL, 0, 1); // contains cancellation points
 #endif
@@ -3602,35 +3647,38 @@ int player_play(rtsp_conn_info *conn) {
 
 int player_stop(rtsp_conn_info *conn) {
   // note -- this may be called from another connection thread.
-  // int dl = debuglev;
-  // debuglev = 3;
-  debug(3, "player_stop");
-  if (conn->player_thread) {
-#ifdef CONFIG_AIRPLAY_2
-    ptp_send_control_message_string("E"); // signify play is "E"nding
-#endif
+  debug(2, "Connection %d: player_stop.", conn->connection_number);
+  int response = 0; // okay
+  pthread_cleanup_debug_mutex_lock(&conn->player_create_delete_mutex, 5000, 1);
+  pthread_t *pt = conn->player_thread;
+  if (pt) {
     debug(3, "player_thread cancel...");
-    pthread_cancel(*conn->player_thread);
+    conn->player_thread = NULL; // cleared _before_ cancelling of thread
+    pthread_cancel(*pt);
     debug(3, "player_thread join...");
-    if (pthread_join(*conn->player_thread, NULL) == -1) {
+    if (pthread_join(*pt, NULL) == -1) {
       char errorstring[1024];
       strerror_r(errno, (char *)errorstring, sizeof(errorstring));
       debug(1, "Connection %d: error %d joining player thread: \"%s\".", conn->connection_number,
             errno, (char *)errorstring);
     } else {
-      debug(3, "player_thread joined.");
+      debug(2, "Connection %d: player_stop successful.", conn->connection_number);
     }
-    free(conn->player_thread);
-    conn->player_thread = NULL;
+    free(pt);
+    response = 0; // deleted
+  } else {
+    debug(2, "Connection %d: no player thread.", conn->connection_number);
+    response = -1; // already deleted or never created...
+  }
+  pthread_cleanup_pop(1); // release the player_create_delete_mutex
+  if (response == 0) {    // if the thread was just stopped and deleted...
+#ifdef CONFIG_AIRPLAY_2
+    ptp_send_control_message_string("E"); // signify play is "E"nding
+#endif
 #ifdef CONFIG_METADATA
     send_ssnc_metadata('pend', NULL, 0, 1); // contains cancellation points
 #endif
-    // debuglev = dl;
     command_stop();
-    return 0;
-  } else {
-    debug(3, "Connection %d: player thread already deleted.", conn->connection_number);
-    // debuglev = dl;
-    return -1;
   }
+  return response;
 }
