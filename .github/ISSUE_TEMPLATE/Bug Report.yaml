@@ -1,5 +1,5 @@
 name: Issue Report
-description: File an Issue
+description: Questions about installing or configuring Shairport Sync? Please check through Issues (including closed issues) or create a new Issue here.
 title: "[Problem]: "
 labels: ["new issue"]
 body:
@@ -21,12 +21,27 @@ body:
       description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
       render: shell
   - type: textarea
+    id: system
+    attributes:
+      label: System Information.
+      description: Please give some information about the system hardware -- make and model would be useful, e.g. Raspberry Pi 4 (4 GB). Also, the make and model of the output DAC, if known.
+    validations:
+      required: true
+  - type: textarea
     id: version
     attributes:
       label: Configuration Information.
-      description: Please paste the results of `shairport-sync --displayConfig` here, if available. This gives useful information about the environment Shairport Sync is running in and also displays the command line options and configuration settings. If `shairport-sync --displayConfig` is not available (it's new), please paste the results of two commands `uname -a` and  `shairport-sync -V`.
+      description: Please paste the results of `shairport-sync --displayConfig` here, if available. This gives useful information about the environment Shairport Sync is running in and also displays the command line options and configuration settings. If `shairport-sync --displayConfig` is not available, please paste the results of two commands `uname -a` and  `shairport-sync -V`.
+      render: shell
     validations:
       required: true
+  - type: checkboxes
+    id: check-papw
+    attributes:
+      label: PulseAudio or PipeWire installed?
+      description: Does your system use a sound server like PulseAudio or PipeWire? (If it has a GUI, it probably does...)
+      options:
+        - label: Check if your system uses a Sound Server.
   - type: dropdown
     id: install
     attributes:
