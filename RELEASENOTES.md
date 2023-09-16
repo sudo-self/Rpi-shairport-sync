@@ -1,9 +1,50 @@
+Version 4.3 -- Security Updates, Bug Fixes and Enhancements
+====
+This update contains important security updates, bug fixes and enhancements. [NQPTP](https://github.com/mikebrady/nqptp) must also be updated, and it should be updated before updating Shairport Sync.
+The Shared Memory Interface version of both Shairport Sync and NQPTP is now 10, i.e. `smi10`. Thus the version string of both apps should contain `smi10`:
+```
+$ nqptp -V
+Version: 1.2.4. Shared Memory Interface Version: smi10.
+$ shairport-sync -V
+4.3-...-smi10-...
+```
+Notes
+1. When updating NQPTP on Linux, be sure to remove the old service file as directed in the [README](https://github.com/mikebrady/nqptp/blob/main/README.md#remove-old-service-files).
+2. Having completed both updates and installations, remember to restart NQPTP first and then restart Shairport Sync.
+
+**Security Updates**
+* A crashing bug in NQPTP has been fixed.
+* The communications protocol used between NQPTP and Shairport Sync has been revised and made more resilient to attempted misuse.
+* In Linux systems, NQPTP no longer runs as `root` -- instead it runs as the restriced user `nqptp`, with access to ports 319 and 320 set by the installer via the `setcap` utility.
+
+**Enhancements**
+* A new volume control profile called `dasl-tapered` has been added in which halving the volume control setting halves the output level.
+For example, moving the volume slider from full to half reduces the output level by 10dB, which roughly corresponds with a perceived halving of the audio volume level.
+Moving the volume slider from half to a quarter reduces the output level by a a further 10dB.
+The tapering rate is slightly modified at the lower end of the range if the device's attenuation range is restricted (less than about 55dB).
+
+  To activate the `dasl-tapered` profile, set the `volume_control_profile` to `"dasl_tapered"` in the configuration file and restart Shairport Sync.
+  
+  Many thanks to David Leibovic, aka [dasl-](https://github.com/dasl-), for this.
+* On graceful shutdown, an `active_end` signal should now be generated if the system was in the active state. Addresses issue [#1647](https://github.com/mikebrady/shairport-sync/issues/1647). Thanks to [Tucker Kern](https://github.com/mill1000) for raising the issue.
+
+**Bug Fixes**
+* Fixed a bug that causes the Docker image to crash occasionally when OwnTone interrupted an existing iOS session. Thanks to [aaronk6](https://github.com/aaronk6) for the report.
+* Fixed a cross-compliation error caused by not looking for the correct version of the `ar` tool. The fix was to substitute the correct version during the `autoreconf` phase. Thanks to [sternenseemann](https://github.com/sternenseemann) for raising the [issue](https://github.com/mikebrady/shairport-sync/issues/1705) and the [PR](https://github.com/mikebrady/shairport-sync/pull/1706) containing the fix.
+* Updated the mDNS strings for the Classic AirPlay feature of AP2, so that it does not appear to provide MFi authentication. Addresses [this discussion](https://github.com/mikebrady/shairport-sync/discussions/1691).
+* Always uses a revision number of 1 when looking for status updates on the DACP remote control port. This follows a suggestion in [Issue #1658](https://github.com/mikebrady/shairport-sync/issues/1658). Thanks to [ejurgensen](https://github.com/ejurgensen), as ever, for the report and the suggested fix.
+* Fixed a `statistics` bug (the minimum buffer size was incorrectly logged) and also tidy up the statistics logging interval logic for resetting min and max counters.
+* Added an important missing format string argument to a call in the Jack Audio backend. Many thanks to [michieldwitte](https://github.com/michieldwitte) for their [PR](https://github.com/mikebrady/shairport-sync/pull/1693).
+
+**Maintenance**
+* Stopped using a deprecated FFmpeg data structure reference.
+* Stopped using deprecated OpenSSL calls. Thanks to [yubiuser](https://github.com/yubiuser) for their [PR](https://github.com/mikebrady/shairport-sync/pull/1684) -- which did some of the updating -- and for their guidance.
+* Run workflow-based tests on PRs automatically. Thanks to [yubiuser](https://github.com/yubiuser) for their [PR](https://github.com/mikebrady/shairport-sync/pull/1687).
+
 Version 4.2
 ====
 This release consists of enhancements and a number of important bug fixes to Version 4.1. For information on the new features of 4.1, including AirPlay 2 support, please see the section "Version 4.1" below.
 
-Important
-----
 If you are updating an existing installation of Shairport Sync, you must also update [NQPTP](https://github.com/mikebrady/nqptp). The reason is that this update to Shairport Sync requires NQPTP with Shared Memory Interface Version `smi9` and will not work with older versions.
 * The Shared Memory Interface Version `smi*` needed by Shairport Sync is part of its version string, obtainable using `$ shairport-sync -V`.
 * You can check the Shared Memory Interface Version of the installed version of `nqptp` using `$ nqptp -V`.
