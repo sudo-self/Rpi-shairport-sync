@@ -1,3 +1,8 @@
+Version 4.3.1d-2-ge6a2a429
+===
+**Bug Fix**
+* Fix a recently-introduced bug that prevented Shairport Sync being added to Home.
+
 Version 4.2.1d0-67-gef14cace
 ===
 **IMPORTANT Bug Fixes**
