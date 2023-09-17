@@ -3144,8 +3144,8 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
           cancel_all_RTSP_threads(
               remote_control_stream,
               conn->connection_number); // kill all the other remote control listeners
-          resp->respcode = 200;
           */
+          resp->respcode = 200;
         } else {
           debug(1, "SETUP on Connection %d: an unrecognised \"%s\" setup detected.",
                 conn->connection_number, timingProtocolString);
