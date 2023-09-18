@@ -1694,7 +1694,7 @@ int _debug_mutex_unlock(pthread_mutex_t *mutex, const char *mutexname, const cha
 }
 
 void malloc_cleanup(void *arg) {
-  // debug(1, "malloc cleanup called.");
+  // debug(1, "malloc cleanup freeing %" PRIxPTR ".", arg);
   free(arg);
 }
 
