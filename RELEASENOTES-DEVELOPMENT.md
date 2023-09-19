@@ -1,3 +1,8 @@
+Version 4.3.1-dev-3-g2fb81ca9
+===
+**Exploration**
+* Add some slightly noisy diagnostics to try to locate a fault.
+
 Version 4.3.1d-2-ge6a2a429
 ===
 **Bug Fix**
