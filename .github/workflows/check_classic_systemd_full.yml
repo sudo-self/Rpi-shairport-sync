@@ -1,6 +1,7 @@
 name: Full classic configuration (but without apple-alac) for systemd, using a build folder.
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "development", "danger" ]
   pull_request:
