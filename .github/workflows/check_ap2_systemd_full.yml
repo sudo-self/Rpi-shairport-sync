@@ -1,6 +1,7 @@
 name: Full configuration (but without apple-alac) for systemd.
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "development", "danger" ]
   pull_request:
@@ -14,11 +15,11 @@ jobs:
     steps:
     - uses: actions/checkout@v3.5.2
     - name: Install Dependencies
-      run: sudo apt-get -y --no-install-recommends install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev libao-dev libjack-dev libpulse-dev libsoundio-dev libsndio-dev libglib2.0-dev libmosquitto-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd    
+      run: sudo apt-get -y --no-install-recommends install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev libao-dev libjack-dev libpulse-dev libglib2.0-dev libmosquitto-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev libplist-dev libsodium-dev libavutil-dev libavcodec-dev libavformat-dev uuid-dev libgcrypt-dev xxd    
     - name: Configure
       run: |
         autoreconf -i
-        ./configure --sysconfdir=/etc --with-alsa --with-ao --with-dummy --with-jack --with-pa --with-pipe --with-sndio --with-soundio --with-stdout --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-dbus-interface --with-mpris-interface --with-mqtt-client --with-airplay-2
+        ./configure --sysconfdir=/etc --with-alsa --with-ao --with-dummy --with-jack --with-pa --with-pipe --with-stdout --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-dbus-interface --with-mpris-interface --with-mqtt-client --with-airplay-2
     - name: Make
       run: |
         make -j
