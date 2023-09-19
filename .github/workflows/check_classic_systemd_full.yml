@@ -13,6 +13,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3.5.2
+    - name: Update
+      run: |
+        apt-get update
+        apt-get -y upgrade
     - name: Install Dependencies
       run: sudo apt-get -y --no-install-recommends install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev libao-dev libjack-dev libpulse-dev libsoundio-dev libsndio-dev libglib2.0-dev libmosquitto-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev    
     - name: Configure
