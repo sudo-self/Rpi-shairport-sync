@@ -1,4 +1,4 @@
-name: Full classic configuration (but without apple-alac) for systemd, using a build folder.
+name: Classic (without pa, soundio, apple-alac) for systemd, using a build folder.
 
 on:
   workflow_dispatch:
