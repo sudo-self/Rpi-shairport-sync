@@ -1319,7 +1319,7 @@ enum rtsp_read_request_response rtsp_read_request(rtsp_conn_info *conn, rtsp_mes
 
     if (nread == 0) {
       // a blocking read that returns zero means eof -- implies connection closed by client
-      debug(3, "Connection %d: Connection closed by client.", conn->connection_number);
+      debug(2, "Connection %d: Connection closed by client.", conn->connection_number);
       reply = rtsp_read_request_response_channel_closed;
       // Note: the socket will be closed when the thread exits
       goto shutdown;
