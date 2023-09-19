@@ -1,6 +1,7 @@
 name: Basic libao configuration for macOS with BREW -- classic only, because macOS can't host NQPTP.
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "development", "danger" ]
   pull_request:
