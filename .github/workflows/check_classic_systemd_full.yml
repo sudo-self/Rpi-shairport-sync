@@ -15,13 +15,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3.5.2
     - name: Install Dependencies
-      run: sudo apt-get -y --no-install-recommends install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev libao-dev libjack-dev libpulse-dev libglib2.0-dev libmosquitto-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev    
+      run: sudo apt-get -y --no-install-recommends install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev libao-dev libglib2.0-dev libmosquitto-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev    
     - name: Configure
       run: |
         mkdir build
         cd build
         autoreconf -i ..
-        ../configure --sysconfdir=/etc --with-alsa --with-ao --with-dummy --with-jack --with-pa --with-pipe --with-stdout --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-dbus-interface --with-mpris-interface --with-mqtt-client
+        ../configure --sysconfdir=/etc --with-alsa --with-ao --with-dummy --with-jack --with-pipe --with-stdout --with-soxr --with-avahi --with-ssl=openssl --with-systemd --with-dbus-interface --with-mpris-interface --with-mqtt-client
     - name: Make
       run: |
         cd build
