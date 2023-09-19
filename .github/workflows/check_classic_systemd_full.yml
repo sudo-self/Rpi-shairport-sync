@@ -15,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3.5.2
     - name: Install Dependencies
-      run: sudo apt-get -y --no-install-recommends install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev libao-dev libjack-dev libglib2.0-dev libmosquitto-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev    
+      run: sudo apt-get -y --no-install-recommends install build-essential git xmltoman autoconf automake libtool libpopt-dev libconfig-dev libasound2-dev libao-dev libjack-dev libsoundio-dev libsndio-dev libglib2.0-dev libmosquitto-dev avahi-daemon libavahi-client-dev libssl-dev libsoxr-dev    
     - name: Configure
       run: |
         mkdir build
