@@ -8,6 +8,7 @@
 name: Build and push docker (tag)
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - '[0-9]+'                 # X
