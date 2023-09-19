@@ -1,6 +1,7 @@
 name: Configuration (without pa, soundio or apple-alac) for systemd, using a build folder.
 
 on:
+  workflow_dispatch:
   push:
     branches: [ "development" ]
   pull_request:
