@@ -1,3 +1,7 @@
+Version 4.3.2-dev-4-g20a45def
+===
+* Bump version information.
+  
 Version 4.3.1-dev-3-g2fb81ca9
 ===
 **Exploration**
