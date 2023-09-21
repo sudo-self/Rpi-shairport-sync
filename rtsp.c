@@ -2710,7 +2710,7 @@ void teardown_phase_two(rtsp_conn_info *conn) {
 void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
                        rtsp_message *resp) {
 
-  debug(1, "Connection %d: TEARDOWN 2 %s.", conn->connection_number,
+  debug(2, "Connection %d: TEARDOWN 2 %s.", conn->connection_number,
         get_category_string(conn->airplay_stream_category));
   debug_log_rtsp_message(2, "TEARDOWN: ", req);
   resp->respcode = 200;
