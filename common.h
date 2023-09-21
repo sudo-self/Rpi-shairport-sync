@@ -495,6 +495,7 @@ uint16_t bind_UDP_port(int ip_family, const char *self_ip_address, uint32_t scop
 
 void socket_cleanup(void *arg);
 void mutex_unlock(void *arg);
+void rwlock_unlock(void *arg);
 void mutex_cleanup(void *arg);
 void cv_cleanup(void *arg);
 void thread_cleanup(void *arg);
