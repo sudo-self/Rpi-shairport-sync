@@ -1779,7 +1779,6 @@ void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
   if (config.output->stop) {
-    debug(1, "Connection %d: Stop the output backend.", conn->connection_number);
     config.output->stop();
   }
 

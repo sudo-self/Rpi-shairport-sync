@@ -4538,7 +4538,6 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
     if (principal_conn == conn) {
       config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay -- should this be on?
       build_bonjour_strings(conn);
-      get_category_string(conn->airplay_stream_category));
       mdns_update(NULL, secondary_txt_records);
     }
     pthread_cleanup_pop(1); // release the principal_conn lock
