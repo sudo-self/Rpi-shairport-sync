@@ -1778,14 +1778,9 @@ double suggested_volume(rtsp_conn_info *conn) {
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
-  if ((principal_conn == conn) && (conn != NULL)) {
-    if (config.output->stop) {
-      debug(2, "Connection %d: Stop the output backend.", conn->connection_number);
-      config.output->stop();
-    }
-  } else {
-    if (conn != NULL)
-      debug(1, "Connection %d: this conn is not the principal_conn.", conn->connection_number);
+  if (config.output->stop) {
+    debug(1, "Connection %d: Stop the output backend.", conn->connection_number);
+    config.output->stop();
   }
 
   int oldState;
