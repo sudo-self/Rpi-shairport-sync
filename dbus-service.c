@@ -636,7 +636,7 @@ gboolean notify_volume_callback(ShairportSync *skeleton,
     debug(2, ">> setting volume to %7.4f.", iv);
 
     pthread_rwlock_rdlock(&principal_conn_lock); // don't let the principal_conn be changed
-    pthread_cleanup_push(rwlock_unlock,(void *)&principal_conn_lock);
+    pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
 
     if (principal_conn != NULL) {
       player_volume(iv, principal_conn);

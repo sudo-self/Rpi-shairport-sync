@@ -63,7 +63,7 @@ typedef struct {
 } shm_structure_set;
 
 // The actual interface comprises a shared memory region of type struct shm_structure.
-// This comprises two records of type shm_structure_set. 
+// This comprises two records of type shm_structure_set.
 // The secondary record is written strictly after all writes to the main record are
 // complete. This is ensured using the __sync_synchronize() construct.
 // The reader should ensure that both copies match for a read to be valid.

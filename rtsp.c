@@ -141,7 +141,6 @@ rtsp_conn_info **conns;
 
 int metadata_running = 0;
 
-
 // always lock this when accessing the principal conn value
 // use a read lock when consulting and holding it
 // use a write lock if you want to change it
@@ -541,7 +540,7 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
          (stream_category == conns[i]->airplay_stream_category))) {
       pthread_join(conns[i]->thread, NULL);
       debug(1, "Connection %d: joined.", conns[i]->connection_number);
-      
+
       free(conns[i]);
       conns[i] = NULL;
     }
@@ -566,7 +565,7 @@ void cancel_all_RTSP_threads(airplay_stream_c stream_category, int except_this_o
 void release_play_lock(rtsp_conn_info *conn) {
   // no need thread cancellation points in here
   pthread_rwlock_wrlock(&principal_conn_lock);
-  if (principal_conn == conn) {        // if we have the player
+  if (principal_conn == conn) { // if we have the player
     if (conn != NULL)
       debug(2, "Connection %d: principal_conn released.", conn->connection_number);
     principal_conn = NULL; // let it go
@@ -579,7 +578,7 @@ void release_play_lock(rtsp_conn_info *conn) {
 int get_play_lock(rtsp_conn_info *conn, int allow_session_interruption) {
   int response = 0;
   pthread_rwlock_wrlock(&principal_conn_lock);
-  pthread_cleanup_push(rwlock_unlock,(void *)&principal_conn_lock);
+  pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
   if (principal_conn != NULL)
     debug(1, "Connection %d: is requested to relinquish principal_conn.",
           principal_conn->connection_number);
@@ -781,7 +780,7 @@ rtsp_message *msg_init(void) {
     die("msg_init -- can not allocate memory for rtsp_message %d.", msg_indexes);
   }
   // debug(1,"msg_init -- create item %d.", msg->index_number);
-  
+
   rc = pthread_mutex_unlock(&reference_counter_lock);
   if (rc)
     debug(1, "Error %d unlocking reference counter lock");
@@ -1717,14 +1716,10 @@ void handle_get_info(__attribute((unused)) rtsp_conn_info *conn, rtsp_message *r
     } else {
       void *qualifier_response_data = NULL;
       size_t qualifier_response_data_length = 0;
-      
-      
-      pthread_rwlock_rdlock(&principal_conn_lock); // don't let the principal_conn be changed
-      pthread_cleanup_push(rwlock_unlock,(void *)&principal_conn_lock);
 
-      
-      
-      
+      pthread_rwlock_rdlock(&principal_conn_lock); // don't let the principal_conn be changed
+      pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
+
       if (add_pstring_to_malloc("acl=0", &qualifier_response_data,
                                 &qualifier_response_data_length) == 0)
         debug(1, "Problem");
@@ -2738,10 +2733,10 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
             get_category_string(conn->airplay_stream_category));
       teardown_phase_one(conn); // try to do phase one anyway
       teardown_phase_two(conn);
-      
+
       // only update these things if you're (still) the principal conn
       pthread_rwlock_rdlock(&principal_conn_lock); // don't let the principal_conn be changed
-      pthread_cleanup_push(rwlock_unlock,(void *)&principal_conn_lock);
+      pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
       if ((principal_conn == conn) && (conn->airplay_stream_category == ptp_stream)) {
         config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
         build_bonjour_strings(conn);
@@ -2789,7 +2784,7 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
 #ifdef CONFIG_AIRPLAY_2
   // only update these things if you're (still) the principal conn
   pthread_rwlock_rdlock(&principal_conn_lock); // don't let the principal_conn be changed
-  pthread_cleanup_push(rwlock_unlock,(void *)&principal_conn_lock);
+  pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
   if (principal_conn == conn) {
     config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
     build_bonjour_strings(conn);
@@ -2797,7 +2792,7 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
   }
   pthread_cleanup_pop(1); // release the principal_conn lock
 #endif
-  
+
   release_play_lock(conn);
 
   resp->respcode = 200;
@@ -3120,14 +3115,15 @@ void handle_setup_2(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp)
                  listeners
               */
               // only update these things if you're (still) the principal conn
-              pthread_rwlock_wrlock(&principal_conn_lock); // don't let the principal_conn be changed
-              pthread_cleanup_push(rwlock_unlock,(void *)&principal_conn_lock);
+              pthread_rwlock_wrlock(
+                  &principal_conn_lock); // don't let the principal_conn be changed
+              pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
               if (principal_conn == conn) {
-                    config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay
-                    build_bonjour_strings(conn);
-                    debug(2, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
-                          get_category_string(conn->airplay_stream_category));
-                    mdns_update(NULL, secondary_txt_records);
+                config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay
+                build_bonjour_strings(conn);
+                debug(2, "Connection %d: SETUP mdns_update on %s.", conn->connection_number,
+                      get_category_string(conn->airplay_stream_category));
+                mdns_update(NULL, secondary_txt_records);
               }
               pthread_cleanup_pop(1); // release the principal_conn lock
 
@@ -3625,7 +3621,7 @@ void handle_set_parameter_parameter(rtsp_conn_info *conn, rtsp_message *req,
       } else {
 #endif
         pthread_rwlock_rdlock(&principal_conn_lock); // don't let the principal_conn be changed
-        pthread_cleanup_push(rwlock_unlock,(void *)&principal_conn_lock);
+        pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
         if (principal_conn == conn) {
           player_volume(volume, conn);
         }
@@ -4531,10 +4527,10 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
       free(conn->airplay_gid);
       conn->airplay_gid = NULL;
     }
-    
+
     // only update these things if you're (still) the principal conn
     pthread_rwlock_rdlock(&principal_conn_lock); // don't let the principal_conn be changed
-    pthread_cleanup_push(rwlock_unlock,(void *)&principal_conn_lock);
+    pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
     if (principal_conn == conn) {
       config.airplay_statusflags |= 1 << 11; // DeviceSupportsRelay -- should this be on?
       build_bonjour_strings(conn);
@@ -4544,7 +4540,7 @@ static void handle_announce(rtsp_conn_info *conn, rtsp_message *req, rtsp_messag
 
     debug(1, "Connection %d: Classic AirPlay connection from %s:%u to self at %s:%u.",
           conn->connection_number, conn->client_ip_string, conn->client_rtsp_port,
-          conn->self_ip_string, conn->self_rtsp_port);    
+          conn->self_ip_string, conn->self_rtsp_port);
 #endif
 
     conn->stream.type = ast_unknown;
@@ -5221,9 +5217,8 @@ static void *rtsp_conversation_thread_func(void *pconn) {
 
   while (conn->stop == 0) {
     int debug_level = 2; // for printing the request and response
-    
 
-// check to see if a conn has been zeroed
+    // check to see if a conn has been zeroed
 
     debug_mutex_lock(&conns_lock, 1000000, 3);
     int i;
@@ -5233,7 +5228,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
       }
     }
     debug_mutex_unlock(&conns_lock, 3);
-    
+
     reply = rtsp_read_request(conn, &req);
     if (reply == rtsp_read_request_response_ok) {
       pthread_cleanup_push(msg_cleanup_function, (void *)&req);
@@ -5580,9 +5575,8 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
       if (acceptfd < 0) // timeout
         continue;
 
-      int release_conn = 1;  // on exit, deallocate the buffer unless everything was okay
-      
-      
+      int release_conn = 1; // on exit, deallocate the buffer unless everything was okay
+
       rtsp_conn_info *conn = malloc(sizeof(rtsp_conn_info));
       if (conn == 0)
         die("Couldn't allocate memory for an rtsp_conn_info record.");
@@ -5601,7 +5595,7 @@ void *rtsp_listen_loop(__attribute((unused)) void *arg) {
         debug(1, "Connection %d: New connection on port %d not accepted:", conn->connection_number,
               config.port);
         perror("failed to accept connection");
-       } else {
+      } else {
         size_of_reply = sizeof(SOCKADDR);
         if (getsockname(conn->fd, (struct sockaddr *)&conn->local, &size_of_reply) == 0) {
 
