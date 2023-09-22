@@ -1,3 +1,9 @@
+Version 4.3.2-dev-19-g91c0803d
+===
+* Lock access to the `principal_conn` (i.e. the connection that may be playing) using a read-write lock rather than a mutex. Use read locking when checking that a connection is currently the principal connection before altering any system-wide values such as mDNS flags. This eliminates a number of data race conditions.
+* As soon as it has been decided that the current playing session (as specified in the `principal conn`) is to be preempted, demote it from `principal_conn` status before stopping play, closing the connection, etc.
+* Set the status flags correctly for a Classic Airplay session on an AirPlay 2 system.
+ 
 Version 4.3.2-dev-4-g20a45def
 ===
 * Bump version information.
