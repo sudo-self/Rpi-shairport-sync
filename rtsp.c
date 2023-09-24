@@ -596,6 +596,9 @@ int get_play_lock(rtsp_conn_info *conn, int allow_session_interruption) {
     rtsp_conn_info *previous_principal_conn = principal_conn;
     principal_conn = NULL; // no longer the principal conn
     pthread_cancel(previous_principal_conn->thread);
+    // the previous principal thread will block on the principal conn lock when exiting
+    // so it's important not to wait for it here, e.g. don't put in a pthread_join here.
+    // threads are garbage-collected later
     usleep(1000000);       // don't know why this delay is needed.
     principal_conn = conn; // make the conn the new principal_conn
     response = 1;          // interrupted an existing session
@@ -2705,6 +2708,23 @@ void teardown_phase_two(rtsp_conn_info *conn) {
     }
     clear_ptp_clock();
   }
+
+  // only update these things if you're (still) the principal conn
+  pthread_rwlock_rdlock(&principal_conn_lock); // don't let the principal_conn be changed
+  pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
+  if (principal_conn == conn) {
+    if (conn->airplay_stream_category == ptp_stream) {
+      config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
+      build_bonjour_strings(conn);
+      debug(2, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
+            get_category_string(conn->airplay_stream_category));
+      mdns_update(NULL, secondary_txt_records);
+    }
+    principal_conn = NULL; // stop being principal_conn
+  }
+  pthread_cleanup_pop(1); // release the principal_conn lock
+  debug(2, "Connection %d: TEARDOWN %s -- close the connection complete", conn->connection_number,
+        get_category_string(conn->airplay_stream_category));
 }
 
 void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
@@ -2733,23 +2753,7 @@ void handle_teardown_2(rtsp_conn_info *conn, __attribute__((unused)) rtsp_messag
             get_category_string(conn->airplay_stream_category));
       teardown_phase_one(conn); // try to do phase one anyway
       teardown_phase_two(conn);
-
-      // only update these things if you're (still) the principal conn
-      pthread_rwlock_rdlock(&principal_conn_lock); // don't let the principal_conn be changed
-      pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
-      if ((principal_conn == conn) && (conn->airplay_stream_category == ptp_stream)) {
-        config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
-        build_bonjour_strings(conn);
-        debug(2, "Connection %d: TEARDOWN mdns_update on %s.", conn->connection_number,
-              get_category_string(conn->airplay_stream_category));
-        mdns_update(NULL, secondary_txt_records);
-      }
-      pthread_cleanup_pop(1); // release the principal_conn lock
-      debug(2, "Connection %d: TEARDOWN %s -- close the connection complete",
-            conn->connection_number, get_category_string(conn->airplay_stream_category));
-      release_play_lock(conn);
     }
-
     plist_free(messagePlist);
     resp->respcode = 200;
   } else {
@@ -2770,6 +2774,19 @@ void teardown(rtsp_conn_info *conn) {
     free(conn->dacp_active_remote);
     conn->dacp_active_remote = NULL;
   }
+
+  // only update these things if you're (still) the principal conn
+  pthread_rwlock_rdlock(&principal_conn_lock); // don't let the principal_conn be changed
+  pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
+  if (principal_conn == conn) {
+#ifdef CONFIG_AIRPLAY_2
+    config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
+    build_bonjour_strings(conn);
+    mdns_update(NULL, secondary_txt_records);
+#endif
+    principal_conn = NULL; // stop being principal_conn
+  }
+  pthread_cleanup_pop(1); // release the principal_conn lock
 }
 
 void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message *req,
@@ -2780,30 +2797,10 @@ void handle_teardown(rtsp_conn_info *conn, __attribute__((unused)) rtsp_message 
         "TEARDOWN: synchronously terminating the player thread of RTSP conversation thread %d (2).",
         conn->connection_number);
   teardown(conn);
-
-#ifdef CONFIG_AIRPLAY_2
-  // only update these things if you're (still) the principal conn
-  pthread_rwlock_rdlock(&principal_conn_lock); // don't let the principal_conn be changed
-  pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
-  if (principal_conn == conn) {
-    config.airplay_statusflags &= (0xffffffff - (1 << 11)); // DeviceSupportsRelay
-    build_bonjour_strings(conn);
-    mdns_update(NULL, secondary_txt_records);
-  }
-  pthread_cleanup_pop(1); // release the principal_conn lock
-#endif
-
-  release_play_lock(conn);
-
   resp->respcode = 200;
   msg_add_header(resp, "Connection", "close");
   debug(3, "TEARDOWN: successful termination of playing thread of RTSP conversation thread %d.",
         conn->connection_number);
-  //} else {
-  //  warn("Connection %d TEARDOWN received without having the player (no ANNOUNCE?)",
-  //       conn->connection_number);
-  //  resp->respcode = 451;
-  // }
   // debug(1,"Bogus exit for valgrind -- remember to comment it out!.");
   // exit(EXIT_SUCCESS);
 }
@@ -5163,7 +5160,7 @@ void rtsp_conversation_thread_cleanup_function(void *arg) {
     pthread_mutex_destroy(&conn->watchdog_mutex);
 
     debug(2, "Connection %d: Closed.", conn->connection_number);
-    conn->running = 0;
+    conn->running = 0; // for the garbage collector
     pthread_setcancelstate(oldState, NULL);
   }
 }
