@@ -1,3 +1,7 @@
+Version 4.3.2-dev-21-ga3f12d68
+===
+* When a connection terminates abruptly while is it the `principal_conn`, make sure it sets the `principal_conn` to `NULL` and cleans up the Bonjour flags, if appropriate.
+
 Version 4.3.2-dev-19-g91c0803d
 ===
 * Lock access to the `principal_conn` (i.e. the connection that may be playing) using a read-write lock rather than a mutex. Use read locking when checking that a connection is currently the principal connection before altering any system-wide values such as mDNS flags. This eliminates a number of data race conditions.
