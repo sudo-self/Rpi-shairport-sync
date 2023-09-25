@@ -1,3 +1,7 @@
+Version 4.3.2-dev-25-gc0467468
+===
+* Make the latency in the PipeWire backend 200,000 instead of 20,000. Should help with DAC underrun.
+
 Version 4.3.2-dev-23-gc4975d5c
 ===
 * Fixed some debug messages that were missing arguments. In principle, these could cause crashes just when you need them to work properly, sigh. As far as is known, however, they did not cause problems. Many thanks to [Nathan Gray](https://github.com/n8gray) for the [report](https://github.com/mikebrady/shairport-sync/issues/1734).
