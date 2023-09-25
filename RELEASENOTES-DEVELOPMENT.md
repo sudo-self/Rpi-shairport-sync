@@ -1,3 +1,7 @@
+Version 4.3.2-dev-23-gc4975d5c
+===
+* Fixed some debug messages that were missing arguments. In principle, these could cause crashes just when you need them to work properly, sigh. As far as is known, however, they did not cause problems. Many thanks to [Nathan Gray](https://github.com/n8gray) for the [report](https://github.com/mikebrady/shairport-sync/issues/1734).
+
 Version 4.3.2-dev-21-ga3f12d68
 ===
 * When a connection terminates abruptly while is it the `principal_conn`, make sure it sets the `principal_conn` to `NULL` and cleans up the Bonjour flags, if appropriate.
