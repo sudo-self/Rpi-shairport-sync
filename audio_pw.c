@@ -359,11 +359,11 @@ static void start(int sample_rate, int sample_format) {
   data.rate = sample_rate;
   data.channels = 2;
   data.stride = spa_format_samplesize(data.format) * data.channels;
-  data.latency = 20000;
+  data.latency = 20000; // looks like microseconds
 
   nom = nearbyint((data.latency * data.rate) / 1000000.0);
 
-  pw_properties_setf(data.props, PW_KEY_NODE_LATENCY, "%u/%u", nom, data.rate);
+  pw_properties_setf(data.props, PW_KEY_NODE_LATENCY, "%u/%u", nom, data.rate); // looks like samples in the data.latency period
 
   debug(1, "pw: rate: %d", data.rate);
   debug(1, "pw: channgels: %d", data.channels);
