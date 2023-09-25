@@ -771,7 +771,7 @@ rtsp_message *msg_init(void) {
   // no thread cancellation points here
   int rc = pthread_mutex_lock(&reference_counter_lock);
   if (rc)
-    debug(1, "Error %d locking reference counter lock");
+    debug(1, "Error %d locking reference counter lock", rc);
 
   rtsp_message *msg = malloc(sizeof(rtsp_message));
   if (msg) {
@@ -786,7 +786,7 @@ rtsp_message *msg_init(void) {
 
   rc = pthread_mutex_unlock(&reference_counter_lock);
   if (rc)
-    debug(1, "Error %d unlocking reference counter lock");
+    debug(1, "Error %d unlocking reference counter lock", rc);
 
   return msg;
 }
@@ -5221,7 +5221,7 @@ static void *rtsp_conversation_thread_func(void *pconn) {
     int i;
     for (i = 0; i < nconns; i++) {
       if ((conns[i] != NULL) && (conns[i]->connection_number == 0)) {
-        debug(1, "conns[%d] at %" PRIxPTR " has a Connection Number of 0!", conns[i]);
+        debug(1, "conns[%d] at %" PRIxPTR " has a Connection Number of 0!", i, conns[i]);
       }
     }
     debug_mutex_unlock(&conns_lock, 3);
