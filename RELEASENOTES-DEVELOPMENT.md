@@ -1,3 +1,10 @@
+Version 4.3.2-dev-27-g04e3f891
+===
+**Bug Fixes**
+* Fix bugs in the handling of an Avahi client disconnection event. Due to its rarity, Shairport Sync was not handling Avahi client disconnection events correctly. Specificially, it was not cleaning up before deleting the disconnected Avahi client and attempting to create a new one. This has now been fixed.
+
+  It is worth noting that these disconnection events are very rare and often indicate that there is something wrong with the computer as a whole.
+
 Version 4.3.2-dev-25-gc0467468
 ===
 * Make the latency in the PipeWire backend 200,000 instead of 20,000. Should help with DAC underrun.
