@@ -359,7 +359,7 @@ static void start(int sample_rate, int sample_format) {
   data.rate = sample_rate;
   data.channels = 2;
   data.stride = spa_format_samplesize(data.format) * data.channels;
-  data.latency = 20000; // looks like microseconds
+  data.latency = 200000; // looks like microseconds
 
   nom = nearbyint((data.latency * data.rate) / 1000000.0);
 
