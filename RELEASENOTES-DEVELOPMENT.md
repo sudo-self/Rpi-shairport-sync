@@ -1,3 +1,8 @@
+Version 4.3.2-dev-30-gc36d322a
+===
+**Bug Fix**
+* If the volume control was at its absolute minimum (-144.0), audio would be muted even if `ignore_volume_control` was enabled in the configuration file. The fix was to mute only if `ignore_volume_control` is not enabled. Thanks to [mc510](https://github.com/mc510) for reporting the [issue](https://github.com/mikebrady/shairport-sync/issues/1737).
+
 Version 4.3.2-dev-27-g04e3f891
 ===
 **Bug Fixes**
