@@ -49,9 +49,9 @@ pa_threaded_mainloop *mainloop;
 pa_mainloop_api *mainloop_api;
 pa_context *context;
 pa_stream *stream;
-char *audio_lmb, *audio_umb, *audio_toq, *audio_eoq;
-size_t audio_size = buffer_allocation;
-size_t audio_occupancy;
+static char *audio_lmb, *audio_umb, *audio_toq, *audio_eoq;
+static size_t audio_size = buffer_allocation;
+static size_t audio_occupancy;
 
 void context_state_cb(pa_context *context, void *mainloop);
 void stream_state_cb(pa_stream *s, void *mainloop);
@@ -308,7 +308,7 @@ int pa_delay(long *the_delay) {
   return reply;
 }
 
-void flush(void) {
+static void flush(void) {
   check_pa_stream_status(stream, "audio_pa flush.");
   pa_threaded_mainloop_lock(mainloop);
   if (pa_stream_is_corked(stream) == 0) {
