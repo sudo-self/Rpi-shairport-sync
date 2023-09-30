@@ -262,10 +262,10 @@ static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
   size_t space_to_end_of_buffer = audio_umb - audio_eoq;
   if (space_to_end_of_buffer >= bytes_to_transfer) {
     memcpy(audio_eoq, buf, bytes_to_transfer);
-    audio_occupancy += bytes_to_transfer;
     pthread_mutex_lock(&buffer_mutex);
-    audio_eoq += bytes_to_transfer;
+    audio_occupancy += bytes_to_transfer;
     pthread_mutex_unlock(&buffer_mutex);
+    audio_eoq += bytes_to_transfer;
   } else {
     memcpy(audio_eoq, buf, space_to_end_of_buffer);
     buf += space_to_end_of_buffer;
