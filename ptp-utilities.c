@@ -86,7 +86,7 @@ int get_nqptp_data(struct shm_structure *nqptp_data) {
       }
     } while (
         (memcmp(&nqptp_data->main, &local_nqptp_data.secondary, sizeof(shm_structure_set)) != 0) &&
-        (loop_count < 100));
+        (loop_count < 10));
     if (loop_count == 10) {
       debug(1, "get_nqptp_data -- main and secondary records don't match after %d attempts!",
             loop_count);
