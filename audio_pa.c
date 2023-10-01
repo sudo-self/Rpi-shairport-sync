@@ -259,27 +259,33 @@ static int play(void *buf, int samples, __attribute__((unused)) int sample_type,
   // copy the samples into the queue
   check_pa_stream_status(stream, "audio_pa play.");
   size_t bytes_to_transfer = samples * 2 * 2;
-  size_t space_to_end_of_buffer = audio_umb - audio_eoq;
-  if (space_to_end_of_buffer >= bytes_to_transfer) {
-    memcpy(audio_eoq, buf, bytes_to_transfer);
-    pthread_mutex_lock(&buffer_mutex);
+
+  pthread_mutex_lock(&buffer_mutex);
+  size_t bytes_available = audio_size - audio_occupancy;
+  if (bytes_available < bytes_to_transfer)
+    bytes_to_transfer = bytes_available;
+  if (bytes_to_transfer > 0) {
+    size_t space_to_end_of_buffer = audio_umb - audio_eoq;
+    if (space_to_end_of_buffer >= bytes_to_transfer) {
+      memcpy(audio_eoq, buf, bytes_to_transfer);
+      audio_eoq += bytes_to_transfer;
+    } else {
+      memcpy(audio_eoq, buf, space_to_end_of_buffer);
+      buf += space_to_end_of_buffer;
+      memcpy(audio_lmb, buf, bytes_to_transfer - space_to_end_of_buffer);
+      audio_eoq = audio_lmb + bytes_to_transfer - space_to_end_of_buffer;
+    }
     audio_occupancy += bytes_to_transfer;
-    pthread_mutex_unlock(&buffer_mutex);
-    audio_eoq += bytes_to_transfer;
-  } else {
-    memcpy(audio_eoq, buf, space_to_end_of_buffer);
-    buf += space_to_end_of_buffer;
-    memcpy(audio_lmb, buf, bytes_to_transfer - space_to_end_of_buffer);
-    pthread_mutex_lock(&buffer_mutex);
-    audio_occupancy += bytes_to_transfer;
-    pthread_mutex_unlock(&buffer_mutex);
-    audio_eoq = audio_lmb + bytes_to_transfer - space_to_end_of_buffer;
   }
+
   if ((audio_occupancy >= 11025 * 2 * 2) && (pa_stream_is_corked(stream))) {
     // debug(1,"Uncorked");
+    pthread_mutex_unlock(&buffer_mutex);
     pa_threaded_mainloop_lock(mainloop);
     pa_stream_cork(stream, 0, stream_success_cb, mainloop);
     pa_threaded_mainloop_unlock(mainloop);
+  } else {
+    pthread_mutex_unlock(&buffer_mutex);
   }
   return 0;
 }
@@ -316,10 +322,12 @@ static void flush(void) {
     pa_stream_flush(stream, stream_success_cb, NULL);
     pa_stream_cork(stream, 1, stream_success_cb, mainloop);
   }
+  pa_threaded_mainloop_unlock(mainloop);
+  pthread_mutex_lock(&buffer_mutex);
   audio_toq = audio_eoq = audio_lmb;
   audio_umb = audio_lmb + audio_size;
   audio_occupancy = 0;
-  pa_threaded_mainloop_unlock(mainloop);
+  pthread_mutex_unlock(&buffer_mutex);
 }
 
 static void stop(void) {
@@ -331,10 +339,12 @@ static void stop(void) {
     pa_stream_flush(stream, stream_success_cb, NULL);
     pa_stream_cork(stream, 1, stream_success_cb, mainloop);
   }
+  pa_threaded_mainloop_unlock(mainloop);
+  pthread_mutex_lock(&buffer_mutex);
   audio_toq = audio_eoq = audio_lmb;
   audio_umb = audio_lmb + audio_size;
   audio_occupancy = 0;
-  pa_threaded_mainloop_unlock(mainloop);
+  pthread_mutex_unlock(&buffer_mutex);
 }
 
 audio_output audio_pa = {.name = "pa",
@@ -370,6 +380,8 @@ void stream_write_cb(pa_stream *stream, size_t requested_bytes,
   int bytes_transferred = 0;
   uint8_t *buffer = NULL;
   int ret = 0;
+  pthread_mutex_lock(&buffer_mutex);
+  pthread_cleanup_push(mutex_unlock, (void *)&buffer_mutex);
   while ((bytes_to_transfer > 0) && (audio_occupancy > 0) && (ret == 0)) {
     if (pa_stream_is_suspended(stream))
       debug(1, "stream is suspended");
@@ -390,13 +402,7 @@ void stream_write_cb(pa_stream *stream, size_t requested_bytes,
         // the bytes are all in a row in the audo buffer
         memcpy(buffer, audio_toq, bytes_we_can_transfer);
         audio_toq += bytes_we_can_transfer;
-        // lock
-        pthread_mutex_lock(&buffer_mutex);
-        audio_occupancy -= bytes_we_can_transfer;
-        pthread_mutex_unlock(&buffer_mutex);
-        // unlock
         ret = pa_stream_write(stream, buffer, bytes_we_can_transfer, NULL, 0LL, PA_SEEK_RELATIVE);
-        bytes_transferred += bytes_we_can_transfer;
       } else {
         // the bytes are in two places in the audio buffer
         size_t first_portion_to_write = audio_umb - audio_toq;
@@ -405,17 +411,14 @@ void stream_write_cb(pa_stream *stream, size_t requested_bytes,
         uint8_t *new_buffer = buffer + first_portion_to_write;
         memcpy(new_buffer, audio_lmb, bytes_we_can_transfer - first_portion_to_write);
         ret = pa_stream_write(stream, buffer, bytes_we_can_transfer, NULL, 0LL, PA_SEEK_RELATIVE);
-        bytes_transferred += bytes_we_can_transfer;
         audio_toq = audio_lmb + bytes_we_can_transfer - first_portion_to_write;
-        // lock
-        pthread_mutex_lock(&buffer_mutex);
-        audio_occupancy -= bytes_we_can_transfer;
-        pthread_mutex_unlock(&buffer_mutex);
-        // unlock
       }
+      bytes_transferred += bytes_we_can_transfer;
+      audio_occupancy -= bytes_we_can_transfer;
       bytes_to_transfer -= bytes_we_can_transfer;
     }
   }
+  pthread_cleanup_pop(1); // release the mutex
   if (ret != 0)
     debug(1, "error writing to pa buffer");
   // debug(1,"<<<Frames requested %d, written to pa: %d, corked status:

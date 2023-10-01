@@ -228,10 +228,8 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
    */
 
   props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Playback",
-                            PW_KEY_MEDIA_ROLE, "Music", NULL);
-  if (argc > 1)
-    /* Set stream target if given on command line */
-    pw_properties_set(props, PW_KEY_TARGET_OBJECT, argv[1]);
+                            PW_KEY_MEDIA_ROLE, "Music", PW_KEY_APP_NAME, "Shairport Sync", NULL);
+
   data.stream = pw_stream_new_simple(pw_thread_loop_get_loop(data.loop), "audio-src-tg", props,
                                      &stream_events, &data);
 
@@ -255,13 +253,21 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
 }
 
 static void deinit(void) {
-  debug(1, "pw_deinit");
+  pw_thread_loop_unlock(data.loop);
+  debug(1, "pipewire: deinit deactivated the stream");
+  pw_thread_loop_signal(data.loop, false);
+  pw_thread_loop_wait(data.loop);
+  debug(1, "pipewire: deinit loop wait done");
   pw_thread_loop_stop(data.loop);
+  debug(1, "pipewire: deinit loop stopped");
   pw_stream_destroy(data.stream);
+  debug(1, "pipewire: deinit stream destroyed");    
   pw_thread_loop_destroy(data.loop);
+  debug(1, "pipewire: deinit loop destroyed");  
   pw_deinit();
+  debug(1, "pipewire: pw_deinit terminated");  
   free(audio_lmb); // deallocate that buffer
-  debug(1, "pa_deinit done");
+  debug(1, "pipewire: deinit done");
 }
 
 static void start(__attribute__((unused)) int sample_rate,
