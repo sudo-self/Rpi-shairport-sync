@@ -1,3 +1,11 @@
+Version 4.3.2-dev-38-gbde2bcc8
+===
+**Enhancement**
+* The PipeWire backend (`pw`) has been completely rewritten and now provides full sychronisation. 
+
+**Bug Fixes**
+* Stability improvements to the PulseAudio (`pa`) backend. some bugs with the use of mutexes and the treatment of a full FIFO buffer were identified and fixed.
+
 Version 4.3.2-dev-30-gc36d322a
 ===
 **Bug Fix**
