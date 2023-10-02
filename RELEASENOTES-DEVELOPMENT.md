@@ -1,3 +1,8 @@
+Version 4.3.2-dev-41-gdc197ae7
+===
+**Bug Fix**
+* Fix underrun ("xrun") errors. These errors seem harmless, and the only place they were noticed was in the listing from `pw-top` on recent versions of PipeWire (e.g. PipeWire 0.3.80 in Fedora 38). Anyway, they are gone now.
+
 Version 4.3.2-dev-38-gbde2bcc8
 ===
 **Enhancement**
