@@ -580,7 +580,7 @@ int get_play_lock(rtsp_conn_info *conn, int allow_session_interruption) {
   pthread_rwlock_wrlock(&principal_conn_lock);
   pthread_cleanup_push(rwlock_unlock, (void *)&principal_conn_lock);
   if (principal_conn != NULL)
-    debug(1, "Connection %d: is requested to relinquish principal_conn.",
+    debug(2, "Connection %d: is requested to relinquish principal_conn.",
           principal_conn->connection_number);
   if (conn != NULL)
     debug(2, "Connection %d: request to acquire principal_conn.", conn->connection_number);
