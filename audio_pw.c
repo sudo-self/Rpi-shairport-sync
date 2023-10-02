@@ -26,7 +26,7 @@
 
 // This uses ideas from the tone generator sample code at:
 // https://github.com/PipeWire/pipewire/blob/master/src/examples/audio-src.c
-// Thanks to the Wim Taymans.
+// Thanks to Wim Taymans.
 
 #include "audio.h"
 #include "common.h"
@@ -39,7 +39,7 @@
 #include <pipewire/pipewire.h>
 #include <spa/param/audio/format-utils.h>
 
-// note -- these are hacked and hardwired into this code.
+// note -- these are hardwired into this code.
 #define DEFAULT_FORMAT SPA_AUDIO_FORMAT_S16_LE
 #define DEFAULT_RATE 44100
 #define DEFAULT_CHANNELS 2
@@ -52,8 +52,7 @@ static pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
 static char *audio_lmb, *audio_umb, *audio_toq, *audio_eoq;
 static size_t audio_size = buffer_allocation;
 static size_t audio_occupancy;
-
-uint64_t starting_time;
+static int enable_fill;
 
 struct timing_data {
   int pw_time_is_valid;     // set when the pw_time has been set
@@ -72,10 +71,9 @@ struct data {
 };
 
 // the pipewire global data structure
-struct data data = {
-    0,
-};
+struct data data = {NULL, NULL};
 
+/*
 static void on_state_changed(__attribute__((unused)) void *userdata, enum pw_stream_state old,
                              enum pw_stream_state state,
                              __attribute__((unused)) const char *error) {
@@ -83,6 +81,7 @@ static void on_state_changed(__attribute__((unused)) void *userdata, enum pw_str
   debug(3, "pw: stream state changed %s -> %s", pw_stream_state_as_string(old),
         pw_stream_state_as_string(state));
 }
+*/
 
 static void on_process(void *userdata) {
 
@@ -91,52 +90,63 @@ static void on_process(void *userdata) {
 
   pthread_mutex_lock(&buffer_mutex);
 
-  if (audio_occupancy > 0) {
+  if ((audio_occupancy > 0) || (enable_fill)) {
 
     // get a buffer to see how big it can be
     struct pw_buffer *b = pw_stream_dequeue_buffer(data->stream);
     if (b == NULL) {
       pw_log_warn("out of buffers: %m");
-      return;
+      die("PipeWire failue -- out of buffers!");
     }
     struct spa_buffer *buf = b->buffer;
     uint8_t *dest = buf->datas[0].data;
-    if (dest == NULL) // the first data block does not contain a data pointer
-      return;
+    if (dest != NULL) {
+      int stride = sizeof(int16_t) * DEFAULT_CHANNELS;
+      
+      // note: the requested field is the number of frames, not bytes, requested
+      int max_possible_frames = SPA_MIN(b->requested, buf->datas[0].maxsize / stride);
 
-    int stride = sizeof(int16_t) * DEFAULT_CHANNELS;
-    int max_possible_frames = SPA_MIN(b->requested, buf->datas[0].maxsize / stride);
+      size_t bytes_we_can_transfer = max_possible_frames * stride;
 
-    size_t bytes_we_can_transfer = max_possible_frames * stride;
+      if (audio_occupancy > 0) {
+        // if (enable_fill == 1)) {
+        //   debug(1, "got audio -- disable_fill");
+        // }
+        enable_fill = 0;
 
-    if (bytes_we_can_transfer > audio_occupancy)
-      bytes_we_can_transfer = audio_occupancy;
+        if (bytes_we_can_transfer > audio_occupancy)
+          bytes_we_can_transfer = audio_occupancy;
 
-    n_frames = bytes_we_can_transfer / stride;
+        n_frames = bytes_we_can_transfer / stride;
 
-    size_t bytes_to_end_of_buffer = (size_t)(audio_umb - audio_toq); // must be zero or positive
+        size_t bytes_to_end_of_buffer = (size_t)(audio_umb - audio_toq); // must be zero or positive
+        if (bytes_we_can_transfer <= bytes_to_end_of_buffer) {
+          // the bytes are all in a row in the audio buffer
+          memcpy(dest, audio_toq, bytes_we_can_transfer);
+          audio_toq += bytes_we_can_transfer;
+        } else {
+          // the bytes are in two places in the audio buffer
+          size_t first_portion_to_write = audio_umb - audio_toq;
+          if (first_portion_to_write != 0)
+            memcpy(dest, audio_toq, first_portion_to_write);
+          uint8_t *new_dest = dest + first_portion_to_write;
+          memcpy(new_dest, audio_lmb, bytes_we_can_transfer - first_portion_to_write);
+          audio_toq = audio_lmb + bytes_we_can_transfer - first_portion_to_write;
+        }
+        audio_occupancy -= bytes_we_can_transfer;
 
-    if (bytes_we_can_transfer <= bytes_to_end_of_buffer) {
-      // the bytes are all in a row in the audio buffer
-      memcpy(dest, audio_toq, bytes_we_can_transfer);
-      audio_toq += bytes_we_can_transfer;
-    } else {
-      // the bytes are in two places in the audio buffer
-      size_t first_portion_to_write = audio_umb - audio_toq;
-      if (first_portion_to_write != 0)
-        memcpy(dest, audio_toq, first_portion_to_write);
-      uint8_t *new_dest = dest + first_portion_to_write;
-      memcpy(new_dest, audio_lmb, bytes_we_can_transfer - first_portion_to_write);
-      audio_toq = audio_lmb + bytes_we_can_transfer - first_portion_to_write;
-    }
-
-    buf->datas[0].chunk->offset = 0;
-    buf->datas[0].chunk->stride = stride;
-    buf->datas[0].chunk->size = n_frames * stride;
-    pw_stream_queue_buffer(data->stream, b);
-    debug(3, "Queueing %d frames for output.", n_frames);
-
-    audio_occupancy -= bytes_we_can_transfer;
+      } else {
+        debug(3, "send silence");
+        // this should really be dithered silence
+        memset(dest, 0, bytes_we_can_transfer);
+        n_frames = max_possible_frames;
+      }
+      buf->datas[0].chunk->offset = 0;
+      buf->datas[0].chunk->stride = stride;
+      buf->datas[0].chunk->size = n_frames * stride;
+      pw_stream_queue_buffer(data->stream, b);
+      debug(3, "Queueing %d frames for output.", n_frames);
+    } // (else the first data block does not contain a data pointer)
   }
   pthread_mutex_unlock(&buffer_mutex);
 
@@ -150,8 +160,9 @@ static void on_process(void *userdata) {
   __sync_synchronize();
 }
 
-static const struct pw_stream_events stream_events = {
-    PW_VERSION_STREAM_EVENTS, .process = on_process, .state_changed = on_state_changed};
+static const struct pw_stream_events stream_events = {PW_VERSION_STREAM_EVENTS,
+                                                      .process = on_process};
+//    PW_VERSION_STREAM_EVENTS, .process = on_process, .state_changed = on_state_changed};
 
 static void deinit(void) {
   pw_thread_loop_stop(data.loop);
@@ -173,7 +184,6 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
   config.audio_backend_latency_offset = 0;
 
   // get settings from settings file
-
   // do the "general" audio  options. Note, these options are in the "general" stanza!
   parse_general_audio_options();
 
@@ -188,10 +198,12 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
   // allocate space for the audio buffer
   audio_lmb = malloc(audio_size);
   if (audio_lmb == NULL)
-    die("Can't allocate %d bytes for pulseaudio buffer.", audio_size);
+    die("Can't allocate %d bytes for PipeWire buffer.", audio_size);
   audio_toq = audio_eoq = audio_lmb;
   audio_umb = audio_lmb + audio_size;
   audio_occupancy = 0;
+  // debug(1, "init enable_fill");
+  enable_fill = 1;
 
   const struct spa_pod *params[1];
   uint8_t buffer[1024];
@@ -233,7 +245,8 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
 }
 
 static void start(__attribute__((unused)) int sample_rate,
-                  __attribute__((unused)) int sample_format) {}
+                  __attribute__((unused)) int sample_format) {
+}
 
 static int play(__attribute__((unused)) void *buf, int samples,
                 __attribute__((unused)) int sample_type, __attribute__((unused)) uint32_t timestamp,
@@ -322,6 +335,10 @@ static void flush(void) {
   audio_toq = audio_eoq = audio_lmb;
   audio_umb = audio_lmb + audio_size;
   audio_occupancy = 0;
+  // if (enable_fill == 0) {
+  //   debug(1, "flush enable_fill");
+  // }
+  enable_fill = 1;
   pthread_mutex_unlock(&buffer_mutex);
 }
 
@@ -330,6 +347,10 @@ static void stop(void) {
   audio_toq = audio_eoq = audio_lmb;
   audio_umb = audio_lmb + audio_size;
   audio_occupancy = 0;
+  // if (enable_fill == 0) {
+  //   debug(1, "stop enable_fill");
+  // }
+  enable_fill = 1;
   pthread_mutex_unlock(&buffer_mutex);
 }
 
