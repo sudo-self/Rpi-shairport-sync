@@ -1,6 +1,6 @@
 Version 4.3.2-dev-47-g288e5eb6
 ===
-* Change the default for `node_name` from "shairport-sync" to "Shairport Sync".
+* In the PipeWire backend, change the default for `node_name` from "shairport-sync" to "Shairport Sync".
 
 Version 4.3.2-dev-45-g3763b321
 ===
