@@ -207,7 +207,7 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
         config.pw_application_name = (char *)str;
       }
 
-      /* Get the PulseAudio node name. */
+      /* Get the PipeWire node name. */
       if (config_lookup_string(config.cfg, "pa.node_name", &str)) {
         config.pw_node_name = (char *)str;
       }      
@@ -246,7 +246,7 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
   
   char* nodename = config.pw_node_name;
   if (nodename == NULL)
-    nodename = config.appName;
+    nodename = "Shairport Sync";
   
   
 
@@ -257,15 +257,15 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
   data.stream = pw_stream_new_simple(pw_thread_loop_get_loop(data.loop), config.appName, props,
                                      &stream_events, &data);
 
-  /* Make one parameter with the supported formats. The SPA_PARAM_EnumFormat
-   * id means that this is a format enumeration (of 1 value). */
+  // Make one parameter with the supported formats. The SPA_PARAM_EnumFormat
+  // id means that this is a format enumeration (of 1 value).
   params[0] = spa_format_audio_raw_build(&b, SPA_PARAM_EnumFormat,
                                          &SPA_AUDIO_INFO_RAW_INIT(.format = DEFAULT_FORMAT,
                                                                   .channels = DEFAULT_CHANNELS,
                                                                   .rate = DEFAULT_RATE));
 
-  /* Now connect this stream. We ask that our process function is
-   * called in a realtime thread. */
+  // Now connect this stream. We ask that our process function is
+  // called in a realtime thread.
   pw_stream_connect(data.stream, PW_DIRECTION_OUTPUT, PW_ID_ANY,
                     PW_STREAM_FLAG_AUTOCONNECT | PW_STREAM_FLAG_MAP_BUFFERS |
                         PW_STREAM_FLAG_RT_PROCESS,
@@ -284,7 +284,7 @@ static int play(__attribute__((unused)) void *buf, int samples,
                 __attribute__((unused)) uint64_t playtime) {
   // copy the samples into the queue
   debug(3, "play %u samples; %u bytes already in the buffer.", samples, audio_occupancy);
-  size_t bytes_to_transfer = samples * 2 * 2;
+  size_t bytes_to_transfer = samples * DEFAULT_CHANNELS * DEFAULT_BYTES_PER_SAMPLE;
   pthread_mutex_lock(&buffer_mutex);
   size_t bytes_available = audio_size - audio_occupancy;
   if (bytes_available < bytes_to_transfer)
@@ -351,11 +351,12 @@ int delay(long *the_delay) {
     */
 
   } else {
-    debug(1, "can't get time info.");
+    warn("Shairport Sync's PipeWire backend can not get timing information from the PipeWire "
+         "system. Is PipeWire running?");
   }
 
   pthread_mutex_lock(&buffer_mutex);
-  result = total_delay_now_frames_long + audio_occupancy / (2 * 2);
+  result = total_delay_now_frames_long + audio_occupancy / (DEFAULT_BYTES_PER_SAMPLE * DEFAULT_CHANNELS);
   pthread_mutex_unlock(&buffer_mutex);
   *the_delay = result;
   return reply;
