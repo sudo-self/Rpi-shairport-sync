@@ -1,3 +1,11 @@
+Version 4.3.2-dev-45-g3763b321
+===
+**Enhancement**
+* Add two `pw` (PipeWire) backend settings -- `application_name` (default: "Shairport Sync") and `node_name` (default: "shairport-sync"). The `application_name` is used when referring to Shairport Sync in the GUI and the `node_name` is used in, for example, output from `pw-link`. Thanks to [alexsarmiento](https://github.com/alexsarmiento) for the [suggestion](https://github.com/mikebrady/shairport-sync/issues/1742).
+
+**Bug Fixes**
+* Minor bug fixes to the PulseAudio backend.
+
 Version 4.3.2-dev-41-gdc197ae7
 ===
 **Bug Fix**
