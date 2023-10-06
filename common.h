@@ -149,6 +149,7 @@ typedef struct {
                               // Defaults to "Shairport Sync".
 
   char *pw_node_name; // defaults to the application's name, usually "shairport-sync".
+  char *pw_sink_target; // leave this unset if you don't want to change the sink_target.
 #endif
 #ifdef CONFIG_METADATA
   int metadata_enabled;

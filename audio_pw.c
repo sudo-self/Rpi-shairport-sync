@@ -173,13 +173,6 @@ static void deinit(void) {
   pw_thread_loop_destroy(data.loop);
   pw_deinit();
   free(audio_lmb); // deallocate that buffer
-  if (config.pw_application_name)
-    free(config.pw_application_name);
-  if (config.pw_node_name)
-    free(config.pw_node_name);
-  config.pw_application_name = config.pw_node_name = NULL;
-
-
 }
 
 static int init(__attribute__((unused)) int argc, __attribute__((unused)) char **argv) {
@@ -196,20 +189,24 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
   // get settings from settings file
   // do the "general" audio  options. Note, these options are in the "general" stanza!
   parse_general_audio_options();
-
-  
+ 
     // now any PipeWire-specific options
     if (config.cfg != NULL) {
       const char *str;
 
-      /* Get the Application Name. */
+      // Get the optional Application Name, if provided.
       if (config_lookup_string(config.cfg, "pw.application_name", &str)) {
         config.pw_application_name = (char *)str;
       }
 
-      /* Get the PipeWire node name. */
-      if (config_lookup_string(config.cfg, "pa.node_name", &str)) {
+      // Get the optional PipeWire node name, if provided.
+      if (config_lookup_string(config.cfg, "pw.node_name", &str)) {
         config.pw_node_name = (char *)str;
+      }      
+
+      // Get the optional PipeWire sink target name, if provided.
+      if (config_lookup_string(config.cfg, "pw.sink_target", &str)) {
+        config.pw_sink_target = (char *)str;
       }      
     }
   
@@ -247,12 +244,15 @@ static int init(__attribute__((unused)) int argc, __attribute__((unused)) char *
   char* nodename = config.pw_node_name;
   if (nodename == NULL)
     nodename = "Shairport Sync";
-  
-  
 
   props = pw_properties_new(PW_KEY_MEDIA_TYPE, "Audio", PW_KEY_MEDIA_CATEGORY, "Playback",
                             PW_KEY_MEDIA_ROLE, "Music", PW_KEY_APP_NAME, appname,
                             PW_KEY_NODE_NAME, nodename, NULL);
+  
+  if (config.pw_sink_target != NULL) {
+    debug(3, "setting sink target to \"%s\".", config.pw_sink_target);
+    pw_properties_set(props, PW_KEY_TARGET_OBJECT, config.pw_sink_target);
+  }
 
   data.stream = pw_stream_new_simple(pw_thread_loop_get_loop(data.loop), config.appName, props,
                                      &stream_events, &data);
