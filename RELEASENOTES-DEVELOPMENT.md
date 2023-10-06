@@ -1,3 +1,13 @@
+Version 4.3.2-dev-51-g98679bbb
+===
+**Enhancement**
+* Add a new `pw` (PipeWire) backend setting -- `sink_target`. Leave the setting commented out to use the sink target already selected by the PipeWire system.
+
+**Bug Fixes**
+* Fix a bug in picking up the PipeWire `node_name` -- it was being sought in the `pa` stanza instead of the `pw` stanza of the configuration file.
+* Fix memory management bugs in the PipeWire backend -- settings strings were being deallocated twice on exit.
+* Fix memory management bugs in the PulseAudio backend -- settings strings were being deallocated twice on exit.
+  
 Version 4.3.2-dev-47-g288e5eb6
 ===
 * In the PipeWire backend, change the default for `node_name` from "shairport-sync" to "Shairport Sync".
