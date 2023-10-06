@@ -244,14 +244,6 @@ static void deinit(void) {
   pa_stream_disconnect(stream);
   pa_threaded_mainloop_stop(mainloop);
   pa_threaded_mainloop_free(mainloop);
-  if (config.pa_server)
-    free(config.pa_server);
-  if (config.pa_application_name)
-    free(config.pa_application_name);
-  if (config.pa_sink)
-    free(config.pa_sink);
-  config.pa_server = config.pa_application_name = config.pa_sink = NULL;
-
   // debug(1, "pa deinit done");
 }
 
