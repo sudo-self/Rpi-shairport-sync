@@ -1,3 +1,8 @@
+Version 4.3.2-dev-56-g4cd3c1da
+===
+**Investigation**
+* Return `200` -- "OK" in response to a `POST` message with the argument `/feedback` on a Classic AirPlay connection. Continue to return `500` -- "Internal Server Error" for all other `POST` messages. This is part of an investigation into [Issue #1745](https://github.com/mikebrady/shairport-sync/issues/1745).
+
 Version 4.3.2-dev-51-g98679bbb
 ===
 **Enhancement**
