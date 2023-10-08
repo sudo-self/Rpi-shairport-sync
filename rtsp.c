@@ -2055,12 +2055,17 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
   resp->respcode = 500;
 }
 
-void handle_post(rtsp_conn_info *conn, rtsp_message *req,
-                 __attribute((unused)) rtsp_message *resp) {
-  debug(1, "Connection %d: POST %s Content-Length %d", conn->connection_number, req->path,
-        req->contentlength);
+void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   resp->respcode = 500;
+  if (strcmp(req->path, "/feedback") == 0) {
+    resp->respcode = 200;
+  } else {
+    debug(1, "Connection %d: Airplay 1. Unhandled POST %s Content-Length %d", conn->connection_number,
+          req->path, req->contentlength);
+    debug_log_rtsp_message(2, "POST request", req);
+  }
 }
+
 #endif
 
 #ifdef CONFIG_AIRPLAY_2
