@@ -99,7 +99,7 @@ static void on_process(void *userdata) {
     struct pw_buffer *b = pw_stream_dequeue_buffer(data->stream);
     if (b == NULL) {
       pw_log_warn("out of buffers: %m");
-      die("PipeWire failue -- out of buffers!");
+      die("PipeWire failure -- out of buffers!");
     }
     struct spa_buffer *buf = b->buffer;
     uint8_t *dest = buf->datas[0].data;
