@@ -1,3 +1,8 @@
+Version 4.3.2-dev-58-gb70dd463
+===
+**Investigation -- continued**
+* Return `501` ("Not Implemented") instead of `200` ("OK") in response to a `POST` message with the argument `/feedback` on a Classic AirPlay connection. 
+
 Version 4.3.2-dev-56-g4cd3c1da
 ===
 **Investigation**
