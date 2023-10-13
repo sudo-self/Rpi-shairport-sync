@@ -2058,7 +2058,7 @@ void handle_get(__attribute((unused)) rtsp_conn_info *conn, __attribute((unused)
 void handle_post(rtsp_conn_info *conn, rtsp_message *req, rtsp_message *resp) {
   resp->respcode = 500;
   if (strcmp(req->path, "/feedback") == 0) {
-    resp->respcode = 200;
+    resp->respcode = 501;
   } else {
     debug(1, "Connection %d: Airplay 1. Unhandled POST %s Content-Length %d", conn->connection_number,
           req->path, req->contentlength);
