@@ -1778,14 +1778,8 @@ double suggested_volume(rtsp_conn_info *conn) {
 void player_thread_cleanup_handler(void *arg) {
   rtsp_conn_info *conn = (rtsp_conn_info *)arg;
 
-  if ((principal_conn == conn) && (conn != NULL)) {
-    if (config.output->stop) {
-      debug(2, "Connection %d: Stop the output backend.", conn->connection_number);
-      config.output->stop();
-    }
-  } else {
-    if (conn != NULL)
-      debug(1, "Connection %d: this conn is not the principal_conn.", conn->connection_number);
+  if (config.output->stop) {
+    config.output->stop();
   }
 
   int oldState;
@@ -3381,20 +3375,21 @@ void player_volume_without_notification(double airplay_volume, rtsp_conn_info *c
   // we have to consider the settings ignore_volume_control and mute.
 
   if (airplay_volume == -144.0) {
-
-    if ((config.output->mute) && (config.output->mute(1) == 0))
-      debug(2,
-            "player_volume_without_notification: volume mode is %d, airplay_volume is %f, "
-            "hardware mute is enabled.",
-            volume_mode, airplay_volume);
-    else {
-      conn->software_mute_enabled = 1;
-      debug(2,
-            "player_volume_without_notification: volume mode is %d, airplay_volume is %f, "
-            "software mute is enabled.",
-            volume_mode, airplay_volume);
+    // only mute if you're not ignoring the volume control
+    if (config.ignore_volume_control == 0) {
+      if ((config.output->mute) && (config.output->mute(1) == 0))
+        debug(2,
+              "player_volume_without_notification: volume mode is %d, airplay_volume is %f, "
+              "hardware mute is enabled.",
+              volume_mode, airplay_volume);
+      else {
+        conn->software_mute_enabled = 1;
+        debug(2,
+              "player_volume_without_notification: volume mode is %d, airplay_volume is %f, "
+              "software mute is enabled.",
+              volume_mode, airplay_volume);
+      }
     }
-
   } else {
     int32_t max_db = 0, min_db = 0;
     switch (volume_mode) {

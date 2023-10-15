@@ -199,12 +199,9 @@ void *rtp_audio_receiver(void *arg) {
   float stat_mean = 0.0;
   float stat_M2 = 0.0;
 
-  int frame_count = 0;
   ssize_t nread;
   while (1) {
     nread = recv(conn->audio_socket, packet, sizeof(packet), 0);
-
-    frame_count++;
 
     uint64_t local_time_now_ns = get_absolute_time_in_ns();
     if (time_of_previous_packet_ns) {

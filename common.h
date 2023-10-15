@@ -139,9 +139,17 @@ typedef struct {
   char *pa_server;           // the pulseaudio server address that Shairport Sync will play on.
   char *pa_application_name; // the name under which Shairport Sync shows up as an "Application" in
                              // the Sound Preferences in most desktop Linuxes.
-  // Defaults to "Shairport Sync". Shairport Sync must be playing to see it.
+  // Defaults to "Shairport Sync".
 
   char *pa_sink; // the name (or id) of the sink that Shairport Sync will play on.
+#endif
+#ifdef CONFIG_PW
+  char *pw_application_name;  // the name under which Shairport Sync shows up as an "Application" in
+                              // the Sound Preferences in most desktop Linuxes.
+                              // Defaults to "Shairport Sync".
+
+  char *pw_node_name; // defaults to the application's name, usually "shairport-sync".
+  char *pw_sink_target; // leave this unset if you don't want to change the sink_target.
 #endif
 #ifdef CONFIG_METADATA
   int metadata_enabled;
@@ -495,6 +503,7 @@ uint16_t bind_UDP_port(int ip_family, const char *self_ip_address, uint32_t scop
 
 void socket_cleanup(void *arg);
 void mutex_unlock(void *arg);
+void rwlock_unlock(void *arg);
 void mutex_cleanup(void *arg);
 void cv_cleanup(void *arg);
 void thread_cleanup(void *arg);

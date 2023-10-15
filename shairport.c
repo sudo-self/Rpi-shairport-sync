@@ -1596,7 +1596,7 @@ void exit_function() {
       */
 
       debug(2, "Stopping the activity monitor.");
-      activity_monitor_stop(0);
+      activity_monitor_stop();
       debug(2, "Stopping the activity monitor done.");
 
 #ifdef CONFIG_DACP_CLIENT
