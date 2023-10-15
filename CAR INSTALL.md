@@ -9,12 +9,14 @@ Note that Android devices can not, so far, do this trick of using the two networ
 
 ## Example
 
+**Important Note** This guide can not be used for the latest (time of writing: October 2023) version of Rasberry Pi OS (Bookworm) because the `dhcpd` package is no longer part of the system. It does work for Rasberry Pi OS (Bullseye)
+
 In this example, a Raspberry Pi Zero 2 W and a Pimoroni PHAT DAC are used. Shairport Sync will be built for AirPlay 2 operation, but you can build it for "classic" AirPlay (aka AirPlay 1) operation if you prefer. A Pi Zero W is powerful enough for classic AirPlay.
 
-Please note that some of the details of setting up networks are specific to the version of Linux used – Rasberry Pi OS (Bullseye) Lite or later.
+Please note that some of the details of setting up networks are specific to the version of Linux used.
 
 ### Prepare the initial SD Image
-* Download the latest version of Raspberry Pi OS (Lite) – Bullseye (Lite) of 2022-04-04 at the time of writing – and install it onto an SD Card using `Raspberry Pi Imager`. The Lite version is preferable to the Desktop version as it doesn't include a sound server like PulseAudio or PipeWire that can prevent direct access to the audio output device.
+* Download Raspberry Pi OS Bullseye (Lite) and install it onto an SD Card using `Raspberry Pi Imager`. The Lite version is preferable to the Desktop version as it doesn't include a sound server like PulseAudio or PipeWire that can prevent direct access to the audio output device.
 * Before writing the image to the card, use the Settings control on `Raspberry Pi Imager` to set hostname, enable SSH and provide a username and password to use while building the system. Similarly, you can specify a wireless network the Pi will connect to while building the system. Later on, the Pi will be configured to start its own isolated network.
 * The next few steps are to add the overlay needed for the sound card. This may not be necessary in your case, but in this example a Pimoroni PHAT is being used. If you do not need to add an overlay, skip these steps.
   * Mount the card on a Linux machine. Two drives should appear – a `boot` drive and a `rootfs` drive.
