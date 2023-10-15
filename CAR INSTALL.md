@@ -9,7 +9,7 @@ Note that Android devices can not, so far, do this trick of using the two networ
 
 ## Example
 
-**Important Note** This guide can not be used for the latest (time of writing: October 2023) version of Rasberry Pi OS (Bookworm) because the `dhcpd` package is no longer part of the system. It does work for Rasberry Pi OS (Bullseye)
+**Important Note** This guide can not be used for the latest (time of writing: October 2023) version of Rasberry Pi OS (Bookworm) because the `dhcpcd` package is no longer part of the system. It does work for Rasberry Pi OS (Bullseye)
 
 In this example, a Raspberry Pi Zero 2 W and a Pimoroni PHAT DAC are used. Shairport Sync will be built for AirPlay 2 operation, but you can build it for "classic" AirPlay (aka AirPlay 1) operation if you prefer. A Pi Zero W is powerful enough for classic AirPlay.
 
